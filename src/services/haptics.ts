@@ -29,7 +29,22 @@ export const vibrateStreakCelebration = () => {
   triggerVibration([60, 50, 80, 50, 110]);
 };
 
+/** Milestone alias */
+export const vibrateStreakMilestone = () => {
+  triggerVibration([60, 50, 80, 50, 110]);
+};
+
 /** Light single tap for quick interactions */
 export const vibrateLight = () => {
   triggerVibration(30);
+};
+
+/** Subtle haptic tick when pull-to-refresh reaches trigger threshold */
+export const vibratePullThreshold = () => {
+  triggerVibration(25);
+};
+
+/** Refresh completed haptic notification */
+export const vibrateRefreshComplete = () => {
+  triggerVibration([20, 40, 30]);
 };

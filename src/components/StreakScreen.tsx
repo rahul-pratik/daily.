@@ -1,12 +1,21 @@
 import React, { useState } from 'react';
-import { Flame, Zap, Award, Calendar as CalendarIcon, CheckCircle2, ChevronLeft, ChevronRight, Sparkles, PlusCircle } from 'lucide-react';
+import { Flame, Zap, Award, Calendar as CalendarIcon, CheckCircle2, ChevronLeft, ChevronRight, Sparkles, PlusCircle, MessageSquare, Heart, Bookmark, Flag, X, Image as ImageIcon } from 'lucide-react';
 import { User, Post } from '../types';
 import { getTodayDateString } from '../services/storage';
+import { PostCard } from './PostCard';
+import { vibrateLight } from '../services/haptics';
 
 interface StreakScreenProps {
   currentUser: User;
   posts: Post[];
   onOpenCreate: () => void;
+  onToggleLike?: (postId: string) => void;
+  onOpenComments?: (post: Post) => void;
+  savedPostIds?: string[];
+  reportedPostIds?: string[];
+  onToggleSave?: (postId: string) => void;
+  onReportPost?: (post: Post) => void;
+  onSharePost?: (post: Post) => void;
 }
 
 const MILESTONES = [
@@ -21,11 +30,18 @@ export const StreakScreen: React.FC<StreakScreenProps> = ({
   currentUser,
   posts,
   onOpenCreate,
+  onToggleLike = () => {},
+  onOpenComments = () => {},
+  savedPostIds = [],
+  reportedPostIds = [],
+  onToggleSave,
+  onReportPost,
+  onSharePost,
 }) => {
   // Calendar month state (August 2026 default or current)
   const [currentYear, setCurrentYear] = useState(2026);
   const [currentMonth, setCurrentMonth] = useState(7); // 0-indexed, 7 = August
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(getTodayDateString());
 
   const today = getTodayDateString();
   const hasPostedToday = currentUser.lastPostedDate === today;
@@ -62,10 +78,18 @@ export const StreakScreen: React.FC<StreakScreenProps> = ({
   const postsOnSelectedDate = selectedDate
     ? posts.filter((p) => {
         if (p.userId !== currentUser.id) return false;
-        // Check if created on selected date
-        return currentUser.activityDates.includes(selectedDate);
+        // Direct match by postDate
+        if (p.postDate && p.postDate === selectedDate) return true;
+        // If today and post has no postDate
+        if (selectedDate === today && p.createdAt.includes('Today')) return true;
+        return false;
       })
     : [];
+
+  const handleDateClick = (dateStr: string) => {
+    vibrateLight();
+    setSelectedDate(selectedDate === dateStr ? null : dateStr);
+  };
 
   return (
     <div className="w-full pb-24 pt-2 px-3 sm:px-4 max-w-lg mx-auto space-y-4">
@@ -193,7 +217,7 @@ export const StreakScreen: React.FC<StreakScreenProps> = ({
             return (
               <button
                 key={dateStr}
-                onClick={() => setSelectedDate(selectedDate === dateStr ? null : dateStr)}
+                onClick={() => handleDateClick(dateStr)}
                 className={`relative aspect-square rounded-xl flex flex-col items-center justify-center transition-all ${
                   isActive
                     ? 'bg-[#FF4D00] text-black font-black shadow-md shadow-[#FF4D00]/20 hover:scale-105'
@@ -201,6 +225,7 @@ export const StreakScreen: React.FC<StreakScreenProps> = ({
                 } ${isToday ? 'ring-2 ring-[#FF4D00]' : ''} ${
                   isSelected ? 'ring-2 ring-white scale-105 z-10' : ''
                 }`}
+                aria-label={`View entry for ${dateStr}`}
               >
                 <span className={`text-[11px] ${isActive ? 'font-black' : 'font-medium'}`}>
                   {dayNumber}
@@ -213,31 +238,97 @@ export const StreakScreen: React.FC<StreakScreenProps> = ({
           })}
         </div>
 
-        {/* Selected Date Detail popup */}
+        {/* Selected Date Detail & Posts View */}
         {selectedDate && (
-          <div className="mt-4 p-3 bg-white/5 border border-white/10 rounded-2xl text-xs text-white/80 animate-in fade-in">
-            <div className="flex items-center justify-between mb-1">
-              <span className="font-bold text-white flex items-center gap-1.5">
-                <CalendarIcon className="w-3.5 h-3.5 text-[#FF4D00]" />
-                {selectedDate}
-              </span>
-              <span
-                className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                  currentUser.activityDates.includes(selectedDate)
-                    ? 'bg-[#FF4D00]/10 text-[#FF4D00] border border-[#FF4D00]/30'
-                    : 'bg-white/5 text-white/40'
-                }`}
-              >
-                {currentUser.activityDates.includes(selectedDate)
-                  ? '🔥 Logged Active'
-                  : 'Missed Day'}
-              </span>
+          <div className="mt-4 p-4 bg-white/5 border border-white/10 rounded-2xl text-xs text-white/80 animate-in fade-in space-y-3">
+            <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-[#FF4D00]/10 border border-[#FF4D00]/20 flex items-center justify-center text-[#FF4D00]">
+                  <CalendarIcon className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <span className="font-bold text-white text-xs block">
+                    {selectedDate}
+                  </span>
+                  <span className="text-[10px] text-white/40">
+                    {currentUser.activityDates.includes(selectedDate)
+                      ? 'Activity Recorded'
+                      : 'No Record'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span
+                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                    currentUser.activityDates.includes(selectedDate)
+                      ? 'bg-[#FF4D00]/10 text-[#FF4D00] border border-[#FF4D00]/30'
+                      : 'bg-white/5 text-white/40'
+                  }`}
+                >
+                  {currentUser.activityDates.includes(selectedDate)
+                    ? '🔥 Streak Active'
+                    : 'Missed Day'}
+                </span>
+                <button
+                  onClick={() => setSelectedDate(null)}
+                  className="p-1 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+                  aria-label="Close day view"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-            <p className="text-[11px] text-white/50">
-              {currentUser.activityDates.includes(selectedDate)
-                ? 'You completed and shared a daily update on this day!'
-                : 'No check-in was recorded on this day.'}
-            </p>
+
+            {/* Content posted on this day */}
+            {postsOnSelectedDate.length > 0 ? (
+              <div className="space-y-3 pt-1">
+                <span className="text-[11px] font-bold text-white/70 block uppercase tracking-wider">
+                  What you posted on this day:
+                </span>
+                {postsOnSelectedDate.map((post) => (
+                  <PostCard
+                    key={post.id}
+                    post={post}
+                    currentUser={currentUser}
+                    onToggleLike={onToggleLike}
+                    onOpenComments={onOpenComments}
+                    onToggleFollow={() => {}}
+                    onSendDM={() => {}}
+                    isSaved={savedPostIds.includes(post.id)}
+                    onToggleSave={onToggleSave}
+                    onReportPost={onReportPost}
+                    isReported={reportedPostIds.includes(post.id)}
+                    onSharePost={onSharePost}
+                  />
+                ))}
+              </div>
+            ) : currentUser.activityDates.includes(selectedDate) ? (
+              <div className="p-3.5 bg-white/5 rounded-xl border border-white/5 space-y-1">
+                <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-bold">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Daily check-in completed</span>
+                </div>
+                <p className="text-[11px] text-white/50">
+                  You logged your habit and maintained your streak for this day.
+                </p>
+              </div>
+            ) : (
+              <div className="p-4 bg-white/5 rounded-xl border border-white/5 text-center space-y-2">
+                <p className="text-[11px] text-white/50">
+                  No post was recorded on this date.
+                </p>
+                {selectedDate === today && (
+                  <button
+                    onClick={onOpenCreate}
+                    className="px-4 py-2 rounded-xl bg-[#FF4D00] text-black font-black text-xs inline-flex items-center gap-1.5 shadow-md shadow-[#FF4D00]/20"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" />
+                    <span>Post Check-in for Today</span>
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
 

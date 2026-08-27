@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
-import { User, Post, Message, NavigationTab } from './types';
+import React, { useState } from 'react';
+import { User, Post, Message, Group, NavigationTab, ReportReason } from './types';
 import { DailyStorageService } from './services/storage';
 import { TopHeader, BottomNavigation } from './components/Navigation';
 import { HomeFeed } from './components/HomeFeed';
@@ -18,14 +18,20 @@ import { DirectMessagesModal } from './components/DirectMessagesModal';
 import { OnboardingModal } from './components/OnboardingModal';
 import { EditProfileModal } from './components/EditProfileModal';
 import { UserProfileModal } from './components/UserProfileModal';
-import { vibratePostSubmit } from './services/haptics';
+import { ReportModal } from './components/ReportModal';
+import { ShareModal } from './components/ShareModal';
+import { CreateGroupModal } from './components/CreateGroupModal';
+import { vibratePostSubmit, vibrateLight } from './services/haptics';
 
 export default function App() {
   // Main Data States
   const [currentUser, setCurrentUser] = useState<User>(() => DailyStorageService.getCurrentUser());
   const [users, setUsers] = useState<User[]>(() => DailyStorageService.getAllUsers());
+  const [groups, setGroups] = useState<Group[]>(() => DailyStorageService.getAllGroups());
   const [posts, setPosts] = useState<Post[]>(() => DailyStorageService.getAllPosts());
   const [messages, setMessages] = useState<Message[]>(() => DailyStorageService.getAllMessages());
+  const [savedPostIds, setSavedPostIds] = useState<string[]>(() => DailyStorageService.getSavedPostIds());
+  const [reportedPostIds, setReportedPostIds] = useState<string[]>(() => DailyStorageService.getReportedPostIds());
   const [isOnboarded, setIsOnboarded] = useState<boolean>(() => DailyStorageService.isOnboarded());
 
   // UI Navigation & Modals
@@ -33,7 +39,11 @@ export default function App() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isDMsOpen, setIsDMsOpen] = useState(false);
   const [activeChatUserId, setActiveChatUserId] = useState<string | null>(null);
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [commentsPost, setCommentsPost] = useState<Post | null>(null);
+  const [reportingPost, setReportingPost] = useState<Post | null>(null);
+  const [sharingPost, setSharingPost] = useState<Post | null>(null);
+  const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [activeProfileUser, setActiveProfileUser] = useState<User | null>(null);
 
@@ -50,7 +60,7 @@ export default function App() {
 
   // Calculate unread direct messages count
   const unreadMessagesCount = messages.filter(
-    (m) => m.receiverId === currentUser.id && !m.isRead
+    (m) => (m.receiverId === currentUser.id || (m.groupId && m.senderId !== currentUser.id)) && !m.isRead
   ).length;
 
   // Onboarding completion handler
@@ -90,9 +100,12 @@ export default function App() {
 
   // Create Post Handler with Streak and Confetti Animation
   const handleCreatePost = (payload: { content: string; imageUrl?: string; tags: string[] }) => {
-    const { post: newPost, updatedUser, isNewStreakDay } = DailyStorageService.createPost(payload);
-    setPosts((prev) => [newPost, ...prev]);
-    setCurrentUser(updatedUser);
+    const result = DailyStorageService.createPost(payload);
+    if (result.error) {
+      return;
+    }
+    setPosts((prev) => [result.post, ...prev]);
+    setCurrentUser(result.updatedUser);
     setIsCreateOpen(false);
 
     // Tactile haptic vibration feedback on submission
@@ -101,47 +114,165 @@ export default function App() {
     // Show celebration modal
     setCelebrationState({
       isOpen: true,
-      streakCount: updatedUser.currentStreak,
-      isNewStreakDay,
+      streakCount: result.updatedUser.currentStreak,
+      isNewStreakDay: result.isNewStreakDay,
     });
   };
 
-  // Send Direct Message & Simulate Friendly Reply
-  const handleSendMessage = (receiverId: string, text: string) => {
-    const newMsg = DailyStorageService.sendMessage(receiverId, text);
+  // Send Message (Direct 1:1 or Group Chat)
+  const handleSendMessage = (params: {
+    receiverId?: string;
+    groupId?: string;
+    text: string;
+    imageUrl?: string;
+  }) => {
+    const newMsg = DailyStorageService.sendMessage(params);
     setMessages((prev) => [...prev, newMsg]);
 
-    // Simulated reply from recipient after 1.4 seconds
-    setTimeout(() => {
-      const target = users.find((u) => u.id === receiverId);
-      if (target) {
-        const replyResponses = [
-          `Hey! Great to connect. Loving the daily consistency 🔥`,
-          `Thanks for reaching out! Let’s keep crushing our goals today.`,
-          `Awesome update! How is your current project coming along?`,
-          `Let's go! Staying locked in together 🚀`,
-        ];
-        const randomReply = replyResponses[Math.floor(Math.random() * replyResponses.length)];
-        const replyMsg: Message = {
-          id: `msg_reply_${Date.now()}`,
-          conversationId: `conv_${[currentUser.id, receiverId].sort().join('_')}`,
-          senderId: receiverId,
-          receiverId: currentUser.id,
-          text: randomReply,
-          timestamp: 'Just now',
-          isRead: isDMsOpen && activeChatUserId === receiverId,
-        };
-        const allMsg = DailyStorageService.getAllMessages();
-        DailyStorageService.saveAllMessages([...allMsg, replyMsg]);
-        setMessages((prev) => [...prev, replyMsg]);
+    // Simulated friendly reply for 1:1 DMs
+    if (params.receiverId) {
+      const receiverId = params.receiverId;
+      setTimeout(() => {
+        const target = users.find((u) => u.id === receiverId);
+        if (target) {
+          const replyResponses = [
+            `Hey! Great to connect. Loving the daily consistency 🔥`,
+            `Thanks for reaching out! Let’s keep crushing our goals today.`,
+            `Awesome update! How is your current project coming along?`,
+            `Let's go! Staying locked in together 🚀`,
+          ];
+          const randomReply = replyResponses[Math.floor(Math.random() * replyResponses.length)];
+          const replyMsg: Message = {
+            id: `msg_reply_${Date.now()}`,
+            conversationId: `conv_${[currentUser.id, receiverId].sort().join('_')}`,
+            senderId: receiverId,
+            receiverId: currentUser.id,
+            text: randomReply,
+            timestamp: 'Just now',
+            isRead: isDMsOpen && activeChatUserId === receiverId,
+          };
+          const allMsg = DailyStorageService.getAllMessages();
+          DailyStorageService.saveAllMessages([...allMsg, replyMsg]);
+          setMessages((prev) => [...prev, replyMsg]);
+        }
+      }, 1400);
+    } else if (params.groupId) {
+      // Group reply simulation
+      const groupId = params.groupId;
+      const group = groups.find((g) => g.id === groupId);
+      if (group && group.memberIds.length > 1) {
+        const otherMembers = group.memberIds.filter((memberId) => memberId !== currentUser.id);
+        const randomMemberId = otherMembers[Math.floor(Math.random() * otherMembers.length)] || otherMembers[0];
+        setTimeout(() => {
+          const memberUser = users.find((u) => u.id === randomMemberId);
+          const groupReplies = [
+            `Strong progress! Keep the fire burning 🔥`,
+            `Appreciate the share! Let's keep our streaks alive.`,
+            `Inspiring update! 🙌`,
+            `Let's go! Checking in my progress too 💯`,
+          ];
+          const randomReply = groupReplies[Math.floor(Math.random() * groupReplies.length)];
+          const replyMsg: Message = {
+            id: `msg_grp_reply_${Date.now()}`,
+            conversationId: `conv_${groupId}`,
+            senderId: randomMemberId,
+            groupId: groupId,
+            text: randomReply,
+            timestamp: 'Just now',
+            isRead: isDMsOpen && activeGroupId === groupId,
+          };
+          const allMsg = DailyStorageService.getAllMessages();
+          DailyStorageService.saveAllMessages([...allMsg, replyMsg]);
+          setMessages((prev) => [...prev, replyMsg]);
+        }, 1500);
       }
-    }, 1400);
+    }
   };
 
   // Open Direct Message modal with a specific user
   const handleStartDMWithUser = (targetUser: { id: string }) => {
     setActiveChatUserId(targetUser.id);
+    setActiveGroupId(null);
     setIsDMsOpen(true);
+  };
+
+  // Open Direct Message modal with a specific group
+  const handleStartGroupChat = (groupId: string) => {
+    setActiveGroupId(groupId);
+    setActiveChatUserId(null);
+    setIsDMsOpen(true);
+  };
+
+  // Create new Group
+  const handleCreateGroup = (groupData: {
+    name: string;
+    description: string;
+    category: string;
+    avatar?: string;
+    memberIds: string[];
+  }) => {
+    const newGroup = DailyStorageService.createGroup(groupData);
+    setGroups((prev) => [newGroup, ...prev]);
+    setIsCreateGroupOpen(false);
+    // Automatically open chat with the new group
+    setActiveGroupId(newGroup.id);
+    setActiveChatUserId(null);
+    setIsDMsOpen(true);
+  };
+
+  // Open Share modal for a post
+  const handleOpenShare = (post: Post) => {
+    vibrateLight();
+    setSharingPost(post);
+  };
+
+  // Send shared post to friends & groups
+  const handleSendSharedPost = (
+    postOrParams: any,
+    recipientUserIds?: string[],
+    recipientGroupIds?: string[],
+    note?: string
+  ) => {
+    let postToShare = sharingPost;
+    let uIds: string[] = [];
+    let gIds: string[] = [];
+    let nText: string | undefined = undefined;
+
+    if (postOrParams && postOrParams.id && postOrParams.content !== undefined) {
+      postToShare = postOrParams;
+      uIds = recipientUserIds || [];
+      gIds = recipientGroupIds || [];
+      nText = note;
+    } else if (postOrParams && postOrParams.post) {
+      postToShare = postOrParams.post;
+      uIds = postOrParams.recipientUserIds || [];
+      gIds = postOrParams.recipientGroupIds || [];
+      nText = postOrParams.note;
+    } else if (postOrParams && postOrParams.recipientUserIds) {
+      uIds = postOrParams.recipientUserIds || [];
+      gIds = postOrParams.recipientGroupIds || [];
+      nText = postOrParams.note;
+    }
+
+    if (!postToShare) return;
+
+    DailyStorageService.sharePostToRecipients(
+      postToShare,
+      uIds,
+      gIds,
+      nText
+    );
+    // Synchronize latest messages state
+    setMessages(DailyStorageService.getAllMessages());
+    setSharingPost(null);
+  };
+
+  // View post details
+  const handleViewPostFromId = (postId: string) => {
+    const found = posts.find((p) => p.id === postId);
+    if (found) {
+      setCommentsPost(found);
+    }
   };
 
   // Edit Profile save
@@ -184,13 +315,33 @@ export default function App() {
     }
   };
 
+  // Toggle Save on a Post
+  const handleToggleSave = (postId: string) => {
+    const { savedPostIds: updatedSaved } = DailyStorageService.toggleSavePost(postId);
+    setSavedPostIds(updatedSaved);
+  };
+
+  // Start reporting a post
+  const handleStartReport = (post: Post) => {
+    setReportingPost(post);
+  };
+
+  // Confirm reporting a post
+  const handleConfirmReport = (postId: string, reason: ReportReason) => {
+    const { reportedPostIds: updatedReported } = DailyStorageService.reportPost(postId, reason);
+    setReportedPostIds(updatedReported);
+  };
+
   // Reset demo data
   const handleResetData = () => {
     DailyStorageService.resetToDefault();
     setCurrentUser(DailyStorageService.getCurrentUser());
     setUsers(DailyStorageService.getAllUsers());
+    setGroups(DailyStorageService.getAllGroups());
     setPosts(DailyStorageService.getAllPosts());
     setMessages(DailyStorageService.getAllMessages());
+    setSavedPostIds(DailyStorageService.getSavedPostIds());
+    setReportedPostIds(DailyStorageService.getReportedPostIds());
   };
 
   return (
@@ -202,6 +353,7 @@ export default function App() {
           currentUser={currentUser}
           onOpenDMs={() => {
             setActiveChatUserId(null);
+            setActiveGroupId(null);
             setIsDMsOpen(true);
           }}
           unreadCount={unreadMessagesCount}
@@ -221,6 +373,11 @@ export default function App() {
               onOpenCreate={() => setIsCreateOpen(true)}
               onSelectTab={setCurrentTab}
               onViewUser={handleViewUser}
+              savedPostIds={savedPostIds}
+              reportedPostIds={reportedPostIds}
+              onToggleSave={handleToggleSave}
+              onReportPost={handleStartReport}
+              onSharePost={handleOpenShare}
             />
           )}
 
@@ -229,6 +386,13 @@ export default function App() {
               currentUser={currentUser}
               posts={posts}
               onOpenCreate={() => setIsCreateOpen(true)}
+              onToggleLike={handleToggleLike}
+              onOpenComments={(post) => setCommentsPost(post)}
+              savedPostIds={savedPostIds}
+              reportedPostIds={reportedPostIds}
+              onToggleSave={handleToggleSave}
+              onReportPost={handleStartReport}
+              onSharePost={handleOpenShare}
             />
           )}
 
@@ -246,10 +410,17 @@ export default function App() {
             <ProfileScreen
               currentUser={currentUser}
               posts={posts}
+              savedPostIds={savedPostIds}
+              reportedPostIds={reportedPostIds}
               onToggleLike={handleToggleLike}
               onOpenComments={(post) => setCommentsPost(post)}
               onOpenEditProfile={() => setIsEditProfileOpen(true)}
               onResetData={handleResetData}
+              onToggleSave={handleToggleSave}
+              onReportPost={handleStartReport}
+              onToggleFollow={handleToggleFollow}
+              onSendDM={handleStartDMWithUser}
+              onSharePost={handleOpenShare}
             />
           )}
         </main>
@@ -259,12 +430,60 @@ export default function App() {
           currentTab={currentTab}
           onSelectTab={setCurrentTab}
           currentUser={currentUser}
-          onOpenDMs={() => setIsDMsOpen(true)}
+          onOpenDMs={() => {
+            setActiveChatUserId(null);
+            setActiveGroupId(null);
+            setIsDMsOpen(true);
+          }}
           unreadMessagesCount={unreadMessagesCount}
           onOpenCreate={() => setIsCreateOpen(true)}
         />
 
         {/* Modals */}
+        {/* Social Share Modal */}
+        <ShareModal
+          isOpen={!!sharingPost}
+          post={sharingPost}
+          currentUser={currentUser}
+          allUsers={users}
+          allGroups={groups}
+          onClose={() => setSharingPost(null)}
+          onSendShare={handleSendSharedPost}
+          onCreateGroup={() => {
+            setSharingPost(null);
+            setIsCreateGroupOpen(true);
+          }}
+          onOpenDirectChat={(userId) => {
+            setSharingPost(null);
+            setActiveChatUserId(userId);
+            setActiveGroupId(null);
+            setIsDMsOpen(true);
+          }}
+          onOpenGroupChat={(groupId) => {
+            setSharingPost(null);
+            setActiveGroupId(groupId);
+            setActiveChatUserId(null);
+            setIsDMsOpen(true);
+          }}
+        />
+
+        {/* Create Group Modal */}
+        <CreateGroupModal
+          isOpen={isCreateGroupOpen}
+          currentUser={currentUser}
+          allUsers={users}
+          onClose={() => setIsCreateGroupOpen(false)}
+          onCreateGroup={handleCreateGroup}
+        />
+
+        {/* Report Post Modal */}
+        <ReportModal
+          isOpen={!!reportingPost}
+          post={reportingPost}
+          onClose={() => setReportingPost(null)}
+          onConfirmReport={handleConfirmReport}
+        />
+
         {/* User Profile Modal */}
         <UserProfileModal
           isOpen={!!activeProfileUser}
@@ -290,7 +509,9 @@ export default function App() {
           isOpen={isCreateOpen}
           onClose={() => setIsCreateOpen(false)}
           currentUser={currentUser}
+          posts={posts}
           onSubmitPost={handleCreatePost}
+          onViewMyPost={handleViewPostFromId}
         />
 
         {/* Streak Celebration Modal */}
@@ -309,18 +530,24 @@ export default function App() {
           onAddComment={handleAddComment}
         />
 
-        {/* Direct Messages Modal */}
+        {/* Direct Messages & Group Chat Modal */}
         <DirectMessagesModal
           isOpen={isDMsOpen}
           onClose={() => {
             setIsDMsOpen(false);
             setActiveChatUserId(null);
+            setActiveGroupId(null);
           }}
           currentUser={currentUser}
           allUsers={users}
+          allGroups={groups}
           messages={messages}
           onSendMessage={handleSendMessage}
           initialChatUserId={activeChatUserId}
+          initialGroupId={activeGroupId}
+          onOpenCreateGroup={() => setIsCreateGroupOpen(true)}
+          onViewPost={handleViewPostFromId}
+          onViewUser={handleViewUser}
         />
 
         {/* Edit Profile Modal */}

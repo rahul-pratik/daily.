@@ -1,12 +1,15 @@
-import { User, Post, Message, Comment } from '../types';
-import { INITIAL_CURRENT_USER, SAMPLE_USERS, INITIAL_POSTS, INITIAL_MESSAGES } from '../data/mockData';
+import { User, Post, Message, Comment, Group, SharedPostPreview } from '../types';
+import { INITIAL_CURRENT_USER, SAMPLE_USERS, INITIAL_POSTS, INITIAL_MESSAGES, SAMPLE_GROUPS } from '../data/mockData';
 
 const STORAGE_KEYS = {
   CURRENT_USER: 'daily_app_current_user_v1',
   USERS: 'daily_app_users_v1',
   POSTS: 'daily_app_posts_v1',
   MESSAGES: 'daily_app_messages_v1',
+  GROUPS: 'daily_app_groups_v1',
   ONBOARDED: 'daily_app_onboarded_v1',
+  SAVED_POSTS: 'daily_app_saved_posts_v1',
+  REPORTED_POSTS: 'daily_app_reported_posts_v1',
 };
 
 // Current reference date (today in the app context)
@@ -190,23 +193,55 @@ export class DailyStorageService {
     return { posts: updated, comment: newComment };
   }
 
-  // Create New Post with Streak Logic
+  // Check if user has already posted today (strictly 1 photo/tweet of the day limit)
+  static hasUserPostedToday(userId?: string): boolean {
+    const currentUser = this.getCurrentUser();
+    const targetId = userId || currentUser.id;
+    const today = getTodayDateString();
+    if (targetId === currentUser.id && currentUser.lastPostedDate === today) {
+      return true;
+    }
+    const posts = this.getAllPosts();
+    return posts.some((p) => p.userId === targetId && p.postDate === today);
+  }
+
+  static getTodayPostForUser(userId?: string): Post | undefined {
+    const currentUser = this.getCurrentUser();
+    const targetId = userId || currentUser.id;
+    const today = getTodayDateString();
+    const posts = this.getAllPosts();
+    return posts.find((p) => p.userId === targetId && p.postDate === today);
+  }
+
+  // Create New Post with 1-post-per-day limit and Streak Logic
   static createPost(payload: {
     content: string;
     imageUrl?: string;
     tags: string[];
-  }): { post: Post; updatedUser: User; isNewStreakDay: boolean } {
+  }): { post: Post; updatedUser: User; isNewStreakDay: boolean; error?: string } {
     const currentUser = this.getCurrentUser();
     const today = getTodayDateString();
     const yesterday = getYesterdayDateString();
 
-    const hasPostedToday = currentUser.lastPostedDate === today;
-    const isConsecutive = currentUser.lastPostedDate === yesterday || hasPostedToday;
+    const alreadyPostedToday = this.hasUserPostedToday(currentUser.id);
+    if (alreadyPostedToday) {
+      const existing = this.getTodayPostForUser(currentUser.id);
+      if (existing) {
+        return {
+          post: existing,
+          updatedUser: currentUser,
+          isNewStreakDay: false,
+          error: 'You have already uploaded today, please upload tomorrow',
+        };
+      }
+    }
+
+    const isConsecutive = currentUser.lastPostedDate === yesterday || currentUser.lastPostedDate === today;
 
     let newCurrentStreak = currentUser.currentStreak;
     let newActivityDates = [...currentUser.activityDates];
 
-    if (!hasPostedToday) {
+    if (!alreadyPostedToday) {
       if (isConsecutive || currentUser.currentStreak === 0) {
         newCurrentStreak = currentUser.currentStreak + 1;
       } else {
@@ -246,7 +281,8 @@ export class DailyStorageService {
       likedByMe: false,
       comments: [],
       createdAt: 'Just now',
-      isDailyStreakPost: !hasPostedToday,
+      isDailyStreakPost: true,
+      postDate: today,
     };
 
     const posts = this.getAllPosts();
@@ -255,21 +291,140 @@ export class DailyStorageService {
     return {
       post: newPost,
       updatedUser,
-      isNewStreakDay: !hasPostedToday,
+      isNewStreakDay: true,
     };
   }
 
-  // Send Direct Message
-  static sendMessage(receiverId: string, text: string): Message {
+  // Saved Posts
+  static getSavedPostIds(): string[] {
+    const data = localStorage.getItem(STORAGE_KEYS.SAVED_POSTS);
+    if (!data) {
+      const initial = ['post_1', 'post_3'];
+      this.saveSavedPostIds(initial);
+      return initial;
+    }
+    try {
+      return JSON.parse(data);
+    } catch {
+      return ['post_1', 'post_3'];
+    }
+  }
+
+  static saveSavedPostIds(ids: string[]): void {
+    localStorage.setItem(STORAGE_KEYS.SAVED_POSTS, JSON.stringify(ids));
+  }
+
+  static toggleSavePost(postId: string): { savedPostIds: string[]; isSaved: boolean } {
+    const current = this.getSavedPostIds();
+    const isSaved = current.includes(postId);
+    const updated = isSaved ? current.filter((id) => id !== postId) : [postId, ...current];
+    this.saveSavedPostIds(updated);
+    return { savedPostIds: updated, isSaved: !isSaved };
+  }
+
+  // Reported Posts
+  static getReportedPostIds(): string[] {
+    const data = localStorage.getItem(STORAGE_KEYS.REPORTED_POSTS);
+    if (!data) return [];
+    try {
+      return JSON.parse(data);
+    } catch {
+      return [];
+    }
+  }
+
+  static saveReportedPostIds(ids: string[]): void {
+    localStorage.setItem(STORAGE_KEYS.REPORTED_POSTS, JSON.stringify(ids));
+  }
+
+  static reportPost(postId: string, reason: string): { reportedPostIds: string[]; success: boolean } {
+    const current = this.getReportedPostIds();
+    const updated = Array.from(new Set([...current, postId]));
+    this.saveReportedPostIds(updated);
+    return { reportedPostIds: updated, success: true };
+  }
+
+  // Groups
+  static getAllGroups(): Group[] {
+    const data = localStorage.getItem(STORAGE_KEYS.GROUPS);
+    if (!data) {
+      this.saveAllGroups(SAMPLE_GROUPS);
+      return SAMPLE_GROUPS;
+    }
+    try {
+      return JSON.parse(data);
+    } catch {
+      return SAMPLE_GROUPS;
+    }
+  }
+
+  static saveAllGroups(groups: Group[]): void {
+    localStorage.setItem(STORAGE_KEYS.GROUPS, JSON.stringify(groups));
+  }
+
+  static createGroup(params: {
+    name: string;
+    description: string;
+    avatar?: string;
+    category: string;
+    memberIds: string[];
+  }): Group {
     const currentUser = this.getCurrentUser();
-    const convId = `conv_${[currentUser.id, receiverId].sort().join('_')}`;
+    const newGroup: Group = {
+      id: `group_${Date.now()}`,
+      name: params.name,
+      description: params.description || 'Daily accountability and motivation group',
+      avatar:
+        params.avatar ||
+        'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=400&auto=format&fit=crop&q=80',
+      category: params.category || 'General',
+      memberIds: Array.from(new Set([currentUser.id, ...params.memberIds])),
+      memberCount: Array.from(new Set([currentUser.id, ...params.memberIds])).length,
+      lastActivity: 'Just now',
+      createdBy: currentUser.id,
+      createdAt: getTodayDateString(),
+    };
+
+    const groups = this.getAllGroups();
+    this.saveAllGroups([newGroup, ...groups]);
+
+    // Send an initial system/intro message to the new group
+    this.sendMessage({
+      groupId: newGroup.id,
+      text: `🎉 Created the group "${newGroup.name}"! Start sharing your daily habits and wins!`,
+    });
+
+    return newGroup;
+  }
+
+  // Send Direct or Group Message (with optional photo / shared post attachment)
+  static sendMessage(params: {
+    receiverId?: string;
+    groupId?: string;
+    text: string;
+    imageUrl?: string;
+    sharedPost?: SharedPostPreview;
+  }): Message {
+    const currentUser = this.getCurrentUser();
+    let convId = '';
+
+    if (params.groupId) {
+      convId = `conv_${params.groupId}`;
+    } else if (params.receiverId) {
+      convId = `conv_${[currentUser.id, params.receiverId].sort().join('_')}`;
+    } else {
+      convId = `conv_general_${Date.now()}`;
+    }
 
     const newMsg: Message = {
-      id: `msg_${Date.now()}`,
+      id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       conversationId: convId,
       senderId: currentUser.id,
-      receiverId,
-      text,
+      receiverId: params.receiverId,
+      groupId: params.groupId,
+      text: params.text,
+      imageUrl: params.imageUrl,
+      sharedPost: params.sharedPost,
       timestamp: 'Just now',
       isRead: true,
     };
@@ -277,7 +432,88 @@ export class DailyStorageService {
     const messages = this.getAllMessages();
     this.saveAllMessages([...messages, newMsg]);
 
+    // Update group last activity if applicable
+    if (params.groupId) {
+      const groups = this.getAllGroups();
+      const updated = groups.map((g) =>
+        g.id === params.groupId ? { ...g, lastActivity: 'Just now' } : g
+      );
+      this.saveAllGroups(updated);
+    }
+
     return newMsg;
+  }
+
+  // Share a Post to multiple friends and groups in one go
+  static sharePostToRecipients(
+    postOrParams:
+      | Post
+      | {
+          post: Post;
+          recipientUserIds: string[];
+          recipientGroupIds: string[];
+          note?: string;
+        },
+    recipientUserIds?: string[],
+    recipientGroupIds?: string[],
+    note?: string
+  ): Message[] {
+    let post: Post;
+    let userIds: string[] = [];
+    let groupIds: string[] = [];
+    let noteText: string | undefined;
+
+    if ('post' in postOrParams && postOrParams.post) {
+      post = postOrParams.post;
+      userIds = postOrParams.recipientUserIds || [];
+      groupIds = postOrParams.recipientGroupIds || [];
+      noteText = postOrParams.note;
+    } else {
+      post = postOrParams as Post;
+      userIds = recipientUserIds || [];
+      groupIds = recipientGroupIds || [];
+      noteText = note;
+    }
+
+    const sharedPreview: SharedPostPreview = {
+      id: post.id,
+      userId: post.userId,
+      authorName: post.name || 'User',
+      authorUsername: post.username || 'user',
+      authorAvatar: post.userAvatar || (post as any).avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
+      authorStreak: post.userStreak ?? (post as any).streak ?? 1,
+      content: post.content || '',
+      imageUrl: post.imageUrl,
+      tags: post.tags || [],
+    };
+
+    const createdMessages: Message[] = [];
+    const textMessage =
+      noteText && noteText.trim()
+        ? noteText.trim()
+        : `Shared a post from @${post.username} ⚡️`;
+
+    // Send to each friend
+    for (const uId of userIds) {
+      const msg = this.sendMessage({
+        receiverId: uId,
+        text: textMessage,
+        sharedPost: sharedPreview,
+      });
+      createdMessages.push(msg);
+    }
+
+    // Send to each group
+    for (const gId of groupIds) {
+      const msg = this.sendMessage({
+        groupId: gId,
+        text: textMessage,
+        sharedPost: sharedPreview,
+      });
+      createdMessages.push(msg);
+    }
+
+    return createdMessages;
   }
 
   // Reset demo data
@@ -287,6 +523,9 @@ export class DailyStorageService {
     this.saveAllUsers(SAMPLE_USERS);
     this.saveAllPosts(INITIAL_POSTS);
     this.saveAllMessages(INITIAL_MESSAGES);
+    this.saveAllGroups(SAMPLE_GROUPS);
+    this.saveSavedPostIds(['post_1', 'post_3']);
+    this.saveReportedPostIds([]);
     this.setOnboarded(true);
   }
 }

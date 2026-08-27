@@ -1,25 +1,40 @@
 import React, { useState } from 'react';
-import { Flame, Grid, List, Edit3, Settings, Share2, Sparkles, CheckCircle2, RotateCcw, AlertTriangle, X } from 'lucide-react';
+import { Flame, Grid, List, Edit3, Settings, Share2, Sparkles, CheckCircle2, RotateCcw, AlertTriangle, X, Bookmark, Image as ImageIcon } from 'lucide-react';
 import { User, Post } from '../types';
 import { PostCard } from './PostCard';
 
 interface ProfileScreenProps {
   currentUser: User;
   posts: Post[];
+  savedPostIds?: string[];
+  reportedPostIds?: string[];
   onToggleLike: (postId: string) => void;
   onOpenComments: (post: Post) => void;
   onOpenEditProfile: () => void;
   onResetData: () => void;
+  onToggleSave?: (postId: string) => void;
+  onReportPost?: (post: Post) => void;
+  onToggleFollow?: (userId: string) => void;
+  onSendDM?: (targetUser: { id: string; name: string; username: string; avatar: string; streak: number }) => void;
+  onSharePost?: (post: Post) => void;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   currentUser,
   posts,
+  savedPostIds = [],
+  reportedPostIds = [],
   onToggleLike,
   onOpenComments,
   onOpenEditProfile,
   onResetData,
+  onToggleSave,
+  onReportPost,
+  onToggleFollow = () => {},
+  onSendDM = () => {},
+  onSharePost,
 }) => {
+  const [profileTab, setProfileTab] = useState<'my_posts' | 'saved'>('my_posts');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -27,6 +42,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   // Filter posts created by current user
   const userPosts = posts.filter((p) => p.userId === currentUser.id);
+
+  // Filter saved posts
+  const savedPosts = posts.filter((p) => savedPostIds.includes(p.id));
+
+  const activeDisplayPosts = profileTab === 'my_posts' ? userPosts : savedPosts;
 
   const handleShareProfile = () => {
     navigator.clipboard?.writeText(window.location.href);
@@ -230,39 +250,66 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         </div>
       </div>
 
-      {/* Grid vs List View Selector */}
-      <div className="flex items-center justify-between px-2 pt-1 border-b border-white/5 pb-2">
-        <span className="text-xs font-bold text-white/70">
-          My Daily Updates ({userPosts.length})
-        </span>
+      {/* Profile Tabs & View Selector */}
+      <div className="space-y-3 pt-2">
+        <div className="flex items-center justify-between border-b border-white/5 pb-3">
+          {/* My Posts vs Saved Tabs */}
+          <div className="flex items-center gap-1.5 bg-white/5 p-1 rounded-2xl border border-white/5">
+            <button
+              onClick={() => setProfileTab('my_posts')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                profileTab === 'my_posts'
+                  ? 'bg-white text-black shadow-sm'
+                  : 'text-white/50 hover:text-white'
+              }`}
+            >
+              <Flame className="w-3.5 h-3.5" />
+              <span>Posts ({userPosts.length})</span>
+            </button>
+            <button
+              onClick={() => setProfileTab('saved')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                profileTab === 'saved'
+                  ? 'bg-white text-black shadow-sm'
+                  : 'text-white/50 hover:text-white'
+              }`}
+            >
+              <Bookmark className="w-3.5 h-3.5" />
+              <span>Saved ({savedPosts.length})</span>
+            </button>
+          </div>
 
-        <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
-          <button
-            onClick={() => setViewMode('grid')}
-            className={`p-2 rounded-lg transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center ${
-              viewMode === 'grid' ? 'bg-white text-black' : 'text-white/40 hover:text-white'
-            }`}
-            title="Grid View"
-          >
-            <Grid className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setViewMode('list')}
-            className={`p-2 rounded-lg transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center ${
-              viewMode === 'list' ? 'bg-white text-black' : 'text-white/40 hover:text-white'
-            }`}
-            title="List View"
-          >
-            <List className="w-4 h-4" />
-          </button>
+          {/* Grid vs List View Selector */}
+          <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`p-2 rounded-lg transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center ${
+                viewMode === 'grid' ? 'bg-white text-black' : 'text-white/40 hover:text-white'
+              }`}
+              title="Grid View"
+              aria-label="Grid View"
+            >
+              <Grid className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`p-2 rounded-lg transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center ${
+                viewMode === 'list' ? 'bg-white text-black' : 'text-white/40 hover:text-white'
+              }`}
+              title="List View"
+              aria-label="List View"
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Posts Content */}
-      {userPosts.length > 0 ? (
+      {activeDisplayPosts.length > 0 ? (
         viewMode === 'grid' ? (
           <div className="grid grid-cols-3 gap-2">
-            {userPosts.map((post) => (
+            {activeDisplayPosts.map((post) => (
               <div
                 key={post.id}
                 onClick={() => onOpenComments(post)}
@@ -294,26 +341,45 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </div>
         ) : (
           <div className="space-y-4">
-            {userPosts.map((post) => (
+            {activeDisplayPosts.map((post) => (
               <PostCard
                 key={post.id}
                 post={post}
                 currentUser={currentUser}
                 onToggleLike={onToggleLike}
                 onOpenComments={onOpenComments}
-                onToggleFollow={() => {}}
-                onSendDM={() => {}}
+                onToggleFollow={onToggleFollow}
+                onSendDM={onSendDM}
+                isSaved={savedPostIds.includes(post.id)}
+                onToggleSave={onToggleSave}
+                onReportPost={onReportPost}
+                isReported={reportedPostIds.includes(post.id)}
+                onSharePost={onSharePost}
               />
             ))}
           </div>
         )
       ) : (
         <div className="text-center py-12 bg-white/5 rounded-[28px] border border-white/10 p-6">
-          <Flame className="w-8 h-8 text-white/30 mx-auto mb-2" />
-          <h3 className="font-bold text-white text-sm">No updates posted yet</h3>
-          <p className="text-xs text-white/40 mt-1">
-            Tap the plus button below to share what you did today!
-          </p>
+          {profileTab === 'saved' ? (
+            <>
+              <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-3 text-white/40">
+                <Bookmark className="w-6 h-6" />
+              </div>
+              <h3 className="font-bold text-white text-sm">No saved posts yet</h3>
+              <p className="text-xs text-white/40 mt-1 max-w-xs mx-auto">
+                Tap the bookmark button on any post in your feed to save it for quick reference later.
+              </p>
+            </>
+          ) : (
+            <>
+              <Flame className="w-8 h-8 text-white/30 mx-auto mb-2" />
+              <h3 className="font-bold text-white text-sm">No updates posted yet</h3>
+              <p className="text-xs text-white/40 mt-1">
+                Tap the plus button below to share what you did today!
+              </p>
+            </>
+          )}
         </div>
       )}
     </div>

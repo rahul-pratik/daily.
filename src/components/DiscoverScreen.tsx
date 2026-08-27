@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Compass, Search, Flame, UserPlus, Check, MessageSquare, Sparkles, X } from 'lucide-react';
 import { User, AVAILABLE_INTERESTS, AVAILABLE_HABITS } from '../types';
+import { PullToRefresh } from './PullToRefresh';
 
 interface DiscoverScreenProps {
   users: User[];
@@ -8,6 +9,7 @@ interface DiscoverScreenProps {
   onToggleFollow: (userId: string) => void;
   onSendDM: (targetUser: { id: string; name: string; username: string; avatar: string; streak: number }) => void;
   onViewUser?: (user: User) => void;
+  onRefresh?: () => Promise<void> | void;
 }
 
 export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
@@ -16,6 +18,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
   onToggleFollow,
   onSendDM,
   onViewUser,
+  onRefresh,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilterTag, setActiveFilterTag] = useState<string | null>(null);
@@ -74,8 +77,24 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
     new Set(['All', ...AVAILABLE_INTERESTS.slice(0, 5), ...AVAILABLE_HABITS.slice(0, 4)])
   );
 
+  const handleDiscoverRefresh = async () => {
+    if (onRefresh) {
+      await onRefresh();
+    } else {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+  };
+
   return (
-    <div className="w-full pb-24 pt-2 px-3 sm:px-4 max-w-lg mx-auto space-y-4">
+    <PullToRefresh
+      onRefresh={handleDiscoverRefresh}
+      pullText="Pull down to refresh creators"
+      releaseText="Release to refresh matches"
+      refreshingText="Discovering active creators..."
+      completedText="Matches updated • Just now"
+    >
+      <div className="w-full pb-24 pt-2 px-3 sm:px-4 max-w-lg mx-auto space-y-4">
+
       {/* Header */}
       <div>
         <h1 className="text-xl font-black text-white flex items-center gap-2">
@@ -297,5 +316,6 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
         )}
       </div>
     </div>
+    </PullToRefresh>
   );
 };

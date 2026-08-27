@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Heart, MessageCircle, Send, Bookmark, Flame, MoreHorizontal, Check, UserPlus, Share2, Eye, User as UserIcon } from 'lucide-react';
+import { Heart, MessageCircle, Send, Bookmark, Flame, MoreHorizontal, Check, UserPlus, Share2, Eye, User as UserIcon, Flag, ShieldAlert } from 'lucide-react';
 import { Post, User } from '../types';
+import { vibrateLight } from '../services/haptics';
 
 interface PostCardProps {
   post: Post;
@@ -11,6 +12,11 @@ interface PostCardProps {
   onSendDM: (targetUser: { id: string; name: string; username: string; avatar: string; streak: number }) => void;
   onTagClick?: (tag: string) => void;
   onViewUser?: (user: { id: string; name: string; username: string; avatar: string; streak: number }) => void;
+  isSaved?: boolean;
+  onToggleSave?: (postId: string) => void;
+  onReportPost?: (post: Post) => void;
+  isReported?: boolean;
+  onSharePost?: (post: Post) => void;
 }
 
 export const PostCard: React.FC<PostCardProps> = ({
@@ -22,13 +28,19 @@ export const PostCard: React.FC<PostCardProps> = ({
   onSendDM,
   onTagClick,
   onViewUser,
+  isSaved: isSavedProp,
+  onToggleSave,
+  onReportPost,
+  isReported,
+  onSharePost,
 }) => {
   const [showHeartBurst, setShowHeartBurst] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
+  const [localSaved, setLocalSaved] = useState(false);
   const [lastTap, setLastTap] = useState<number>(0);
   const [copiedLink, setCopiedLink] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
 
+  const isSaved = isSavedProp !== undefined ? isSavedProp : localSaved;
   const isMyPost = post.userId === currentUser.id;
   const isFollowing = currentUser.followedUserIds.includes(post.userId);
 
@@ -46,10 +58,36 @@ export const PostCard: React.FC<PostCardProps> = ({
     setLastTap(now);
   };
 
-  const handleShare = () => {
-    navigator.clipboard?.writeText(window.location.href);
+  const handleSaveToggle = () => {
+    vibrateLight();
+    if (onToggleSave) {
+      onToggleSave(post.id);
+    } else {
+      setLocalSaved(!localSaved);
+    }
+  };
+
+  const handleShare = async () => {
+    vibrateLight();
+    const postUrl = `${window.location.origin}/post/${post.id}`;
+    try {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(postUrl);
+      }
+    } catch {
+      // Fallback
+    }
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  const handleOpenShareModal = () => {
+    vibrateLight();
+    if (onSharePost) {
+      onSharePost(post);
+    } else {
+      handleShare();
+    }
   };
 
   const handleUserClick = () => {
@@ -63,6 +101,25 @@ export const PostCard: React.FC<PostCardProps> = ({
       });
     }
   };
+
+  const handleReport = () => {
+    setShowOptionsMenu(false);
+    if (onReportPost) {
+      onReportPost(post);
+    }
+  };
+
+  if (isReported) {
+    return (
+      <div className="w-full bg-white/5 border border-white/5 rounded-[24px] p-4 text-center text-xs text-white/40 mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <ShieldAlert className="w-4 h-4 text-red-400/70" />
+          <span>This post was reported and hidden from your feed.</span>
+        </div>
+        <span className="text-[10px] font-mono text-white/30">Flagged</span>
+      </div>
+    );
+  }
 
   return (
     <article className="w-full bg-white/5 border border-white/5 hover:border-white/10 rounded-[28px] overflow-hidden mb-4 transition-all relative">
@@ -146,12 +203,23 @@ export const PostCard: React.FC<PostCardProps> = ({
                 <button
                   onClick={() => {
                     setShowOptionsMenu(false);
+                    handleOpenShareModal();
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs text-white/80 hover:text-white hover:bg-white/5 rounded-xl flex items-center gap-2"
+                >
+                  <Share2 className="w-3.5 h-3.5 text-[#FF4D00]" />
+                  <span>Share to Friends & Groups</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowOptionsMenu(false);
                     handleShare();
                   }}
                   className="w-full text-left px-3 py-2 text-xs text-white/80 hover:text-white hover:bg-white/5 rounded-xl flex items-center gap-2"
                 >
-                  <Share2 className="w-3.5 h-3.5" />
-                  <span>Copy Post Link</span>
+                  <Share2 className="w-3.5 h-3.5 text-white/60" />
+                  <span>Copy Direct Link</span>
                 </button>
 
                 {onViewUser && (
@@ -185,6 +253,16 @@ export const PostCard: React.FC<PostCardProps> = ({
                     <span>Send Message</span>
                   </button>
                 )}
+
+                <div className="my-1 border-t border-white/5" />
+
+                <button
+                  onClick={handleReport}
+                  className="w-full text-left px-3 py-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl flex items-center gap-2"
+                >
+                  <Flag className="w-3.5 h-3.5 text-red-400" />
+                  <span>Report Post</span>
+                </button>
               </div>
             )}
           </div>
@@ -283,24 +361,48 @@ export const PostCard: React.FC<PostCardProps> = ({
               </button>
             )}
 
-            {/* Share button with inline toast */}
+            {/* Share to friends & groups button */}
+            <button
+              onClick={handleOpenShareModal}
+              className="text-white/40 hover:text-white transition-colors flex items-center gap-1.5 text-xs py-1.5 px-2 rounded-lg hover:bg-white/5 relative min-h-[36px]"
+              title="Share to friends & groups"
+            >
+              <Share2 className="w-4 h-4 text-white/50 hover:text-[#FF4D00] transition-colors" />
+              <span className="font-semibold">Share</span>
+            </button>
+
+            {/* Quick 1-click Copy Link button */}
             <button
               onClick={handleShare}
-              className="text-white/40 hover:text-white transition-colors flex items-center gap-1 text-xs py-1.5 px-2 rounded-lg hover:bg-white/5 relative"
-              title="Share post"
+              className={`transition-all flex items-center gap-1 text-[11px] py-1 px-2 rounded-lg border min-h-[32px] ${
+                copiedLink
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                  : 'bg-white/5 hover:bg-white/10 text-white/50 hover:text-white border-white/5'
+              }`}
+              title="Copy direct post link to clipboard"
             >
-              <Share2 className="w-3.5 h-3.5" />
-              <span>{copiedLink ? 'Copied!' : 'Share'}</span>
+              {copiedLink ? (
+                <>
+                  <Check className="w-3 h-3 text-emerald-400" />
+                  <span>Copied!</span>
+                </>
+              ) : (
+                <>
+                  <span className="font-mono text-[10px]">🔗</span>
+                  <span>Copy</span>
+                </>
+              )}
             </button>
           </div>
 
           {/* Bookmark */}
           <button
-            onClick={() => setIsSaved(!isSaved)}
+            onClick={handleSaveToggle}
             className={`text-white/40 hover:text-white transition-transform active:scale-110 p-1.5 rounded-lg hover:bg-white/5 min-h-[36px] min-w-[36px] flex items-center justify-center ${
               isSaved ? 'text-[#FF4D00] fill-[#FF4D00]' : ''
             }`}
-            aria-label="Save post"
+            aria-label={isSaved ? 'Unsave post' : 'Save post'}
+            title={isSaved ? 'Remove from Saved' : 'Save to Profile'}
           >
             <Bookmark className={`w-4 h-4 ${isSaved ? 'fill-[#FF4D00] text-[#FF4D00]' : 'stroke-2'}`} />
           </button>
