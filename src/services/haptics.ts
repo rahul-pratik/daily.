@@ -1,0 +1,35 @@
+/**
+ * Tactile Haptic Vibration Feedback Utilities
+ * Uses navigator.vibrate safely with graceful fallback for unsupported devices/browsers.
+ */
+
+export const triggerVibration = (pattern: number | number[]): boolean => {
+  if (
+    typeof window !== 'undefined' &&
+    typeof navigator !== 'undefined' &&
+    typeof navigator.vibrate === 'function'
+  ) {
+    try {
+      return navigator.vibrate(pattern);
+    } catch {
+      // Gracefully handle any security policy or permission errors
+      return false;
+    }
+  }
+  return false;
+};
+
+/** Subtle tactile pulse on successful post submission */
+export const vibratePostSubmit = () => {
+  triggerVibration([40, 60, 40]);
+};
+
+/** Celebratory rhythmic vibration pattern when streak milestone triggers */
+export const vibrateStreakCelebration = () => {
+  triggerVibration([60, 50, 80, 50, 110]);
+};
+
+/** Light single tap for quick interactions */
+export const vibrateLight = () => {
+  triggerVibration(30);
+};

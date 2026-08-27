@@ -1,0 +1,6 @@
+{
+  "name": "Daily",
+  "description": "A modern mobile-first social media app where users post daily updates to maintain streaks and connect over shared interests and habits.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
