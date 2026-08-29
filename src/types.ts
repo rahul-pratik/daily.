@@ -81,6 +81,19 @@ export interface Group {
   lastActivity?: string;
   createdBy: string;
   createdAt: string;
+  rules?: string[];
+  pinnedTopic?: string;
+  coverImage?: string;
+}
+
+export interface CommunityMemberRanking {
+  user: User;
+  rank: number;
+  postsCount: number;
+  messagesCount: number;
+  streak: number;
+  score: number;
+  badgeTitle: string;
 }
 
 export interface Message {

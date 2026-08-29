@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { X, Users, Check, Sparkles, Image as ImageIcon, Plus } from 'lucide-react';
+import { X, Users, Check, Sparkles, Image as ImageIcon, Plus, ShieldCheck, Pin, Hash } from 'lucide-react';
 import { User, Group, AVAILABLE_INTERESTS } from '../types';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
+import { handleHorizontalWheelScroll } from '../utils/scroll';
 
 interface CreateGroupModalProps {
   isOpen: boolean;
@@ -14,6 +15,9 @@ interface CreateGroupModalProps {
     avatar: string;
     category: string;
     memberIds: string[];
+    rules?: string[];
+    pinnedTopic?: string;
+    coverImage?: string;
   }) => void;
 }
 
@@ -36,6 +40,8 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<string>('Coding');
+  const [pinnedTopic, setPinnedTopic] = useState('');
+  const [rulesText, setRulesText] = useState('Be supportive and share genuine daily progress\nNo spam or off-topic links');
   const [selectedAvatar, setSelectedAvatar] = useState(PRESET_AVATARS[0]);
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [customAvatarUrl, setCustomAvatarUrl] = useState('');
@@ -55,17 +61,26 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
     e.preventDefault();
     if (!name.trim()) return;
 
+    const parsedRules = rulesText
+      .split('\n')
+      .map((r) => r.trim())
+      .filter((r) => r.length > 0);
+
     vibrateStreakMilestone();
     onCreateGroup({
       name: name.trim(),
-      description: description.trim() || 'Daily accountability & habit sharing group',
+      description: description.trim() || 'Daily accountability & habit sharing community',
       avatar: customAvatarUrl.trim() || selectedAvatar,
       category,
       memberIds: selectedMemberIds,
+      rules: parsedRules.length > 0 ? parsedRules : ['Be supportive and share daily progress'],
+      pinnedTopic: pinnedTopic.trim() || `Welcome to ${name.trim()}! Introduce yourself and share your streak.`,
+      coverImage: selectedAvatar,
     });
 
     setName('');
     setDescription('');
+    setPinnedTopic('');
     setSelectedMemberIds([]);
     onClose();
   };
@@ -80,9 +95,9 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
               <Users className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="font-bold text-sm text-white">Create Daily Group</h2>
+              <h2 className="font-bold text-sm text-white">Build a Community</h2>
               <span className="text-[10px] text-white/40">
-                Share daily progress & photos with friends
+                Create rankings, host discussions & chat with members
               </span>
             </div>
           </div>
@@ -97,15 +112,15 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 space-y-4">
-          {/* Group Name */}
+          {/* Community Name */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-white/80 block">Group Name *</label>
+            <label className="text-xs font-bold text-white/80 block">Community Name *</label>
             <input
               type="text"
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. 5 AM Marathon Crew 🏃‍♂️"
+              placeholder="e.g. 100 Days of Code 💻 or 5 AM Runners 🏃‍♂️"
               maxLength={40}
               className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:border-[#FF4D00] outline-none transition-colors"
             />
@@ -113,42 +128,82 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
 
           {/* Description */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-white/80 block">Topic / Description</label>
+            <label className="text-xs font-bold text-white/80 block">Mission & Topic</label>
             <input
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="e.g. Daily running stats & morning check-ins"
-              maxLength={80}
+              placeholder="e.g. Daily coding updates, tips, rankings & live chatter"
+              maxLength={120}
               className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:border-[#FF4D00] outline-none transition-colors"
             />
           </div>
 
           {/* Category */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-white/80 block">Category</label>
-            <div className="flex flex-wrap gap-1.5">
-              {AVAILABLE_INTERESTS.slice(0, 8).map((cat) => (
+            <label className="text-xs font-bold text-white/80 block flex items-center justify-between">
+              <span>Category / Interest</span>
+              <span className="text-[10px] text-white/40">Scroll horizontally</span>
+            </label>
+            <div 
+              onWheel={handleHorizontalWheelScroll}
+              className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap flex-nowrap pb-1 no-scrollbar touch-pan-x overscroll-x-contain py-1"
+            >
+              {AVAILABLE_INTERESTS.map((cat) => (
                 <button
                   type="button"
                   key={cat}
                   onClick={() => setCategory(cat)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                     category === cat
                       ? 'bg-[#FF4D00] text-black shadow-md shadow-[#FF4D00]/20'
                       : 'bg-white/5 hover:bg-white/10 border border-white/5 text-white/60'
                   }`}
                 >
-                  {cat}
+                  #{cat}
                 </button>
               ))}
             </div>
           </div>
 
+          {/* Pinned Discussion Topic */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-white/80 flex items-center gap-1">
+              <Pin className="w-3.5 h-3.5 text-[#FF4D00]" />
+              <span>Pinned Discussion Topic</span>
+            </label>
+            <input
+              type="text"
+              value={pinnedTopic}
+              onChange={(e) => setPinnedTopic(e.target.value)}
+              placeholder="e.g. What is your #1 goal this week? Drop your updates below!"
+              maxLength={100}
+              className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:border-[#FF4D00] outline-none transition-colors"
+            />
+          </div>
+
+          {/* Community Rules */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-white/80 flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Community Guidelines (1 per line)</span>
+            </label>
+            <textarea
+              rows={2}
+              value={rulesText}
+              onChange={(e) => setRulesText(e.target.value)}
+              placeholder="1 rule per line"
+              className="w-full px-3.5 py-2 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:border-[#FF4D00] outline-none transition-colors resize-none"
+            />
+          </div>
+
           {/* Group Avatar Selection */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-white/80 block">Group Cover / Avatar</label>
-            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            <label className="text-xs font-bold text-white/80 block">Cover Avatar Badge</label>
+            <div 
+              onWheel={handleHorizontalWheelScroll}
+              className="flex items-center gap-2 overflow-x-auto whitespace-nowrap flex-nowrap pb-1 no-scrollbar touch-pan-x overscroll-x-contain py-1"
+            >
               {PRESET_AVATARS.map((url, idx) => (
                 <div
                   key={idx}
@@ -178,14 +233,14 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
             </div>
           </div>
 
-          {/* Invite Friends */}
+          {/* Invite Initial Members */}
           <div className="space-y-2 pt-1">
             <label className="text-xs font-bold text-white/80 flex items-center justify-between">
-              <span>Invite Friends ({selectedMemberIds.length} selected)</span>
+              <span>Invite Members ({selectedMemberIds.length} selected)</span>
               <span className="text-[10px] text-white/40">Optional</span>
             </label>
 
-            <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+            <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
               {availableFriends.map((u) => {
                 const isSelected = selectedMemberIds.includes(u.id);
                 return (
@@ -207,7 +262,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
                       />
                       <div className="min-w-0">
                         <span className="font-bold text-xs text-white block truncate">{u.name}</span>
-                        <span className="text-[10px] text-white/40">@{u.username}</span>
+                        <span className="text-[10px] text-white/40">@{u.username} • 🔥{u.currentStreak}d</span>
                       </div>
                     </div>
 
@@ -239,7 +294,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
               className="flex-1 py-2.5 rounded-xl bg-[#FF4D00] hover:bg-[#FF4D00]/90 disabled:opacity-30 text-black font-black text-xs transition-all shadow-lg shadow-[#FF4D00]/20 flex items-center justify-center gap-1.5"
             >
               <Plus className="w-3.5 h-3.5 stroke-[3]" />
-              <span>Create Group</span>
+              <span>Build Community</span>
             </button>
           </div>
         </form>

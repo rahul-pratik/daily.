@@ -270,33 +270,15 @@ export const ShareModal: React.FC<ShareModalProps> = ({
               </div>
             </div>
 
-            {/* Quick Actions (Copy Link & Native Share) */}
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={handleCopyLink}
-                className="p-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center gap-2 text-xs font-bold text-white transition-all active:scale-95"
-              >
-                {copiedLink ? (
-                  <>
-                    <Check className="w-4 h-4 text-emerald-400" />
-                    <span className="text-emerald-400">Link Copied!</span>
-                  </>
-                ) : (
-                  <>
-                    <LinkIcon className="w-4 h-4 text-[#FF4D00]" />
-                    <span>Copy Direct Link</span>
-                  </>
-                )}
-              </button>
-
+            {/* Quick Actions (Share via Device) */}
+            <div>
               <button
                 type="button"
                 onClick={handleNativeShare}
-                className="p-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center gap-2 text-xs font-bold text-white transition-all active:scale-95"
+                className="w-full p-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center gap-2 text-xs font-bold text-white transition-all active:scale-95"
               >
                 <Share2 className="w-4 h-4 text-[#FF4D00]" />
-                <span>Share via Device</span>
+                <span>Share to External Apps via Device</span>
               </button>
             </div>
 

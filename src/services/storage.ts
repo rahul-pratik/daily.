@@ -1,4 +1,4 @@
-import { User, Post, Message, Comment, Group, SharedPostPreview } from '../types';
+import { User, Post, Message, Comment, Group, SharedPostPreview, CommunityMemberRanking } from '../types';
 import { INITIAL_CURRENT_USER, SAMPLE_USERS, INITIAL_POSTS, INITIAL_MESSAGES, SAMPLE_GROUPS } from '../data/mockData';
 
 const STORAGE_KEYS = {
@@ -323,6 +323,60 @@ export class DailyStorageService {
     };
   }
 
+  // Delete a post and reset today's photo limit if it was today's post
+  static deletePost(postId: string): { posts: Post[]; updatedUser: User; wasTodayPost: boolean } {
+    const currentUser = this.getCurrentUser();
+    const posts = this.getAllPosts();
+    const today = getTodayDateString();
+
+    const postToDelete = posts.find((p) => p.id === postId);
+    const remainingPosts = posts.filter((p) => p.id !== postId);
+    this.saveAllPosts(remainingPosts);
+
+    // Also remove from saved posts
+    const savedIds = this.getSavedPostIds().filter((id) => id !== postId);
+    this.saveSavedPostIds(savedIds);
+
+    let updatedUser = currentUser;
+    let wasTodayPost = false;
+
+    if (postToDelete && (postToDelete.userId === currentUser.id || postToDelete.userId === 'user_me')) {
+      const wasCreatedToday = postToDelete.postDate === today || postToDelete.createdAt === 'Just now';
+      const remainingTodayPosts = remainingPosts.filter(
+        (p) => (p.userId === currentUser.id || p.userId === 'user_me') && p.postDate === today
+      );
+
+      if (wasCreatedToday && remainingTodayPosts.length === 0) {
+        wasTodayPost = true;
+        const myOtherPosts = remainingPosts.filter(
+          (p) => p.userId === currentUser.id || p.userId === 'user_me'
+        );
+        const prevPostDate = myOtherPosts.length > 0 ? myOtherPosts[0].postDate || null : null;
+        const newActivityDates = currentUser.activityDates.filter((d) => d !== today);
+        const newStreak = Math.max(0, currentUser.currentStreak - 1);
+        const newTotalPosts = Math.max(0, currentUser.totalPosts - 1);
+
+        updatedUser = {
+          ...currentUser,
+          lastPostedDate: prevPostDate,
+          currentStreak: newStreak,
+          totalPosts: newTotalPosts,
+          activityDates: newActivityDates,
+        };
+        this.saveCurrentUser(updatedUser);
+      } else {
+        const newTotalPosts = Math.max(0, currentUser.totalPosts - 1);
+        updatedUser = {
+          ...currentUser,
+          totalPosts: newTotalPosts,
+        };
+        this.saveCurrentUser(updatedUser);
+      }
+    }
+
+    return { posts: remainingPosts, updatedUser, wasTodayPost };
+  }
+
   // Saved Posts
   static getSavedPostIds(): string[] {
     const data = localStorage.getItem(STORAGE_KEYS.SAVED_POSTS);
@@ -396,6 +450,8 @@ export class DailyStorageService {
     avatar?: string;
     category: string;
     memberIds: string[];
+    rules?: string[];
+    pinnedTopic?: string;
   }): Group {
     const currentUser = this.getCurrentUser();
     const newGroup: Group = {
@@ -411,6 +467,8 @@ export class DailyStorageService {
       lastActivity: 'Just now',
       createdBy: currentUser.id,
       createdAt: getTodayDateString(),
+      rules: params.rules || ['Be respectful', 'Post daily proof', 'Support peers with constructive feedback'],
+      pinnedTopic: params.pinnedTopic || 'Welcome to our community! Share what habit you are building today.',
     };
 
     const groups = this.getAllGroups();
@@ -419,10 +477,90 @@ export class DailyStorageService {
     // Send an initial system/intro message to the new group
     this.sendMessage({
       groupId: newGroup.id,
-      text: `🎉 Created the group "${newGroup.name}"! Start sharing your daily habits and wins!`,
+      text: `🎉 Created the community "${newGroup.name}"! Discuss topics, share daily photos/tweets, and climb the ranking leaderboard!`,
     });
 
+    if (newGroup.pinnedTopic) {
+      this.sendMessage({
+        groupId: newGroup.id,
+        text: `📌 Pinned Community Topic: "${newGroup.pinnedTopic}"`,
+      });
+    }
+
     return newGroup;
+  }
+
+  // Get dynamic community rankings for leaderboard
+  static getCommunityRankings(groupId: string): CommunityMemberRanking[] {
+    const groups = this.getAllGroups();
+    const group = groups.find((g) => g.id === groupId);
+    const allUsers = this.getAllUsers();
+    const currentUser = this.getCurrentUser();
+    const allPosts = this.getAllPosts();
+    const allMessages = this.getAllMessages();
+
+    const completeUserList = [currentUser, ...allUsers.filter((u) => u.id !== currentUser.id)];
+    const memberIdSet = new Set(group?.memberIds || [currentUser.id]);
+
+    // If group has members, evaluate members. Also include other relevant creators if small
+    let candidateUsers = completeUserList.filter((u) => memberIdSet.has(u.id));
+    if (candidateUsers.length < 3) {
+      candidateUsers = completeUserList;
+    }
+
+    const groupCategory = (group?.category || '').toLowerCase();
+
+    const rankings: CommunityMemberRanking[] = candidateUsers.map((user) => {
+      // Posts matching group category or overall
+      const userPosts = allPosts.filter((p) => {
+        if (p.userId !== user.id && !(user.id === currentUser.id && p.userId === 'user_me')) return false;
+        if (!groupCategory) return true;
+        const matchesCategory = (p.tags || []).some(
+          (t) => t.toLowerCase() === groupCategory || groupCategory.includes(t.toLowerCase())
+        );
+        return matchesCategory || true;
+      });
+
+      // Messages in this community chat
+      const userMessages = allMessages.filter(
+        (m) => m.groupId === groupId && (m.senderId === user.id || (user.id === currentUser.id && m.senderId === 'user_me'))
+      );
+
+      const postsCount = userPosts.length + Math.max(0, Math.floor((user.totalPosts || 0) * 0.4));
+      const messagesCount = userMessages.length;
+      const streak = user.currentStreak || 0;
+
+      // Score formula: (Posts & Tweets * 25) + (Discussion Messages * 8) + (Streak * 12) + Total Posts
+      const score = postsCount * 25 + messagesCount * 8 + streak * 12 + (user.totalPosts || 0) * 2;
+
+      return {
+        user,
+        rank: 0,
+        postsCount,
+        messagesCount,
+        streak,
+        score,
+        badgeTitle: 'Active Member',
+      };
+    });
+
+    // Sort descending by score
+    rankings.sort((a, b) => b.score - a.score || b.postsCount - a.postsCount || b.streak - a.streak);
+
+    // Assign ranks & badge titles
+    return rankings.map((item, idx) => {
+      let badgeTitle = 'Active Member';
+      if (idx === 0) badgeTitle = '👑 Community MVP';
+      else if (idx === 1) badgeTitle = '🔥 Streak Champion';
+      else if (idx === 2) badgeTitle = '⚡ Top Contributor';
+      else if (idx < 5) badgeTitle = '🌟 Rising Creator';
+
+      return {
+        ...item,
+        rank: idx + 1,
+        badgeTitle,
+      };
+    });
   }
 
   static toggleJoinGroup(groupId: string): { groups: Group[]; isMember: boolean } {

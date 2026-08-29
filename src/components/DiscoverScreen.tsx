@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { User, Group, AVAILABLE_INTERESTS, AVAILABLE_HABITS } from '../types';
 import { PullToRefresh } from './PullToRefresh';
+import { handleHorizontalWheelScroll } from '../utils/scroll';
 
 interface DiscoverScreenProps {
   users: User[];
@@ -231,7 +232,10 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
             )}
           </div>
 
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar py-0.5">
+          <div 
+            onWheel={handleHorizontalWheelScroll}
+            className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap flex-nowrap pb-1 no-scrollbar touch-pan-x overscroll-x-contain py-0.5"
+          >
             {allFilterChips.map((chip) => {
               const isSelected =
                 chip.value === null

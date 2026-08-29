@@ -361,21 +361,10 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
         {/* Modal Footer Actions */}
         <div className="px-5 py-3.5 border-t border-white/10 bg-white/[0.02] flex items-center justify-between gap-3">
           <button
-            id="insights-copy-link-btn"
-            onClick={handleCopyLink}
+            onClick={onClose}
             className="flex-1 py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 border border-white/10 min-h-[40px]"
           >
-            {copied ? (
-              <>
-                <Check className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="text-emerald-300">Copied Link!</span>
-              </>
-            ) : (
-              <>
-                <Copy className="w-3.5 h-3.5 text-white/60" />
-                <span>Copy Post Link</span>
-              </>
-            )}
+            Close
           </button>
 
           {onSharePost && (

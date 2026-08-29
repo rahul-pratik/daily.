@@ -13,9 +13,16 @@ import {
   ExternalLink,
   Camera,
   Trash2,
+  Trophy,
+  Crown,
+  Medal,
+  Pin,
+  ShieldCheck,
 } from 'lucide-react';
-import { User, Message, Group, Post } from '../types';
+import { User, Message, Group, Post, CommunityMemberRanking } from '../types';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
+import { DailyStorageService } from '../services/storage';
+import { handleHorizontalWheelScroll } from '../utils/scroll';
 
 interface DirectMessagesModalProps {
   isOpen: boolean;
@@ -68,6 +75,8 @@ export const DirectMessagesModal: React.FC<DirectMessagesModalProps> = ({
   const [activeUserId, setActiveUserId] = useState<string | null>(initialChatUserId || null);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(initialGroupId || null);
   const [activeTab, setActiveTab] = useState<'all' | 'direct' | 'groups'>('all');
+  const [groupViewMode, setGroupViewMode] = useState<'chat' | 'rankings'>('chat');
+  const [showPinnedInfo, setShowPinnedInfo] = useState(false);
   const [inputText, setInputText] = useState('');
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
   const [showPhotoPicker, setShowPhotoPicker] = useState(false);
@@ -80,23 +89,30 @@ export const DirectMessagesModal: React.FC<DirectMessagesModalProps> = ({
     if (initialChatUserId) {
       setActiveUserId(initialChatUserId);
       setActiveGroupId(null);
+      setGroupViewMode('chat');
     } else if (initialGroupId) {
       setActiveGroupId(initialGroupId);
       setActiveUserId(null);
+      setGroupViewMode('chat');
     }
   }, [initialChatUserId, initialGroupId]);
 
-  // Scroll to bottom when conversation messages change
+  // Scroll to bottom when conversation messages change in chat mode
   useEffect(() => {
-    if (activeUserId || activeGroupId) {
+    if ((activeUserId || activeGroupId) && groupViewMode === 'chat') {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages, activeUserId, activeGroupId]);
+  }, [messages, activeUserId, activeGroupId, groupViewMode]);
 
   if (!isOpen) return null;
 
   const activeUser = allUsers.find((u) => u.id === activeUserId);
   const activeGroup = allGroups.find((g) => g.id === activeGroupId);
+
+  // Get community rankings when activeGroup is open
+  const communityRankings: CommunityMemberRanking[] = activeGroup
+    ? DailyStorageService.getCommunityRankings(activeGroup.id)
+    : [];
 
   // Group direct messages into conversations
   const directConversationsMap = new Map<
@@ -463,7 +479,7 @@ export const DirectMessagesModal: React.FC<DirectMessagesModalProps> = ({
         ) : (
           /* ACTIVE CHAT VIEW (1:1 or Group) */
           <div className="flex-1 flex flex-col h-full bg-[#050505]">
-            {/* Header */}
+            {/* Top Navigation Header */}
             <div className="px-3 py-3 border-b border-white/5 flex items-center justify-between bg-black">
               <div className="flex items-center gap-2.5">
                 <button
@@ -493,7 +509,7 @@ export const DirectMessagesModal: React.FC<DirectMessagesModalProps> = ({
                         </span>
                       </div>
                       <span className="text-[10px] text-white/40 block">
-                        {activeGroup.memberCount} members
+                        {activeGroup.memberCount} members • Active discussion
                       </span>
                     </div>
                   </div>
@@ -536,16 +552,228 @@ export const DirectMessagesModal: React.FC<DirectMessagesModalProps> = ({
                 ) : null}
               </div>
 
-              <button
-                onClick={onClose}
-                className="p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-full text-white/40 hover:text-white hover:bg-white/5 transition-colors"
-                aria-label="Close messages"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-1">
+                {activeGroup && (
+                  <button
+                    onClick={() => setShowPinnedInfo(!showPinnedInfo)}
+                    className={`p-2 rounded-xl border transition-colors ${
+                      showPinnedInfo
+                        ? 'bg-[#FF4D00]/20 border-[#FF4D00]/40 text-[#FF4D00]'
+                        : 'bg-white/5 border-white/10 text-white/60 hover:text-white'
+                    }`}
+                    title="Community Guidelines & Pinned Topic"
+                  >
+                    <Pin className="w-4 h-4" />
+                  </button>
+                )}
+                <button
+                  onClick={onClose}
+                  className="p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-full text-white/40 hover:text-white hover:bg-white/5 transition-colors"
+                  aria-label="Close messages"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
-            {/* Chat Messages Stream */}
+            {/* If in Community Group, show Chat vs Community Rankings Mode Switcher */}
+            {activeGroup && (
+              <div className="bg-black/60 px-3 py-2 border-b border-white/5 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/5 flex-1">
+                  <button
+                    onClick={() => setGroupViewMode('chat')}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                      groupViewMode === 'chat'
+                        ? 'bg-[#FF4D00] text-black shadow-md shadow-[#FF4D00]/20'
+                        : 'text-white/60 hover:text-white'
+                    }`}
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    <span>Live Discussion</span>
+                  </button>
+                  <button
+                    onClick={() => setGroupViewMode('rankings')}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                      groupViewMode === 'rankings'
+                        ? 'bg-[#FF4D00] text-black shadow-md shadow-[#FF4D00]/20'
+                        : 'text-white/60 hover:text-white'
+                    }`}
+                  >
+                    <Trophy className="w-3.5 h-3.5" />
+                    <span>Community Rankings</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Pinned Topic & Guidelines Drawer (for active group) */}
+            {activeGroup && showPinnedInfo && (
+              <div className="bg-[#0E0E0E] p-3.5 border-b border-white/10 animate-in slide-in-from-top-2 space-y-2.5">
+                {activeGroup.pinnedTopic && (
+                  <div className="p-2.5 rounded-xl bg-[#FF4D00]/10 border border-[#FF4D00]/25 flex items-start gap-2">
+                    <Pin className="w-4 h-4 text-[#FF4D00] shrink-0 mt-0.5" />
+                    <div>
+                      <span className="text-[10px] font-black text-[#FF4D00] uppercase tracking-wider block">
+                        Pinned Discussion Topic
+                      </span>
+                      <p className="text-xs text-white font-medium mt-0.5">
+                        {activeGroup.pinnedTopic}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {activeGroup.rules && activeGroup.rules.length > 0 && (
+                  <div className="p-2.5 rounded-xl bg-white/5 border border-white/5 space-y-1">
+                    <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                      Community Rules
+                    </span>
+                    <ul className="text-xs text-white/70 space-y-1 list-disc list-inside">
+                      {activeGroup.rules.map((rule, rIdx) => (
+                        <li key={rIdx}>{rule}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* GROUP RANKINGS LEADERBOARD VIEW */}
+            {activeGroup && groupViewMode === 'rankings' ? (
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-[#FF4D00]/10 to-transparent border border-amber-500/20 flex items-center justify-between">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 text-amber-400 font-black text-xs uppercase tracking-wider">
+                      <Crown className="w-4 h-4" />
+                      <span>{activeGroup.name} Leaderboard</span>
+                    </div>
+                    <p className="text-xs text-white/60">
+                      Rankings based on total posts, tweets/messages & active streaks.
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-lg font-black text-white block">
+                      {communityRankings.length}
+                    </span>
+                    <span className="text-[9px] uppercase tracking-wider text-white/40">
+                      Active Members
+                    </span>
+                  </div>
+                </div>
+
+                {/* Rankings Member Cards */}
+                <div className="space-y-2">
+                  {communityRankings.map((memberRank, idx) => {
+                    const isTop1 = idx === 0;
+                    const isTop2 = idx === 1;
+                    const isTop3 = idx === 2;
+                    const isMe = memberRank.user.id === currentUser.id;
+
+                    return (
+                      <div
+                        key={memberRank.user.id}
+                        className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
+                          isTop1
+                            ? 'bg-amber-500/10 border-amber-500/40 shadow-lg shadow-amber-500/5'
+                            : isTop2
+                            ? 'bg-slate-300/10 border-slate-300/30'
+                            : isTop3
+                            ? 'bg-amber-700/10 border-amber-700/30'
+                            : isMe
+                            ? 'bg-white/10 border-[#FF4D00]/40'
+                            : 'bg-white/5 border-white/5 hover:border-white/10'
+                        }`}
+                      >
+                        {/* Rank Badge & User Avatar */}
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-7 h-7 rounded-xl flex items-center justify-center font-black text-xs shrink-0">
+                            {isTop1 ? (
+                              <span className="text-lg">🥇</span>
+                            ) : isTop2 ? (
+                              <span className="text-lg">🥈</span>
+                            ) : isTop3 ? (
+                              <span className="text-lg">🥉</span>
+                            ) : (
+                              <span className="text-white/40 font-mono">#{idx + 1}</span>
+                            )}
+                          </div>
+
+                          <div className="relative shrink-0">
+                            <img
+                              src={memberRank.user.avatar}
+                              alt={memberRank.user.name}
+                              referrerPolicy="no-referrer"
+                              className="w-10 h-10 rounded-full object-cover border border-white/10"
+                            />
+                            {isTop1 && (
+                              <Crown className="w-3.5 h-3.5 text-amber-400 absolute -top-1.5 -right-1 drop-shadow" />
+                            )}
+                          </div>
+
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-xs text-white truncate">
+                                {memberRank.user.name}
+                              </span>
+                              {isMe && (
+                                <span className="text-[9px] bg-[#FF4D00] text-black px-1.5 py-0.2 rounded font-black">
+                                  YOU
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-white/40">@{memberRank.user.username}</span>
+                          </div>
+                        </div>
+
+                        {/* Breakdown Stats (Posts & Tweets/Messages) */}
+                        <div className="flex items-center gap-3 shrink-0 text-right">
+                          <div className="text-center px-2 py-1 rounded-lg bg-white/5 border border-white/5">
+                            <span className="text-[11px] font-black text-white block">
+                              {memberRank.postsCount}
+                            </span>
+                            <span className="text-[8px] uppercase tracking-wider text-white/40 font-bold">
+                              Posts
+                            </span>
+                          </div>
+
+                          <div className="text-center px-2 py-1 rounded-lg bg-white/5 border border-white/5">
+                            <span className="text-[11px] font-black text-white block">
+                              {memberRank.messagesCount}
+                            </span>
+                            <span className="text-[8px] uppercase tracking-wider text-white/40 font-bold">
+                              Tweets
+                            </span>
+                          </div>
+
+                          <div className="text-center px-2 py-1 rounded-lg bg-[#FF4D00]/10 border border-[#FF4D00]/25">
+                            <span className="text-[11px] font-black text-[#FF4D00] block">
+                              {memberRank.score}
+                            </span>
+                            <span className="text-[8px] uppercase tracking-wider text-[#FF4D00]/70 font-bold">
+                              Score
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="pt-2 text-center">
+                  <button
+                    onClick={() => setGroupViewMode('chat')}
+                    className="py-2.5 px-4 rounded-xl bg-[#FF4D00] hover:bg-[#FF4D00]/90 text-black font-black text-xs transition-all shadow-md shadow-[#FF4D00]/20"
+                  >
+                    Discuss & Tweet in Community to Rank Up!
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Chat Messages Stream (shown when not in rankings mode) */}
+            {(!activeGroup || groupViewMode === 'chat') && (
+            <div className="flex-1 flex flex-col min-h-0">
             <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
               {currentChatMessages.length > 0 ? (
                 currentChatMessages.map((msg) => {
@@ -705,7 +933,10 @@ export const DirectMessagesModal: React.FC<DirectMessagesModalProps> = ({
                   </button>
                 </div>
 
-                <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                <div 
+                  onWheel={handleHorizontalWheelScroll}
+                  className="flex items-center gap-2 overflow-x-auto whitespace-nowrap flex-nowrap pb-1 no-scrollbar touch-pan-x overscroll-x-contain py-1"
+                >
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
@@ -802,6 +1033,8 @@ export const DirectMessagesModal: React.FC<DirectMessagesModalProps> = ({
                 <Send className="w-4 h-4" />
               </button>
             </form>
+            </div>
+            )}
           </div>
         )}
       </div>

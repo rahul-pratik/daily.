@@ -18,6 +18,7 @@ interface ProfileScreenProps {
   onSendDM?: (targetUser: { id: string; name: string; username: string; avatar: string; streak: number }) => void;
   onSharePost?: (post: Post) => void;
   onOpenInsights?: (post: Post) => void;
+  onDeletePost?: (postId: string) => void;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
@@ -35,6 +36,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onSendDM = () => {},
   onSharePost,
   onOpenInsights,
+  onDeletePost,
 }) => {
   const [profileTab, setProfileTab] = useState<'my_posts' | 'saved'>('my_posts');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -382,6 +384,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 isReported={reportedPostIds.includes(post.id)}
                 onSharePost={onSharePost}
                 onOpenInsights={onOpenInsights}
+                onDeletePost={onDeletePost}
               />
             ))}
           </div>

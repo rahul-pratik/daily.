@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Heart, MessageCircle, Send, Bookmark, Flame, MoreHorizontal, Check, UserPlus, Share2, Eye, User as UserIcon, Flag, ShieldAlert, BarChart3 } from 'lucide-react';
+import { Heart, MessageCircle, Send, Bookmark, Flame, MoreHorizontal, Check, UserPlus, Share2, Eye, User as UserIcon, Flag, ShieldAlert, BarChart3, Trash2, AlertTriangle, X } from 'lucide-react';
 import { Post, User } from '../types';
-import { vibrateLight } from '../services/haptics';
+import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
+import { handleHorizontalWheelScroll } from '../utils/scroll';
 
 interface PostCardProps {
   post: Post;
@@ -18,6 +19,7 @@ interface PostCardProps {
   isReported?: boolean;
   onSharePost?: (post: Post) => void;
   onOpenInsights?: (post: Post) => void;
+  onDeletePost?: (postId: string) => void;
 }
 
 export const PostCard: React.FC<PostCardProps> = ({
@@ -35,15 +37,16 @@ export const PostCard: React.FC<PostCardProps> = ({
   isReported,
   onSharePost,
   onOpenInsights,
+  onDeletePost,
 }) => {
   const [showHeartBurst, setShowHeartBurst] = useState(false);
   const [localSaved, setLocalSaved] = useState(false);
   const [lastTap, setLastTap] = useState<number>(0);
-  const [copiedLink, setCopiedLink] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const isSaved = isSavedProp !== undefined ? isSavedProp : localSaved;
-  const isMyPost = post.userId === currentUser.id;
+  const isMyPost = post.userId === currentUser.id || post.userId === 'user_me';
   const isFollowing = currentUser.followedUserIds.includes(post.userId);
 
   // Handle double-tap to like
@@ -69,26 +72,10 @@ export const PostCard: React.FC<PostCardProps> = ({
     }
   };
 
-  const handleShare = async () => {
-    vibrateLight();
-    const postUrl = `${window.location.origin}/post/${post.id}`;
-    try {
-      if (navigator.clipboard) {
-        await navigator.clipboard.writeText(postUrl);
-      }
-    } catch {
-      // Fallback
-    }
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
-  };
-
   const handleOpenShareModal = () => {
     vibrateLight();
     if (onSharePost) {
       onSharePost(post);
-    } else {
-      handleShare();
     }
   };
 
@@ -108,6 +95,14 @@ export const PostCard: React.FC<PostCardProps> = ({
     setShowOptionsMenu(false);
     if (onReportPost) {
       onReportPost(post);
+    }
+  };
+
+  const confirmDelete = () => {
+    vibrateStreakMilestone();
+    setShowDeleteConfirm(false);
+    if (onDeletePost) {
+      onDeletePost(post.id);
     }
   };
 
@@ -201,7 +196,7 @@ export const PostCard: React.FC<PostCardProps> = ({
             </button>
 
             {showOptionsMenu && (
-              <div className="absolute right-0 top-9 w-44 bg-[#0A0A0A] border border-white/10 rounded-2xl p-1.5 shadow-2xl z-20 animate-in fade-in">
+              <div className="absolute right-0 top-9 w-48 bg-[#0A0A0A] border border-white/10 rounded-2xl p-1.5 shadow-2xl z-20 animate-in fade-in">
                 {isMyPost && onOpenInsights && (
                   <button
                     onClick={() => {
@@ -211,7 +206,7 @@ export const PostCard: React.FC<PostCardProps> = ({
                     className="w-full text-left px-3 py-2 text-xs text-[#FF4D00] hover:text-[#FF4D00] hover:bg-[#FF4D00]/10 rounded-xl flex items-center gap-2 font-bold"
                   >
                     <BarChart3 className="w-3.5 h-3.5 text-[#FF4D00]" />
-                    <span>Post Engagement Insights</span>
+                    <span>Engagement Insights</span>
                   </button>
                 )}
 
@@ -224,17 +219,6 @@ export const PostCard: React.FC<PostCardProps> = ({
                 >
                   <Share2 className="w-3.5 h-3.5 text-[#FF4D00]" />
                   <span>Share to Friends & Groups</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setShowOptionsMenu(false);
-                    handleShare();
-                  }}
-                  className="w-full text-left px-3 py-2 text-xs text-white/80 hover:text-white hover:bg-white/5 rounded-xl flex items-center gap-2"
-                >
-                  <Share2 className="w-3.5 h-3.5 text-white/60" />
-                  <span>Copy Direct Link</span>
                 </button>
 
                 {onViewUser && (
@@ -269,15 +253,31 @@ export const PostCard: React.FC<PostCardProps> = ({
                   </button>
                 )}
 
-                <div className="my-1 border-t border-white/5" />
+                {isMyPost && onDeletePost && (
+                  <button
+                    onClick={() => {
+                      setShowOptionsMenu(false);
+                      setShowDeleteConfirm(true);
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl flex items-center gap-2 font-semibold"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                    <span>Delete Post</span>
+                  </button>
+                )}
 
-                <button
-                  onClick={handleReport}
-                  className="w-full text-left px-3 py-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl flex items-center gap-2"
-                >
-                  <Flag className="w-3.5 h-3.5 text-red-400" />
-                  <span>Report Post</span>
-                </button>
+                {!isMyPost && (
+                  <>
+                    <div className="my-1 border-t border-white/5" />
+                    <button
+                      onClick={handleReport}
+                      className="w-full text-left px-3 py-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl flex items-center gap-2"
+                    >
+                      <Flag className="w-3.5 h-3.5 text-red-400" />
+                      <span>Report Post</span>
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -313,14 +313,17 @@ export const PostCard: React.FC<PostCardProps> = ({
           {post.content}
         </p>
 
-        {/* Tags */}
+        {/* Tags (Horizontally Scrollable) */}
         {post.tags && post.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 pt-1">
+          <div 
+            onWheel={handleHorizontalWheelScroll}
+            className="w-full flex items-center gap-1.5 pt-1 overflow-x-auto whitespace-nowrap flex-nowrap no-scrollbar touch-pan-x overscroll-x-contain py-1"
+          >
             {post.tags.map((tag, idx) => (
               <button
                 key={idx}
                 onClick={() => onTagClick && onTagClick(tag)}
-                className="text-[10px] font-bold text-white/80 bg-white/10 hover:bg-[#FF4D00] hover:text-black px-2.5 py-1 rounded-full border border-white/10 transition-colors"
+                className="shrink-0 text-[10px] font-bold text-white/80 bg-white/10 hover:bg-[#FF4D00] hover:text-black px-2.5 py-1 rounded-full border border-white/10 transition-colors"
               >
                 #{tag}
               </button>
@@ -328,7 +331,7 @@ export const PostCard: React.FC<PostCardProps> = ({
           </div>
         )}
 
-        {/* Action Bar (Like, Comment, Share, Send DM, Bookmark) */}
+        {/* Action Bar (Like, Comment, Share, Send DM, Bookmark, Insights, Delete) */}
         <div className="pt-2 flex items-center justify-between text-white/40">
           <div className="flex items-center gap-3 sm:gap-4">
             {/* Like Button */}
@@ -386,38 +389,27 @@ export const PostCard: React.FC<PostCardProps> = ({
               <span className="font-semibold">Share</span>
             </button>
 
-            {/* Quick 1-click Copy Link button */}
-            <button
-              onClick={handleShare}
-              className={`transition-all flex items-center gap-1 text-[11px] py-1 px-2 rounded-lg border min-h-[32px] ${
-                copiedLink
-                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                  : 'bg-white/5 hover:bg-white/10 text-white/50 hover:text-white border-white/5'
-              }`}
-              title="Copy direct post link to clipboard"
-            >
-              {copiedLink ? (
-                <>
-                  <Check className="w-3 h-3 text-emerald-400" />
-                  <span>Copied!</span>
-                </>
-              ) : (
-                <>
-                  <span className="font-mono text-[10px]">🔗</span>
-                  <span>Copy</span>
-                </>
-              )}
-            </button>
-
             {/* Insights button for own posts */}
             {isMyPost && onOpenInsights && (
               <button
                 onClick={() => onOpenInsights(post)}
-                className="transition-all flex items-center gap-1 text-[11px] py-1 px-2 rounded-lg border bg-[#FF4D00]/10 hover:bg-[#FF4D00]/20 text-[#FF4D00] border-[#FF4D00]/30 min-h-[32px]"
+                className="transition-all flex items-center gap-1 text-[11px] py-1 px-2.5 rounded-lg border bg-[#FF4D00]/10 hover:bg-[#FF4D00]/20 text-[#FF4D00] border-[#FF4D00]/30 min-h-[32px]"
                 title="View Post Engagement Statistics"
               >
                 <BarChart3 className="w-3.5 h-3.5" />
                 <span className="font-bold">Stats</span>
+              </button>
+            )}
+
+            {/* Delete button for own posts */}
+            {isMyPost && onDeletePost && (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="transition-all flex items-center gap-1 text-[11px] py-1 px-2 rounded-lg border bg-red-500/10 hover:bg-red-500/20 text-red-400 border-red-500/20 min-h-[32px]"
+                title="Delete Post"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span className="font-bold">Delete</span>
               </button>
             )}
           </div>
@@ -435,6 +427,41 @@ export const PostCard: React.FC<PostCardProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm bg-[#111111] border border-white/15 rounded-3xl p-5 shadow-2xl text-white space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-white">Delete Daily Post?</h3>
+                <p className="text-xs text-white/60 leading-relaxed">
+                  Deleting your post will reset today's photo limit back to 0, allowing you to take and upload a fresh photo today.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-all min-h-[40px]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-red-500 hover:bg-red-600 text-white text-xs font-bold transition-all min-h-[40px] shadow-lg shadow-red-500/20 flex items-center justify-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Post</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </article>
   );
 };
