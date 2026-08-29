@@ -1,4 +1,14 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  Legend,
+} from 'recharts';
 import {
   X,
   TrendingUp,
@@ -18,6 +28,7 @@ import {
   Calendar,
   Layers,
   Zap,
+  Activity,
 } from 'lucide-react';
 import { Post } from '../types';
 import { vibrateLight } from '../services/haptics';
@@ -35,7 +46,8 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
   onClose,
   onSharePost,
 }) => {
-  const [copied, setCopied] = React.useState(false);
+  const [copied, setCopied] = useState(false);
+  const [activeMetricView, setActiveMetricView] = useState<'all' | 'views' | 'likes' | 'shares'>('all');
 
   // Close on Escape key
   useEffect(() => {
@@ -60,6 +72,24 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
   const engagementRate =
     viewsCount > 0 ? ((totalInteractions / viewsCount) * 100).toFixed(1) : '0.0';
   const likeRate = viewsCount > 0 ? ((likesCount / viewsCount) * 100).toFixed(1) : '0.0';
+
+  // 7-day trend simulation data for recharts
+  const chartData = useMemo(() => {
+    const days = ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7 (Today)'];
+    // Proportions scaling up to the current totals
+    const viewSteps = [0.12, 0.28, 0.45, 0.62, 0.78, 0.9, 1.0];
+    const likeSteps = [0.15, 0.32, 0.5, 0.68, 0.82, 0.92, 1.0];
+    const shareSteps = [0.08, 0.2, 0.4, 0.6, 0.75, 0.88, 1.0];
+    const commentSteps = [0.1, 0.25, 0.45, 0.65, 0.8, 0.9, 1.0];
+
+    return days.map((day, idx) => ({
+      day,
+      views: Math.max(1, Math.round(viewsCount * viewSteps[idx])),
+      likes: Math.max(0, Math.round(likesCount * likeSteps[idx])),
+      shares: Math.max(0, Math.round(sharesCount * shareSteps[idx])),
+      comments: Math.max(0, Math.round(commentsCount * commentSteps[idx])),
+    }));
+  }, [viewsCount, likesCount, sharesCount, commentsCount]);
 
   // Dynamic performance tier calculation
   const numRate = parseFloat(engagementRate);
@@ -110,7 +140,7 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
               <h2 className="text-sm font-bold text-white flex items-center gap-2">
                 Post Engagement & Analytics
               </h2>
-              <p className="text-[11px] text-white/50">Performance metrics for your update</p>
+              <p className="text-[11px] text-white/50">Performance metrics over last 7 days</p>
             </div>
           </div>
           <button
@@ -156,6 +186,130 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
               <p className="text-xs text-white/90 line-clamp-2 leading-snug">
                 {post.content}
               </p>
+            </div>
+          </div>
+
+          {/* 7-Day Performance Line Chart Section */}
+          <div className="p-4 bg-white/5 rounded-2xl border border-white/10 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4 text-[#FF4D00]" />
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                  7-Day Performance Trend
+                </h3>
+              </div>
+              {/* Metric filter buttons */}
+              <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/10 text-[10px]">
+                <button
+                  onClick={() => setActiveMetricView('all')}
+                  className={`px-2 py-0.5 rounded-lg transition-colors font-medium ${
+                    activeMetricView === 'all'
+                      ? 'bg-white/20 text-white'
+                      : 'text-white/40 hover:text-white'
+                  }`}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setActiveMetricView('views')}
+                  className={`px-2 py-0.5 rounded-lg transition-colors font-medium ${
+                    activeMetricView === 'views'
+                      ? 'bg-[#FF4D00] text-black font-bold'
+                      : 'text-white/40 hover:text-white'
+                  }`}
+                >
+                  Views
+                </button>
+                <button
+                  onClick={() => setActiveMetricView('likes')}
+                  className={`px-2 py-0.5 rounded-lg transition-colors font-medium ${
+                    activeMetricView === 'likes'
+                      ? 'bg-red-500 text-white font-bold'
+                      : 'text-white/40 hover:text-white'
+                  }`}
+                >
+                  Likes
+                </button>
+                <button
+                  onClick={() => setActiveMetricView('shares')}
+                  className={`px-2 py-0.5 rounded-lg transition-colors font-medium ${
+                    activeMetricView === 'shares'
+                      ? 'bg-blue-500 text-white font-bold'
+                      : 'text-white/40 hover:text-white'
+                  }`}
+                >
+                  Shares
+                </button>
+              </div>
+            </div>
+
+            {/* Recharts LineChart */}
+            <div className="h-52 w-full pt-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                  <XAxis
+                    dataKey="day"
+                    stroke="rgba(255,255,255,0.3)"
+                    fontSize={10}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    stroke="rgba(255,255,255,0.3)"
+                    fontSize={10}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#141414',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      borderRadius: '12px',
+                      fontSize: '11px',
+                      color: '#ffffff',
+                      boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
+                    }}
+                    labelStyle={{ color: '#FF4D00', fontWeight: 'bold', marginBottom: '4px' }}
+                  />
+                  <Legend
+                    wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }}
+                    iconType="circle"
+                  />
+                  {(activeMetricView === 'all' || activeMetricView === 'views') && (
+                    <Line
+                      type="monotone"
+                      dataKey="views"
+                      name="Views"
+                      stroke="#FF4D00"
+                      strokeWidth={2.5}
+                      dot={{ r: 3, fill: '#FF4D00' }}
+                      activeDot={{ r: 5 }}
+                    />
+                  )}
+                  {(activeMetricView === 'all' || activeMetricView === 'likes') && (
+                    <Line
+                      type="monotone"
+                      dataKey="likes"
+                      name="Likes & Reactions"
+                      stroke="#EF4444"
+                      strokeWidth={2}
+                      dot={{ r: 3, fill: '#EF4444' }}
+                      activeDot={{ r: 5 }}
+                    />
+                  )}
+                  {(activeMetricView === 'all' || activeMetricView === 'shares') && (
+                    <Line
+                      type="monotone"
+                      dataKey="shares"
+                      name="Shares & Forwards"
+                      stroke="#3B82F6"
+                      strokeWidth={2}
+                      dot={{ r: 3, fill: '#3B82F6' }}
+                      activeDot={{ r: 5 }}
+                    />
+                  )}
+                </LineChart>
+              </ResponsiveContainer>
             </div>
           </div>
 
@@ -319,32 +473,6 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
               </div>
             </div>
           </div>
-
-          {/* Tags Performance */}
-          {post.tags && post.tags.length > 0 && (
-            <div className="p-4 bg-white/5 rounded-2xl border border-white/10 space-y-2.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-white flex items-center gap-1.5">
-                  <Compass className="w-3.5 h-3.5 text-[#FF4D00]" />
-                  Interest Tag Influence
-                </span>
-                <span className="text-[10px] text-white/40">Active discover tags</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {post.tags.map((tag, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center gap-1.5 px-3 py-1 bg-white/10 border border-white/15 rounded-xl text-xs text-white"
-                  >
-                    <span className="font-bold text-[#FF4D00]">#{tag}</span>
-                    <span className="text-[10px] text-white/40 border-l border-white/15 pl-1.5">
-                      +{Math.round(15 + idx * 8)}% reach
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* Actionable Streak Insight Tip */}
           <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-start gap-3">

@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Flame, Sparkles, Filter, Users, RefreshCw } from 'lucide-react';
+import { Flame, Sparkles, Filter, Users, RefreshCw, BookOpen, Eye, Check } from 'lucide-react';
 import { Post, User } from '../types';
 import { PostCard } from './PostCard';
 import { getTodayDateString } from '../services/storage';
 import { PullToRefresh } from './PullToRefresh';
 import { handleHorizontalWheelScroll } from '../utils/scroll';
+import { vibrateLight } from '../services/haptics';
 
 interface HomeFeedProps {
   posts: Post[];
@@ -46,18 +47,24 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
   onDeletePost,
 }) => {
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [isFocusMode, setIsFocusMode] = useState<boolean>(false);
 
   const today = getTodayDateString();
   const hasPostedToday = currentUser.lastPostedDate === today;
 
+  // Filter out blocked users
+  const unblockedPosts = posts.filter(
+    (post) => !currentUser.blockedUserIds?.includes(post.userId)
+  );
+
   // Filter posts based on active tag and following (fallback to all if no followed posts)
-  const followedAndOwnPosts = posts.filter((post) => {
+  const followedAndOwnPosts = unblockedPosts.filter((post) => {
     const isSelf = post.userId === currentUser.id || post.userId === 'user_me';
     const isFollowing = currentUser.followedUserIds.includes(post.userId);
     return isSelf || isFollowing;
   });
 
-  const basePosts = followedAndOwnPosts.length > 0 ? followedAndOwnPosts : posts;
+  const basePosts = followedAndOwnPosts.length > 0 ? followedAndOwnPosts : unblockedPosts;
 
   const filteredPosts = basePosts.filter((post) => {
     if (activeTag) {
@@ -68,7 +75,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
 
   // Extract all available tags in current posts
   const availableTags = Array.from(
-    new Set(posts.flatMap((p) => p.tags || []))
+    new Set(unblockedPosts.flatMap((p) => p.tags || []))
   ).slice(0, 10);
 
   const handleFeedRefresh = async () => {
@@ -77,6 +84,11 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
     } else {
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
+  };
+
+  const toggleFocusMode = () => {
+    vibrateLight();
+    setIsFocusMode(!isFocusMode);
   };
 
   return (
@@ -88,32 +100,56 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
       completedText="Feed updated • Just now"
     >
       <div className="w-full pb-20 pt-2 px-3 sm:px-4 max-w-lg mx-auto">
-        {/* Daily Streak Reminder Banner (if not posted today) */}
-        {!hasPostedToday && (
-          <div className="mb-4 p-4 sm:p-5 rounded-[28px] bg-white/5 border border-[#FF4D00]/30 flex items-center justify-between shadow-lg shadow-[#FF4D00]/5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-[#FF4D00]/10 border border-[#FF4D00]/20 flex items-center justify-center shrink-0">
-                <Flame className="w-5 h-5 text-[#FF4D00] fill-[#FF4D00] animate-pulse" />
+        {/* Focus Reading Mode Active Bar */}
+        {isFocusMode ? (
+          <div className="mb-4 p-3.5 rounded-2xl bg-[#141414] border border-[#FF4D00]/40 flex items-center justify-between shadow-lg shadow-black/60 sticky top-2 z-20 backdrop-blur-md">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-xl bg-[#FF4D00]/10 border border-[#FF4D00]/30 flex items-center justify-center text-[#FF4D00]">
+                <BookOpen className="w-4 h-4" />
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-extrabold text-xs text-white">Daily Streak at Risk</span>
-                  <span className="text-[10px] bg-[#FF4D00] text-black font-black px-2 py-0.5 rounded-full">
-                    🔥 {currentUser.currentStreak}d
-                  </span>
-                </div>
-                <p className="text-xs text-white/50 mt-0.5">
-                  Post what you did today to maintain your streak.
-                </p>
+                <span className="font-bold text-xs text-white flex items-center gap-1.5">
+                  Focus Reading Mode
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                </span>
+                <p className="text-[10px] text-white/50">Clean, distraction-free post text</p>
               </div>
             </div>
             <button
-              onClick={onOpenCreate}
-              className="px-4 py-2.5 rounded-xl bg-[#FF4D00] hover:bg-[#ff5d19] text-black font-black text-xs shrink-0 active:scale-95 transition-all shadow-md shadow-[#FF4D00]/20"
+              onClick={toggleFocusMode}
+              className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs transition-colors border border-white/10"
             >
-              Post Now
+              Exit Focus
             </button>
           </div>
+        ) : (
+          /* Daily Streak Reminder Banner (if not posted today) */
+          !hasPostedToday && (
+            <div className="mb-4 p-4 sm:p-5 rounded-[28px] bg-white/5 border border-[#FF4D00]/30 flex items-center justify-between shadow-lg shadow-[#FF4D00]/5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#FF4D00]/10 border border-[#FF4D00]/20 flex items-center justify-center shrink-0">
+                  <Flame className="w-5 h-5 text-[#FF4D00] fill-[#FF4D00] animate-pulse" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-extrabold text-xs text-white">Daily Streak at Risk</span>
+                    <span className="text-[10px] bg-[#FF4D00] text-black font-black px-2 py-0.5 rounded-full">
+                      🔥 {currentUser.currentStreak}d
+                    </span>
+                  </div>
+                  <p className="text-xs text-white/50 mt-0.5">
+                    Post what you did today to maintain your streak.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={onOpenCreate}
+                className="px-4 py-2.5 rounded-xl bg-[#FF4D00] hover:bg-[#ff5d19] text-black font-black text-xs shrink-0 active:scale-95 transition-all shadow-md shadow-[#FF4D00]/20"
+              >
+                Post Now
+              </button>
+            </div>
+          )
         )}
 
         {/* Home Feed Header */}
@@ -121,19 +157,31 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-[#FF4D00] animate-ping" />
             <h2 className="text-xs font-bold uppercase tracking-wider text-white">
-              Daily Feed
+              {isFocusMode ? 'Focus Stream' : 'Daily Feed'}
             </h2>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-[10px] uppercase tracking-widest text-white/40 font-semibold">
+            <button
+              onClick={toggleFocusMode}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all border ${
+                isFocusMode
+                  ? 'bg-[#FF4D00] text-black border-[#FF4D00]'
+                  : 'bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border-white/10'
+              }`}
+              title="Toggle Focus Reading Mode"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>{isFocusMode ? 'Focus On' : 'Focus Mode'}</span>
+            </button>
+            <span className="text-[10px] uppercase tracking-widest text-white/40 font-semibold pl-1">
               {filteredPosts.length} {filteredPosts.length === 1 ? 'update' : 'updates'}
             </span>
           </div>
         </div>
 
-        {/* Tag filter pills (Horizontally Scrollable) */}
-        {availableTags.length > 0 && (
+        {/* Tag filter pills (Horizontally Scrollable - hidden in focus mode) */}
+        {!isFocusMode && availableTags.length > 0 && (
           <div 
             onWheel={handleHorizontalWheelScroll}
             className="w-full flex items-center gap-1.5 overflow-x-auto whitespace-nowrap flex-nowrap pb-3 mb-2 no-scrollbar touch-pan-x overscroll-x-contain py-1"
@@ -185,6 +233,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                 onSharePost={onSharePost}
                 onOpenInsights={onOpenInsights}
                 onDeletePost={onDeletePost}
+                isFocusMode={isFocusMode}
               />
             ))}
           </div>

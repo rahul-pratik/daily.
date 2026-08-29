@@ -16,7 +16,20 @@ export interface User {
   lastPostedDate: string | null; // YYYY-MM-DD
   joinedDate: string;
   savedPostIds?: string[];
+  blockedUserIds?: string[];
   isCurrentUser?: boolean;
+}
+
+export interface PersonalHabit {
+  id: string;
+  title: string;
+  category: 'Fitness' | 'Productivity' | 'Mindfulness' | 'Learning' | 'Health' | 'Creativity';
+  icon: string;
+  color: string;
+  targetDaysPerWeek: number;
+  completedDates: string[]; // ['2026-08-29', ...]
+  streak: number;
+  createdAt: string;
 }
 
 export interface Comment {

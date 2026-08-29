@@ -1,5 +1,5 @@
-import { User, Post, Message, Comment, Group, SharedPostPreview, CommunityMemberRanking } from '../types';
-import { INITIAL_CURRENT_USER, SAMPLE_USERS, INITIAL_POSTS, INITIAL_MESSAGES, SAMPLE_GROUPS } from '../data/mockData';
+import { User, Post, Message, Comment, Group, SharedPostPreview, CommunityMemberRanking, PersonalHabit } from '../types';
+import { INITIAL_CURRENT_USER, SAMPLE_USERS, INITIAL_POSTS, INITIAL_MESSAGES, SAMPLE_GROUPS, INITIAL_PERSONAL_HABITS } from '../data/mockData';
 
 const STORAGE_KEYS = {
   CURRENT_USER: 'daily_app_current_user_v1',
@@ -10,6 +10,8 @@ const STORAGE_KEYS = {
   ONBOARDED: 'daily_app_onboarded_v1',
   SAVED_POSTS: 'daily_app_saved_posts_v1',
   REPORTED_POSTS: 'daily_app_reported_posts_v1',
+  HABITS: 'daily_app_personal_habits_v1',
+  BLOCKED_USERS: 'daily_app_blocked_users_v1',
 };
 
 // Current reference date (today in the app context)
@@ -723,6 +725,170 @@ export class DailyStorageService {
     return createdMessages;
   }
 
+  // Blocked Users Management
+  static getBlockedUserIds(): string[] {
+    const data = localStorage.getItem(STORAGE_KEYS.BLOCKED_USERS);
+    if (!data) {
+      const currentUser = this.getCurrentUser();
+      const initial = currentUser.blockedUserIds || [];
+      this.saveBlockedUserIds(initial);
+      return initial;
+    }
+    try {
+      return JSON.parse(data);
+    } catch {
+      return [];
+    }
+  }
+
+  static saveBlockedUserIds(ids: string[]): void {
+    localStorage.setItem(STORAGE_KEYS.BLOCKED_USERS, JSON.stringify(ids));
+  }
+
+  static toggleBlockUser(userId: string): { blockedUserIds: string[]; isBlocked: boolean; updatedUser: User } {
+    const currentBlocked = this.getBlockedUserIds();
+    const isCurrentlyBlocked = currentBlocked.includes(userId);
+    const updatedBlocked = isCurrentlyBlocked
+      ? currentBlocked.filter((id) => id !== userId)
+      : [...currentBlocked, userId];
+
+    this.saveBlockedUserIds(updatedBlocked);
+
+    const currentUser = this.getCurrentUser();
+    // Also unfollow if blocking
+    let updatedFollowed = currentUser.followedUserIds || [];
+    let updatedFollowingCount = currentUser.followingCount || 0;
+    if (!isCurrentlyBlocked && updatedFollowed.includes(userId)) {
+      updatedFollowed = updatedFollowed.filter((id) => id !== userId);
+      updatedFollowingCount = Math.max(0, updatedFollowingCount - 1);
+    }
+
+    const updatedUser: User = {
+      ...currentUser,
+      blockedUserIds: updatedBlocked,
+      followedUserIds: updatedFollowed,
+      followingCount: updatedFollowingCount,
+    };
+    this.saveCurrentUser(updatedUser);
+
+    return {
+      blockedUserIds: updatedBlocked,
+      isBlocked: !isCurrentlyBlocked,
+      updatedUser,
+    };
+  }
+
+  // Personal Habits Management
+  static getPersonalHabits(): PersonalHabit[] {
+    const data = localStorage.getItem(STORAGE_KEYS.HABITS);
+    if (!data) {
+      this.savePersonalHabits(INITIAL_PERSONAL_HABITS);
+      return INITIAL_PERSONAL_HABITS;
+    }
+    try {
+      return JSON.parse(data);
+    } catch {
+      return INITIAL_PERSONAL_HABITS;
+    }
+  }
+
+  static savePersonalHabits(habits: PersonalHabit[]): void {
+    localStorage.setItem(STORAGE_KEYS.HABITS, JSON.stringify(habits));
+  }
+
+  static calculateHabitStreak(completedDates: string[]): number {
+    const today = getTodayDateString();
+    const yesterday = getYesterdayDateString();
+    const sorted = Array.from(new Set(completedDates)).sort().reverse();
+    if (sorted.length === 0) return 0;
+
+    // Must have completed today or yesterday to have active streak
+    if (!sorted.includes(today) && !sorted.includes(yesterday)) {
+      return 0;
+    }
+
+    let streak = 0;
+    let checkDate = new Date();
+    if (!sorted.includes(today)) {
+      checkDate.setDate(checkDate.getDate() - 1);
+    }
+
+    while (true) {
+      const year = checkDate.getFullYear();
+      const month = String(checkDate.getMonth() + 1).padStart(2, '0');
+      const day = String(checkDate.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+      if (sorted.includes(dateStr)) {
+        streak += 1;
+        checkDate.setDate(checkDate.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+    return streak;
+  }
+
+  static toggleHabitToday(habitId: string): { habits: PersonalHabit[]; isCompletedToday: boolean; habit: PersonalHabit } {
+    const today = getTodayDateString();
+    const allHabits = this.getPersonalHabits();
+    let isCompletedToday = false;
+    let updatedHabit!: PersonalHabit;
+
+    const updated = allHabits.map((h) => {
+      if (h.id === habitId) {
+        const hasToday = h.completedDates.includes(today);
+        isCompletedToday = !hasToday;
+        const newDates = hasToday
+          ? h.completedDates.filter((d) => d !== today)
+          : [today, ...h.completedDates];
+        const newStreak = this.calculateHabitStreak(newDates);
+        updatedHabit = {
+          ...h,
+          completedDates: newDates,
+          streak: newStreak,
+        };
+        return updatedHabit;
+      }
+      return h;
+    });
+
+    this.savePersonalHabits(updated);
+    return { habits: updated, isCompletedToday, habit: updatedHabit };
+  }
+
+  static addPersonalHabit(params: {
+    title: string;
+    category: PersonalHabit['category'];
+    icon: string;
+    color: string;
+    targetDaysPerWeek: number;
+  }): { habits: PersonalHabit[]; newHabit: PersonalHabit } {
+    const today = getTodayDateString();
+    const newHabit: PersonalHabit = {
+      id: `habit_${Date.now()}`,
+      title: params.title.trim(),
+      category: params.category,
+      icon: params.icon || '⚡️',
+      color: params.color || '#FF4D00',
+      targetDaysPerWeek: params.targetDaysPerWeek || 7,
+      completedDates: [today],
+      streak: 1,
+      createdAt: today,
+    };
+
+    const current = this.getPersonalHabits();
+    const updated = [newHabit, ...current];
+    this.savePersonalHabits(updated);
+    return { habits: updated, newHabit };
+  }
+
+  static deletePersonalHabit(habitId: string): PersonalHabit[] {
+    const current = this.getPersonalHabits();
+    const updated = current.filter((h) => h.id !== habitId);
+    this.savePersonalHabits(updated);
+    return updated;
+  }
+
   // Reset demo data
   static resetToDefault(): void {
     localStorage.clear();
@@ -731,6 +897,8 @@ export class DailyStorageService {
     this.saveAllPosts(INITIAL_POSTS);
     this.saveAllMessages(INITIAL_MESSAGES);
     this.saveAllGroups(SAMPLE_GROUPS);
+    this.savePersonalHabits(INITIAL_PERSONAL_HABITS);
+    this.saveBlockedUserIds([]);
     this.saveSavedPostIds(['post_1', 'post_3']);
     this.saveReportedPostIds([]);
     this.setOnboarded(true);

@@ -1,4 +1,4 @@
-import { User, Post, Message, Group } from '../types';
+import { User, Post, Message, Group, PersonalHabit } from '../types';
 
 // Helper to generate past dates
 export const getPastDate = (daysAgo: number): string => {
@@ -39,10 +39,69 @@ export const INITIAL_CURRENT_USER: User = {
   followersCount: 142,
   followingCount: 38,
   followedUserIds: ['user_sarah', 'user_elena', 'user_marcus'],
+  blockedUserIds: [],
   lastPostedDate: getPastDate(0),
   joinedDate: '2026-06-15',
   isCurrentUser: true,
 };
+
+export const INITIAL_PERSONAL_HABITS: PersonalHabit[] = [
+  {
+    id: 'habit_1',
+    title: '45m Morning Workout',
+    category: 'Fitness',
+    icon: '🏋️‍♂️',
+    color: '#FF4D00',
+    targetDaysPerWeek: 6,
+    completedDates: [getPastDate(0), getPastDate(1), getPastDate(2), getPastDate(3), getPastDate(4), getPastDate(5), getPastDate(6)],
+    streak: 7,
+    createdAt: '2026-08-01',
+  },
+  {
+    id: 'habit_2',
+    title: 'Code Daily AI Project',
+    category: 'Productivity',
+    icon: '💻',
+    color: '#3B82F6',
+    targetDaysPerWeek: 7,
+    completedDates: [getPastDate(0), getPastDate(1), getPastDate(2), getPastDate(3), getPastDate(4)],
+    streak: 5,
+    createdAt: '2026-08-05',
+  },
+  {
+    id: 'habit_3',
+    title: 'Read 20 Pages Non-Fiction',
+    category: 'Learning',
+    icon: '📚',
+    color: '#10B981',
+    targetDaysPerWeek: 7,
+    completedDates: [getPastDate(0), getPastDate(1), getPastDate(2)],
+    streak: 3,
+    createdAt: '2026-08-10',
+  },
+  {
+    id: 'habit_4',
+    title: '10m Mindfulness Meditation',
+    category: 'Mindfulness',
+    icon: '🧘',
+    color: '#8B5CF6',
+    targetDaysPerWeek: 5,
+    completedDates: [getPastDate(1), getPastDate(2), getPastDate(3)],
+    streak: 0,
+    createdAt: '2026-08-12',
+  },
+  {
+    id: 'habit_5',
+    title: 'Drink 3 Liters of Water',
+    category: 'Health',
+    icon: '💧',
+    color: '#06B6D4',
+    targetDaysPerWeek: 7,
+    completedDates: [getPastDate(0), getPastDate(1), getPastDate(2), getPastDate(3), getPastDate(4), getPastDate(5), getPastDate(6), getPastDate(7)],
+    streak: 8,
+    createdAt: '2026-08-01',
+  },
+];
 
 export const SAMPLE_USERS: User[] = [
   {

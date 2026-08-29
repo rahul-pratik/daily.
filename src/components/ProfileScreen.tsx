@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { Flame, Grid, List, Edit3, Settings, Share2, Sparkles, CheckCircle2, RotateCcw, AlertTriangle, X, Bookmark, Image as ImageIcon, BarChart3, TrendingUp } from 'lucide-react';
-import { User, Post } from '../types';
+import { Flame, Grid, List, Edit3, Settings, Share2, Sparkles, CheckCircle2, RotateCcw, AlertTriangle, X, Bookmark, Image as ImageIcon, BarChart3, TrendingUp, Plus, Check, Trash2, Zap, Target, Calendar } from 'lucide-react';
+import { User, Post, PersonalHabit } from '../types';
 import { PostCard } from './PostCard';
+import { DailyStorageService, getTodayDateString } from '../services/storage';
+import { vibrateLight, vibrateSuccess } from '../services/haptics';
 
 interface ProfileScreenProps {
   currentUser: User;
@@ -38,11 +40,21 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onOpenInsights,
   onDeletePost,
 }) => {
-  const [profileTab, setProfileTab] = useState<'my_posts' | 'saved'>('my_posts');
+  const [profileTab, setProfileTab] = useState<'my_posts' | 'habits' | 'saved'>('habits');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+
+  // Personal habits state
+  const [habits, setHabits] = useState<PersonalHabit[]>(() => DailyStorageService.getPersonalHabits());
+  const [showAddHabitModal, setShowAddHabitModal] = useState(false);
+  const [newHabitTitle, setNewHabitTitle] = useState('');
+  const [newHabitCategory, setNewHabitCategory] = useState<PersonalHabit['category']>('Fitness');
+  const [newHabitIcon, setNewHabitIcon] = useState('💪');
+  const [newHabitTarget, setNewHabitTarget] = useState(7);
+
+  const today = getTodayDateString();
 
   // Filter posts created by current user
   const userPosts = posts.filter((p) => p.userId === currentUser.id);
@@ -57,6 +69,51 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
   };
+
+  const handleToggleHabit = (habitId: string) => {
+    const { habits: updatedHabits, isCompletedToday } = DailyStorageService.toggleHabitToday(habitId);
+    setHabits(updatedHabits);
+    if (isCompletedToday) {
+      vibrateSuccess();
+    } else {
+      vibrateLight();
+    }
+  };
+
+  const handleCreateHabit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newHabitTitle.trim()) return;
+
+    const categoryColors: Record<PersonalHabit['category'], string> = {
+      Fitness: '#FF4D00',
+      Productivity: '#38BDF8',
+      Learning: '#A855F7',
+      Health: '#22C55E',
+      Mindfulness: '#EAB308',
+      Creativity: '#EC4899',
+    };
+
+    const { habits: updated } = DailyStorageService.addPersonalHabit({
+      title: newHabitTitle.trim(),
+      category: newHabitCategory,
+      icon: newHabitIcon,
+      color: categoryColors[newHabitCategory] || '#FF4D00',
+      targetDaysPerWeek: newHabitTarget,
+    });
+
+    setHabits(updated);
+    setNewHabitTitle('');
+    setShowAddHabitModal(false);
+    vibrateSuccess();
+  };
+
+  const handleDeleteHabit = (habitId: string) => {
+    const updated = DailyStorageService.deletePersonalHabit(habitId);
+    setHabits(updated);
+    vibrateLight();
+  };
+
+  const completedTodayCount = habits.filter((h) => h.completedDates.includes(today)).length;
 
   return (
     <div className="w-full pb-24 pt-2 px-3 sm:px-4 max-w-lg mx-auto space-y-4">
@@ -268,11 +325,22 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       {/* Profile Tabs & View Selector */}
       <div className="space-y-3 pt-2">
         <div className="flex items-center justify-between border-b border-white/5 pb-3">
-          {/* My Posts vs Saved Tabs */}
-          <div className="flex items-center gap-1.5 bg-white/5 p-1 rounded-2xl border border-white/5">
+          {/* Tab buttons */}
+          <div className="flex items-center gap-1 bg-white/5 p-1 rounded-2xl border border-white/5 overflow-x-auto no-scrollbar">
+            <button
+              onClick={() => setProfileTab('habits')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                profileTab === 'habits'
+                  ? 'bg-white text-black shadow-sm'
+                  : 'text-white/50 hover:text-white'
+              }`}
+            >
+              <Zap className="w-3.5 h-3.5 text-[#FF4D00]" />
+              <span>Habits ({habits.length})</span>
+            </button>
             <button
               onClick={() => setProfileTab('my_posts')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
                 profileTab === 'my_posts'
                   ? 'bg-white text-black shadow-sm'
                   : 'text-white/50 hover:text-white'
@@ -283,7 +351,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             </button>
             <button
               onClick={() => setProfileTab('saved')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
                 profileTab === 'saved'
                   ? 'bg-white text-black shadow-sm'
                   : 'text-white/50 hover:text-white'
@@ -294,34 +362,151 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             </button>
           </div>
 
-          {/* Grid vs List View Selector */}
-          <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
+          {/* Grid vs List View Selector (Only for posts/saved) */}
+          {profileTab !== 'habits' ? (
+            <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-2 rounded-lg transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center ${
+                  viewMode === 'grid' ? 'bg-white text-black' : 'text-white/40 hover:text-white'
+                }`}
+                title="Grid View"
+                aria-label="Grid View"
+              >
+                <Grid className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-2 rounded-lg transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center ${
+                  viewMode === 'list' ? 'bg-white text-black' : 'text-white/40 hover:text-white'
+                }`}
+                title="List View"
+                aria-label="List View"
+              >
+                <List className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
             <button
-              onClick={() => setViewMode('grid')}
-              className={`p-2 rounded-lg transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center ${
-                viewMode === 'grid' ? 'bg-white text-black' : 'text-white/40 hover:text-white'
-              }`}
-              title="Grid View"
-              aria-label="Grid View"
+              onClick={() => setShowAddHabitModal(true)}
+              className="px-3 py-1.5 rounded-xl bg-[#FF4D00] hover:bg-[#ff5d19] text-black font-black text-xs flex items-center gap-1 shadow-md shadow-[#FF4D00]/20 transition-all active:scale-95"
             >
-              <Grid className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5 stroke-[3]" />
+              <span>New Habit</span>
             </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-2 rounded-lg transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center ${
-                viewMode === 'list' ? 'bg-white text-black' : 'text-white/40 hover:text-white'
-              }`}
-              title="List View"
-              aria-label="List View"
-            >
-              <List className="w-4 h-4" />
-            </button>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* Posts Content */}
-      {activeDisplayPosts.length > 0 ? (
+      {/* Tab Content */}
+      {profileTab === 'habits' ? (
+        <div className="space-y-3">
+          {/* Habits Summary Header Card */}
+          <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#FF4D00]/10 border border-[#FF4D00]/20 flex items-center justify-center text-[#FF4D00]">
+                <Target className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                  Daily Habit Tracker
+                </h3>
+                <p className="text-xs text-white/50">
+                  {completedTodayCount} of {habits.length} habits completed today
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <span className="text-xs font-mono font-bold text-[#FF4D00]">
+                {habits.length > 0 ? Math.round((completedTodayCount / habits.length) * 100) : 0}%
+              </span>
+              <span className="text-[10px] text-white/40 block">Done Today</span>
+            </div>
+          </div>
+
+          {/* Habits List */}
+          {habits.length > 0 ? (
+            <div className="space-y-2.5">
+              {habits.map((habit) => {
+                const isCompleted = habit.completedDates.includes(today);
+                return (
+                  <div
+                    key={habit.id}
+                    className={`p-3.5 sm:p-4 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
+                      isCompleted
+                        ? 'bg-emerald-500/5 border-emerald-500/20'
+                        : 'bg-white/5 border-white/5 hover:border-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      {/* Habit Icon */}
+                      <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-lg shrink-0">
+                        {habit.icon}
+                      </div>
+
+                      {/* Habit Details */}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h4 className={`text-xs sm:text-sm font-bold truncate ${isCompleted ? 'text-white' : 'text-white/90'}`}>
+                            {habit.title}
+                          </h4>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px] font-bold text-[#FF4D00] bg-[#FF4D00]/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Flame className="w-2.5 h-2.5 fill-[#FF4D00]" />
+                            {habit.streak}d streak
+                          </span>
+                          <span className="text-[10px] text-white/40 font-medium">
+                            {habit.targetDaysPerWeek}x / week
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions: Check-in toggle & Delete */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => handleToggleHabit(habit.id)}
+                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 min-h-[38px] active:scale-95 ${
+                          isCompleted
+                            ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/20'
+                            : 'bg-white/10 hover:bg-white/15 text-white border border-white/10'
+                        }`}
+                        title={isCompleted ? 'Mark uncompleted' : 'Mark completed for today'}
+                      >
+                        <Check className={`w-3.5 h-3.5 ${isCompleted ? 'stroke-[3]' : 'opacity-40'}`} />
+                        <span>{isCompleted ? 'Done' : 'Check in'}</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleDeleteHabit(habit.id)}
+                        className="p-2 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-colors min-h-[38px] min-w-[38px] flex items-center justify-center"
+                        title="Delete habit"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-12 bg-white/5 rounded-[28px] border border-white/10 p-6">
+              <Target className="w-8 h-8 text-white/30 mx-auto mb-2" />
+              <h3 className="font-bold text-white text-sm">No habits defined</h3>
+              <p className="text-xs text-white/40 mt-1 max-w-xs mx-auto">
+                Define daily habits like morning workouts, coding, reading, or meditation to track your streaks.
+              </p>
+              <button
+                onClick={() => setShowAddHabitModal(true)}
+                className="mt-4 px-4 py-2 bg-[#FF4D00] text-black font-black text-xs rounded-xl shadow-lg shadow-[#FF4D00]/20"
+              >
+                + Add Your First Habit
+              </button>
+            </div>
+          )}
+        </div>
+      ) : activeDisplayPosts.length > 0 ? (
         viewMode === 'grid' ? (
           <div className="grid grid-cols-3 gap-2">
             {activeDisplayPosts.map((post) => (
@@ -410,6 +595,117 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               </p>
             </>
           )}
+        </div>
+      )}
+
+      {/* Add New Habit Modal */}
+      {showAddHabitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-sm bg-[#111111] border border-white/15 rounded-3xl p-5 shadow-2xl text-white space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-[#FF4D00]/10 text-[#FF4D00]">
+                  <Zap className="w-4 h-4" />
+                </div>
+                <h3 className="text-base font-black text-white">Define Daily Habit</h3>
+              </div>
+              <button
+                onClick={() => setShowAddHabitModal(false)}
+                className="p-1.5 rounded-full hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateHabit} className="space-y-3.5">
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-white/60 block mb-1">
+                  Habit Title
+                </label>
+                <input
+                  type="text"
+                  value={newHabitTitle}
+                  onChange={(e) => setNewHabitTitle(e.target.value)}
+                  placeholder="e.g., 30-min Morning Run, Code 1 Hr"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs placeholder:text-white/30 focus:outline-none focus:border-[#FF4D00]"
+                  autoFocus
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-white/60 block mb-1">
+                  Category & Emoji
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { cat: 'Fitness' as const, emoji: '💪', label: 'Fitness' },
+                    { cat: 'Productivity' as const, emoji: '💻', label: 'Productivity' },
+                    { cat: 'Learning' as const, emoji: '📚', label: 'Learning' },
+                    { cat: 'Health' as const, emoji: '🥗', label: 'Health' },
+                    { cat: 'Mindfulness' as const, emoji: '🧘', label: 'Mindfulness' },
+                    { cat: 'Creativity' as const, emoji: '🎨', label: 'Creativity' },
+                  ].map((item) => (
+                    <button
+                      key={item.cat}
+                      type="button"
+                      onClick={() => {
+                        setNewHabitCategory(item.cat);
+                        setNewHabitIcon(item.emoji);
+                      }}
+                      className={`p-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all ${
+                        newHabitCategory === item.cat
+                          ? 'bg-[#FF4D00] text-black border-[#FF4D00]'
+                          : 'bg-white/5 text-white/70 border-white/10 hover:border-white/20'
+                      }`}
+                    >
+                      <span>{item.emoji}</span>
+                      <span className="text-[11px]">{item.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-white/60 block mb-1">
+                  Weekly Goal ({newHabitTarget} days / week)
+                </label>
+                <div className="flex items-center gap-1.5">
+                  {[1, 2, 3, 4, 5, 6, 7].map((num) => (
+                    <button
+                      key={num}
+                      type="button"
+                      onClick={() => setNewHabitTarget(num)}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                        newHabitTarget === num
+                          ? 'bg-white text-black border-white'
+                          : 'bg-white/5 text-white/50 border-white/10 hover:text-white'
+                      }`}
+                    >
+                      {num}d
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center gap-2">
+                <button
+                  type="submit"
+                  disabled={!newHabitTitle.trim()}
+                  className="flex-1 py-2.5 bg-[#FF4D00] hover:bg-[#ff5d19] disabled:opacity-40 text-black font-black text-xs rounded-xl shadow-lg shadow-[#FF4D00]/20 transition-all"
+                >
+                  Save Habit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAddHabitModal(false)}
+                  className="px-4 py-2.5 bg-white/10 hover:bg-white/15 text-white text-xs font-bold rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

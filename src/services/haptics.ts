@@ -39,6 +39,11 @@ export const vibrateLight = () => {
   triggerVibration(30);
 };
 
+/** Success interaction tactile vibration */
+export const vibrateSuccess = () => {
+  triggerVibration([40, 50, 60]);
+};
+
 /** Subtle haptic tick when pull-to-refresh reaches trigger threshold */
 export const vibratePullThreshold = () => {
   triggerVibration(25);

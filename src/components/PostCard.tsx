@@ -20,6 +20,7 @@ interface PostCardProps {
   onSharePost?: (post: Post) => void;
   onOpenInsights?: (post: Post) => void;
   onDeletePost?: (postId: string) => void;
+  isFocusMode?: boolean;
 }
 
 export const PostCard: React.FC<PostCardProps> = ({
@@ -38,6 +39,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   onSharePost,
   onOpenInsights,
   onDeletePost,
+  isFocusMode = false,
 }) => {
   const [showHeartBurst, setShowHeartBurst] = useState(false);
   const [localSaved, setLocalSaved] = useState(false);
@@ -162,132 +164,134 @@ export const PostCard: React.FC<PostCardProps> = ({
         </div>
 
         {/* Follow Button & Options */}
-        <div className="flex items-center gap-2 relative">
-          {!isMyPost && (
-            <button
-              onClick={() => onToggleFollow(post.userId)}
-              className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1 min-h-[32px] ${
-                isFollowing
-                  ? 'bg-white/10 text-white hover:bg-white/15'
-                  : 'bg-white text-black hover:bg-white/90'
-              }`}
-            >
-              {isFollowing ? (
-                <>
-                  <Check className="w-3 h-3 stroke-[3]" />
-                  <span>Following</span>
-                </>
-              ) : (
-                <>
-                  <UserPlus className="w-3 h-3" />
-                  <span>Follow</span>
-                </>
-              )}
-            </button>
-          )}
-
-          <div className="relative">
-            <button 
-              onClick={() => setShowOptionsMenu(!showOptionsMenu)}
-              className="text-white/40 hover:text-white p-1.5 rounded-lg hover:bg-white/5 transition-colors min-w-[32px] min-h-[32px] flex items-center justify-center"
-              aria-label="Post options"
-            >
-              <MoreHorizontal className="w-4 h-4" />
-            </button>
-
-            {showOptionsMenu && (
-              <div className="absolute right-0 top-9 w-48 bg-[#0A0A0A] border border-white/10 rounded-2xl p-1.5 shadow-2xl z-20 animate-in fade-in">
-                {isMyPost && onOpenInsights && (
-                  <button
-                    onClick={() => {
-                      setShowOptionsMenu(false);
-                      onOpenInsights(post);
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs text-[#FF4D00] hover:text-[#FF4D00] hover:bg-[#FF4D00]/10 rounded-xl flex items-center gap-2 font-bold"
-                  >
-                    <BarChart3 className="w-3.5 h-3.5 text-[#FF4D00]" />
-                    <span>Engagement Insights</span>
-                  </button>
-                )}
-
-                <button
-                  onClick={() => {
-                    setShowOptionsMenu(false);
-                    handleOpenShareModal();
-                  }}
-                  className="w-full text-left px-3 py-2 text-xs text-white/80 hover:text-white hover:bg-white/5 rounded-xl flex items-center gap-2"
-                >
-                  <Share2 className="w-3.5 h-3.5 text-[#FF4D00]" />
-                  <span>Share to Friends & Groups</span>
-                </button>
-
-                {onViewUser && (
-                  <button
-                    onClick={() => {
-                      setShowOptionsMenu(false);
-                      handleUserClick();
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs text-white/80 hover:text-white hover:bg-white/5 rounded-xl flex items-center gap-2"
-                  >
-                    <UserIcon className="w-3.5 h-3.5 text-[#FF4D00]" />
-                    <span>View Profile</span>
-                  </button>
-                )}
-
-                {!isMyPost && (
-                  <button
-                    onClick={() => {
-                      setShowOptionsMenu(false);
-                      onSendDM({
-                        id: post.userId,
-                        name: post.name,
-                        username: post.username,
-                        avatar: post.userAvatar,
-                        streak: post.userStreak,
-                      });
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs text-white/80 hover:text-white hover:bg-white/5 rounded-xl flex items-center gap-2"
-                  >
-                    <Send className="w-3.5 h-3.5 text-[#FF4D00]" />
-                    <span>Send Message</span>
-                  </button>
-                )}
-
-                {isMyPost && onDeletePost && (
-                  <button
-                    onClick={() => {
-                      setShowOptionsMenu(false);
-                      setShowDeleteConfirm(true);
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl flex items-center gap-2 font-semibold"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                    <span>Delete Post</span>
-                  </button>
-                )}
-
-                {!isMyPost && (
+        {!isFocusMode && (
+          <div className="flex items-center gap-2 relative">
+            {!isMyPost && (
+              <button
+                onClick={() => onToggleFollow(post.userId)}
+                className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1 min-h-[32px] ${
+                  isFollowing
+                    ? 'bg-white/10 text-white hover:bg-white/15'
+                    : 'bg-white text-black hover:bg-white/90'
+                }`}
+              >
+                {isFollowing ? (
                   <>
-                    <div className="my-1 border-t border-white/5" />
-                    <button
-                      onClick={handleReport}
-                      className="w-full text-left px-3 py-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl flex items-center gap-2"
-                    >
-                      <Flag className="w-3.5 h-3.5 text-red-400" />
-                      <span>Report Post</span>
-                    </button>
+                    <Check className="w-3.5 h-3.5 stroke-[3]" />
+                    <span>Following</span>
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="w-3 h-3" />
+                    <span>Follow</span>
                   </>
                 )}
-              </div>
+              </button>
             )}
+
+            <div className="relative">
+              <button 
+                onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+                className="text-white/40 hover:text-white p-1.5 rounded-lg hover:bg-white/5 transition-colors min-w-[32px] min-h-[32px] flex items-center justify-center"
+                aria-label="Post options"
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </button>
+
+              {showOptionsMenu && (
+                <div className="absolute right-0 top-9 w-48 bg-[#0A0A0A] border border-white/10 rounded-2xl p-1.5 shadow-2xl z-20 animate-in fade-in">
+                  {isMyPost && onOpenInsights && (
+                    <button
+                      onClick={() => {
+                        setShowOptionsMenu(false);
+                        onOpenInsights(post);
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs text-[#FF4D00] hover:text-[#FF4D00] hover:bg-[#FF4D00]/10 rounded-xl flex items-center gap-2 font-bold"
+                    >
+                      <BarChart3 className="w-3.5 h-3.5 text-[#FF4D00]" />
+                      <span>Engagement Insights</span>
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      setShowOptionsMenu(false);
+                      handleOpenShareModal();
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs text-white/80 hover:text-white hover:bg-white/5 rounded-xl flex items-center gap-2"
+                  >
+                    <Share2 className="w-3.5 h-3.5 text-[#FF4D00]" />
+                    <span>Share to Friends & Groups</span>
+                  </button>
+
+                  {onViewUser && (
+                    <button
+                      onClick={() => {
+                        setShowOptionsMenu(false);
+                        handleUserClick();
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs text-white/80 hover:text-white hover:bg-white/5 rounded-xl flex items-center gap-2"
+                    >
+                      <UserIcon className="w-3.5 h-3.5 text-[#FF4D00]" />
+                      <span>View Profile</span>
+                    </button>
+                  )}
+
+                  {!isMyPost && (
+                    <button
+                      onClick={() => {
+                        setShowOptionsMenu(false);
+                        onSendDM({
+                          id: post.userId,
+                          name: post.name,
+                          username: post.username,
+                          avatar: post.userAvatar,
+                          streak: post.userStreak,
+                        });
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs text-white/80 hover:text-white hover:bg-white/5 rounded-xl flex items-center gap-2"
+                    >
+                      <Send className="w-3.5 h-3.5 text-[#FF4D00]" />
+                      <span>Send Message</span>
+                    </button>
+                  )}
+
+                  {isMyPost && onDeletePost && (
+                    <button
+                      onClick={() => {
+                        setShowOptionsMenu(false);
+                        setShowDeleteConfirm(true);
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl flex items-center gap-2 font-semibold"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                      <span>Delete Post</span>
+                    </button>
+                  )}
+
+                  {!isMyPost && (
+                    <>
+                      <div className="my-1 border-t border-white/5" />
+                      <button
+                        onClick={handleReport}
+                        className="w-full text-left px-3 py-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl flex items-center gap-2"
+                      >
+                        <Flag className="w-3.5 h-3.5 text-red-400" />
+                        <span>Report Post</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </header>
 
       {/* Post Media (Image if present) with double-tap heart */}
       {post.imageUrl ? (
         <div
-          onClick={handleDoubleTap}
+          onClick={!isFocusMode ? handleDoubleTap : undefined}
           className="relative w-full aspect-[4/3] sm:aspect-[16/10] bg-[#0A0A0A] overflow-hidden cursor-pointer select-none"
         >
           <img
@@ -299,7 +303,7 @@ export const PostCard: React.FC<PostCardProps> = ({
           />
 
           {/* Heart burst animation on double tap */}
-          {showHeartBurst && (
+          {!isFocusMode && showHeartBurst && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none animate-ping">
               <Heart className="w-24 h-24 text-red-500 fill-red-500 drop-shadow-2xl opacity-90" />
             </div>
@@ -308,8 +312,8 @@ export const PostCard: React.FC<PostCardProps> = ({
       ) : null}
 
       {/* Caption & Content */}
-      <div className="p-4 space-y-2">
-        <p className="text-sm leading-relaxed text-white/80 break-words">
+      <div className={isFocusMode ? "p-5 space-y-3" : "p-4 space-y-2"}>
+        <p className={isFocusMode ? "text-base sm:text-lg leading-relaxed text-white font-normal break-words py-1 tracking-wide" : "text-sm leading-relaxed text-white/80 break-words"}>
           {post.content}
         </p>
 
@@ -331,101 +335,103 @@ export const PostCard: React.FC<PostCardProps> = ({
           </div>
         )}
 
-        {/* Action Bar (Like, Comment, Share, Send DM, Bookmark, Insights, Delete) */}
-        <div className="pt-2 flex items-center justify-between text-white/40">
-          <div className="flex items-center gap-3 sm:gap-4">
-            {/* Like Button */}
-            <button
-              onClick={() => onToggleLike(post.id)}
-              className="flex items-center gap-1.5 text-white/40 hover:text-white transition-transform active:scale-125 min-h-[36px] min-w-[36px] py-1"
-              aria-label="Like post"
-            >
-              <Heart
-                className={`w-4 h-4 transition-colors ${
-                  post.likedByMe
-                    ? 'text-red-500 fill-red-500 stroke-red-500'
-                    : 'stroke-2'
-                }`}
-              />
-              <span className="text-xs font-semibold">{post.likesCount}</span>
-            </button>
-
-            {/* Comment Button */}
-            <button
-              onClick={() => onOpenComments(post)}
-              className="flex items-center gap-1.5 text-white/40 hover:text-white transition-transform active:scale-110 min-h-[36px] min-w-[36px] py-1"
-              aria-label="Comment on post"
-            >
-              <MessageCircle className="w-4 h-4 stroke-2" />
-              <span className="text-xs font-semibold">{post.comments?.length || 0}</span>
-            </button>
-
-            {/* Send DM button */}
-            {!isMyPost && (
+        {/* Action Bar (Hidden in Focus Reading mode) */}
+        {!isFocusMode && (
+          <div className="pt-2 flex items-center justify-between text-white/40">
+            <div className="flex items-center gap-3 sm:gap-4">
+              {/* Like Button */}
               <button
-                onClick={() =>
-                  onSendDM({
-                    id: post.userId,
-                    name: post.name,
-                    username: post.username,
-                    avatar: post.userAvatar,
-                    streak: post.userStreak,
-                  })
-                }
-                className="text-white/40 hover:text-[#FF4D00] transition-colors p-1.5 rounded-lg hover:bg-white/5 min-h-[36px] min-w-[36px] flex items-center justify-center"
-                title="Send Direct Message"
+                onClick={() => onToggleLike(post.id)}
+                className="flex items-center gap-1.5 text-white/40 hover:text-white transition-transform active:scale-125 min-h-[36px] min-w-[36px] py-1"
+                aria-label="Like post"
               >
-                <Send className="w-3.5 h-3.5 stroke-2" />
+                <Heart
+                  className={`w-4 h-4 transition-colors ${
+                    post.likedByMe
+                      ? 'text-red-500 fill-red-500 stroke-red-500'
+                      : 'stroke-2'
+                  }`}
+                />
+                <span className="text-xs font-semibold">{post.likesCount}</span>
               </button>
-            )}
 
-            {/* Share to friends & groups button */}
+              {/* Comment Button */}
+              <button
+                onClick={() => onOpenComments(post)}
+                className="flex items-center gap-1.5 text-white/40 hover:text-white transition-transform active:scale-110 min-h-[36px] min-w-[36px] py-1"
+                aria-label="Comment on post"
+              >
+                <MessageCircle className="w-4 h-4 stroke-2" />
+                <span className="text-xs font-semibold">{post.comments?.length || 0}</span>
+              </button>
+
+              {/* Send DM button */}
+              {!isMyPost && (
+                <button
+                  onClick={() =>
+                    onSendDM({
+                      id: post.userId,
+                      name: post.name,
+                      username: post.username,
+                      avatar: post.userAvatar,
+                      streak: post.userStreak,
+                    })
+                  }
+                  className="text-white/40 hover:text-[#FF4D00] transition-colors p-1.5 rounded-lg hover:bg-white/5 min-h-[36px] min-w-[36px] flex items-center justify-center"
+                  title="Send Direct Message"
+                >
+                  <Send className="w-3.5 h-3.5 stroke-2" />
+                </button>
+              )}
+
+              {/* Share to friends & groups button */}
+              <button
+                onClick={handleOpenShareModal}
+                className="text-white/40 hover:text-white transition-colors flex items-center gap-1.5 text-xs py-1.5 px-2 rounded-lg hover:bg-white/5 relative min-h-[36px]"
+                title="Share to friends & groups"
+              >
+                <Share2 className="w-4 h-4 text-white/50 hover:text-[#FF4D00] transition-colors" />
+                <span className="font-semibold">Share</span>
+              </button>
+
+              {/* Insights button for own posts */}
+              {isMyPost && onOpenInsights && (
+                <button
+                  onClick={() => onOpenInsights(post)}
+                  className="transition-all flex items-center gap-1 text-[11px] py-1 px-2.5 rounded-lg border bg-[#FF4D00]/10 hover:bg-[#FF4D00]/20 text-[#FF4D00] border-[#FF4D00]/30 min-h-[32px]"
+                  title="View Post Engagement Statistics"
+                >
+                  <BarChart3 className="w-3.5 h-3.5" />
+                  <span className="font-bold">Stats</span>
+                </button>
+              )}
+
+              {/* Delete button for own posts */}
+              {isMyPost && onDeletePost && (
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="transition-all flex items-center gap-1 text-[11px] py-1 px-2 rounded-lg border bg-red-500/10 hover:bg-red-500/20 text-red-400 border-red-500/20 min-h-[32px]"
+                  title="Delete Post"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span className="font-bold">Delete</span>
+                </button>
+              )}
+            </div>
+
+            {/* Bookmark */}
             <button
-              onClick={handleOpenShareModal}
-              className="text-white/40 hover:text-white transition-colors flex items-center gap-1.5 text-xs py-1.5 px-2 rounded-lg hover:bg-white/5 relative min-h-[36px]"
-              title="Share to friends & groups"
+              onClick={handleSaveToggle}
+              className={`text-white/40 hover:text-white transition-transform active:scale-110 p-1.5 rounded-lg hover:bg-white/5 min-h-[36px] min-w-[36px] flex items-center justify-center ${
+                isSaved ? 'text-[#FF4D00] fill-[#FF4D00]' : ''
+              }`}
+              aria-label={isSaved ? 'Unsave post' : 'Save post'}
+              title={isSaved ? 'Remove from Saved' : 'Save to Profile'}
             >
-              <Share2 className="w-4 h-4 text-white/50 hover:text-[#FF4D00] transition-colors" />
-              <span className="font-semibold">Share</span>
+              <Bookmark className={`w-4 h-4 ${isSaved ? 'fill-[#FF4D00] text-[#FF4D00]' : 'stroke-2'}`} />
             </button>
-
-            {/* Insights button for own posts */}
-            {isMyPost && onOpenInsights && (
-              <button
-                onClick={() => onOpenInsights(post)}
-                className="transition-all flex items-center gap-1 text-[11px] py-1 px-2.5 rounded-lg border bg-[#FF4D00]/10 hover:bg-[#FF4D00]/20 text-[#FF4D00] border-[#FF4D00]/30 min-h-[32px]"
-                title="View Post Engagement Statistics"
-              >
-                <BarChart3 className="w-3.5 h-3.5" />
-                <span className="font-bold">Stats</span>
-              </button>
-            )}
-
-            {/* Delete button for own posts */}
-            {isMyPost && onDeletePost && (
-              <button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="transition-all flex items-center gap-1 text-[11px] py-1 px-2 rounded-lg border bg-red-500/10 hover:bg-red-500/20 text-red-400 border-red-500/20 min-h-[32px]"
-                title="Delete Post"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span className="font-bold">Delete</span>
-              </button>
-            )}
           </div>
-
-          {/* Bookmark */}
-          <button
-            onClick={handleSaveToggle}
-            className={`text-white/40 hover:text-white transition-transform active:scale-110 p-1.5 rounded-lg hover:bg-white/5 min-h-[36px] min-w-[36px] flex items-center justify-center ${
-              isSaved ? 'text-[#FF4D00] fill-[#FF4D00]' : ''
-            }`}
-            aria-label={isSaved ? 'Unsave post' : 'Save post'}
-            title={isSaved ? 'Remove from Saved' : 'Save to Profile'}
-          >
-            <Bookmark className={`w-4 h-4 ${isSaved ? 'fill-[#FF4D00] text-[#FF4D00]' : 'stroke-2'}`} />
-          </button>
-        </div>
+        )}
       </div>
 
       {/* Delete Confirmation Modal */}

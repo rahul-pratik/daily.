@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, Flame, CheckCircle2, UserPlus, Check, MessageSquare, Share2, Grid, List, Sparkles } from 'lucide-react';
+import { X, Flame, CheckCircle2, UserPlus, Check, MessageSquare, Share2, Grid, List, Sparkles, UserX, ShieldAlert, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { User, Post } from '../types';
+import { vibrateStreakMilestone } from '../services/haptics';
 
 interface UserProfileModalProps {
   user: User | null;
@@ -12,6 +13,8 @@ interface UserProfileModalProps {
   onSendDM: (targetUser: { id: string; name: string; username: string; avatar: string; streak: number }) => void;
   onToggleLike: (postId: string) => void;
   onOpenComments: (post: Post) => void;
+  onToggleBlock?: (userId: string) => void;
+  isBlocked?: boolean;
 }
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
@@ -24,20 +27,32 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onSendDM,
   onToggleLike,
   onOpenComments,
+  onToggleBlock,
+  isBlocked: isBlockedProp,
 }) => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [copiedLink, setCopiedLink] = useState(false);
+  const [showBlockConfirm, setShowBlockConfirm] = useState(false);
 
   if (!isOpen || !user) return null;
 
-  const isMe = user.id === currentUser.id;
-  const isFollowing = currentUser.followedUserIds.includes(user.id);
+  const isMe = user.id === currentUser.id || user.id === 'user_me';
+  const isFollowing = currentUser.followedUserIds?.includes(user.id) || false;
+  const isBlocked = isBlockedProp !== undefined ? isBlockedProp : (currentUser.blockedUserIds?.includes(user.id) || false);
   const userPosts = posts.filter((p) => p.userId === user.id);
 
   const handleShare = () => {
     navigator.clipboard?.writeText(window.location.href);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  const handleConfirmBlock = () => {
+    vibrateStreakMilestone();
+    if (onToggleBlock) {
+      onToggleBlock(user.id);
+    }
+    setShowBlockConfirm(false);
   };
 
   return (
@@ -50,6 +65,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             {user.currentStreak > 0 && (
               <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#FF4D00]/10 text-[#FF4D00] border border-[#FF4D00]/30 flex items-center gap-1">
                 <Flame className="w-3 h-3 fill-[#FF4D00]" /> {user.currentStreak}d Streak
+              </span>
+            )}
+            {isBlocked && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 flex items-center gap-1">
+                <ShieldAlert className="w-3 h-3 text-red-400" /> Blocked
               </span>
             )}
           </div>
@@ -105,8 +125,24 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             </div>
           </div>
 
-          {/* Action buttons (Follow & Message) */}
-          {!isMe && (
+          {/* Blocked Notice Banner if blocked */}
+          {isBlocked && (
+            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-between text-xs text-red-300">
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 text-red-400 shrink-0" />
+                <span>You blocked @{user.username}. Their posts are hidden from your feed.</span>
+              </div>
+              <button
+                onClick={() => onToggleBlock && onToggleBlock(user.id)}
+                className="px-2.5 py-1 bg-red-500/20 hover:bg-red-500/30 text-white rounded-lg text-[10px] font-bold border border-red-500/30 transition-colors shrink-0 ml-2"
+              >
+                Unblock
+              </button>
+            </div>
+          )}
+
+          {/* Action buttons (Follow & Message & Block) */}
+          {!isMe && !isBlocked && (
             <div className="grid grid-cols-2 gap-2 pt-1">
               <button
                 onClick={() => onToggleFollow(user.id)}
@@ -144,6 +180,38 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               >
                 <MessageSquare className="w-4 h-4" />
                 <span>Direct Message</span>
+              </button>
+            </div>
+          )}
+
+          {/* Block user option button for other users */}
+          {!isMe && (
+            <div className="pt-1 flex items-center justify-end">
+              <button
+                onClick={() => {
+                  if (isBlocked) {
+                    if (onToggleBlock) onToggleBlock(user.id);
+                  } else {
+                    setShowBlockConfirm(true);
+                  }
+                }}
+                className={`text-[11px] font-medium flex items-center gap-1.5 px-3 py-1.5 rounded-xl border transition-all ${
+                  isBlocked
+                    ? 'text-emerald-400 border-emerald-500/20 bg-emerald-500/10 hover:bg-emerald-500/20'
+                    : 'text-white/40 hover:text-red-400 border-white/10 hover:border-red-500/30 hover:bg-red-500/10'
+                }`}
+              >
+                {isBlocked ? (
+                  <>
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>Unblock @{user.username}</span>
+                  </>
+                ) : (
+                  <>
+                    <UserX className="w-3.5 h-3.5" />
+                    <span>Block User</span>
+                  </>
+                )}
               </button>
             </div>
           )}
@@ -338,6 +406,37 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             )}
           </div>
         </div>
+
+        {/* Confirmation Modal for Blocking */}
+        {showBlockConfirm && (
+          <div className="absolute inset-0 bg-black/90 backdrop-blur-sm z-30 flex items-center justify-center p-4 animate-in fade-in duration-150">
+            <div className="bg-[#141414] border border-red-500/30 rounded-3xl p-5 max-w-xs w-full text-center space-y-4 shadow-2xl">
+              <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center mx-auto">
+                <UserX className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Block @{user.username}?</h3>
+                <p className="text-xs text-white/60 mt-1.5 leading-relaxed">
+                  They will no longer appear on your social feed, discover tab, or direct messages.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  onClick={() => setShowBlockConfirm(false)}
+                  className="py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-semibold transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmBlock}
+                  className="py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition-colors shadow-lg shadow-red-600/30"
+                >
+                  Yes, Block
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
