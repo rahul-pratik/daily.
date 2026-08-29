@@ -168,6 +168,8 @@ export const INITIAL_POSTS: Post[] = [
     tags: ['Coding', 'AI', 'Build Projects'],
     likesCount: 142,
     likedByMe: true,
+    viewsCount: 840,
+    sharesCount: 28,
     comments: [
       {
         id: 'c1',
@@ -206,6 +208,8 @@ export const INITIAL_POSTS: Post[] = [
     tags: ['Run', 'Fitness', 'Early Rise'],
     likesCount: 88,
     likedByMe: false,
+    viewsCount: 520,
+    sharesCount: 16,
     comments: [
       {
         id: 'c3',
@@ -234,6 +238,8 @@ export const INITIAL_POSTS: Post[] = [
     tags: ['Design', 'AI', 'Build Projects'],
     likesCount: 215,
     likedByMe: true,
+    viewsCount: 1290,
+    sharesCount: 45,
     comments: [
       {
         id: 'c4',
@@ -262,6 +268,8 @@ export const INITIAL_POSTS: Post[] = [
     tags: ['Coding', 'Build Projects', 'Run'],
     likesCount: 67,
     likedByMe: true,
+    viewsCount: 412,
+    sharesCount: 18,
     comments: [],
     createdAt: 'Today, 9:30 AM',
     isDailyStreakPost: true,
@@ -279,6 +287,8 @@ export const INITIAL_POSTS: Post[] = [
     tags: ['Coding', 'Build Projects', 'Gym'],
     likesCount: 45,
     likedByMe: false,
+    viewsCount: 295,
+    sharesCount: 9,
     comments: [
       {
         id: 'c_me6',
@@ -307,6 +317,8 @@ export const INITIAL_POSTS: Post[] = [
     tags: ['Gym', 'Coding', 'Early Rise'],
     likesCount: 38,
     likedByMe: false,
+    viewsCount: 230,
+    sharesCount: 7,
     comments: [],
     createdAt: '2 days ago',
     isDailyStreakPost: true,
@@ -324,6 +336,8 @@ export const INITIAL_POSTS: Post[] = [
     tags: ['Read', 'Study', 'Coding'],
     likesCount: 52,
     likedByMe: true,
+    viewsCount: 340,
+    sharesCount: 12,
     comments: [],
     createdAt: '3 days ago',
     isDailyStreakPost: true,
@@ -341,6 +355,8 @@ export const INITIAL_POSTS: Post[] = [
     tags: ['Run', 'Fitness', 'Design'],
     likesCount: 41,
     likedByMe: false,
+    viewsCount: 260,
+    sharesCount: 8,
     comments: [],
     createdAt: '4 days ago',
     isDailyStreakPost: true,
@@ -358,6 +374,8 @@ export const INITIAL_POSTS: Post[] = [
     tags: ['Build Projects', 'Meditate', 'Early Rise'],
     likesCount: 34,
     likedByMe: false,
+    viewsCount: 210,
+    sharesCount: 5,
     comments: [],
     createdAt: '5 days ago',
     isDailyStreakPost: true,
@@ -375,6 +393,8 @@ export const INITIAL_POSTS: Post[] = [
     tags: ['Build Projects', 'Coding', 'Startups'],
     likesCount: 60,
     likedByMe: true,
+    viewsCount: 380,
+    sharesCount: 14,
     comments: [
       {
         id: 'c_me1',
@@ -403,6 +423,8 @@ export const INITIAL_POSTS: Post[] = [
     tags: ['Reading', 'Startups', 'Study'],
     likesCount: 178,
     likedByMe: false,
+    viewsCount: 980,
+    sharesCount: 32,
     comments: [],
     createdAt: 'Yesterday',
     isDailyStreakPost: true,
@@ -458,6 +480,30 @@ export const SAMPLE_GROUPS: Group[] = [
     lastActivity: '3h ago',
     createdBy: 'user_me',
     createdAt: '2026-08-01',
+  },
+  {
+    id: 'group_ai',
+    name: 'AI Hackers & Agents Lab 🤖',
+    description: 'Experimenting with LLMs, multi-agent systems, and autonomous coding tools.',
+    avatar: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&auto=format&fit=crop&q=80',
+    memberCount: 7,
+    memberIds: ['user_sarah', 'user_elena', 'user_david'],
+    category: 'AI',
+    lastActivity: '1h ago',
+    createdBy: 'user_sarah',
+    createdAt: '2026-08-05',
+  },
+  {
+    id: 'group_design',
+    name: 'UI/UX & Product Craft 🎨',
+    description: 'Polishing typography, micro-interactions, dark mode palettes, and design tokens.',
+    avatar: 'https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=400&auto=format&fit=crop&q=80',
+    memberCount: 6,
+    memberIds: ['user_elena', 'user_maya', 'user_david'],
+    category: 'Design',
+    lastActivity: '4h ago',
+    createdBy: 'user_elena',
+    createdAt: '2026-08-10',
   },
 ];
 

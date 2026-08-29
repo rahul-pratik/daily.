@@ -47,6 +47,8 @@ export interface Post {
   isDailyStreakPost: boolean;
   postDate?: string; // YYYY-MM-DD format
   isReported?: boolean;
+  viewsCount?: number;
+  sharesCount?: number;
 }
 
 export type ReportReason =

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, MessageCircle, Send, Bookmark, Flame, MoreHorizontal, Check, UserPlus, Share2, Eye, User as UserIcon, Flag, ShieldAlert } from 'lucide-react';
+import { Heart, MessageCircle, Send, Bookmark, Flame, MoreHorizontal, Check, UserPlus, Share2, Eye, User as UserIcon, Flag, ShieldAlert, BarChart3 } from 'lucide-react';
 import { Post, User } from '../types';
 import { vibrateLight } from '../services/haptics';
 
@@ -17,6 +17,7 @@ interface PostCardProps {
   onReportPost?: (post: Post) => void;
   isReported?: boolean;
   onSharePost?: (post: Post) => void;
+  onOpenInsights?: (post: Post) => void;
 }
 
 export const PostCard: React.FC<PostCardProps> = ({
@@ -33,6 +34,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   onReportPost,
   isReported,
   onSharePost,
+  onOpenInsights,
 }) => {
   const [showHeartBurst, setShowHeartBurst] = useState(false);
   const [localSaved, setLocalSaved] = useState(false);
@@ -200,6 +202,19 @@ export const PostCard: React.FC<PostCardProps> = ({
 
             {showOptionsMenu && (
               <div className="absolute right-0 top-9 w-44 bg-[#0A0A0A] border border-white/10 rounded-2xl p-1.5 shadow-2xl z-20 animate-in fade-in">
+                {isMyPost && onOpenInsights && (
+                  <button
+                    onClick={() => {
+                      setShowOptionsMenu(false);
+                      onOpenInsights(post);
+                    }}
+                    className="w-full text-left px-3 py-2 text-xs text-[#FF4D00] hover:text-[#FF4D00] hover:bg-[#FF4D00]/10 rounded-xl flex items-center gap-2 font-bold"
+                  >
+                    <BarChart3 className="w-3.5 h-3.5 text-[#FF4D00]" />
+                    <span>Post Engagement Insights</span>
+                  </button>
+                )}
+
                 <button
                   onClick={() => {
                     setShowOptionsMenu(false);
@@ -393,6 +408,18 @@ export const PostCard: React.FC<PostCardProps> = ({
                 </>
               )}
             </button>
+
+            {/* Insights button for own posts */}
+            {isMyPost && onOpenInsights && (
+              <button
+                onClick={() => onOpenInsights(post)}
+                className="transition-all flex items-center gap-1 text-[11px] py-1 px-2 rounded-lg border bg-[#FF4D00]/10 hover:bg-[#FF4D00]/20 text-[#FF4D00] border-[#FF4D00]/30 min-h-[32px]"
+                title="View Post Engagement Statistics"
+              >
+                <BarChart3 className="w-3.5 h-3.5" />
+                <span className="font-bold">Stats</span>
+              </button>
+            )}
           </div>
 
           {/* Bookmark */}

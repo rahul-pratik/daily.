@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Flame, Grid, List, Edit3, Settings, Share2, Sparkles, CheckCircle2, RotateCcw, AlertTriangle, X, Bookmark, Image as ImageIcon } from 'lucide-react';
+import { Flame, Grid, List, Edit3, Settings, Share2, Sparkles, CheckCircle2, RotateCcw, AlertTriangle, X, Bookmark, Image as ImageIcon, BarChart3, TrendingUp } from 'lucide-react';
 import { User, Post } from '../types';
 import { PostCard } from './PostCard';
 
@@ -17,6 +17,7 @@ interface ProfileScreenProps {
   onToggleFollow?: (userId: string) => void;
   onSendDM?: (targetUser: { id: string; name: string; username: string; avatar: string; streak: number }) => void;
   onSharePost?: (post: Post) => void;
+  onOpenInsights?: (post: Post) => void;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
@@ -33,6 +34,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onToggleFollow = () => {},
   onSendDM = () => {},
   onSharePost,
+  onOpenInsights,
 }) => {
   const [profileTab, setProfileTab] = useState<'my_posts' | 'saved'>('my_posts');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -238,15 +240,26 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           )}
         </div>
 
-        {/* Edit Profile Button */}
-        <div className="mt-4 pt-3 border-t border-white/5">
+        {/* Edit Profile & Analytics Buttons */}
+        <div className="mt-4 pt-3 border-t border-white/5 flex items-center gap-2">
           <button
             onClick={onOpenEditProfile}
-            className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-white flex items-center justify-center gap-2 transition-colors min-h-[44px] active:scale-[0.99]"
+            className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-white flex items-center justify-center gap-2 transition-colors min-h-[44px] active:scale-[0.99]"
           >
             <Edit3 className="w-3.5 h-3.5 text-[#FF4D00]" />
-            <span>Edit Profile & Preferences</span>
+            <span>Edit Profile</span>
           </button>
+
+          {userPosts.length > 0 && onOpenInsights && (
+            <button
+              onClick={() => onOpenInsights(userPosts[0])}
+              className="py-2.5 px-4 rounded-xl bg-[#FF4D00]/10 hover:bg-[#FF4D00]/20 border border-[#FF4D00]/30 text-xs font-bold text-[#FF4D00] flex items-center justify-center gap-1.5 transition-colors min-h-[44px] active:scale-[0.99]"
+              title="View Engagement Analytics for your latest post"
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span>Insights</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -312,7 +325,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             {activeDisplayPosts.map((post) => (
               <div
                 key={post.id}
-                onClick={() => onOpenComments(post)}
+                onClick={() => {
+                  if (profileTab === 'my_posts' && onOpenInsights) {
+                    onOpenInsights(post);
+                  } else {
+                    onOpenComments(post);
+                  }
+                }}
                 className="group relative aspect-square rounded-2xl overflow-hidden bg-white/5 border border-white/5 hover:border-white/20 cursor-pointer"
               >
                 {post.imageUrl ? (
@@ -332,9 +351,16 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   </div>
                 )}
                 {/* Hover overlay with likes and comments */}
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 text-white text-xs font-bold">
-                  <span>❤️ {post.likesCount}</span>
-                  <span>💬 {post.comments?.length || 0}</span>
+                <div className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 text-white text-xs font-bold p-1">
+                  <div className="flex items-center gap-2 text-[11px]">
+                    <span>❤️ {post.likesCount}</span>
+                    <span>💬 {post.comments?.length || 0}</span>
+                  </div>
+                  {profileTab === 'my_posts' && onOpenInsights && (
+                    <span className="text-[9px] bg-[#FF4D00] text-black px-2 py-0.5 rounded-full font-black flex items-center gap-1 mt-0.5">
+                      <BarChart3 className="w-2.5 h-2.5" /> Stats
+                    </span>
+                  )}
                 </div>
               </div>
             ))}
@@ -355,6 +381,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 onReportPost={onReportPost}
                 isReported={reportedPostIds.includes(post.id)}
                 onSharePost={onSharePost}
+                onOpenInsights={onOpenInsights}
               />
             ))}
           </div>

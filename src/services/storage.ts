@@ -65,6 +65,16 @@ export class DailyStorageService {
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
   }
 
+  static ensurePostEngagement(post: Post): Post {
+    const defaultViews = Math.max((post.likesCount || 0) * 6 + (post.comments?.length || 0) * 8 + 35, 12);
+    const defaultShares = Math.max(Math.floor((post.likesCount || 0) * 0.25), 1);
+    return {
+      ...post,
+      viewsCount: typeof post.viewsCount === 'number' ? post.viewsCount : defaultViews,
+      sharesCount: typeof post.sharesCount === 'number' ? post.sharesCount : defaultShares,
+    };
+  }
+
   static getAllPosts(): Post[] {
     const data = localStorage.getItem(STORAGE_KEYS.POSTS);
     if (!data) {
@@ -72,10 +82,26 @@ export class DailyStorageService {
       return INITIAL_POSTS;
     }
     try {
-      return JSON.parse(data);
+      const parsed: Post[] = JSON.parse(data);
+      return parsed.map((p) => this.ensurePostEngagement(p));
     } catch {
       return INITIAL_POSTS;
     }
+  }
+
+  static incrementPostViews(postId: string, amount: number = 1): Post[] {
+    const posts = this.getAllPosts();
+    const updated = posts.map((p) => {
+      if (p.id === postId) {
+        return {
+          ...p,
+          viewsCount: (p.viewsCount || 0) + amount,
+        };
+      }
+      return p;
+    });
+    this.saveAllPosts(updated);
+    return updated;
   }
 
   static saveAllPosts(posts: Post[]): void {
@@ -279,6 +305,8 @@ export class DailyStorageService {
       tags: payload.tags,
       likesCount: 0,
       likedByMe: false,
+      viewsCount: 1,
+      sharesCount: 0,
       comments: [],
       createdAt: 'Just now',
       isDailyStreakPost: true,
@@ -397,6 +425,31 @@ export class DailyStorageService {
     return newGroup;
   }
 
+  static toggleJoinGroup(groupId: string): { groups: Group[]; isMember: boolean } {
+    const currentUser = this.getCurrentUser();
+    const groups = this.getAllGroups();
+    let isMember = false;
+
+    const updated = groups.map((g) => {
+      if (g.id === groupId) {
+        const hasJoined = (g.memberIds || []).includes(currentUser.id);
+        const nextMemberIds = hasJoined
+          ? (g.memberIds || []).filter((id) => id !== currentUser.id)
+          : [...(g.memberIds || []), currentUser.id];
+        isMember = !hasJoined;
+        return {
+          ...g,
+          memberIds: nextMemberIds,
+          memberCount: nextMemberIds.length,
+        };
+      }
+      return g;
+    });
+
+    this.saveAllGroups(updated);
+    return { groups: updated, isMember };
+  }
+
   // Send Direct or Group Message (with optional photo / shared post attachment)
   static sendMessage(params: {
     receiverId?: string;
@@ -511,6 +564,22 @@ export class DailyStorageService {
         sharedPost: sharedPreview,
       });
       createdMessages.push(msg);
+    }
+
+    // Increment shares count on the post
+    const totalRecipients = userIds.length + groupIds.length;
+    if (totalRecipients > 0) {
+      const allPosts = this.getAllPosts();
+      const updatedPosts = allPosts.map((p) => {
+        if (p.id === post.id) {
+          return {
+            ...p,
+            sharesCount: (p.sharesCount || 0) + totalRecipients,
+          };
+        }
+        return p;
+      });
+      this.saveAllPosts(updatedPosts);
     }
 
     return createdMessages;

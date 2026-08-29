@@ -21,6 +21,7 @@ interface HomeFeedProps {
   onReportPost?: (post: Post) => void;
   onSharePost?: (post: Post) => void;
   onRefresh?: () => Promise<void> | void;
+  onOpenInsights?: (post: Post) => void;
 }
 
 export const HomeFeed: React.FC<HomeFeedProps> = ({
@@ -39,6 +40,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
   onReportPost,
   onSharePost,
   onRefresh,
+  onOpenInsights,
 }) => {
   const [feedFilter, setFeedFilter] = useState<'following' | 'explore'>('following');
   const [activeTag, setActiveTag] = useState<string | null>(null);
@@ -195,6 +197,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                 onReportPost={onReportPost}
                 isReported={reportedPostIds.includes(post.id)}
                 onSharePost={onSharePost}
+                onOpenInsights={onOpenInsights}
               />
             ))}
           </div>

@@ -21,6 +21,7 @@ import { UserProfileModal } from './components/UserProfileModal';
 import { ReportModal } from './components/ReportModal';
 import { ShareModal } from './components/ShareModal';
 import { CreateGroupModal } from './components/CreateGroupModal';
+import { PostInsightsModal } from './components/PostInsightsModal';
 import { vibratePostSubmit, vibrateLight } from './services/haptics';
 
 export default function App() {
@@ -43,6 +44,7 @@ export default function App() {
   const [commentsPost, setCommentsPost] = useState<Post | null>(null);
   const [reportingPost, setReportingPost] = useState<Post | null>(null);
   const [sharingPost, setSharingPost] = useState<Post | null>(null);
+  const [insightsPost, setInsightsPost] = useState<Post | null>(null);
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [activeProfileUser, setActiveProfileUser] = useState<User | null>(null);
@@ -267,6 +269,34 @@ export default function App() {
     setSharingPost(null);
   };
 
+  // Open Post Insights Modal
+  const handleOpenInsights = (post: Post) => {
+    vibrateLight();
+    DailyStorageService.incrementPostViews(post.id);
+    const refreshedPosts = DailyStorageService.getAllPosts();
+    setPosts(refreshedPosts);
+    const updatedPost = refreshedPosts.find((p) => p.id === post.id) || post;
+    setInsightsPost(updatedPost);
+  };
+
+  // Toggle Join/Leave Group
+  const handleToggleJoinGroup = (groupId: string) => {
+    vibrateLight();
+    const { groups: updated } = DailyStorageService.toggleJoinGroup(groupId);
+    setGroups(updated);
+  };
+
+  // Handle pull to refresh
+  const handleFeedRefresh = async () => {
+    vibrateLight();
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    setPosts(DailyStorageService.getAllPosts());
+    setUsers(DailyStorageService.getAllUsers());
+    setGroups(DailyStorageService.getAllGroups());
+    setMessages(DailyStorageService.getAllMessages());
+    setCurrentUser(DailyStorageService.getCurrentUser());
+  };
+
   // View post details
   const handleViewPostFromId = (postId: string) => {
     const found = posts.find((p) => p.id === postId);
@@ -378,6 +408,8 @@ export default function App() {
               onToggleSave={handleToggleSave}
               onReportPost={handleStartReport}
               onSharePost={handleOpenShare}
+              onRefresh={handleFeedRefresh}
+              onOpenInsights={handleOpenInsights}
             />
           )}
 
@@ -400,9 +432,14 @@ export default function App() {
             <DiscoverScreen
               users={users}
               currentUser={currentUser}
+              groups={groups}
               onToggleFollow={handleToggleFollow}
               onSendDM={handleStartDMWithUser}
               onViewUser={handleViewUser}
+              onOpenGroupChat={handleStartGroupChat}
+              onToggleJoinGroup={handleToggleJoinGroup}
+              onCreateGroup={() => setIsCreateGroupOpen(true)}
+              onRefresh={handleFeedRefresh}
             />
           )}
 
@@ -421,6 +458,7 @@ export default function App() {
               onToggleFollow={handleToggleFollow}
               onSendDM={handleStartDMWithUser}
               onSharePost={handleOpenShare}
+              onOpenInsights={handleOpenInsights}
             />
           )}
         </main>
@@ -556,6 +594,14 @@ export default function App() {
           onClose={() => setIsEditProfileOpen(false)}
           currentUser={currentUser}
           onSave={handleSaveProfile}
+        />
+
+        {/* Post Engagement Insights Modal */}
+        <PostInsightsModal
+          isOpen={!!insightsPost}
+          post={insightsPost}
+          onClose={() => setInsightsPost(null)}
+          onSharePost={handleOpenShare}
         />
       </div>
     </div>
