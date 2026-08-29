@@ -190,8 +190,8 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({
           ) : isRefreshing ? (
             <>
               <div className="relative w-5 h-5 flex items-center justify-center">
-                <div className="w-5 h-5 border-2 border-white/20 border-t-[#FF4D00] rounded-full animate-spin" />
-                <Flame className="w-2.5 h-2.5 text-[#FF4D00] absolute fill-[#FF4D00]" />
+                <div className="w-5 h-5 border-2 border-white/20 border-t-[#D4AF37] rounded-full animate-spin" />
+                <Flame className="w-2.5 h-2.5 text-[#D4AF37] absolute fill-[#D4AF37]" />
               </div>
               <span className="text-[11px] font-extrabold text-white animate-pulse">
                 {refreshingText}
@@ -206,7 +206,7 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({
                 }}
                 className={`w-5 h-5 rounded-full flex items-center justify-center ${
                   isThresholdMet
-                    ? 'bg-[#FF4D00] text-black shadow-md shadow-[#FF4D00]/30'
+                    ? 'bg-[#D4AF37] text-black shadow-md shadow-[#D4AF37]/30'
                     : 'bg-white/10 text-white/70'
                 }`}
               >
@@ -218,7 +218,7 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({
               </div>
               <span
                 className={`text-[11px] font-bold tracking-tight transition-colors ${
-                  isThresholdMet ? 'text-[#FF4D00]' : 'text-white/70'
+                  isThresholdMet ? 'text-[#D4AF37]' : 'text-white/70'
                 }`}
               >
                 {isThresholdMet ? releaseText : pullText}
@@ -247,7 +247,7 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({
             onClick={triggerRefreshAction}
             className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-bold text-white/50 hover:text-white transition-colors disabled:opacity-40"
           >
-            <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin text-[#FF4D00]' : ''}`} />
+            <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin text-[#D4AF37]' : ''}`} />
             <span>Reload Stream</span>
           </button>
         </div>

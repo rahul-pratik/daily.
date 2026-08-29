@@ -26,7 +26,7 @@ export const TopHeader: React.FC<{
       >
         <div className="flex items-center gap-1.5">
           <h1 className="text-xl font-black tracking-tighter text-white">
-            DAILY<span className="text-[#FF4D00]">.</span>
+            DAILY<span className="text-[#D4AF37]">.</span>
           </h1>
         </div>
         <p className="text-[9px] uppercase tracking-widest text-white/40 font-semibold leading-none mt-0.5">
@@ -39,10 +39,10 @@ export const TopHeader: React.FC<{
         {/* Streak Pill */}
         <button
           onClick={() => onSelectTab('streak')}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 hover:border-[#FF4D00]/40 transition-colors text-xs font-bold text-[#FF4D00] min-h-[40px] active:scale-95"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 hover:border-[#D4AF37]/40 transition-colors text-xs font-bold text-[#D4AF37] min-h-[40px] active:scale-95"
           title="View your streak history"
         >
-          <Flame className="w-4 h-4 text-[#FF4D00] fill-[#FF4D00] animate-pulse shrink-0" />
+          <Flame className="w-4 h-4 text-[#D4AF37] fill-[#D4AF37] animate-pulse shrink-0" />
           <span className="whitespace-nowrap">{currentUser.currentStreak}d Streak</span>
         </button>
 
@@ -54,7 +54,7 @@ export const TopHeader: React.FC<{
         >
           <MessageSquare className="w-4 h-4" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#FF4D00] text-black font-black text-[9px] rounded-full flex items-center justify-center animate-bounce shadow-md">
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#D4AF37] text-black font-black text-[9px] rounded-full flex items-center justify-center animate-bounce shadow-md">
               {unreadCount}
             </span>
           )}
@@ -78,7 +78,7 @@ export const BottomNavigation: React.FC<NavigationProps> = ({
           onClick={() => onSelectTab('home')}
           className={`flex flex-col items-center justify-center min-w-[54px] min-h-[48px] p-1 transition-all active:scale-95 ${
             currentTab === 'home'
-              ? 'text-[#FF4D00]'
+              ? 'text-[#D4AF37]'
               : 'text-white/40 hover:text-white/80'
           }`}
           aria-label="Today Feed"
@@ -92,12 +92,12 @@ export const BottomNavigation: React.FC<NavigationProps> = ({
           onClick={() => onSelectTab('streak')}
           className={`flex flex-col items-center justify-center min-w-[54px] min-h-[48px] p-1 transition-all active:scale-95 ${
             currentTab === 'streak'
-              ? 'text-[#FF4D00]'
+              ? 'text-[#D4AF37]'
               : 'text-white/40 hover:text-white/80'
           }`}
           aria-label="Challenges and Accountability"
         >
-          <Flame className={`w-5 h-5 ${currentTab === 'streak' ? 'text-[#FF4D00] fill-[#FF4D00]' : 'stroke-2'}`} />
+          <Flame className={`w-5 h-5 ${currentTab === 'streak' ? 'text-[#D4AF37] fill-[#D4AF37]' : 'stroke-2'}`} />
           <span className="text-[9px] mt-1 font-bold uppercase tracking-tighter">Challenges</span>
         </button>
 
@@ -105,7 +105,7 @@ export const BottomNavigation: React.FC<NavigationProps> = ({
         <div className="relative -top-2 flex items-center justify-center">
           <button
             onClick={onOpenCreate}
-            className="w-12 h-12 min-w-[48px] min-h-[48px] bg-[#FF4D00] rounded-full flex items-center justify-center text-black shadow-lg shadow-[#FF4D00]/30 hover:scale-105 active:scale-95 transition-transform"
+            className="w-12 h-12 min-w-[48px] min-h-[48px] bg-[#D4AF37] rounded-full flex items-center justify-center text-black shadow-lg shadow-[#D4AF37]/30 hover:scale-105 active:scale-95 transition-transform"
             aria-label="What did you do today?"
             title="What did you do today?"
           >
@@ -118,7 +118,7 @@ export const BottomNavigation: React.FC<NavigationProps> = ({
           onClick={() => onSelectTab('discover')}
           className={`flex flex-col items-center justify-center min-w-[54px] min-h-[48px] p-1 transition-all active:scale-95 ${
             currentTab === 'discover'
-              ? 'text-[#FF4D00]'
+              ? 'text-[#D4AF37]'
               : 'text-white/40 hover:text-white/80'
           }`}
           aria-label="Explore Proof & People"
@@ -132,7 +132,7 @@ export const BottomNavigation: React.FC<NavigationProps> = ({
           onClick={() => onSelectTab('profile')}
           className={`flex flex-col items-center justify-center min-w-[54px] min-h-[48px] p-1 transition-all active:scale-95 ${
             currentTab === 'profile'
-              ? 'text-[#FF4D00]'
+              ? 'text-[#D4AF37]'
               : 'text-white/40 hover:text-white/80'
           }`}
           aria-label="Your Profile & Proof Timeline"
@@ -144,7 +144,7 @@ export const BottomNavigation: React.FC<NavigationProps> = ({
                 alt={currentUser.name}
                 referrerPolicy="no-referrer"
                 className={`w-5 h-5 rounded-full object-cover border transition-all ${
-                  currentTab === 'profile' ? 'border-[#FF4D00] ring-2 ring-[#FF4D00]/50' : 'border-white/30'
+                  currentTab === 'profile' ? 'border-[#D4AF37] ring-2 ring-[#D4AF37]/50' : 'border-white/30'
                 }`}
               />
             ) : (

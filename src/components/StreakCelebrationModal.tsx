@@ -57,15 +57,15 @@ export const StreakCelebrationModal: React.FC<StreakCelebrationModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
       <div className="w-full max-w-sm bg-[#0A0A0A] border border-white/10 rounded-[32px] p-6 shadow-2xl text-center relative overflow-hidden">
         {/* Ambient glow in background */}
-        <div className="absolute -top-12 -left-12 w-36 h-36 bg-[#FF4D00]/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -top-12 -left-12 w-36 h-36 bg-[#D4AF37]/10 rounded-full blur-3xl pointer-events-none" />
 
         {/* Big Animated Flame */}
         <div className="relative inline-flex items-center justify-center my-4">
           <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 p-1 flex items-center justify-center shadow-xl">
-            <Flame className="w-10 h-10 text-[#FF4D00] fill-[#FF4D00] animate-pulse" />
+            <Flame className="w-10 h-10 text-[#D4AF37] fill-[#D4AF37] animate-pulse" />
           </div>
           <span className="absolute -top-1 -right-1 flex h-5 w-5">
-            <span className="relative inline-flex rounded-full h-5 w-5 bg-[#FF4D00] items-center justify-center text-black font-black text-[10px]">
+            <span className="relative inline-flex rounded-full h-5 w-5 bg-[#D4AF37] items-center justify-center text-black font-black text-[10px]">
               ★
             </span>
           </span>
@@ -89,7 +89,7 @@ export const StreakCelebrationModal: React.FC<StreakCelebrationModalProps> = ({
               Today
             </span>
             <span className="text-xs font-bold text-white flex items-center justify-center gap-1 mt-0.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-[#FF4D00]" /> Done
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#D4AF37]" /> Done
             </span>
           </div>
           <div className="h-7 w-[1px] bg-white/10" />
@@ -97,15 +97,15 @@ export const StreakCelebrationModal: React.FC<StreakCelebrationModalProps> = ({
             <span className="text-[10px] text-white/40 uppercase tracking-wider block font-bold">
               Current Streak
             </span>
-            <span className="text-xs font-bold text-[#FF4D00] flex items-center justify-center gap-1 mt-0.5">
-              <Flame className="w-3.5 h-3.5 fill-[#FF4D00]" /> {streakCount} Days
+            <span className="text-xs font-bold text-[#D4AF37] flex items-center justify-center gap-1 mt-0.5">
+              <Flame className="w-3.5 h-3.5 fill-[#D4AF37]" /> {streakCount} Days
             </span>
           </div>
         </div>
 
         <button
           onClick={onClose}
-          className="w-full py-3.5 rounded-2xl bg-[#FF4D00] text-black font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-[#FF4D00]/90 active:scale-[0.98] transition-all shadow-lg shadow-[#FF4D00]/20"
+          className="w-full py-3.5 rounded-2xl bg-[#D4AF37] text-black font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-[#D4AF37]/90 active:scale-[0.98] transition-all shadow-lg shadow-[#D4AF37]/20"
         >
           <span>Awesome, Keep Going</span>
           <ArrowRight className="w-4 h-4" />

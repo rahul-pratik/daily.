@@ -869,7 +869,7 @@ export class DailyStorageService {
       title: params.title.trim(),
       category: params.category,
       icon: params.icon || '⚡️',
-      color: params.color || '#FF4D00',
+      color: params.color || '#D4AF37',
       targetDaysPerWeek: params.targetDaysPerWeek || 7,
       completedDates: [today],
       streak: 1,

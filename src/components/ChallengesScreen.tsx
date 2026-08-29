@@ -277,7 +277,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
           }}
           className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
             activeSubTab === 'challenges'
-              ? 'bg-[#FF4D00] text-black shadow-md shadow-[#FF4D00]/20'
+              ? 'bg-[#D4AF37] text-black shadow-md shadow-[#D4AF37]/20'
               : 'text-white/50 hover:text-white'
           }`}
         >
@@ -291,7 +291,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
           }}
           className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
             activeSubTab === 'calendar'
-              ? 'bg-[#FF4D00] text-black shadow-md shadow-[#FF4D00]/20'
+              ? 'bg-[#D4AF37] text-black shadow-md shadow-[#D4AF37]/20'
               : 'text-white/50 hover:text-white'
           }`}
         >
@@ -308,7 +308,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
             <div className="relative z-10 space-y-2">
               <div className="flex items-center gap-2">
                 <span className="text-xl">🔥</span>
-                <span className="text-xs font-black uppercase tracking-wider text-[#FF4D00]">
+                <span className="text-xs font-black uppercase tracking-wider text-[#D4AF37]">
                   Accountability Cohorts
                 </span>
               </div>
@@ -343,7 +343,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
                     }}
                     className={`p-4 rounded-2xl border transition-all cursor-pointer text-left space-y-3 ${
                       isSelected
-                        ? 'bg-[#121212] border-[#FF4D00] shadow-lg shadow-[#FF4D00]/10 ring-1 ring-[#FF4D00]/30'
+                        ? 'bg-[#121212] border-[#D4AF37] shadow-lg shadow-[#D4AF37]/10 ring-1 ring-[#D4AF37]/30'
                         : 'bg-white/[0.03] border-white/10 hover:border-white/20'
                     }`}
                   >
@@ -371,7 +371,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
                         className={`px-3 py-1 rounded-full text-xs font-bold transition-all border ${
                           c.joined
                             ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                            : 'bg-[#FF4D00] text-black border-[#FF4D00] hover:bg-[#FF4D00]/90'
+                            : 'bg-[#D4AF37] text-black border-[#D4AF37] hover:bg-[#D4AF37]/90'
                         }`}
                       >
                         {c.joined ? 'Joined ✓' : 'Join'}
@@ -384,10 +384,10 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
                     {c.bookTitle && (
                       <div className="p-2.5 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between text-xs">
                         <div className="flex items-center gap-2">
-                          <BookOpen className="w-4 h-4 text-[#FF4D00]" />
+                          <BookOpen className="w-4 h-4 text-[#D4AF37]" />
                           <span className="font-semibold text-white">{c.bookTitle}</span>
                         </div>
-                        <span className="text-[11px] text-[#FF4D00] font-mono font-bold">
+                        <span className="text-[11px] text-[#D4AF37] font-mono font-bold">
                           {c.bookProgress}% read
                         </span>
                       </div>
@@ -399,11 +399,11 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
                         <span className="text-white/50 font-medium">
                           Day <strong className="text-white">{c.currentDay}</strong> of {c.totalDays}
                         </span>
-                        <span className="text-[#FF4D00] font-bold font-mono">{progressPct}%</span>
+                        <span className="text-[#D4AF37] font-bold font-mono">{progressPct}%</span>
                       </div>
                       <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-gradient-to-r from-[#FF4D00] to-amber-400 rounded-full transition-all duration-500"
+                          className="h-full bg-gradient-to-r from-[#D4AF37] to-amber-400 rounded-full transition-all duration-500"
                           style={{ width: `${Math.min(100, progressPct)}%` }}
                         />
                       </div>
@@ -418,7 +418,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
           <div className="bg-[#101010] border border-white/15 rounded-3xl p-5 space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-xs font-black uppercase tracking-wider text-[#FF4D00] flex items-center gap-1.5">
+                <h3 className="text-xs font-black uppercase tracking-wider text-[#D4AF37] flex items-center gap-1.5">
                   <CheckCircle2 className="w-4 h-4" />
                   Today's Cohort Progress
                 </h3>
@@ -428,7 +428,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
               {!hasPostedToday && (
                 <button
                   onClick={onOpenCreate}
-                  className="px-3 py-1.5 rounded-xl bg-[#FF4D00] text-black font-black text-xs flex items-center gap-1 shadow-md hover:bg-[#FF4D00]/90 transition-all active:scale-95"
+                  className="px-3 py-1.5 rounded-xl bg-[#D4AF37] text-black font-black text-xs flex items-center gap-1 shadow-md hover:bg-[#D4AF37]/90 transition-all active:scale-95"
                 >
                   <PlusCircle className="w-3.5 h-3.5" />
                   <span>Post Proof</span>
@@ -446,7 +446,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
                       src={currentUser.avatar}
                       alt={currentUser.name}
                       referrerPolicy="no-referrer"
-                      className="w-9 h-9 rounded-full object-cover border border-[#FF4D00]/40"
+                      className="w-9 h-9 rounded-full object-cover border border-[#D4AF37]/40"
                     />
                     {hasPostedToday && (
                       <span className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 text-black text-[9px] font-black rounded-full flex items-center justify-center">
@@ -539,12 +539,12 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
         /* STREAK CALENDAR & MILESTONES VIEW */
         <div className="space-y-4">
           {/* Hero Streak Card */}
-          <div className="bg-gradient-to-br from-[#1c120c] via-[#111111] to-[#0A0A0A] border border-[#FF4D00]/30 rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden">
+          <div className="bg-gradient-to-br from-[#1c120c] via-[#111111] to-[#0A0A0A] border border-[#D4AF37]/30 rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden">
             <div className="flex items-start justify-between relative z-10">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <Flame className="w-6 h-6 text-[#FF4D00] fill-[#FF4D00] animate-bounce" />
-                  <span className="text-xs font-black uppercase tracking-wider text-[#FF4D00]">
+                  <Flame className="w-6 h-6 text-[#D4AF37] fill-[#D4AF37] animate-bounce" />
+                  <span className="text-xs font-black uppercase tracking-wider text-[#D4AF37]">
                     Current Proof Streak
                   </span>
                 </div>
@@ -569,7 +569,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
 
             <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between relative z-10">
               <div className="flex items-center gap-2 text-xs text-white/70">
-                <Award className="w-4 h-4 text-[#FF4D00]" />
+                <Award className="w-4 h-4 text-[#D4AF37]" />
                 <span>
                   Next badge: <strong>{MILESTONES.find((m) => m.days > currentUser.currentStreak)?.title || 'Supernova'}</strong> (
                   {(MILESTONES.find((m) => m.days > currentUser.currentStreak)?.days || 100) - currentUser.currentStreak} days to go)
@@ -579,7 +579,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
               {!hasPostedToday && (
                 <button
                   onClick={onOpenCreate}
-                  className="px-3.5 py-1.5 rounded-full bg-[#FF4D00] text-black font-black text-xs hover:bg-[#FF4D00]/90 transition-all flex items-center gap-1 shadow-md shadow-[#FF4D00]/20"
+                  className="px-3.5 py-1.5 rounded-full bg-[#D4AF37] text-black font-black text-xs hover:bg-[#D4AF37]/90 transition-all flex items-center gap-1 shadow-md shadow-[#D4AF37]/20"
                 >
                   <PlusCircle className="w-3.5 h-3.5" />
                   <span>Post Proof</span>
@@ -592,7 +592,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
           <div className="bg-[#111111] border border-white/10 rounded-3xl p-5 shadow-lg space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-white/5">
               <div className="flex items-center gap-2">
-                <CalendarIcon className="w-4 h-4 text-[#FF4D00]" />
+                <CalendarIcon className="w-4 h-4 text-[#D4AF37]" />
                 <h3 className="text-sm font-bold text-white">
                   {monthNames[currentMonth]} {currentYear}
                 </h3>
@@ -647,9 +647,9 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
                     onClick={() => handleDateClick(dateStr)}
                     className={`h-9 sm:h-10 rounded-xl flex flex-col items-center justify-center relative transition-all active:scale-95 border ${
                       isSelected
-                        ? 'ring-2 ring-[#FF4D00] border-[#FF4D00] bg-white/15'
+                        ? 'ring-2 ring-[#D4AF37] border-[#D4AF37] bg-white/15'
                         : hasActivity
-                        ? 'bg-[#FF4D00]/15 border-[#FF4D00]/30 text-white hover:bg-[#FF4D00]/25'
+                        ? 'bg-[#D4AF37]/15 border-[#D4AF37]/30 text-white hover:bg-[#D4AF37]/25'
                         : 'bg-white/[0.02] border-white/5 text-white/40 hover:bg-white/5 hover:text-white'
                     }`}
                   >
@@ -659,7 +659,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
 
                     {/* Streak fire icon for active days */}
                     {hasActivity && (
-                      <Flame className="w-3 h-3 text-[#FF4D00] fill-[#FF4D00] absolute bottom-1" />
+                      <Flame className="w-3 h-3 text-[#D4AF37] fill-[#D4AF37] absolute bottom-1" />
                     )}
 
                     {/* Today indicator dot */}
@@ -718,7 +718,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
                     key={m.days}
                     className={`p-3 rounded-2xl border flex items-center gap-3 transition-all ${
                       isUnlocked
-                        ? 'bg-white/5 border-[#FF4D00]/30 text-white'
+                        ? 'bg-white/5 border-[#D4AF37]/30 text-white'
                         : 'bg-white/[0.02] border-white/5 text-white/30 opacity-60'
                     }`}
                   >
@@ -726,7 +726,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs font-bold text-white">{m.title}</span>
-                        <span className="text-[10px] font-mono text-[#FF4D00] font-bold">
+                        <span className="text-[10px] font-mono text-[#D4AF37] font-bold">
                           {m.days}d
                         </span>
                       </div>

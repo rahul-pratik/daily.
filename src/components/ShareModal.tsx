@@ -182,7 +182,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         {/* Header */}
         <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-[#FF4D00]/10 border border-[#FF4D00]/20 flex items-center justify-center text-[#FF4D00]">
+            <div className="w-8 h-8 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/20 flex items-center justify-center text-[#D4AF37]">
               <Share2 className="w-4 h-4" />
             </div>
             <div>
@@ -204,7 +204,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
         {sentSuccess ? (
           <div className="p-8 text-center space-y-4 animate-in zoom-in-95 duration-200">
-            <div className="w-16 h-16 rounded-full bg-[#FF4D00]/10 border border-[#FF4D00]/30 flex items-center justify-center text-[#FF4D00] mx-auto animate-bounce">
+            <div className="w-16 h-16 rounded-full bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37] mx-auto animate-bounce">
               <CheckCircle2 className="w-8 h-8" />
             </div>
             <div className="space-y-1">
@@ -226,7 +226,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                       onOpenGroupChat(lastSentRecipient.id);
                     }
                   }}
-                  className="flex-1 py-2.5 px-4 rounded-xl bg-[#FF4D00] hover:bg-[#FF4D00]/90 text-black font-black text-xs transition-colors flex items-center justify-center gap-1.5 shadow-md shadow-[#FF4D00]/20"
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-[#D4AF37] hover:bg-[#D4AF37]/90 text-black font-black text-xs transition-colors flex items-center justify-center gap-1.5 shadow-md shadow-[#D4AF37]/20"
                 >
                   <MessageSquare className="w-3.5 h-3.5" />
                   <span>Open Chat Now</span>
@@ -253,14 +253,14 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                   className="w-12 h-12 rounded-xl object-cover shrink-0 border border-white/10"
                 />
               ) : (
-                <div className="w-12 h-12 rounded-xl bg-[#FF4D00]/10 border border-[#FF4D00]/20 flex items-center justify-center shrink-0">
-                  <Flame className="w-5 h-5 text-[#FF4D00] fill-[#FF4D00]" />
+                <div className="w-12 h-12 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/20 flex items-center justify-center shrink-0">
+                  <Flame className="w-5 h-5 text-[#D4AF37] fill-[#D4AF37]" />
                 </div>
               )}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 mb-0.5">
                   <span className="font-bold text-xs text-white truncate">{post.name}</span>
-                  <span className="text-[10px] text-[#FF4D00] font-black shrink-0">
+                  <span className="text-[10px] text-[#D4AF37] font-black shrink-0">
                     🔥{post.userStreak}d
                   </span>
                 </div>
@@ -277,7 +277,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 onClick={handleNativeShare}
                 className="w-full p-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center gap-2 text-xs font-bold text-white transition-all active:scale-95"
               >
-                <Share2 className="w-4 h-4 text-[#FF4D00]" />
+                <Share2 className="w-4 h-4 text-[#D4AF37]" />
                 <span>Share to External Apps via Device</span>
               </button>
             </div>
@@ -290,7 +290,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search friends or groups to send..."
-                className="w-full pl-9 pr-3.5 py-2.5 bg-white/5 border border-white/10 rounded-2xl text-xs text-white placeholder-white/30 focus:border-[#FF4D00] outline-none transition-colors"
+                className="w-full pl-9 pr-3.5 py-2.5 bg-white/5 border border-white/10 rounded-2xl text-xs text-white placeholder-white/30 focus:border-[#D4AF37] outline-none transition-colors"
               />
             </div>
 
@@ -302,7 +302,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                   onClick={() => setActiveTab('all')}
                   className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all ${
                     activeTab === 'all'
-                      ? 'bg-[#FF4D00] text-black shadow-sm'
+                      ? 'bg-[#D4AF37] text-black shadow-sm'
                       : 'text-white/60 hover:text-white'
                   }`}
                 >
@@ -313,7 +313,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                   onClick={() => setActiveTab('friends')}
                   className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all ${
                     activeTab === 'friends'
-                      ? 'bg-[#FF4D00] text-black shadow-sm'
+                      ? 'bg-[#D4AF37] text-black shadow-sm'
                       : 'text-white/60 hover:text-white'
                   }`}
                 >
@@ -324,7 +324,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                   onClick={() => setActiveTab('groups')}
                   className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all ${
                     activeTab === 'groups'
-                      ? 'bg-[#FF4D00] text-black shadow-sm'
+                      ? 'bg-[#D4AF37] text-black shadow-sm'
                       : 'text-white/60 hover:text-white'
                   }`}
                 >
@@ -336,7 +336,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 <button
                   type="button"
                   onClick={triggerCreateGroup}
-                  className="flex items-center gap-1 text-[11px] font-bold text-[#FF4D00] hover:underline"
+                  className="flex items-center gap-1 text-[11px] font-bold text-[#D4AF37] hover:underline"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>New Group</span>
@@ -352,7 +352,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                     Direct Friends ({filteredFriends.length})
                   </span>
                   {selectedUserIds.length > 0 && (
-                    <span className="text-[10px] text-[#FF4D00] font-bold">
+                    <span className="text-[10px] text-[#D4AF37] font-bold">
                       {selectedUserIds.length} selected
                     </span>
                   )}
@@ -369,7 +369,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                           key={friend.id}
                           className={`w-full p-2.5 rounded-2xl border transition-all flex items-center justify-between gap-2.5 ${
                             isSelected
-                              ? 'bg-[#FF4D00]/10 border-[#FF4D00]'
+                              ? 'bg-[#D4AF37]/10 border-[#D4AF37]'
                               : 'bg-white/5 border-white/5 hover:border-white/15'
                           }`}
                         >
@@ -384,7 +384,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                                 referrerPolicy="no-referrer"
                                 className="w-9 h-9 rounded-full object-cover border border-white/10"
                               />
-                              <span className="absolute -bottom-1 -right-1 text-[8px] bg-[#FF4D00] text-black font-black px-1 rounded-full">
+                              <span className="absolute -bottom-1 -right-1 text-[8px] bg-[#D4AF37] text-black font-black px-1 rounded-full">
                                 🔥{friend.currentStreak}d
                               </span>
                             </div>
@@ -401,7 +401,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                               className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-[10px] font-bold flex items-center gap-1 border border-white/5"
                               title="Send and open chat"
                             >
-                              <Send className="w-3 h-3 text-[#FF4D00]" />
+                              <Send className="w-3 h-3 text-[#D4AF37]" />
                               <span className="hidden sm:inline">Send & Chat</span>
                             </button>
 
@@ -410,7 +410,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                               onClick={() => toggleUserSelection(friend.id)}
                               className={`w-6 h-6 rounded-full border flex items-center justify-center transition-all ${
                                 isSelected
-                                  ? 'bg-[#FF4D00] border-[#FF4D00] text-black'
+                                  ? 'bg-[#D4AF37] border-[#D4AF37] text-black'
                                   : 'border-white/20 hover:border-white/40'
                               }`}
                             >
@@ -433,7 +433,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                     Streak Groups ({filteredGroups.length})
                   </span>
                   {selectedGroupIds.length > 0 && (
-                    <span className="text-[10px] text-[#FF4D00] font-bold">
+                    <span className="text-[10px] text-[#D4AF37] font-bold">
                       {selectedGroupIds.length} selected
                     </span>
                   )}
@@ -450,7 +450,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                           key={grp.id}
                           className={`w-full p-2.5 rounded-2xl border transition-all flex items-center justify-between gap-2.5 ${
                             isSelected
-                              ? 'bg-[#FF4D00]/10 border-[#FF4D00]'
+                              ? 'bg-[#D4AF37]/10 border-[#D4AF37]'
                               : 'bg-white/5 border-white/5 hover:border-white/15'
                           }`}
                         >
@@ -484,7 +484,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                               className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-[10px] font-bold flex items-center gap-1 border border-white/5"
                               title="Send and open group chat"
                             >
-                              <Send className="w-3 h-3 text-[#FF4D00]" />
+                              <Send className="w-3 h-3 text-[#D4AF37]" />
                               <span className="hidden sm:inline">Send & Chat</span>
                             </button>
 
@@ -493,7 +493,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                               onClick={() => toggleGroupSelection(grp.id)}
                               className={`w-6 h-6 rounded-full border flex items-center justify-center transition-all ${
                                 isSelected
-                                  ? 'bg-[#FF4D00] border-[#FF4D00] text-black'
+                                  ? 'bg-[#D4AF37] border-[#D4AF37] text-black'
                                   : 'border-white/20 hover:border-white/40'
                               }`}
                             >
@@ -516,7 +516,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 onChange={(e) => setShareNote(e.target.value)}
                 placeholder="Add a message note (optional)..."
                 maxLength={140}
-                className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:border-[#FF4D00] outline-none transition-colors"
+                className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:border-[#D4AF37] outline-none transition-colors"
               />
             </div>
           </div>
@@ -548,7 +548,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 type="button"
                 disabled={totalSelected === 0 || isSending}
                 onClick={handleSend}
-                className="px-5 py-2.5 rounded-xl bg-[#FF4D00] hover:bg-[#FF4D00]/90 disabled:opacity-40 disabled:hover:bg-[#FF4D00] text-black font-black text-xs transition-all shadow-lg shadow-[#FF4D00]/20 flex items-center gap-1.5 min-h-[40px]"
+                className="px-5 py-2.5 rounded-xl bg-[#D4AF37] hover:bg-[#D4AF37]/90 disabled:opacity-40 disabled:hover:bg-[#D4AF37] text-black font-black text-xs transition-all shadow-lg shadow-[#D4AF37]/20 flex items-center gap-1.5 min-h-[40px]"
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>Send {totalSelected > 0 ? `(${totalSelected})` : ''}</span>

@@ -57,7 +57,7 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
               <p className="text-xs text-white/80 line-clamp-2 leading-tight">
                 {post.content}
               </p>
-              <span className="text-[10px] text-[#FF4D00] font-semibold mt-0.5 block">
+              <span className="text-[10px] text-[#D4AF37] font-semibold mt-0.5 block">
                 🔥 Day {post.userStreak} Check-in
               </span>
             </div>

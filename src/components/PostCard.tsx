@@ -134,7 +134,7 @@ export const PostCard: React.FC<PostCardProps> = ({
         >
           {/* Avatar with clean streak indication */}
           <div className="relative">
-            <div className="w-9 h-9 rounded-full overflow-hidden border border-white/10 group-hover:border-[#FF4D00]/50 transition-colors">
+            <div className="w-9 h-9 rounded-full overflow-hidden border border-white/10 group-hover:border-[#D4AF37]/50 transition-colors">
               <img
                 src={post.userAvatar}
                 alt={post.name}
@@ -143,7 +143,7 @@ export const PostCard: React.FC<PostCardProps> = ({
               />
             </div>
             {post.userStreak > 0 && (
-              <span className="absolute -bottom-1 -right-1 bg-black border border-[#FF4D00]/50 text-[#FF4D00] text-[8px] font-black px-1 rounded-full flex items-center shadow">
+              <span className="absolute -bottom-1 -right-1 bg-black border border-[#D4AF37]/50 text-[#D4AF37] text-[8px] font-black px-1 rounded-full flex items-center shadow">
                 🔥{post.userStreak}
               </span>
             )}
@@ -151,7 +151,7 @@ export const PostCard: React.FC<PostCardProps> = ({
 
           <div className="flex flex-col">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-bold text-xs text-white group-hover:text-[#FF4D00] transition-colors">
+              <span className="font-bold text-xs text-white group-hover:text-[#D4AF37] transition-colors">
                 @{post.username}
               </span>
               <span className="text-white/20 text-xs">•</span>
@@ -159,7 +159,7 @@ export const PostCard: React.FC<PostCardProps> = ({
             </div>
             {post.isDailyStreakPost && (
               <div className="flex items-center gap-1 mt-0.5">
-                <span className="text-[10px] text-[#FF4D00] font-bold">
+                <span className="text-[10px] text-[#D4AF37] font-bold">
                   🔥 {post.userStreak} Day Streak
                 </span>
               </div>
@@ -173,7 +173,7 @@ export const PostCard: React.FC<PostCardProps> = ({
             {isMyPost && onOpenInsights && (
               <button
                 onClick={() => onOpenInsights(post)}
-                className="p-1.5 rounded-lg text-white/50 hover:text-[#FF4D00] hover:bg-[#FF4D00]/10 transition-colors min-w-[32px] min-h-[32px] flex items-center justify-center"
+                className="p-1.5 rounded-lg text-white/50 hover:text-[#D4AF37] hover:bg-[#D4AF37]/10 transition-colors min-w-[32px] min-h-[32px] flex items-center justify-center"
                 title="View Post Insights & Analytics"
                 aria-label="View Insights"
               >
@@ -232,9 +232,9 @@ export const PostCard: React.FC<PostCardProps> = ({
                         setShowOptionsMenu(false);
                         onOpenInsights(post);
                       }}
-                      className="w-full text-left px-3 py-2 text-xs text-[#FF4D00] hover:text-[#FF4D00] hover:bg-[#FF4D00]/10 rounded-xl flex items-center gap-2 font-bold"
+                      className="w-full text-left px-3 py-2 text-xs text-[#D4AF37] hover:text-[#D4AF37] hover:bg-[#D4AF37]/10 rounded-xl flex items-center gap-2 font-bold"
                     >
-                      <BarChart3 className="w-3.5 h-3.5 text-[#FF4D00]" />
+                      <BarChart3 className="w-3.5 h-3.5 text-[#D4AF37]" />
                       <span>Engagement Insights</span>
                     </button>
                   )}
@@ -246,7 +246,7 @@ export const PostCard: React.FC<PostCardProps> = ({
                     }}
                     className="w-full text-left px-3 py-2 text-xs text-white/80 hover:text-white hover:bg-white/5 rounded-xl flex items-center gap-2"
                   >
-                    <Share2 className="w-3.5 h-3.5 text-[#FF4D00]" />
+                    <Share2 className="w-3.5 h-3.5 text-[#D4AF37]" />
                     <span>Share to Friends & Groups</span>
                   </button>
 
@@ -258,7 +258,7 @@ export const PostCard: React.FC<PostCardProps> = ({
                       }}
                       className="w-full text-left px-3 py-2 text-xs text-white/80 hover:text-white hover:bg-white/5 rounded-xl flex items-center gap-2"
                     >
-                      <UserIcon className="w-3.5 h-3.5 text-[#FF4D00]" />
+                      <UserIcon className="w-3.5 h-3.5 text-[#D4AF37]" />
                       <span>View Profile</span>
                     </button>
                   )}
@@ -277,7 +277,7 @@ export const PostCard: React.FC<PostCardProps> = ({
                       }}
                       className="w-full text-left px-3 py-2 text-xs text-white/80 hover:text-white hover:bg-white/5 rounded-xl flex items-center gap-2"
                     >
-                      <Send className="w-3.5 h-3.5 text-[#FF4D00]" />
+                      <Send className="w-3.5 h-3.5 text-[#D4AF37]" />
                       <span>Send Message</span>
                     </button>
                   )}
@@ -353,7 +353,7 @@ export const PostCard: React.FC<PostCardProps> = ({
               <button
                 key={idx}
                 onClick={() => onTagClick && onTagClick(tag)}
-                className="shrink-0 text-[10px] font-bold text-white/80 bg-white/10 hover:bg-[#FF4D00] hover:text-black px-2.5 py-1 rounded-full border border-white/10 transition-colors"
+                className="shrink-0 text-[10px] font-bold text-white/80 bg-white/10 hover:bg-[#D4AF37] hover:text-black px-2.5 py-1 rounded-full border border-white/10 transition-colors"
               >
                 #{tag}
               </button>
@@ -403,7 +403,7 @@ export const PostCard: React.FC<PostCardProps> = ({
                       streak: post.userStreak,
                     })
                   }
-                  className="text-white/40 hover:text-[#FF4D00] transition-colors p-1.5 rounded-lg hover:bg-white/5 min-h-[36px] min-w-[36px] flex items-center justify-center"
+                  className="text-white/40 hover:text-[#D4AF37] transition-colors p-1.5 rounded-lg hover:bg-white/5 min-h-[36px] min-w-[36px] flex items-center justify-center"
                   title="Send Direct Message"
                 >
                   <Send className="w-3.5 h-3.5 stroke-2" />
@@ -416,7 +416,7 @@ export const PostCard: React.FC<PostCardProps> = ({
                 className="text-white/40 hover:text-white transition-colors flex items-center gap-1.5 text-xs py-1.5 px-2 rounded-lg hover:bg-white/5 relative min-h-[36px]"
                 title="Share to friends & groups"
               >
-                <Share2 className="w-4 h-4 text-white/50 hover:text-[#FF4D00] transition-colors" />
+                <Share2 className="w-4 h-4 text-white/50 hover:text-[#D4AF37] transition-colors" />
                 <span className="font-semibold">Share</span>
               </button>
 
@@ -424,7 +424,7 @@ export const PostCard: React.FC<PostCardProps> = ({
               {isMyPost && onOpenInsights && (
                 <button
                   onClick={() => onOpenInsights(post)}
-                  className="transition-all flex items-center gap-1 text-[11px] py-1 px-2.5 rounded-lg border bg-[#FF4D00]/10 hover:bg-[#FF4D00]/20 text-[#FF4D00] border-[#FF4D00]/30 min-h-[32px]"
+                  className="transition-all flex items-center gap-1 text-[11px] py-1 px-2.5 rounded-lg border bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 text-[#D4AF37] border-[#D4AF37]/30 min-h-[32px]"
                   title="View Post Engagement Statistics"
                 >
                   <BarChart3 className="w-3.5 h-3.5" />
@@ -449,12 +449,12 @@ export const PostCard: React.FC<PostCardProps> = ({
             <button
               onClick={handleSaveToggle}
               className={`text-white/40 hover:text-white transition-transform active:scale-110 p-1.5 rounded-lg hover:bg-white/5 min-h-[36px] min-w-[36px] flex items-center justify-center ${
-                isSaved ? 'text-[#FF4D00] fill-[#FF4D00]' : ''
+                isSaved ? 'text-[#D4AF37] fill-[#D4AF37]' : ''
               }`}
               aria-label={isSaved ? 'Unsave post' : 'Save post'}
               title={isSaved ? 'Remove from Saved' : 'Save to Profile'}
             >
-              <Bookmark className={`w-4 h-4 ${isSaved ? 'fill-[#FF4D00] text-[#FF4D00]' : 'stroke-2'}`} />
+              <Bookmark className={`w-4 h-4 ${isSaved ? 'fill-[#D4AF37] text-[#D4AF37]' : 'stroke-2'}`} />
             </button>
           </div>
         )}

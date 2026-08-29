@@ -102,9 +102,9 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
       <div className="w-full pb-20 pt-2 px-3 sm:px-4 max-w-lg mx-auto">
         {/* Focus Reading Mode Active Bar */}
         {isFocusMode ? (
-          <div className="mb-4 p-3.5 rounded-2xl bg-[#141414] border border-[#FF4D00]/40 flex items-center justify-between shadow-lg shadow-black/60 sticky top-2 z-20 backdrop-blur-md">
+          <div className="mb-4 p-3.5 rounded-2xl bg-[#141414] border border-[#D4AF37]/40 flex items-center justify-between shadow-lg shadow-black/60 sticky top-2 z-20 backdrop-blur-md">
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-xl bg-[#FF4D00]/10 border border-[#FF4D00]/30 flex items-center justify-center text-[#FF4D00]">
+              <div className="w-7 h-7 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37]">
                 <BookOpen className="w-4 h-4" />
               </div>
               <div>
@@ -125,15 +125,15 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
         ) : (
           /* Daily Streak Reminder Banner (if not posted today) */
           !hasPostedToday && (
-            <div className="mb-4 p-4 sm:p-5 rounded-[28px] bg-gradient-to-r from-[#1c110b] to-[#121212] border border-[#FF4D00]/40 flex items-center justify-between shadow-lg shadow-[#FF4D00]/10">
+            <div className="mb-4 p-4 sm:p-5 rounded-[28px] bg-gradient-to-r from-[#1c110b] to-[#121212] border border-[#D4AF37]/40 flex items-center justify-between shadow-lg shadow-[#D4AF37]/10">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-[#FF4D00]/10 border border-[#FF4D00]/30 flex items-center justify-center shrink-0">
-                  <Flame className="w-5 h-5 text-[#FF4D00] fill-[#FF4D00] animate-pulse" />
+                <div className="w-10 h-10 rounded-2xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center shrink-0">
+                  <Flame className="w-5 h-5 text-[#D4AF37] fill-[#D4AF37] animate-pulse" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-extrabold text-xs text-white">What did you do today?</span>
-                    <span className="text-[10px] bg-[#FF4D00] text-black font-black px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] bg-[#D4AF37] text-black font-black px-2 py-0.5 rounded-full">
                       🔥 {currentUser.currentStreak}d
                     </span>
                   </div>
@@ -144,7 +144,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
               </div>
               <button
                 onClick={onOpenCreate}
-                className="px-4 py-2.5 rounded-xl bg-[#FF4D00] hover:bg-[#ff5d19] text-black font-black text-xs shrink-0 active:scale-95 transition-all shadow-md shadow-[#FF4D00]/20 min-h-[38px]"
+                className="px-4 py-2.5 rounded-xl bg-[#D4AF37] hover:bg-[#E5B842] text-black font-black text-xs shrink-0 active:scale-95 transition-all shadow-md shadow-[#D4AF37]/20 min-h-[38px]"
               >
                 Post Proof 🔥
               </button>
@@ -155,7 +155,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
         {/* Home Feed Header */}
         <div className="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-[#FF4D00] animate-ping" />
+            <div className="w-2 h-2 rounded-full bg-[#D4AF37] animate-ping" />
             <h2 className="text-xs font-bold uppercase tracking-wider text-white">
               {isFocusMode ? 'Focus Stream' : "Today's Proof of Work"}
             </h2>
@@ -166,7 +166,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
               onClick={toggleFocusMode}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all border ${
                 isFocusMode
-                  ? 'bg-[#FF4D00] text-black border-[#FF4D00]'
+                  ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
                   : 'bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border-white/10'
               }`}
               title="Toggle Focus Reading Mode"
@@ -190,7 +190,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
               onClick={() => setActiveTag(null)}
               className={`shrink-0 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all border ${
                 activeTag === null
-                  ? 'bg-[#FF4D00] text-black border-[#FF4D00]'
+                  ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
                   : 'bg-white/5 text-white/60 border-white/10 hover:text-white hover:border-white/20'
               }`}
             >
@@ -202,7 +202,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                 onClick={() => setActiveTag(activeTag === tag ? null : tag)}
                 className={`shrink-0 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all border ${
                   activeTag === tag
-                    ? 'bg-[#FF4D00] text-black border-[#FF4D00]'
+                    ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
                     : 'bg-white/5 text-white/60 border-white/10 hover:text-white hover:border-white/20'
                 }`}
               >
@@ -249,7 +249,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
             <div className="mt-5 flex items-center justify-center gap-2">
               <button
                 onClick={() => onSelectTab('discover')}
-                className="px-4 py-2.5 rounded-xl bg-[#FF4D00] text-black font-black text-xs shadow-lg shadow-[#FF4D00]/20"
+                className="px-4 py-2.5 rounded-xl bg-[#D4AF37] text-black font-black text-xs shadow-lg shadow-[#D4AF37]/20"
               >
                 Discover Creators & Communities
               </button>

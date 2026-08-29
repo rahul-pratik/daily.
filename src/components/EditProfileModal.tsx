@@ -98,9 +98,9 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 src={avatar}
                 alt="Profile Avatar"
                 referrerPolicy="no-referrer"
-                className="w-18 h-18 rounded-full object-cover border-2 border-[#FF4D00] shadow-md"
+                className="w-18 h-18 rounded-full object-cover border-2 border-[#D4AF37] shadow-md"
               />
-              <label className="absolute bottom-0 right-0 p-1.5 bg-black border border-white/20 hover:border-[#FF4D00] rounded-full text-white cursor-pointer shadow-md">
+              <label className="absolute bottom-0 right-0 p-1.5 bg-black border border-white/20 hover:border-[#D4AF37] rounded-full text-white cursor-pointer shadow-md">
                 <Upload className="w-3.5 h-3.5" />
                 <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
               </label>
@@ -114,7 +114,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   type="button"
                   onClick={() => setAvatar(p)}
                   className={`w-6 h-6 rounded-full overflow-hidden border transition-all ${
-                    avatar === p ? 'border-[#FF4D00] scale-110' : 'border-white/10 opacity-60'
+                    avatar === p ? 'border-[#D4AF37] scale-110' : 'border-white/10 opacity-60'
                   }`}
                 >
                   <img src={p} alt="preset" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
@@ -130,7 +130,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3.5 py-2 bg-white/5 border border-white/10 focus:border-[#FF4D00] rounded-xl text-xs text-white outline-none"
+              className="w-full px-3.5 py-2 bg-white/5 border border-white/10 focus:border-[#D4AF37] rounded-xl text-xs text-white outline-none"
             />
           </div>
 
@@ -141,7 +141,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-3.5 py-2 bg-white/5 border border-white/10 focus:border-[#FF4D00] rounded-xl text-xs text-white outline-none"
+              className="w-full px-3.5 py-2 bg-white/5 border border-white/10 focus:border-[#D4AF37] rounded-xl text-xs text-white outline-none"
             />
           </div>
 
@@ -153,7 +153,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               onChange={(e) => setBio(e.target.value)}
               rows={2}
               maxLength={140}
-              className="w-full px-3.5 py-2 bg-white/5 border border-white/10 focus:border-[#FF4D00] rounded-xl text-xs text-white outline-none resize-none"
+              className="w-full px-3.5 py-2 bg-white/5 border border-white/10 focus:border-[#D4AF37] rounded-xl text-xs text-white outline-none resize-none"
             />
           </div>
 
@@ -170,7 +170,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                     onClick={() => toggleInterest(item)}
                     className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all border ${
                       isSelected
-                        ? 'bg-[#FF4D00] text-black border-[#FF4D00]'
+                        ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
                         : 'bg-white/5 text-white/60 border-white/10'
                     }`}
                   >
@@ -216,7 +216,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             </button>
             <button
               type="submit"
-              className="w-2/3 py-2.5 rounded-xl bg-[#FF4D00] text-black font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg shadow-[#FF4D00]/20 hover:bg-[#FF4D00]/90 transition-all"
+              className="w-2/3 py-2.5 rounded-xl bg-[#D4AF37] text-black font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg shadow-[#D4AF37]/20 hover:bg-[#D4AF37]/90 transition-all"
             >
               <Save className="w-3.5 h-3.5" />
               Save Changes

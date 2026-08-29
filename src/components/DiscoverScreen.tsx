@@ -174,7 +174,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-black text-white flex items-center gap-2">
-              <Compass className="w-5 h-5 text-[#FF4D00]" />
+              <Compass className="w-5 h-5 text-[#D4AF37]" />
               Discover Community
             </h1>
             <p className="text-xs text-white/50 mt-1">
@@ -188,7 +188,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
               className="p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white transition-colors flex items-center gap-1.5 text-xs font-bold shrink-0"
               title="Create a new accountability group"
             >
-              <PlusCircle className="w-4 h-4 text-[#FF4D00]" />
+              <PlusCircle className="w-4 h-4 text-[#D4AF37]" />
               <span className="hidden sm:inline">New Group</span>
             </button>
           )}
@@ -202,7 +202,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search creators & groups by name, #tag, habit..."
-            className="w-full pl-10 pr-10 py-3 bg-white/5 border border-white/10 focus:border-[#FF4D00] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors"
+            className="w-full pl-10 pr-10 py-3 bg-white/5 border border-white/10 focus:border-[#D4AF37] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors"
           />
           {searchQuery.trim().length > 0 && (
             <button
@@ -219,13 +219,13 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
         <div className="space-y-1.5">
           <div className="flex items-center justify-between px-0.5">
             <span className="text-[10px] uppercase font-bold tracking-wider text-white/40 flex items-center gap-1">
-              <Tag className="w-3 h-3 text-[#FF4D00]" />
+              <Tag className="w-3 h-3 text-[#D4AF37]" />
               Filter by Interest & Habit Tags
             </span>
             {activeFilterTag && (
               <button
                 onClick={() => setActiveFilterTag(null)}
-                className="text-[10px] text-[#FF4D00] hover:underline font-bold flex items-center gap-1"
+                className="text-[10px] text-[#D4AF37] hover:underline font-bold flex items-center gap-1"
               >
                 <X className="w-3 h-3" /> Clear filter
               </button>
@@ -248,7 +248,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                   onClick={() => setActiveFilterTag(chip.value)}
                   className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all border min-h-[36px] flex items-center gap-1.5 ${
                     isSelected
-                      ? 'bg-[#FF4D00] text-black border-[#FF4D00] shadow-md shadow-[#FF4D00]/20 scale-105'
+                      ? 'bg-[#D4AF37] text-black border-[#D4AF37] shadow-md shadow-[#D4AF37]/20 scale-105'
                       : 'bg-white/5 text-white/70 border-white/10 hover:border-white/20 hover:text-white'
                   }`}
                 >
@@ -298,7 +298,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
           </div>
 
           {activeFilterTag && (
-            <span className="text-[11px] text-[#FF4D00] font-bold hidden sm:inline-block">
+            <span className="text-[11px] text-[#D4AF37] font-bold hidden sm:inline-block">
               Tag: #{activeFilterTag}
             </span>
           )}
@@ -306,11 +306,11 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
 
         {/* Active Tag Filter Summary Banner */}
         {activeFilterTag && (
-          <div className="bg-[#FF4D00]/10 border border-[#FF4D00]/25 rounded-2xl p-3 flex items-center justify-between text-xs text-white">
+          <div className="bg-[#D4AF37]/10 border border-[#D4AF37]/25 rounded-2xl p-3 flex items-center justify-between text-xs text-white">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[#FF4D00] shrink-0" />
+              <Sparkles className="w-4 h-4 text-[#D4AF37] shrink-0" />
               <span>
-                Filtering by <strong className="text-[#FF4D00]">#{activeFilterTag}</strong>: Found{' '}
+                Filtering by <strong className="text-[#D4AF37]">#{activeFilterTag}</strong>: Found{' '}
                 <strong>{filteredUsers.length}</strong> people and{' '}
                 <strong>{filteredGroups.length}</strong> groups
               </span>
@@ -332,13 +332,13 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-xs uppercase font-bold tracking-wider text-white/50 flex items-center gap-1.5">
-                  <Users2 className="w-3.5 h-3.5 text-[#FF4D00]" />
+                  <Users2 className="w-3.5 h-3.5 text-[#D4AF37]" />
                   Accountability Groups & Clubs ({filteredGroups.length})
                 </h2>
                 {entityFilter === 'all' && filteredGroups.length > 2 && (
                   <button
                     onClick={() => setEntityFilter('groups')}
-                    className="text-[11px] text-[#FF4D00] hover:underline font-bold"
+                    className="text-[11px] text-[#D4AF37] hover:underline font-bold"
                   >
                     View all {filteredGroups.length}
                   </button>
@@ -367,7 +367,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2">
                             <h3 className="font-bold text-sm text-white truncate">{group.name}</h3>
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FF4D00]/15 text-[#FF4D00] border border-[#FF4D00]/30 font-bold uppercase tracking-wider shrink-0">
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#D4AF37]/15 text-[#D4AF37] border border-[#D4AF37]/30 font-bold uppercase tracking-wider shrink-0">
                               #{group.category}
                             </span>
                           </div>
@@ -427,13 +427,13 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-xs uppercase font-bold tracking-wider text-white/50 flex items-center gap-1.5">
-                  <Users className="w-3.5 h-3.5 text-[#FF4D00]" />
+                  <Users className="w-3.5 h-3.5 text-[#D4AF37]" />
                   Matching Creators ({sortedUsers.length})
                 </h2>
                 {entityFilter === 'all' && sortedUsers.length > 3 && (
                   <button
                     onClick={() => setEntityFilter('people')}
-                    className="text-[11px] text-[#FF4D00] hover:underline font-bold"
+                    className="text-[11px] text-[#D4AF37] hover:underline font-bold"
                   >
                     View all {sortedUsers.length}
                   </button>
@@ -461,7 +461,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                           className="flex items-center gap-3 cursor-pointer group"
                         >
                           <div className="relative">
-                            <div className="w-11 h-11 rounded-full overflow-hidden border border-white/10 group-hover:border-[#FF4D00]/50 transition-colors">
+                            <div className="w-11 h-11 rounded-full overflow-hidden border border-white/10 group-hover:border-[#D4AF37]/50 transition-colors">
                               <img
                                 src={user.avatar}
                                 alt={user.name}
@@ -470,14 +470,14 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                               />
                             </div>
                             {user.currentStreak > 0 && (
-                              <span className="absolute -bottom-1 -right-1 bg-black text-[#FF4D00] text-[9px] font-black px-1.5 rounded-full border border-[#FF4D00]/60 shadow">
+                              <span className="absolute -bottom-1 -right-1 bg-black text-[#D4AF37] text-[9px] font-black px-1.5 rounded-full border border-[#D4AF37]/60 shadow">
                                 🔥{user.currentStreak}
                               </span>
                             )}
                           </div>
 
                           <div>
-                            <h3 className="font-bold text-sm text-white group-hover:text-[#FF4D00] transition-colors">
+                            <h3 className="font-bold text-sm text-white group-hover:text-[#D4AF37] transition-colors">
                               {user.name}
                             </h3>
                             <p className="text-xs text-white/40">@{user.username}</p>
@@ -486,8 +486,8 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
 
                         {/* Match Percentage Badge */}
                         <div className="flex flex-col items-end gap-1">
-                          <span className="inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-0.5 rounded-full bg-[#FF4D00]/10 border border-[#FF4D00]/30 text-[#FF4D00]">
-                            <Sparkles className="w-3 h-3 text-[#FF4D00]" />
+                          <span className="inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-0.5 rounded-full bg-[#D4AF37]/10 border border-[#D4AF37]/30 text-[#D4AF37]">
+                            <Sparkles className="w-3 h-3 text-[#D4AF37]" />
                             {matchScore}% Match
                           </span>
                         </div>
@@ -512,9 +512,9 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                               onClick={() => setActiveFilterTag(interest)}
                               className={`text-[10px] px-2.5 py-0.5 rounded-full border font-bold uppercase tracking-wider transition-colors ${
                                 isCurrentActive
-                                  ? 'bg-[#FF4D00] text-black border-[#FF4D00]'
+                                  ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
                                   : isShared
-                                  ? 'bg-[#FF4D00]/15 text-[#FF4D00] border-[#FF4D00]/30'
+                                  ? 'bg-[#D4AF37]/15 text-[#D4AF37] border-[#D4AF37]/30'
                                   : 'bg-white/5 text-white/60 border-white/10 hover:border-white/20'
                               }`}
                             >
@@ -535,7 +535,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                               onClick={() => setActiveFilterTag(habit)}
                               className={`text-[10px] px-2.5 py-0.5 rounded-full border font-bold uppercase tracking-wider transition-colors ${
                                 isCurrentActive
-                                  ? 'bg-[#FF4D00] text-black border-[#FF4D00]'
+                                  ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
                                   : isShared
                                   ? 'bg-white/15 text-white border-white/30'
                                   : 'bg-white/5 text-white/60 border-white/10 hover:border-white/20'

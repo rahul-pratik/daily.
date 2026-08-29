@@ -89,7 +89,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     if (!newHabitTitle.trim()) return;
 
     const categoryColors: Record<PersonalHabit['category'], string> = {
-      Fitness: '#FF4D00',
+      Fitness: '#D4AF37',
       Productivity: '#38BDF8',
       Learning: '#A855F7',
       Health: '#22C55E',
@@ -101,7 +101,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       title: newHabitTitle.trim(),
       category: newHabitCategory,
       icon: newHabitIcon,
-      color: categoryColors[newHabitCategory] || '#FF4D00',
+      color: categoryColors[newHabitCategory] || '#D4AF37',
       targetDaysPerWeek: newHabitTarget,
     });
 
@@ -136,7 +136,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             >
               <Share2 className="w-3.5 h-3.5" />
               {copiedLink && (
-                <span className="absolute -top-7 right-0 text-[10px] font-bold bg-[#FF4D00] text-black px-2 py-0.5 rounded shadow whitespace-nowrap">
+                <span className="absolute -top-7 right-0 text-[10px] font-bold bg-[#D4AF37] text-black px-2 py-0.5 rounded shadow whitespace-nowrap">
                   Link copied!
                 </span>
               )}
@@ -158,7 +158,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                     }}
                     className="w-full text-left px-3 py-2 text-xs text-white/80 hover:bg-white/5 rounded-xl flex items-center gap-2"
                   >
-                    <Edit3 className="w-3.5 h-3.5 text-[#FF4D00]" />
+                    <Edit3 className="w-3.5 h-3.5 text-[#D4AF37]" />
                     Edit Profile
                   </button>
                   <button
@@ -220,8 +220,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 className="w-full h-full object-cover"
               />
             </div>
-            <div className="absolute -bottom-1 -right-1 bg-black text-[#FF4D00] text-[10px] font-black px-2 py-0.5 rounded-full border border-[#FF4D00]/50 flex items-center gap-1 shadow-md">
-              <Flame className="w-3 h-3 fill-[#FF4D00]" />
+            <div className="absolute -bottom-1 -right-1 bg-black text-[#D4AF37] text-[10px] font-black px-2 py-0.5 rounded-full border border-[#D4AF37]/50 flex items-center gap-1 shadow-md">
+              <Flame className="w-3 h-3 fill-[#D4AF37]" />
               <span>{currentUser.currentStreak}d</span>
             </div>
           </div>
@@ -229,7 +229,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <div className="flex-1">
             <h1 className="text-lg font-black text-white flex items-center gap-1.5">
               {currentUser.name}
-              <CheckCircle2 className="w-4 h-4 text-[#FF4D00]" />
+              <CheckCircle2 className="w-4 h-4 text-[#D4AF37]" />
             </h1>
             <p className="text-xs text-white/70 mt-1 leading-relaxed">{currentUser.bio}</p>
           </div>
@@ -242,7 +242,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               {currentUser.currentStreak}
             </span>
             <span className="text-[10px] uppercase tracking-wider text-white/40 font-semibold flex items-center justify-center gap-0.5">
-              <Flame className="w-2.5 h-2.5 text-[#FF4D00] fill-[#FF4D00]" /> Streak
+              <Flame className="w-2.5 h-2.5 text-[#D4AF37] fill-[#D4AF37]" /> Streak
             </span>
           </div>
 
@@ -309,14 +309,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             onClick={onOpenEditProfile}
             className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-white flex items-center justify-center gap-2 transition-colors min-h-[44px] active:scale-[0.99]"
           >
-            <Edit3 className="w-3.5 h-3.5 text-[#FF4D00]" />
+            <Edit3 className="w-3.5 h-3.5 text-[#D4AF37]" />
             <span>Edit Profile</span>
           </button>
 
           {userPosts.length > 0 && onOpenInsights && (
             <button
               onClick={() => onOpenInsights(userPosts[0])}
-              className="py-2.5 px-4 rounded-xl bg-[#FF4D00]/10 hover:bg-[#FF4D00]/20 border border-[#FF4D00]/30 text-xs font-bold text-[#FF4D00] flex items-center justify-center gap-1.5 transition-colors min-h-[44px] active:scale-[0.99]"
+              className="py-2.5 px-4 rounded-xl bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 border border-[#D4AF37]/30 text-xs font-bold text-[#D4AF37] flex items-center justify-center gap-1.5 transition-colors min-h-[44px] active:scale-[0.99]"
               title="View Engagement Analytics for your latest post"
             >
               <BarChart3 className="w-3.5 h-3.5" />
@@ -339,7 +339,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   : 'text-white/50 hover:text-white'
               }`}
             >
-              <Zap className="w-3.5 h-3.5 text-[#FF4D00]" />
+              <Zap className="w-3.5 h-3.5 text-[#D4AF37]" />
               <span>Habits ({habits.length})</span>
             </button>
             <button
@@ -393,7 +393,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           ) : (
             <button
               onClick={() => setShowAddHabitModal(true)}
-              className="px-3 py-1.5 rounded-xl bg-[#FF4D00] hover:bg-[#ff5d19] text-black font-black text-xs flex items-center gap-1 shadow-md shadow-[#FF4D00]/20 transition-all active:scale-95"
+              className="px-3 py-1.5 rounded-xl bg-[#D4AF37] hover:bg-[#E5B842] text-black font-black text-xs flex items-center gap-1 shadow-md shadow-[#D4AF37]/20 transition-all active:scale-95"
             >
               <Plus className="w-3.5 h-3.5 stroke-[3]" />
               <span>New Habit</span>
@@ -408,7 +408,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           {/* Habits Summary Header Card */}
           <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-[#FF4D00]/10 border border-[#FF4D00]/20 flex items-center justify-center text-[#FF4D00]">
+              <div className="w-10 h-10 rounded-2xl bg-[#D4AF37]/10 border border-[#D4AF37]/20 flex items-center justify-center text-[#D4AF37]">
                 <Target className="w-5 h-5" />
               </div>
               <div>
@@ -430,12 +430,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   className="px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-bold text-white/80 hover:text-white flex items-center gap-1.5 transition-all"
                   title="Share Habit as Photo or Tweet"
                 >
-                  <Share2 className="w-3 h-3 text-[#FF4D00]" />
+                  <Share2 className="w-3 h-3 text-[#D4AF37]" />
                   <span>Share</span>
                 </button>
               )}
               <div className="text-right">
-                <span className="text-xs font-mono font-bold text-[#FF4D00]">
+                <span className="text-xs font-mono font-bold text-[#D4AF37]">
                   {habits.length > 0 ? Math.round((completedTodayCount / habits.length) * 100) : 0}%
                 </span>
                 <span className="text-[10px] text-white/40 block">Done Today</span>
@@ -471,8 +471,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                           </h4>
                         </div>
                         <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[10px] font-bold text-[#FF4D00] bg-[#FF4D00]/10 px-2 py-0.5 rounded-full flex items-center gap-1">
-                            <Flame className="w-2.5 h-2.5 fill-[#FF4D00]" />
+                          <span className="text-[10px] font-bold text-[#D4AF37] bg-[#D4AF37]/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Flame className="w-2.5 h-2.5 fill-[#D4AF37]" />
                             {habit.streak}d streak
                           </span>
                           <span className="text-[10px] text-white/40 font-medium">
@@ -502,7 +502,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                           vibrateLight();
                           setSharingHabit(habit);
                         }}
-                        className="p-2 text-white/50 hover:text-[#FF4D00] hover:bg-[#FF4D00]/10 rounded-xl transition-colors min-h-[38px] min-w-[38px] flex items-center justify-center border border-white/5"
+                        className="p-2 text-white/50 hover:text-[#D4AF37] hover:bg-[#D4AF37]/10 rounded-xl transition-colors min-h-[38px] min-w-[38px] flex items-center justify-center border border-white/5"
                         title="Share as Photo Card or Tweet on X"
                       >
                         <Share2 className="w-3.5 h-3.5" />
@@ -529,7 +529,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               </p>
               <button
                 onClick={() => setShowAddHabitModal(true)}
-                className="mt-4 px-4 py-2 bg-[#FF4D00] text-black font-black text-xs rounded-xl shadow-lg shadow-[#FF4D00]/20"
+                className="mt-4 px-4 py-2 bg-[#D4AF37] text-black font-black text-xs rounded-xl shadow-lg shadow-[#D4AF37]/20"
               >
                 + Add Your First Habit
               </button>
@@ -560,7 +560,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   />
                 ) : (
                   <div className="w-full h-full p-2.5 flex flex-col justify-between bg-white/[0.03]">
-                    <span className="text-[10px] text-[#FF4D00] font-bold">🔥 Daily</span>
+                    <span className="text-[10px] text-[#D4AF37] font-bold">🔥 Daily</span>
                     <p className="text-[10px] text-white/70 line-clamp-4 leading-tight">
                       {post.content}
                     </p>
@@ -574,7 +574,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                     <span>💬 {post.comments?.length || 0}</span>
                   </div>
                   {profileTab === 'my_posts' && onOpenInsights && (
-                    <span className="text-[9px] bg-[#FF4D00] text-black px-2 py-0.5 rounded-full font-black flex items-center gap-1 mt-0.5">
+                    <span className="text-[9px] bg-[#D4AF37] text-black px-2 py-0.5 rounded-full font-black flex items-center gap-1 mt-0.5">
                       <BarChart3 className="w-2.5 h-2.5" /> Stats
                     </span>
                   )}
@@ -634,7 +634,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <div className="w-full max-w-sm bg-[#111111] border border-white/15 rounded-3xl p-5 shadow-2xl text-white space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-[#FF4D00]/10 text-[#FF4D00]">
+                <div className="p-2 rounded-xl bg-[#D4AF37]/10 text-[#D4AF37]">
                   <Zap className="w-4 h-4" />
                 </div>
                 <h3 className="text-base font-black text-white">Define Daily Habit</h3>
@@ -657,7 +657,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   value={newHabitTitle}
                   onChange={(e) => setNewHabitTitle(e.target.value)}
                   placeholder="e.g., 30-min Morning Run, Code 1 Hr"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs placeholder:text-white/30 focus:outline-none focus:border-[#FF4D00]"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs placeholder:text-white/30 focus:outline-none focus:border-[#D4AF37]"
                   autoFocus
                   required
                 />
@@ -685,7 +685,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                       }}
                       className={`p-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all ${
                         newHabitCategory === item.cat
-                          ? 'bg-[#FF4D00] text-black border-[#FF4D00]'
+                          ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
                           : 'bg-white/5 text-white/70 border-white/10 hover:border-white/20'
                       }`}
                     >
@@ -722,7 +722,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 <button
                   type="submit"
                   disabled={!newHabitTitle.trim()}
-                  className="flex-1 py-2.5 bg-[#FF4D00] hover:bg-[#ff5d19] disabled:opacity-40 text-black font-black text-xs rounded-xl shadow-lg shadow-[#FF4D00]/20 transition-all"
+                  className="flex-1 py-2.5 bg-[#D4AF37] hover:bg-[#E5B842] disabled:opacity-40 text-black font-black text-xs rounded-xl shadow-lg shadow-[#D4AF37]/20 transition-all"
                 >
                   Save Habit
                 </button>

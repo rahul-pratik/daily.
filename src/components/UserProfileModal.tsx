@@ -63,8 +63,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           <div className="flex items-center gap-2">
             <span className="font-mono text-xs text-white/50">@{user.username}</span>
             {user.currentStreak > 0 && (
-              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#FF4D00]/10 text-[#FF4D00] border border-[#FF4D00]/30 flex items-center gap-1">
-                <Flame className="w-3 h-3 fill-[#FF4D00]" /> {user.currentStreak}d Streak
+              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#D4AF37]/10 text-[#D4AF37] border border-[#D4AF37]/30 flex items-center gap-1">
+                <Flame className="w-3 h-3 fill-[#D4AF37]" /> {user.currentStreak}d Streak
               </span>
             )}
             {isBlocked && (
@@ -82,7 +82,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             >
               <Share2 className="w-4 h-4" />
               {copiedLink && (
-                <span className="absolute -top-7 right-0 text-[10px] font-bold bg-[#FF4D00] text-black px-2 py-0.5 rounded shadow whitespace-nowrap">
+                <span className="absolute -top-7 right-0 text-[10px] font-bold bg-[#D4AF37] text-black px-2 py-0.5 rounded shadow whitespace-nowrap">
                   Link copied!
                 </span>
               )}
@@ -110,7 +110,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 />
               </div>
               {user.currentStreak > 0 && (
-                <span className="absolute -bottom-1 -right-1 bg-black text-[#FF4D00] text-[10px] font-black px-1.5 py-0.5 rounded-full border border-[#FF4D00]/60 shadow">
+                <span className="absolute -bottom-1 -right-1 bg-black text-[#D4AF37] text-[10px] font-black px-1.5 py-0.5 rounded-full border border-[#D4AF37]/60 shadow">
                   🔥{user.currentStreak}
                 </span>
               )}
@@ -119,7 +119,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             <div className="flex-1">
               <div className="flex items-center gap-1.5">
                 <h2 className="text-base sm:text-lg font-black text-white">{user.name}</h2>
-                <CheckCircle2 className="w-4 h-4 text-[#FF4D00]" />
+                <CheckCircle2 className="w-4 h-4 text-[#D4AF37]" />
               </div>
               <p className="text-xs text-white/70 mt-1 leading-relaxed">{user.bio}</p>
             </div>
@@ -176,7 +176,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     streak: user.currentStreak,
                   });
                 }}
-                className="py-2.5 rounded-2xl bg-[#FF4D00] hover:bg-[#FF4D00]/90 text-black font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-[#FF4D00]/20 transition-all"
+                className="py-2.5 rounded-2xl bg-[#D4AF37] hover:bg-[#D4AF37]/90 text-black font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-[#D4AF37]/20 transition-all"
               >
                 <MessageSquare className="w-4 h-4" />
                 <span>Direct Message</span>
@@ -223,7 +223,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 {user.currentStreak}
               </span>
               <span className="text-[9px] uppercase tracking-wider text-white/40 font-semibold flex items-center justify-center gap-0.5">
-                <Flame className="w-2.5 h-2.5 text-[#FF4D00] fill-[#FF4D00]" /> Streak
+                <Flame className="w-2.5 h-2.5 text-[#D4AF37] fill-[#D4AF37]" /> Streak
               </span>
             </div>
 
@@ -339,7 +339,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                         />
                       ) : (
                         <div className="w-full h-full p-2 flex flex-col justify-between bg-white/[0.03]">
-                          <span className="text-[9px] text-[#FF4D00] font-bold">🔥 Daily</span>
+                          <span className="text-[9px] text-[#D4AF37] font-bold">🔥 Daily</span>
                           <p className="text-[9px] text-white/70 line-clamp-3 leading-tight">
                             {p.content}
                           </p>
@@ -359,7 +359,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                       <div className="flex items-center justify-between text-[10px] text-white/40">
                         <span>{p.createdAt}</span>
                         {p.isDailyStreakPost && (
-                          <span className="text-[#FF4D00] font-bold">
+                          <span className="text-[#D4AF37] font-bold">
                             🔥 {p.userStreak} Day Streak
                           </span>
                         )}

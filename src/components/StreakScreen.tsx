@@ -98,14 +98,14 @@ export const StreakScreen: React.FC<StreakScreenProps> = ({
   return (
     <div className="w-full pb-24 pt-2 px-3 sm:px-4 max-w-lg mx-auto space-y-4">
       {/* Hero Streak Card */}
-      <div className="relative overflow-hidden rounded-[32px] bg-white/5 border border-[#FF4D00]/30 p-6 text-center shadow-2xl shadow-[#FF4D00]/5">
+      <div className="relative overflow-hidden rounded-[32px] bg-white/5 border border-[#D4AF37]/30 p-6 text-center shadow-2xl shadow-[#D4AF37]/5">
         {/* Glow orb */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-48 bg-[#FF4D00]/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-48 bg-[#D4AF37]/10 rounded-full blur-3xl pointer-events-none" />
 
         {/* Animated flame emblem */}
         <div className="relative inline-flex items-center justify-center mb-3">
-          <div className="w-20 h-20 rounded-full bg-[#FF4D00]/10 border border-[#FF4D00]/30 flex items-center justify-center shadow-lg shadow-[#FF4D00]/20">
-            <Flame className="w-10 h-10 text-[#FF4D00] fill-[#FF4D00] animate-pulse" />
+          <div className="w-20 h-20 rounded-full bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center shadow-lg shadow-[#D4AF37]/20">
+            <Flame className="w-10 h-10 text-[#D4AF37] fill-[#D4AF37] animate-pulse" />
           </div>
         </div>
 
@@ -123,7 +123,7 @@ export const StreakScreen: React.FC<StreakScreenProps> = ({
         {!hasPostedToday && (
           <button
             onClick={onOpenCreate}
-            className="mt-4 px-6 py-3 rounded-2xl bg-[#FF4D00] text-black font-black text-xs inline-flex items-center gap-2 hover:bg-[#ff5d19] active:scale-95 transition-all shadow-lg shadow-[#FF4D00]/25"
+            className="mt-4 px-6 py-3 rounded-2xl bg-[#D4AF37] text-black font-black text-xs inline-flex items-center gap-2 hover:bg-[#E5B842] active:scale-95 transition-all shadow-lg shadow-[#D4AF37]/25"
           >
             <PlusCircle className="w-4 h-4" />
             <span>Post Today’s Update</span>
@@ -134,8 +134,8 @@ export const StreakScreen: React.FC<StreakScreenProps> = ({
       {/* Stats 3-Grid */}
       <div className="grid grid-cols-3 gap-2.5">
         <div className="bg-white/5 border border-white/5 rounded-2xl p-3.5 text-center">
-          <div className="w-7 h-7 rounded-lg bg-[#FF4D00]/10 border border-[#FF4D00]/20 flex items-center justify-center mx-auto mb-1.5">
-            <Flame className="w-4 h-4 text-[#FF4D00] fill-[#FF4D00]" />
+          <div className="w-7 h-7 rounded-lg bg-[#D4AF37]/10 border border-[#D4AF37]/20 flex items-center justify-center mx-auto mb-1.5">
+            <Flame className="w-4 h-4 text-[#D4AF37] fill-[#D4AF37]" />
           </div>
           <span className="text-lg font-black text-white block">{currentUser.currentStreak}</span>
           <span className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Current</span>
@@ -224,9 +224,9 @@ export const StreakScreen: React.FC<StreakScreenProps> = ({
                 onClick={() => handleDateClick(dateStr)}
                 className={`relative aspect-square rounded-xl flex flex-col items-center justify-center transition-all ${
                   isActive
-                    ? 'bg-[#FF4D00] text-black font-black shadow-md shadow-[#FF4D00]/20 hover:scale-105'
+                    ? 'bg-[#D4AF37] text-black font-black shadow-md shadow-[#D4AF37]/20 hover:scale-105'
                     : 'bg-white/5 text-white/40 hover:bg-white/10 hover:text-white'
-                } ${isToday ? 'ring-2 ring-[#FF4D00]' : ''} ${
+                } ${isToday ? 'ring-2 ring-[#D4AF37]' : ''} ${
                   isSelected ? 'ring-2 ring-white scale-105 z-10' : ''
                 }`}
                 aria-label={`View entry for ${dateStr}`}
@@ -247,7 +247,7 @@ export const StreakScreen: React.FC<StreakScreenProps> = ({
           <div className="mt-4 p-4 bg-white/5 border border-white/10 rounded-2xl text-xs text-white/80 animate-in fade-in space-y-3">
             <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-[#FF4D00]/10 border border-[#FF4D00]/20 flex items-center justify-center text-[#FF4D00]">
+                <div className="w-7 h-7 rounded-lg bg-[#D4AF37]/10 border border-[#D4AF37]/20 flex items-center justify-center text-[#D4AF37]">
                   <CalendarIcon className="w-3.5 h-3.5" />
                 </div>
                 <div>
@@ -266,7 +266,7 @@ export const StreakScreen: React.FC<StreakScreenProps> = ({
                 <span
                   className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                     currentUser.activityDates.includes(selectedDate)
-                      ? 'bg-[#FF4D00]/10 text-[#FF4D00] border border-[#FF4D00]/30'
+                      ? 'bg-[#D4AF37]/10 text-[#D4AF37] border border-[#D4AF37]/30'
                       : 'bg-white/5 text-white/40'
                   }`}
                 >
@@ -327,7 +327,7 @@ export const StreakScreen: React.FC<StreakScreenProps> = ({
                 {selectedDate === today && (
                   <button
                     onClick={onOpenCreate}
-                    className="px-4 py-2 rounded-xl bg-[#FF4D00] text-black font-black text-xs inline-flex items-center gap-1.5 shadow-md shadow-[#FF4D00]/20"
+                    className="px-4 py-2 rounded-xl bg-[#D4AF37] text-black font-black text-xs inline-flex items-center gap-1.5 shadow-md shadow-[#D4AF37]/20"
                   >
                     <PlusCircle className="w-3.5 h-3.5" />
                     <span>Post Check-in for Today</span>
@@ -341,7 +341,7 @@ export const StreakScreen: React.FC<StreakScreenProps> = ({
         {/* Legend */}
         <div className="flex items-center justify-center gap-4 mt-4 pt-3 border-t border-white/5 text-[11px] text-white/40">
           <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-md bg-[#FF4D00]" />
+            <div className="w-3 h-3 rounded-md bg-[#D4AF37]" />
             <span>Streak Maintained</span>
           </div>
           <div className="flex items-center gap-1.5">
@@ -354,7 +354,7 @@ export const StreakScreen: React.FC<StreakScreenProps> = ({
       {/* Streak Milestones Roadmap */}
       <div className="bg-white/5 border border-white/5 rounded-[32px] p-5 shadow-xl">
         <div className="flex items-center gap-2 mb-3">
-          <Sparkles className="w-4 h-4 text-[#FF4D00]" />
+          <Sparkles className="w-4 h-4 text-[#D4AF37]" />
           <h2 className="font-bold text-sm text-white">Streak Milestones</h2>
         </div>
 
@@ -366,7 +366,7 @@ export const StreakScreen: React.FC<StreakScreenProps> = ({
                 key={m.days}
                 className={`p-3 rounded-2xl border flex items-center justify-between transition-all ${
                   isUnlocked
-                    ? 'bg-white/5 border-[#FF4D00]/30'
+                    ? 'bg-white/5 border-[#D4AF37]/30'
                     : 'bg-white/[0.02] border-white/5 opacity-50'
                 }`}
               >
@@ -374,7 +374,7 @@ export const StreakScreen: React.FC<StreakScreenProps> = ({
                   <div
                     className={`w-9 h-9 rounded-xl flex items-center justify-center text-base ${
                       isUnlocked
-                        ? 'bg-[#FF4D00]/10 border border-[#FF4D00]/30 text-[#FF4D00]'
+                        ? 'bg-[#D4AF37]/10 border border-[#D4AF37]/30 text-[#D4AF37]'
                         : 'bg-white/5 text-white/40'
                     }`}
                   >
@@ -392,7 +392,7 @@ export const StreakScreen: React.FC<StreakScreenProps> = ({
                 </div>
 
                 {isUnlocked ? (
-                  <span className="text-[10px] font-bold text-[#FF4D00] bg-[#FF4D00]/10 px-2 py-1 rounded-full border border-[#FF4D00]/30 flex items-center gap-1">
+                  <span className="text-[10px] font-bold text-[#D4AF37] bg-[#D4AF37]/10 px-2 py-1 rounded-full border border-[#D4AF37]/30 flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3" /> Unlocked
                   </span>
                 ) : (

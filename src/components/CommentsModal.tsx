@@ -74,7 +74,7 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({
                     className="w-7 h-7 rounded-full object-cover border border-white/10"
                   />
                   {comment.userStreak > 0 && (
-                    <span className="absolute -bottom-1 -right-1 bg-black text-[8px] text-[#FF4D00] px-0.5 rounded border border-[#FF4D00]/40 font-black">
+                    <span className="absolute -bottom-1 -right-1 bg-black text-[8px] text-[#D4AF37] px-0.5 rounded border border-[#D4AF37]/40 font-black">
                       🔥{comment.userStreak}
                     </span>
                   )}
@@ -86,7 +86,7 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({
                   </div>
                   <p className="text-white/80 leading-relaxed">{comment.content}</p>
                 </div>
-                <button className="text-white/30 hover:text-[#FF4D00] opacity-0 group-hover:opacity-100 transition-opacity p-1">
+                <button className="text-white/30 hover:text-[#D4AF37] opacity-0 group-hover:opacity-100 transition-opacity p-1">
                   <Heart className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -111,12 +111,12 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({
             value={commentText}
             onChange={(e) => setCommentText(e.target.value)}
             placeholder={`Add a comment as ${currentUser.username}...`}
-            className="flex-1 px-3 py-2 bg-white/5 border border-white/10 focus:border-[#FF4D00] rounded-xl text-xs text-white placeholder-white/30 outline-none transition-colors"
+            className="flex-1 px-3 py-2 bg-white/5 border border-white/10 focus:border-[#D4AF37] rounded-xl text-xs text-white placeholder-white/30 outline-none transition-colors"
           />
           <button
             type="submit"
             disabled={!commentText.trim()}
-            className="p-2 bg-[#FF4D00] hover:bg-[#FF4D00]/90 disabled:opacity-30 text-black font-bold rounded-xl transition-all"
+            className="p-2 bg-[#D4AF37] hover:bg-[#D4AF37]/90 disabled:opacity-30 text-black font-bold rounded-xl transition-all"
           >
             <Send className="w-4 h-4" />
           </button>

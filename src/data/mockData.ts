@@ -51,7 +51,7 @@ export const INITIAL_PERSONAL_HABITS: PersonalHabit[] = [
     title: '45m Morning Workout',
     category: 'Fitness',
     icon: '🏋️‍♂️',
-    color: '#FF4D00',
+    color: '#D4AF37',
     targetDaysPerWeek: 6,
     completedDates: [getPastDate(0), getPastDate(1), getPastDate(2), getPastDate(3), getPastDate(4), getPastDate(5), getPastDate(6)],
     streak: 7,
