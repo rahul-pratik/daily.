@@ -125,28 +125,28 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
         ) : (
           /* Daily Streak Reminder Banner (if not posted today) */
           !hasPostedToday && (
-            <div className="mb-4 p-4 sm:p-5 rounded-[28px] bg-white/5 border border-[#FF4D00]/30 flex items-center justify-between shadow-lg shadow-[#FF4D00]/5">
+            <div className="mb-4 p-4 sm:p-5 rounded-[28px] bg-gradient-to-r from-[#1c110b] to-[#121212] border border-[#FF4D00]/40 flex items-center justify-between shadow-lg shadow-[#FF4D00]/10">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-[#FF4D00]/10 border border-[#FF4D00]/20 flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-2xl bg-[#FF4D00]/10 border border-[#FF4D00]/30 flex items-center justify-center shrink-0">
                   <Flame className="w-5 h-5 text-[#FF4D00] fill-[#FF4D00] animate-pulse" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-extrabold text-xs text-white">Daily Streak at Risk</span>
+                    <span className="font-extrabold text-xs text-white">What did you do today?</span>
                     <span className="text-[10px] bg-[#FF4D00] text-black font-black px-2 py-0.5 rounded-full">
                       🔥 {currentUser.currentStreak}d
                     </span>
                   </div>
-                  <p className="text-xs text-white/50 mt-0.5">
-                    Post what you did today to maintain your streak.
+                  <p className="text-xs text-white/60 mt-0.5">
+                    Post your action, proof photo, and reflection to keep your streak.
                   </p>
                 </div>
               </div>
               <button
                 onClick={onOpenCreate}
-                className="px-4 py-2.5 rounded-xl bg-[#FF4D00] hover:bg-[#ff5d19] text-black font-black text-xs shrink-0 active:scale-95 transition-all shadow-md shadow-[#FF4D00]/20"
+                className="px-4 py-2.5 rounded-xl bg-[#FF4D00] hover:bg-[#ff5d19] text-black font-black text-xs shrink-0 active:scale-95 transition-all shadow-md shadow-[#FF4D00]/20 min-h-[38px]"
               >
-                Post Now
+                Post Proof 🔥
               </button>
             </div>
           )
@@ -157,7 +157,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-[#FF4D00] animate-ping" />
             <h2 className="text-xs font-bold uppercase tracking-wider text-white">
-              {isFocusMode ? 'Focus Stream' : 'Daily Feed'}
+              {isFocusMode ? 'Focus Stream' : "Today's Proof of Work"}
             </h2>
           </div>
 
@@ -175,7 +175,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
               <span>{isFocusMode ? 'Focus On' : 'Focus Mode'}</span>
             </button>
             <span className="text-[10px] uppercase tracking-widest text-white/40 font-semibold pl-1">
-              {filteredPosts.length} {filteredPosts.length === 1 ? 'update' : 'updates'}
+              {filteredPosts.length} {filteredPosts.length === 1 ? 'receipt' : 'receipts'}
             </span>
           </div>
         </div>

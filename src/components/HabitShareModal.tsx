@@ -30,11 +30,11 @@ interface HabitShareModalProps {
 const CARD_THEMES = [
   {
     id: 'lava',
-    name: 'Flame Orange',
-    bg: 'from-[#1A0A00] via-[#0D0D0D] to-[#050505]',
-    border: 'border-[#FF4D00]/40',
-    accent: '#FF4D00',
-    glow: 'rgba(255, 77, 0, 0.15)',
+    name: 'Prestige Gold',
+    bg: 'from-[#1C1708] via-[#0D0D0D] to-[#050505]',
+    border: 'border-[#D4AF37]/50',
+    accent: '#D4AF37',
+    glow: 'rgba(212, 175, 55, 0.20)',
   },
   {
     id: 'emerald',
@@ -229,7 +229,7 @@ export const HabitShareModal: React.FC<HabitShareModalProps> = ({
         {/* Modal Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 bg-white/[0.02]">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#FF4D00]/10 border border-[#FF4D00]/30 flex items-center justify-center text-[#FF4D00]">
+            <div className="w-8 h-8 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37]">
               <Share2 className="w-4 h-4" />
             </div>
             <div>
@@ -378,7 +378,7 @@ export const HabitShareModal: React.FC<HabitShareModalProps> = ({
               </span>
               <button
                 onClick={handleCopyTweet}
-                className="text-[10px] font-bold text-[#FF4D00] hover:underline flex items-center gap-1"
+                className="text-[10px] font-bold text-[#D4AF37] hover:underline flex items-center gap-1"
               >
                 {copiedTweet ? (
                   <>
@@ -442,7 +442,7 @@ export const HabitShareModal: React.FC<HabitShareModalProps> = ({
 
           <button
             onClick={handlePublishToFeed}
-            className="flex-1 py-2.5 px-4 rounded-xl bg-[#FF4D00] hover:bg-[#FF4D00]/90 text-black text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#FF4D00]/25 min-h-[42px] active:scale-95"
+            className="flex-1 py-2.5 px-4 rounded-xl bg-[#D4AF37] hover:bg-[#D4AF37]/90 text-black text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#D4AF37]/25 min-h-[42px] active:scale-95"
           >
             <ImageIcon className="w-4 h-4 text-black" />
             <span>Post to Community Feed</span>

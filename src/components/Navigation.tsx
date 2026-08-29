@@ -30,7 +30,7 @@ export const TopHeader: React.FC<{
           </h1>
         </div>
         <p className="text-[9px] uppercase tracking-widest text-white/40 font-semibold leading-none mt-0.5">
-          Social Habit Tracker
+          Show up. Show the work.
         </p>
       </button>
 
@@ -73,7 +73,7 @@ export const BottomNavigation: React.FC<NavigationProps> = ({
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-30 max-w-lg mx-auto bg-[#0A0A0A]/95 backdrop-blur-lg border-t border-white/5 px-2 sm:px-4 pt-1.5 pb-[max(0.6rem,env(safe-area-inset-bottom))]">
       <div className="flex items-center justify-between text-white/40">
-        {/* Home */}
+        {/* Today */}
         <button
           onClick={() => onSelectTab('home')}
           className={`flex flex-col items-center justify-center min-w-[54px] min-h-[48px] p-1 transition-all active:scale-95 ${
@@ -81,13 +81,13 @@ export const BottomNavigation: React.FC<NavigationProps> = ({
               ? 'text-[#FF4D00]'
               : 'text-white/40 hover:text-white/80'
           }`}
-          aria-label="Home Feed"
+          aria-label="Today Feed"
         >
           <Home className={`w-5 h-5 ${currentTab === 'home' ? 'stroke-[2.5]' : 'stroke-2'}`} />
-          <span className="text-[9px] mt-1 font-bold uppercase tracking-tighter">Home</span>
+          <span className="text-[9px] mt-1 font-bold uppercase tracking-tighter">Today</span>
         </button>
 
-        {/* Streak */}
+        {/* Challenges */}
         <button
           onClick={() => onSelectTab('streak')}
           className={`flex flex-col items-center justify-center min-w-[54px] min-h-[48px] p-1 transition-all active:scale-95 ${
@@ -95,24 +95,25 @@ export const BottomNavigation: React.FC<NavigationProps> = ({
               ? 'text-[#FF4D00]'
               : 'text-white/40 hover:text-white/80'
           }`}
-          aria-label="Streak History"
+          aria-label="Challenges and Accountability"
         >
           <Flame className={`w-5 h-5 ${currentTab === 'streak' ? 'text-[#FF4D00] fill-[#FF4D00]' : 'stroke-2'}`} />
-          <span className="text-[9px] mt-1 font-bold uppercase tracking-tighter">Streak</span>
+          <span className="text-[9px] mt-1 font-bold uppercase tracking-tighter">Challenges</span>
         </button>
 
         {/* Center Create Button */}
         <div className="relative -top-2 flex items-center justify-center">
           <button
             onClick={onOpenCreate}
-            className="w-12 h-12 min-w-[48px] min-h-[48px] bg-white rounded-full flex items-center justify-center text-black shadow-lg shadow-white/15 hover:scale-105 active:scale-95 transition-transform"
-            aria-label="Create Today's Update"
+            className="w-12 h-12 min-w-[48px] min-h-[48px] bg-[#FF4D00] rounded-full flex items-center justify-center text-black shadow-lg shadow-[#FF4D00]/30 hover:scale-105 active:scale-95 transition-transform"
+            aria-label="What did you do today?"
+            title="What did you do today?"
           >
             <PlusCircle className="w-6 h-6 stroke-[2.5]" />
           </button>
         </div>
 
-        {/* Discover */}
+        {/* Explore */}
         <button
           onClick={() => onSelectTab('discover')}
           className={`flex flex-col items-center justify-center min-w-[54px] min-h-[48px] p-1 transition-all active:scale-95 ${
@@ -120,10 +121,10 @@ export const BottomNavigation: React.FC<NavigationProps> = ({
               ? 'text-[#FF4D00]'
               : 'text-white/40 hover:text-white/80'
           }`}
-          aria-label="Discover Creators"
+          aria-label="Explore Proof & People"
         >
           <Compass className={`w-5 h-5 ${currentTab === 'discover' ? 'stroke-[2.5]' : 'stroke-2'}`} />
-          <span className="text-[9px] mt-1 font-bold uppercase tracking-tighter">Discover</span>
+          <span className="text-[9px] mt-1 font-bold uppercase tracking-tighter">Explore</span>
         </button>
 
         {/* Profile */}
@@ -134,7 +135,7 @@ export const BottomNavigation: React.FC<NavigationProps> = ({
               ? 'text-[#FF4D00]'
               : 'text-white/40 hover:text-white/80'
           }`}
-          aria-label="Your Profile"
+          aria-label="Your Profile & Proof Timeline"
         >
           <div className="relative">
             {currentUser.avatar ? (

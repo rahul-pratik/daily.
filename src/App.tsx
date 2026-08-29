@@ -8,7 +8,7 @@ import { User, Post, Message, Group, NavigationTab, ReportReason } from './types
 import { DailyStorageService } from './services/storage';
 import { TopHeader, BottomNavigation } from './components/Navigation';
 import { HomeFeed } from './components/HomeFeed';
-import { StreakScreen } from './components/StreakScreen';
+import { ChallengesScreen } from './components/ChallengesScreen';
 import { DiscoverScreen } from './components/DiscoverScreen';
 import { ProfileScreen } from './components/ProfileScreen';
 import { CreatePostModal } from './components/CreatePostModal';
@@ -22,6 +22,7 @@ import { ReportModal } from './components/ReportModal';
 import { ShareModal } from './components/ShareModal';
 import { CreateGroupModal } from './components/CreateGroupModal';
 import { PostInsightsModal } from './components/PostInsightsModal';
+import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { vibratePostSubmit, vibrateLight } from './services/haptics';
 
 export default function App() {
@@ -45,6 +46,7 @@ export default function App() {
   const [reportingPost, setReportingPost] = useState<Post | null>(null);
   const [sharingPost, setSharingPost] = useState<Post | null>(null);
   const [insightsPost, setInsightsPost] = useState<Post | null>(null);
+  const [postPendingDelete, setPostPendingDelete] = useState<Post | null>(null);
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [activeProfileUser, setActiveProfileUser] = useState<User | null>(null);
@@ -269,8 +271,19 @@ export default function App() {
     setSharingPost(null);
   };
 
-  // Delete post
-  const handleDeletePost = (postId: string) => {
+  // Request Delete post (triggers confirmation modal)
+  const handleRequestDeletePost = (postId: string) => {
+    vibrateLight();
+    const targetPost = posts.find((p) => p.id === postId) || null;
+    if (targetPost) {
+      setPostPendingDelete(targetPost);
+    } else {
+      executeDeletePost(postId);
+    }
+  };
+
+  // Execute actual deletion after user confirms in the alert dialog
+  const executeDeletePost = (postId: string) => {
     vibrateLight();
     const { posts: updatedPosts, updatedUser } = DailyStorageService.deletePost(postId);
     setPosts(updatedPosts);
@@ -284,6 +297,7 @@ export default function App() {
     if (sharingPost && sharingPost.id === postId) {
       setSharingPost(null);
     }
+    setPostPendingDelete(null);
   };
 
   // Open Post Insights Modal
@@ -427,12 +441,12 @@ export default function App() {
               onSharePost={handleOpenShare}
               onRefresh={handleFeedRefresh}
               onOpenInsights={handleOpenInsights}
-              onDeletePost={handleDeletePost}
+              onDeletePost={handleRequestDeletePost}
             />
           )}
 
           {currentTab === 'streak' && (
-            <StreakScreen
+            <ChallengesScreen
               currentUser={currentUser}
               posts={posts}
               onOpenCreate={() => setIsCreateOpen(true)}
@@ -444,7 +458,7 @@ export default function App() {
               onReportPost={handleStartReport}
               onSharePost={handleOpenShare}
               onOpenInsights={handleOpenInsights}
-              onDeletePost={handleDeletePost}
+              onDeletePost={handleRequestDeletePost}
             />
           )}
 
@@ -479,7 +493,7 @@ export default function App() {
               onSendDM={handleStartDMWithUser}
               onSharePost={handleOpenShare}
               onOpenInsights={handleOpenInsights}
-              onDeletePost={handleDeletePost}
+              onDeletePost={handleRequestDeletePost}
               onPostHabit={(payload) => {
                 handleCreatePost(payload);
                 setCurrentTab('home');
@@ -627,6 +641,18 @@ export default function App() {
           post={insightsPost}
           onClose={() => setInsightsPost(null)}
           onSharePost={handleOpenShare}
+        />
+
+        {/* Delete Confirmation Alert Modal */}
+        <DeleteConfirmModal
+          isOpen={!!postPendingDelete}
+          post={postPendingDelete}
+          onClose={() => setPostPendingDelete(null)}
+          onConfirm={() => {
+            if (postPendingDelete) {
+              executeDeletePost(postPendingDelete.id);
+            }
+          }}
         />
       </div>
     </div>

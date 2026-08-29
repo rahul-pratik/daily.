@@ -9,8 +9,8 @@ interface PostCardProps {
   currentUser: User;
   onToggleLike: (postId: string) => void;
   onOpenComments: (post: Post) => void;
-  onToggleFollow: (userId: string) => void;
-  onSendDM: (targetUser: { id: string; name: string; username: string; avatar: string; streak: number }) => void;
+  onToggleFollow?: (userId: string) => void;
+  onSendDM?: (targetUser: { id: string; name: string; username: string; avatar: string; streak: number }) => void;
   onTagClick?: (tag: string) => void;
   onViewUser?: (user: { id: string; name: string; username: string; avatar: string; streak: number }) => void;
   isSaved?: boolean;
@@ -192,7 +192,7 @@ export const PostCard: React.FC<PostCardProps> = ({
               </button>
             )}
 
-            {!isMyPost && (
+            {!isMyPost && onToggleFollow && (
               <button
                 onClick={() => onToggleFollow(post.userId)}
                 className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1 min-h-[32px] ${
@@ -263,7 +263,7 @@ export const PostCard: React.FC<PostCardProps> = ({
                     </button>
                   )}
 
-                  {!isMyPost && (
+                  {!isMyPost && onSendDM && (
                     <button
                       onClick={() => {
                         setShowOptionsMenu(false);
@@ -395,7 +395,7 @@ export const PostCard: React.FC<PostCardProps> = ({
               {!isMyPost && (
                 <button
                   onClick={() =>
-                    onSendDM({
+                    onSendDM?.({
                       id: post.userId,
                       name: post.name,
                       username: post.username,
