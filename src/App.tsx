@@ -269,6 +269,23 @@ export default function App() {
     setSharingPost(null);
   };
 
+  // Delete post
+  const handleDeletePost = (postId: string) => {
+    vibrateLight();
+    const { posts: updatedPosts, updatedUser } = DailyStorageService.deletePost(postId);
+    setPosts(updatedPosts);
+    setCurrentUser(updatedUser);
+    if (commentsPost && commentsPost.id === postId) {
+      setCommentsPost(null);
+    }
+    if (insightsPost && insightsPost.id === postId) {
+      setInsightsPost(null);
+    }
+    if (sharingPost && sharingPost.id === postId) {
+      setSharingPost(null);
+    }
+  };
+
   // Open Post Insights Modal
   const handleOpenInsights = (post: Post) => {
     vibrateLight();
@@ -410,6 +427,7 @@ export default function App() {
               onSharePost={handleOpenShare}
               onRefresh={handleFeedRefresh}
               onOpenInsights={handleOpenInsights}
+              onDeletePost={handleDeletePost}
             />
           )}
 
@@ -425,6 +443,8 @@ export default function App() {
               onToggleSave={handleToggleSave}
               onReportPost={handleStartReport}
               onSharePost={handleOpenShare}
+              onOpenInsights={handleOpenInsights}
+              onDeletePost={handleDeletePost}
             />
           )}
 
@@ -459,6 +479,11 @@ export default function App() {
               onSendDM={handleStartDMWithUser}
               onSharePost={handleOpenShare}
               onOpenInsights={handleOpenInsights}
+              onDeletePost={handleDeletePost}
+              onPostHabit={(payload) => {
+                handleCreatePost(payload);
+                setCurrentTab('home');
+              }}
             />
           )}
         </main>

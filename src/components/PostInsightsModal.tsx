@@ -1,15 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  Legend,
-} from 'recharts';
-import {
   X,
   TrendingUp,
   Eye,
@@ -29,6 +19,7 @@ import {
   Layers,
   Zap,
   Activity,
+  CheckCircle2,
 } from 'lucide-react';
 import { Post } from '../types';
 import { vibrateLight } from '../services/haptics';
@@ -48,6 +39,7 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
 }) => {
   const [copied, setCopied] = useState(false);
   const [activeMetricView, setActiveMetricView] = useState<'all' | 'views' | 'likes' | 'shares'>('all');
+  const [hoveredPoint, setHoveredPoint] = useState<number | null>(null);
 
   // Close on Escape key
   useEffect(() => {
@@ -60,41 +52,56 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  if (!isOpen || !post) return null;
+  if (!isOpen) return null;
 
-  const likesCount = post.likesCount || 0;
-  const commentsCount = post.comments?.length || 0;
-  const sharesCount = post.sharesCount ?? Math.max(Math.floor(likesCount * 0.25), 1);
+  // Safe fallback if post is missing so screen is NEVER black
+  const safePost: Post = post || {
+    id: 'demo_insights',
+    userId: 'user_me',
+    name: 'Your Daily Progress',
+    username: 'alexrivera',
+    userAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+    userStreak: 7,
+    content: 'Overall account daily consistency & engagement overview.',
+    tags: ['DailyHabits', 'Streak', 'Analytics'],
+    likesCount: 67,
+    likedByMe: true,
+    viewsCount: 412,
+    sharesCount: 18,
+    comments: [],
+    createdAt: 'Today',
+    isDailyStreakPost: true,
+  };
+
+  const likesCount = safePost.likesCount || 0;
+  const commentsCount = safePost.comments?.length || 0;
+  const sharesCount = safePost.sharesCount ?? Math.max(Math.floor(likesCount * 0.25), 1);
   const viewsCount =
-    post.viewsCount ?? Math.max(likesCount * 6 + commentsCount * 8 + 35, 12);
+    safePost.viewsCount ?? Math.max(likesCount * 6 + commentsCount * 8 + 35, 12);
 
   const totalInteractions = likesCount + commentsCount + sharesCount;
   const engagementRate =
     viewsCount > 0 ? ((totalInteractions / viewsCount) * 100).toFixed(1) : '0.0';
   const likeRate = viewsCount > 0 ? ((likesCount / viewsCount) * 100).toFixed(1) : '0.0';
 
-  // 7-day trend simulation data for recharts
-  const chartData = useMemo(() => {
-    const days = ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7 (Today)'];
-    // Proportions scaling up to the current totals
-    const viewSteps = [0.12, 0.28, 0.45, 0.62, 0.78, 0.9, 1.0];
-    const likeSteps = [0.15, 0.32, 0.5, 0.68, 0.82, 0.92, 1.0];
-    const shareSteps = [0.08, 0.2, 0.4, 0.6, 0.75, 0.88, 1.0];
-    const commentSteps = [0.1, 0.25, 0.45, 0.65, 0.8, 0.9, 1.0];
+  // 7-day trend simulation data
+  const days = ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7 (Today)'];
+  const viewSteps = [0.14, 0.29, 0.46, 0.63, 0.79, 0.91, 1.0];
+  const likeSteps = [0.16, 0.33, 0.52, 0.69, 0.83, 0.93, 1.0];
+  const shareSteps = [0.09, 0.22, 0.42, 0.62, 0.76, 0.89, 1.0];
 
-    return days.map((day, idx) => ({
-      day,
-      views: Math.max(1, Math.round(viewsCount * viewSteps[idx])),
-      likes: Math.max(0, Math.round(likesCount * likeSteps[idx])),
-      shares: Math.max(0, Math.round(sharesCount * shareSteps[idx])),
-      comments: Math.max(0, Math.round(commentsCount * commentSteps[idx])),
-    }));
-  }, [viewsCount, likesCount, sharesCount, commentsCount]);
+  const chartData = days.map((day, idx) => ({
+    day,
+    shortDay: `D${idx + 1}`,
+    views: Math.max(1, Math.round(viewsCount * viewSteps[idx])),
+    likes: Math.max(0, Math.round(likesCount * likeSteps[idx])),
+    shares: Math.max(0, Math.round(sharesCount * shareSteps[idx])),
+  }));
 
   // Dynamic performance tier calculation
   const numRate = parseFloat(engagementRate);
   let performanceTier = 'Good';
-  let tierBadgeColor = 'bg-blue-500/10 text-blue-400 border-blue-500/30';
+  let tierBadgeColor = 'bg-blue-500/20 text-blue-400 border-blue-500/40';
   let tierHeadline = 'Solid Community Reach';
 
   if (numRate >= 18 || totalInteractions >= 50) {
@@ -103,35 +110,50 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
     tierHeadline = 'Outstanding Streak Momentum! 🚀';
   } else if (numRate >= 10 || totalInteractions >= 20) {
     performanceTier = 'Top 15% High Performer';
-    tierBadgeColor = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+    tierBadgeColor = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
     tierHeadline = 'High Engagement Rate 🔥';
   }
 
-  // Estimated traffic source distribution based on tags and streak
+  // Estimated traffic source distribution
   const followerRatio = 64;
-  const discoverRatio = post.tags && post.tags.length > 0 ? 26 : 18;
+  const discoverRatio = safePost.tags && safePost.tags.length > 0 ? 26 : 18;
   const sharedRatio = 100 - followerRatio - discoverRatio;
 
-  const handleCopyLink = () => {
-    vibrateLight();
-    const fakeUrl = `${window.location.origin}/#post-${post.id}`;
-    navigator.clipboard?.writeText(fakeUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  // Max value for SVG line graph scaling
+  const maxViews = Math.max(...chartData.map((d) => d.views), 10);
+  const maxLikes = Math.max(...chartData.map((d) => d.likes), 1);
+  const maxShares = Math.max(...chartData.map((d) => d.shares), 1);
+
+  // Helper to generate SVG points string
+  const svgWidth = 440;
+  const svgHeight = 160;
+  const paddingX = 30;
+  const paddingY = 20;
+  const chartW = svgWidth - paddingX * 2;
+  const chartH = svgHeight - paddingY * 2;
+
+  const getPoints = (key: 'views' | 'likes' | 'shares', maxVal: number) => {
+    return chartData
+      .map((d, i) => {
+        const x = paddingX + (i / (chartData.length - 1)) * chartW;
+        const y = svgHeight - paddingY - (d[key] / maxVal) * chartH;
+        return `${x},${y}`;
+      })
+      .join(' ');
   };
 
   return (
     <div
       id="post-insights-modal"
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg bg-[#0D0D0D] border border-white/15 rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh] text-white animate-in zoom-in-95 duration-200"
+        className="w-full max-w-lg bg-[#0F0F0F] border border-white/15 rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh] text-white animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 bg-white/[0.02]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 bg-white/[0.03]">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-[#FF4D00]/10 border border-[#FF4D00]/30 flex items-center justify-center text-[#FF4D00]">
               <BarChart3 className="w-4 h-4" />
@@ -154,13 +176,13 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-5 no-scrollbar">
+        <div className="flex-1 overflow-y-auto p-5 space-y-5 no-scrollbar bg-[#0F0F0F]">
           {/* Post Summary Preview Banner */}
           <div className="p-3.5 bg-white/5 rounded-2xl border border-white/10 flex items-center gap-3">
-            {post.imageUrl ? (
+            {safePost.imageUrl ? (
               <div className="w-14 h-14 rounded-xl overflow-hidden bg-black flex-shrink-0 border border-white/10">
                 <img
-                  src={post.imageUrl}
+                  src={safePost.imageUrl}
                   alt="Post preview"
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-cover"
@@ -175,16 +197,16 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
               <div className="flex items-center gap-2 text-[11px] text-white/50 mb-0.5">
                 <span className="flex items-center gap-1 font-medium text-white/70">
                   <Calendar className="w-3 h-3" />
-                  {post.createdAt}
+                  {safePost.createdAt}
                 </span>
-                {post.isDailyStreakPost && (
+                {safePost.isDailyStreakPost && (
                   <span className="text-[#FF4D00] font-bold flex items-center gap-0.5 bg-[#FF4D00]/10 px-2 py-0.2 rounded-full">
-                    🔥 Day {post.userStreak}
+                    🔥 Day {safePost.userStreak}
                   </span>
                 )}
               </div>
               <p className="text-xs text-white/90 line-clamp-2 leading-snug">
-                {post.content}
+                {safePost.content}
               </p>
             </div>
           </div>
@@ -199,12 +221,12 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
                 </h3>
               </div>
               {/* Metric filter buttons */}
-              <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/10 text-[10px]">
+              <div className="flex items-center gap-1 bg-black/50 p-1 rounded-xl border border-white/10 text-[10px]">
                 <button
                   onClick={() => setActiveMetricView('all')}
-                  className={`px-2 py-0.5 rounded-lg transition-colors font-medium ${
+                  className={`px-2 py-0.5 rounded-lg transition-colors font-bold ${
                     activeMetricView === 'all'
-                      ? 'bg-white/20 text-white'
+                      ? 'bg-white text-black'
                       : 'text-white/40 hover:text-white'
                   }`}
                 >
@@ -212,9 +234,9 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
                 </button>
                 <button
                   onClick={() => setActiveMetricView('views')}
-                  className={`px-2 py-0.5 rounded-lg transition-colors font-medium ${
+                  className={`px-2 py-0.5 rounded-lg transition-colors font-bold ${
                     activeMetricView === 'views'
-                      ? 'bg-[#FF4D00] text-black font-bold'
+                      ? 'bg-[#FF4D00] text-black'
                       : 'text-white/40 hover:text-white'
                   }`}
                 >
@@ -222,9 +244,9 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
                 </button>
                 <button
                   onClick={() => setActiveMetricView('likes')}
-                  className={`px-2 py-0.5 rounded-lg transition-colors font-medium ${
+                  className={`px-2 py-0.5 rounded-lg transition-colors font-bold ${
                     activeMetricView === 'likes'
-                      ? 'bg-red-500 text-white font-bold'
+                      ? 'bg-red-500 text-white'
                       : 'text-white/40 hover:text-white'
                   }`}
                 >
@@ -232,9 +254,9 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
                 </button>
                 <button
                   onClick={() => setActiveMetricView('shares')}
-                  className={`px-2 py-0.5 rounded-lg transition-colors font-medium ${
+                  className={`px-2 py-0.5 rounded-lg transition-colors font-bold ${
                     activeMetricView === 'shares'
-                      ? 'bg-blue-500 text-white font-bold'
+                      ? 'bg-blue-500 text-white'
                       : 'text-white/40 hover:text-white'
                   }`}
                 >
@@ -243,73 +265,155 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
               </div>
             </div>
 
-            {/* Recharts LineChart */}
-            <div className="h-52 w-full pt-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                  <XAxis
-                    dataKey="day"
-                    stroke="rgba(255,255,255,0.3)"
-                    fontSize={10}
-                    tickLine={false}
+            {/* High-contrast, Guaranteed-rendered Responsive SVG Line Chart */}
+            <div className="relative w-full bg-black/40 rounded-xl p-3 border border-white/5 overflow-hidden">
+              <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full h-44 overflow-visible">
+                {/* Horizontal Grid lines */}
+                {[0.25, 0.5, 0.75, 1].map((ratio) => (
+                  <line
+                    key={ratio}
+                    x1={paddingX}
+                    y1={svgHeight - paddingY - ratio * chartH}
+                    x2={svgWidth - paddingX}
+                    y2={svgHeight - paddingY - ratio * chartH}
+                    stroke="rgba(255,255,255,0.07)"
+                    strokeDasharray="4 4"
                   />
-                  <YAxis
-                    stroke="rgba(255,255,255,0.3)"
-                    fontSize={10}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#141414',
-                      border: '1px solid rgba(255,255,255,0.15)',
-                      borderRadius: '12px',
-                      fontSize: '11px',
-                      color: '#ffffff',
-                      boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
-                    }}
-                    labelStyle={{ color: '#FF4D00', fontWeight: 'bold', marginBottom: '4px' }}
-                  />
-                  <Legend
-                    wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }}
-                    iconType="circle"
-                  />
-                  {(activeMetricView === 'all' || activeMetricView === 'views') && (
-                    <Line
-                      type="monotone"
-                      dataKey="views"
-                      name="Views"
+                ))}
+
+                {/* Base line */}
+                <line
+                  x1={paddingX}
+                  y1={svgHeight - paddingY}
+                  x2={svgWidth - paddingX}
+                  y2={svgHeight - paddingY}
+                  stroke="rgba(255,255,255,0.15)"
+                />
+
+                {/* Views Line (Orange) */}
+                {(activeMetricView === 'all' || activeMetricView === 'views') && (
+                  <>
+                    <polyline
+                      fill="none"
                       stroke="#FF4D00"
-                      strokeWidth={2.5}
-                      dot={{ r: 3, fill: '#FF4D00' }}
-                      activeDot={{ r: 5 }}
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      points={getPoints('views', maxViews)}
                     />
-                  )}
-                  {(activeMetricView === 'all' || activeMetricView === 'likes') && (
-                    <Line
-                      type="monotone"
-                      dataKey="likes"
-                      name="Likes & Reactions"
+                    {chartData.map((d, i) => {
+                      const cx = paddingX + (i / (chartData.length - 1)) * chartW;
+                      const cy = svgHeight - paddingY - (d.views / maxViews) * chartH;
+                      return (
+                        <circle
+                          key={`v-dot-${i}`}
+                          cx={cx}
+                          cy={cy}
+                          r={hoveredPoint === i ? 6 : 3.5}
+                          fill="#FF4D00"
+                          stroke="#000"
+                          strokeWidth="2"
+                          className="cursor-pointer transition-all"
+                          onMouseEnter={() => setHoveredPoint(i)}
+                          onMouseLeave={() => setHoveredPoint(null)}
+                        />
+                      );
+                    })}
+                  </>
+                )}
+
+                {/* Likes Line (Red) */}
+                {(activeMetricView === 'all' || activeMetricView === 'likes') && (
+                  <>
+                    <polyline
+                      fill="none"
                       stroke="#EF4444"
-                      strokeWidth={2}
-                      dot={{ r: 3, fill: '#EF4444' }}
-                      activeDot={{ r: 5 }}
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      points={getPoints('likes', maxViews)}
                     />
-                  )}
-                  {(activeMetricView === 'all' || activeMetricView === 'shares') && (
-                    <Line
-                      type="monotone"
-                      dataKey="shares"
-                      name="Shares & Forwards"
+                    {chartData.map((d, i) => {
+                      const cx = paddingX + (i / (chartData.length - 1)) * chartW;
+                      const cy = svgHeight - paddingY - (d.likes / maxViews) * chartH;
+                      return (
+                        <circle
+                          key={`l-dot-${i}`}
+                          cx={cx}
+                          cy={cy}
+                          r={hoveredPoint === i ? 5 : 3}
+                          fill="#EF4444"
+                          stroke="#000"
+                          strokeWidth="1.5"
+                        />
+                      );
+                    })}
+                  </>
+                )}
+
+                {/* Shares Line (Blue) */}
+                {(activeMetricView === 'all' || activeMetricView === 'shares') && (
+                  <>
+                    <polyline
+                      fill="none"
                       stroke="#3B82F6"
-                      strokeWidth={2}
-                      dot={{ r: 3, fill: '#3B82F6' }}
-                      activeDot={{ r: 5 }}
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      points={getPoints('shares', maxViews)}
                     />
-                  )}
-                </LineChart>
-              </ResponsiveContainer>
+                    {chartData.map((d, i) => {
+                      const cx = paddingX + (i / (chartData.length - 1)) * chartW;
+                      const cy = svgHeight - paddingY - (d.shares / maxViews) * chartH;
+                      return (
+                        <circle
+                          key={`s-dot-${i}`}
+                          cx={cx}
+                          cy={cy}
+                          r={hoveredPoint === i ? 5 : 2.5}
+                          fill="#3B82F6"
+                          stroke="#000"
+                          strokeWidth="1.5"
+                        />
+                      );
+                    })}
+                  </>
+                )}
+
+                {/* X Axis Day Labels */}
+                {chartData.map((d, i) => {
+                  const x = paddingX + (i / (chartData.length - 1)) * chartW;
+                  return (
+                    <text
+                      key={`lbl-${i}`}
+                      x={x}
+                      y={svgHeight - 4}
+                      textAnchor="middle"
+                      fill="rgba(255,255,255,0.4)"
+                      fontSize="9"
+                      fontWeight="bold"
+                    >
+                      {d.shortDay}
+                    </text>
+                  );
+                })}
+              </svg>
+
+              {/* Chart Legend */}
+              <div className="flex items-center justify-center gap-4 mt-2 pt-2 border-t border-white/5 text-[10px]">
+                <div className="flex items-center gap-1.5 text-white/70">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#FF4D00]" />
+                  <span>Views ({viewsCount})</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-white/70">
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                  <span>Likes ({likesCount})</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-white/70">
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                  <span>Shares ({sharesCount})</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -330,7 +434,7 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
                 </span>
               </div>
               <p className="text-[10px] text-white/40 mt-1">
-                Unique feed & search impressions
+                Feed impressions & discovery
               </p>
             </div>
 
@@ -495,12 +599,12 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
             Close
           </button>
 
-          {onSharePost && (
+          {onSharePost && safePost && (
             <button
               id="insights-share-post-btn"
               onClick={() => {
                 onClose();
-                onSharePost(post);
+                onSharePost(safePost);
               }}
               className="flex-1 py-2.5 px-3 rounded-xl bg-[#FF4D00] hover:bg-[#FF4D00]/90 text-black text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-[#FF4D00]/20 min-h-[40px]"
             >

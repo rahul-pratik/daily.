@@ -48,7 +48,11 @@ export const PostCard: React.FC<PostCardProps> = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const isSaved = isSavedProp !== undefined ? isSavedProp : localSaved;
-  const isMyPost = post.userId === currentUser.id || post.userId === 'user_me';
+  const isMyPost =
+    post.userId === currentUser.id ||
+    post.userId === 'user_me' ||
+    post.username === currentUser.username ||
+    (currentUser.username && post.username && currentUser.username.toLowerCase() === post.username.toLowerCase());
   const isFollowing = currentUser.followedUserIds.includes(post.userId);
 
   // Handle double-tap to like
@@ -165,7 +169,29 @@ export const PostCard: React.FC<PostCardProps> = ({
 
         {/* Follow Button & Options */}
         {!isFocusMode && (
-          <div className="flex items-center gap-2 relative">
+          <div className="flex items-center gap-1.5 relative">
+            {isMyPost && onOpenInsights && (
+              <button
+                onClick={() => onOpenInsights(post)}
+                className="p-1.5 rounded-lg text-white/50 hover:text-[#FF4D00] hover:bg-[#FF4D00]/10 transition-colors min-w-[32px] min-h-[32px] flex items-center justify-center"
+                title="View Post Insights & Analytics"
+                aria-label="View Insights"
+              >
+                <BarChart3 className="w-4 h-4" />
+              </button>
+            )}
+
+            {isMyPost && onDeletePost && (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="p-1.5 rounded-lg text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-colors min-w-[32px] min-h-[32px] flex items-center justify-center"
+                title="Delete Post (Resets 1-Photo/Day limit)"
+                aria-label="Delete Post"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+
             {!isMyPost && (
               <button
                 onClick={() => onToggleFollow(post.userId)}

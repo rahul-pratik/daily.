@@ -16,6 +16,8 @@ interface StreakScreenProps {
   onToggleSave?: (postId: string) => void;
   onReportPost?: (post: Post) => void;
   onSharePost?: (post: Post) => void;
+  onOpenInsights?: (post: Post) => void;
+  onDeletePost?: (postId: string) => void;
 }
 
 const MILESTONES = [
@@ -37,6 +39,8 @@ export const StreakScreen: React.FC<StreakScreenProps> = ({
   onToggleSave,
   onReportPost,
   onSharePost,
+  onOpenInsights,
+  onDeletePost,
 }) => {
   // Calendar month state (August 2026 default or current)
   const [currentYear, setCurrentYear] = useState(2026);
@@ -300,6 +304,8 @@ export const StreakScreen: React.FC<StreakScreenProps> = ({
                     onReportPost={onReportPost}
                     isReported={reportedPostIds.includes(post.id)}
                     onSharePost={onSharePost}
+                    onOpenInsights={onOpenInsights}
+                    onDeletePost={onDeletePost}
                   />
                 ))}
               </div>

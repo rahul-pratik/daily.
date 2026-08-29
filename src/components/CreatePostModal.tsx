@@ -23,6 +23,9 @@ interface CreatePostModalProps {
   posts?: Post[];
   onSubmitPost: (payload: { content: string; imageUrl?: string; tags: string[] }) => void;
   onViewMyPost?: (postId: string) => void;
+  initialContent?: string;
+  initialImageUrl?: string;
+  initialTags?: string[];
 }
 
 const PHOTO_PRESETS = [
@@ -68,12 +71,24 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   posts = [],
   onSubmitPost,
   onViewMyPost,
+  initialContent = '',
+  initialImageUrl = '',
+  initialTags = ['Build Projects'],
 }) => {
-  const [content, setContent] = useState('');
-  const [imageUrl, setImageUrl] = useState<string>('');
-  const [selectedTags, setSelectedTags] = useState<string[]>(['Build Projects']);
+  const [content, setContent] = useState(initialContent);
+  const [imageUrl, setImageUrl] = useState<string>(initialImageUrl);
+  const [selectedTags, setSelectedTags] = useState<string[]>(initialTags);
   const [showPhotoPicker, setShowPhotoPicker] = useState(false);
   const [attemptedExtraPost, setAttemptedExtraPost] = useState(false);
+
+  // Sync with initial props when opened
+  React.useEffect(() => {
+    if (isOpen) {
+      if (initialContent) setContent(initialContent);
+      if (initialImageUrl) setImageUrl(initialImageUrl);
+      if (initialTags && initialTags.length > 0) setSelectedTags(initialTags);
+    }
+  }, [isOpen, initialContent, initialImageUrl, initialTags]);
 
   if (!isOpen) return null;
 
