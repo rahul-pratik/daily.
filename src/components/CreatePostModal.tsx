@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   Flame,
@@ -16,6 +16,9 @@ import {
   ShieldCheck,
   Save,
   Clock,
+  RefreshCw,
+  Lightbulb,
+  CornerDownLeft,
 } from 'lucide-react';
 import { User, Post } from '../types';
 import { getTodayDateString, DailyStorageService } from '../services/storage';
@@ -66,12 +69,67 @@ const PROOF_PHOTO_PRESETS = [
   },
 ];
 
-const REFLECTION_PROMPTS = [
-  'Shipped new feature and fixed state sync bugs.',
-  'Ran 5km at 5:30 pace. Felt great on the hill climb!',
-  'Read 20 pages of deep work principles. No phone notifications.',
-  'Finished mockups for mobile navigation tokens.',
-  'Completed 45m strength training session.',
+const CATEGORY_REFLECTION_PROMPTS: Record<string, string[]> = {
+  Coding: [
+    'Shipped new feature and fixed state sync bugs.',
+    'Refactored API caching layer; cut latency in half.',
+    'Closed 3 core GitHub pull requests and deployed build.',
+    'Built custom UI components and tested responsiveness.',
+  ],
+  Fitness: [
+    'Completed 45m strength training session. Felt energized!',
+    'Hit personal record on deadlifts today. Good form throughout.',
+    'Completed 30m core conditioning circuit. No excuses.',
+    'Stretched and worked on mobility exercises after session.',
+  ],
+  Run: [
+    'Ran 5km at 5:20 pace. Felt great on the hill climb!',
+    'Morning 6-mile aerobic base run. Crisp weather.',
+    'Completed 8 interval sprint repeats at the local track.',
+    'Steady progression run; heart rate stayed in zone 2.',
+  ],
+  Reading: [
+    'Read 25 pages of deep work principles. No phone notifications.',
+    'Finished chapter on distributed consensus algorithms.',
+    'Took detailed summary notes on productivity frameworks.',
+    'Morning 30-minute reading session with black coffee.',
+  ],
+  Building: [
+    'Completed product sprint deliverables before deadline.',
+    'Interviewed 2 target users and validated our core thesis.',
+    'Polished high-fidelity Figma components and design tokens.',
+    'Shipped v1 MVP update to beta testers today.',
+  ],
+  Design: [
+    'Designed 4 mobile screens with clean typographic scale.',
+    'Refined dark theme color tokens and contrast ratios.',
+    'Created vector iconography set for primary actions.',
+  ],
+  Writing: [
+    'Drafted 1,200 words for the upcoming weekly essay.',
+    'Outlined chapter structure and completed first review.',
+    'Refined opening hooks and removed unnecessary fluff.',
+  ],
+  Study: [
+    'Completed 2 full practice exam modules under timed conditions.',
+    'Reviewed 45 Anki spaced repetition cards with zero errors.',
+    'Mastered key algorithmic concepts for upcoming interview.',
+  ],
+  Default: [
+    'Stayed disciplined and showed up for my daily standard.',
+    'Focused uninterrupted for 90 minutes on the top priority.',
+    'Eliminated distractions early and executed the main task.',
+    'Made steady 1% compounding progress today.',
+  ],
+};
+
+const REFLECTION_STARTERS = [
+  'Built ',
+  'Ran ',
+  'Shipped ',
+  'Completed ',
+  'Learned ',
+  'Hit daily goal: ',
 ];
 
 const HABIT_LINK_OPTIONS = [
@@ -94,53 +152,77 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   posts = [],
   onSubmitPost,
   onViewMyPost,
-  initialContent = '',
-  initialImageUrl = '',
-  initialTags = ['Building'],
+  initialContent,
+  initialImageUrl,
+  initialTags,
 }) => {
-  const [content, setContent] = useState(initialContent);
-  const [imageUrl, setImageUrl] = useState<string>(initialImageUrl);
-  const [selectedTags, setSelectedTags] = useState<string[]>(initialTags);
+  const [content, setContent] = useState('');
+  const [imageUrl, setImageUrl] = useState<string>('');
+  const [selectedTags, setSelectedTags] = useState<string[]>(['Building']);
   const [showPresets, setShowPresets] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
   const [draftSavedToast, setDraftSavedToast] = useState(false);
+  const [promptCategory, setPromptCategory] = useState<string>('All');
+  
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const hasInitializedRef = useRef(false);
 
-  // Restore draft or initial props on open
+  // Initialize form state ONLY ONCE when modal is opened
   useEffect(() => {
     if (isOpen) {
-      if (initialContent || initialImageUrl) {
-        setContent(initialContent);
-        setImageUrl(initialImageUrl);
-        if (initialTags && initialTags.length > 0) setSelectedTags(initialTags);
-      } else {
-        const savedDraft = DailyStorageService.getPostDraft(currentUser.id);
-        if (savedDraft && (savedDraft.content || savedDraft.imageUrl)) {
-          setContent(savedDraft.content || '');
-          setImageUrl(savedDraft.imageUrl || '');
-          if (savedDraft.tags && savedDraft.tags.length > 0) {
-            setSelectedTags(savedDraft.tags);
+      if (!hasInitializedRef.current) {
+        hasInitializedRef.current = true;
+        
+        if (initialContent !== undefined || initialImageUrl !== undefined) {
+          setContent(initialContent || '');
+          setImageUrl(initialImageUrl || '');
+          if (initialTags && initialTags.length > 0) {
+            setSelectedTags(initialTags);
+          } else {
+            setSelectedTags(['Building']);
           }
-          setDraftRestored(true);
-        } else {
-          setContent('');
-          setImageUrl('');
-          setSelectedTags(['Building']);
           setDraftRestored(false);
+        } else {
+          // Check local draft
+          const savedDraft = DailyStorageService.getPostDraft(currentUser.id);
+          if (savedDraft && (savedDraft.content?.trim() || savedDraft.imageUrl?.trim())) {
+            setContent(savedDraft.content || '');
+            setImageUrl(savedDraft.imageUrl || '');
+            if (savedDraft.tags && savedDraft.tags.length > 0) {
+              setSelectedTags(savedDraft.tags);
+            } else {
+              setSelectedTags(['Building']);
+            }
+            setDraftRestored(true);
+          } else {
+            setContent('');
+            setImageUrl('');
+            setSelectedTags(['Building']);
+            setDraftRestored(false);
+          }
         }
       }
+    } else {
+      hasInitializedRef.current = false;
+      setDraftSavedToast(false);
     }
   }, [isOpen, currentUser.id, initialContent, initialImageUrl, initialTags]);
 
-  // Auto-save draft whenever user makes changes
+  // Debounced auto-save draft whenever user makes changes while modal is open
   useEffect(() => {
-    if (!isOpen) return;
-    if (content.trim() || imageUrl.trim()) {
-      DailyStorageService.savePostDraft(currentUser.id, {
-        content,
-        imageUrl,
-        tags: selectedTags,
-      });
-    }
+    if (!isOpen || !hasInitializedRef.current) return;
+
+    const timer = setTimeout(() => {
+      if (content.trim() || imageUrl.trim()) {
+        DailyStorageService.savePostDraft(currentUser.id, {
+          content,
+          imageUrl,
+          tags: selectedTags,
+        });
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
   }, [isOpen, content, imageUrl, selectedTags, currentUser.id]);
 
   if (!isOpen) return null;
@@ -156,7 +238,9 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const toggleTag = (tag: string) => {
     vibrateLight();
     if (selectedTags.includes(tag)) {
-      setSelectedTags(selectedTags.filter((t) => t !== tag));
+      if (selectedTags.length > 1) {
+        setSelectedTags(selectedTags.filter((t) => t !== tag));
+      }
     } else {
       if (selectedTags.length < 4) {
         setSelectedTags([...selectedTags, tag]);
@@ -186,7 +270,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       tags: selectedTags,
     });
     setDraftSavedToast(true);
-    setTimeout(() => setDraftSavedToast(false), 2500);
+    setTimeout(() => setDraftSavedToast(false), 2200);
   };
 
   const handleDiscardDraft = () => {
@@ -196,6 +280,9 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     setImageUrl('');
     setSelectedTags(['Building']);
     setDraftRestored(false);
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
   };
 
   const handleSafeClose = () => {
@@ -207,6 +294,26 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       });
     }
     onClose();
+  };
+
+  const handleInsertPrompt = (promptText: string) => {
+    vibrateLight();
+    setContent(promptText);
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  };
+
+  const handleInsertStarter = (starterText: string) => {
+    vibrateLight();
+    if (!content.trim()) {
+      setContent(starterText);
+    } else {
+      setContent((prev) => `${prev.trim()} ${starterText}`);
+    }
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -231,6 +338,11 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     onClose();
   };
 
+  // Get dynamic prompts based on currently active/selected tag
+  const primaryTag = selectedTags[0] || 'Building';
+  const tagPrompts =
+    CATEGORY_REFLECTION_PROMPTS[primaryTag] || CATEGORY_REFLECTION_PROMPTS['Default'];
+
   return (
     <div
       id="create-proof-modal"
@@ -238,7 +350,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       onClick={handleSafeClose}
     >
       <div
-        className="w-full max-w-lg bg-[#0D0D0D] border border-white/15 rounded-[32px] p-5 sm:p-6 shadow-2xl relative text-white my-6 max-h-[92vh] flex flex-col animate-in zoom-in-95 duration-200"
+        className="w-full max-w-lg bg-[#0D0D0D] border border-white/15 rounded-[32px] p-5 sm:p-6 shadow-2xl relative text-white my-auto max-h-[92vh] flex flex-col animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -254,9 +366,9 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
             </div>
             <div>
               <h3 className="font-black text-sm text-white flex items-center gap-1.5">
-                What did you do today?
+                Log Proof of Work
               </h3>
-              <p className="text-[10px] text-white/50">Action • Proof • Reflection</p>
+              <p className="text-[10px] text-white/50">Receipt • Reflection • Habit Link</p>
             </div>
           </div>
 
@@ -391,15 +503,16 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black uppercase tracking-wider text-white/80 flex items-center gap-1.5">
                   <Camera className="w-4 h-4 text-[#D4AF37]" />
-                  1. Add Proof (Photo Receipt)
+                  1. Proof Receipt (Photo)
                 </span>
                 {!imageUrl && (
                   <button
                     type="button"
                     onClick={() => setShowPresets(!showPresets)}
-                    className="text-xs text-[#D4AF37] hover:underline font-bold"
+                    className="text-xs text-[#D4AF37] hover:underline font-bold flex items-center gap-1"
                   >
-                    {showPresets ? 'Hide presets' : 'Proof presets'}
+                    <Sparkles className="w-3 h-3" />
+                    {showPresets ? 'Hide presets' : 'Preset ideas'}
                   </button>
                 )}
               </div>
@@ -484,52 +597,92 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
             </div>
 
             {/* STEP 2: WRITE REFLECTION ✍️ */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-black uppercase tracking-wider text-white/80 flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label
+                  htmlFor="reflection-textarea"
+                  className="text-xs font-black uppercase tracking-wider text-white/80 flex items-center gap-1.5"
+                >
                   <PenTool className="w-4 h-4 text-[#D4AF37]" />
                   2. Add Reflection (Short Thought)
-                </span>
-                <span className="text-[10px] font-mono text-white/30">
-                  {content.length}/300
-                </span>
-              </label>
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="What did you actually do today? (e.g., 'Built authentication. Took 4 hours longer than expected.')"
-                rows={3}
-                maxLength={300}
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 focus:border-[#D4AF37] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-all resize-none leading-relaxed"
-                autoFocus
-              />
-
-              {/* Quick reflection examples */}
-              <div className="flex flex-wrap gap-1 pt-1">
-                {REFLECTION_PROMPTS.slice(0, 3).map((prompt, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => {
-                      vibrateLight();
-                      setContent(prompt);
-                    }}
-                    className="text-[10px] px-2 py-0.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border border-white/5 transition-colors text-left truncate max-w-full"
+                </label>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-[10px] font-mono font-bold ${
+                      content.length >= 280
+                        ? 'text-red-400'
+                        : content.length >= 200
+                        ? 'text-amber-400'
+                        : 'text-white/40'
+                    }`}
                   >
-                    "{prompt}"
-                  </button>
-                ))}
+                    {content.length}/300
+                  </span>
+                </div>
+              </div>
+
+              {/* Reflection Textarea */}
+              <div className="relative">
+                <textarea
+                  id="reflection-textarea"
+                  ref={textareaRef}
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  placeholder="What did you actually accomplish today? What was hard? (e.g., 'Shipped database migration. Took 2 hours to fix edge cases.')"
+                  rows={3}
+                  maxLength={300}
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 focus:border-[#D4AF37] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-all resize-none leading-relaxed focus:bg-white/[0.07]"
+                />
+              </div>
+
+              {/* Quick Reflection Starters */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-[10px] text-white/40 font-bold uppercase tracking-wider">
+                  <span className="flex items-center gap-1">
+                    <Lightbulb className="w-3 h-3 text-[#D4AF37]" /> Quick Starters & Prompts ({primaryTag})
+                  </span>
+                </div>
+
+                {/* Reflection Starters Pills */}
+                <div className="flex flex-wrap gap-1">
+                  {REFLECTION_STARTERS.map((starter) => (
+                    <button
+                      key={starter}
+                      type="button"
+                      onClick={() => handleInsertStarter(starter)}
+                      className="text-[10px] px-2 py-0.5 rounded-lg bg-white/5 hover:bg-white/10 hover:border-[#D4AF37]/50 text-white/70 hover:text-white border border-white/5 transition-all flex items-center gap-1 active:scale-95"
+                    >
+                      <CornerDownLeft className="w-2.5 h-2.5 text-[#D4AF37]" />
+                      <span>{starter}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Specific prompts for selected tag */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
+                  {tagPrompts.slice(0, 4).map((prompt, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleInsertPrompt(prompt)}
+                      className="text-[10px] p-2 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] text-white/70 hover:text-white border border-white/5 hover:border-[#D4AF37]/40 transition-all text-left line-clamp-2 leading-tight group flex items-start gap-1.5"
+                    >
+                      <Sparkles className="w-3 h-3 text-[#D4AF37] shrink-0 mt-0.5 opacity-60 group-hover:opacity-100" />
+                      <span>"{prompt}"</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
             {/* STEP 3: LINK HABIT / CHALLENGE / GOAL 🎯 */}
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 pt-1">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black uppercase tracking-wider text-white/80 flex items-center gap-1.5">
                   <Target className="w-4 h-4 text-[#D4AF37]" />
-                  3. Link Habit / Goal
+                  3. Link Habit / Focus Area
                 </span>
-                <span className="text-[10px] text-white/40">Connect your action</span>
+                <span className="text-[10px] text-white/40">Select 1-4 tags</span>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {HABIT_LINK_OPTIONS.map((tag) => {
@@ -541,14 +694,14 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                       onClick={() => toggleTag(tag)}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border min-h-[34px] ${
                         isSelected
-                          ? 'bg-[#D4AF37] text-black border-[#D4AF37] shadow-sm scale-105'
+                          ? 'bg-[#D4AF37] text-black border-[#D4AF37] shadow-sm scale-105 font-black'
                           : 'bg-white/5 text-white/60 border-white/10 hover:border-white/20 hover:text-white'
                       }`}
                     >
                       {isSelected ? (
                         <Check className="w-3.5 h-3.5 stroke-[3]" />
                       ) : (
-                        <span className="text-white/30 text-xs">☑</span>
+                        <span className="text-white/30 text-xs">#</span>
                       )}
                       <span>{tag}</span>
                     </button>
@@ -558,10 +711,10 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
             </div>
 
             {/* DRAFT ACTIONS & AUTO-SAVE INDICATOR */}
-            <div className="flex items-center justify-between pt-1 text-[11px] text-white/40 px-1">
-              <span className="flex items-center gap-1">
+            <div className="flex items-center justify-between pt-1 text-[11px] text-white/40 px-1 border-t border-white/5">
+              <span className="flex items-center gap-1.5 text-[10px]">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                {draftSavedToast ? 'Draft saved to local storage ✓' : 'Auto-saving draft locally'}
+                {draftSavedToast ? 'Draft saved locally ✓' : 'Auto-saving draft'}
               </span>
               <div className="flex items-center gap-2">
                 {(content.trim() || imageUrl.trim()) && (
@@ -580,7 +733,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                     onClick={handleDiscardDraft}
                     className="text-[10px] text-white/40 hover:text-red-400 transition-colors"
                   >
-                    Clear
+                    Clear All
                   </button>
                 )}
               </div>
