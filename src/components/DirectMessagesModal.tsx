@@ -23,6 +23,7 @@ import { User, Message, Group, Post, CommunityMemberRanking } from '../types';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
 import { DailyStorageService } from '../services/storage';
 import { handleHorizontalWheelScroll } from '../utils/scroll';
+import { EmptyStateIllustration } from './EmptyStateIllustration';
 
 interface DirectMessagesModalProps {
   isOpen: boolean;
@@ -466,12 +467,28 @@ export const DirectMessagesModal: React.FC<DirectMessagesModalProps> = ({
               )}
 
               {directConversations.length === 0 && groupConversations.length === 0 && (
-                <div className="text-center py-16 px-4 text-white/40">
-                  <Sparkles className="w-8 h-8 mx-auto mb-2 text-white/30" />
-                  <p className="text-xs font-bold text-white/70">No conversations found</p>
-                  <p className="text-[11px] text-white/40 mt-1">
-                    Discover creators or create a group to start chatting!
-                  </p>
+                <div className="p-3">
+                  <EmptyStateIllustration
+                    type="messages"
+                    title={searchQuery ? `No chats matching "${searchQuery}"` : 'No messages yet'}
+                    description={
+                      searchQuery
+                        ? 'Try searching by a different name or group title.'
+                        : 'Start a direct chat with a creator from Discover or start a private group chat with friends!'
+                    }
+                    primaryAction={
+                      onOpenCreateGroup
+                        ? {
+                            label: 'Create Private Group',
+                            onClick: () => {
+                              onClose();
+                              onOpenCreateGroup();
+                            },
+                            icon: <Plus className="w-4 h-4" />,
+                          }
+                        : undefined
+                    }
+                  />
                 </div>
               )}
             </div>

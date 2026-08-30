@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { User, Post, Message, Group, Community, NavigationTab, ReportReason } from './types';
+import { User, Post, Message, Group, Community, NavigationTab, ReportReason, AppNotification, ProofCollection } from './types';
 import { DailyStorageService } from './services/storage';
 import { TopHeader, BottomNavigation } from './components/Navigation';
 import { HomeFeed } from './components/HomeFeed';
@@ -25,6 +25,9 @@ import { CreateCommunityModal } from './components/CreateCommunityModal';
 import { CommunityHubModal } from './components/CommunityHubModal';
 import { PostInsightsModal } from './components/PostInsightsModal';
 import { DeleteConfirmModal } from './components/DeleteConfirmModal';
+import { NotificationsModal } from './components/NotificationsModal';
+import { CreateCollectionModal } from './components/CreateCollectionModal';
+import { AddToCollectionModal } from './components/AddToCollectionModal';
 import { vibratePostSubmit, vibrateLight, vibrateStreakMilestone } from './services/haptics';
 
 export default function App() {
@@ -37,12 +40,17 @@ export default function App() {
   const [messages, setMessages] = useState<Message[]>(() => DailyStorageService.getAllMessages());
   const [savedPostIds, setSavedPostIds] = useState<string[]>(() => DailyStorageService.getSavedPostIds());
   const [reportedPostIds, setReportedPostIds] = useState<string[]>(() => DailyStorageService.getReportedPostIds());
+  const [notifications, setNotifications] = useState<AppNotification[]>(() => DailyStorageService.getAllNotifications());
   const [isOnboarded, setIsOnboarded] = useState<boolean>(() => DailyStorageService.isOnboarded());
 
   // UI Navigation & Modals
   const [currentTab, setCurrentTab] = useState<NavigationTab>('home');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isDMsOpen, setIsDMsOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isCreateCollectionOpen, setIsCreateCollectionOpen] = useState(false);
+  const [selectedPostForCollection, setSelectedPostForCollection] = useState<Post | null>(null);
+
   const [activeChatUserId, setActiveChatUserId] = useState<string | null>(null);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [commentsPost, setCommentsPost] = useState<Post | null>(null);
@@ -67,10 +75,12 @@ export default function App() {
     isNewStreakDay: false,
   });
 
-  // Calculate unread direct messages count
+  // Calculate unread counts
   const unreadMessagesCount = messages.filter(
     (m) => (m.receiverId === currentUser.id || (m.groupId && m.senderId !== currentUser.id)) && !m.isRead
   ).length;
+
+  const unreadNotificationsCount = notifications.filter((n) => !n.isRead).length;
 
   // Onboarding completion handler
   const handleCompleteOnboarding = (updatedUserProps: Partial<User>) => {
@@ -199,217 +209,272 @@ export default function App() {
   // Create Private Group Chat (in DMs)
   const handleCreateGroup = (params: {
     name: string;
-    description: string;
-    avatar: string;
     category: string;
+    description: string;
+    avatar?: string;
     memberIds: string[];
-    rules?: string[];
-    pinnedTopic?: string;
-    coverImage?: string;
   }) => {
-    const newGroup = DailyStorageService.createGroup(params);
-    setGroups((prev) => [newGroup, ...prev]);
+    const group = DailyStorageService.createGroup(params);
+    setGroups(DailyStorageService.getAllGroups());
     setIsCreateGroupOpen(false);
 
-    // Automatically navigate to the new group chat in DMs
-    setActiveGroupId(newGroup.id);
+    // Open chat for newly created group
+    setActiveGroupId(group.id);
     setActiveChatUserId(null);
     setIsDMsOpen(true);
   };
 
-  // Create Explore Community
+  // Create Community (in Explore/Discover)
   const handleCreateCommunity = (params: {
     name: string;
-    description: string;
     category: string;
+    description: string;
     accessType: 'public' | 'moderated';
-    avatar: string;
-    coverImage?: string;
     rules?: string[];
-    tags?: string[];
+    avatar?: string;
+    coverImage?: string;
   }) => {
-    const newComm = DailyStorageService.createCommunity(params);
+    const community = DailyStorageService.createCommunity({
+      name: params.name,
+      description: params.description,
+      category: params.category,
+      accessType: params.accessType,
+      avatar: params.avatar || 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=400&auto=format&fit=crop&q=80',
+      coverImage: params.coverImage,
+      rules: params.rules,
+    });
     setCommunities(DailyStorageService.getAllCommunities());
     setIsCreateCommunityOpen(false);
-    setActiveCommunityHub(newComm);
+
+    // Open hub for newly created community
+    setActiveCommunityHub(community);
   };
 
-  // Toggle Join Community (Public vs Moderated)
+  // Toggle Join Community (or Request Access if private)
   const handleToggleJoinCommunity = (communityId: string) => {
-    vibrateLight();
-    const { communities: updated } = DailyStorageService.toggleJoinCommunity(communityId);
-    setCommunities(updated);
+    const { communities: updatedCommunities } = DailyStorageService.toggleJoinCommunity(communityId);
+    setCommunities(updatedCommunities);
     if (activeCommunityHub && activeCommunityHub.id === communityId) {
-      const match = updated.find((c) => c.id === communityId);
+      const match = updatedCommunities.find((c) => c.id === communityId);
       if (match) setActiveCommunityHub(match);
     }
   };
 
-  // Approve Community Member (Moderator action)
-  const handleApproveCommunityMember = (communityId: string, applicantUserId: string) => {
-    vibrateStreakMilestone();
-    const updated = DailyStorageService.approveCommunityMember(communityId, applicantUserId);
-    setCommunities(updated);
+  // Approve Pending Member Request (by Moderator)
+  const handleApproveCommunityMember = (communityId: string, memberId: string) => {
+    const updatedCommunities = DailyStorageService.approveCommunityMember(communityId, memberId);
+    setCommunities(updatedCommunities);
     if (activeCommunityHub && activeCommunityHub.id === communityId) {
-      const match = updated.find((c) => c.id === communityId);
+      const match = updatedCommunities.find((c) => c.id === communityId);
       if (match) setActiveCommunityHub(match);
     }
   };
 
-  // Start direct message with a specific user
-  const handleStartDMWithUser = (target: { id: string }) => {
-    setActiveChatUserId(target.id);
-    setActiveGroupId(null);
-    setIsDMsOpen(true);
+  // Proof Collections Handlers
+  const handleCreateCollection = (params: {
+    name: string;
+    description?: string;
+    icon?: string;
+    coverImageUrl?: string;
+    initialPostIds?: string[];
+  }) => {
+    const { currentUser: updatedUser } = DailyStorageService.createProofCollection(params);
+    setCurrentUser(updatedUser);
+    setIsCreateCollectionOpen(false);
   };
 
-  // Start group chat from click
-  const handleStartGroupChat = (groupId: string) => {
-    setActiveGroupId(groupId);
-    setActiveChatUserId(null);
-    setIsDMsOpen(true);
+  const handleDeleteCollection = (collectionId: string) => {
+    const updatedUser = DailyStorageService.deleteProofCollection(collectionId);
+    setCurrentUser(updatedUser);
   };
 
-  // Open Share Modal
-  const handleOpenShare = (post: Post) => {
-    setSharingPost(post);
+  const handleRemovePostFromCollection = (collectionId: string, postId: string) => {
+    const updatedUser = DailyStorageService.removePostFromCollection(collectionId, postId);
+    setCurrentUser(updatedUser);
   };
 
-  // Send Shared Post
-  const handleSendSharedPost = (
-    postOrParams: any,
-    recipientUserIds?: string[],
-    recipientGroupIds?: string[],
-    note?: string
-  ) => {
-    let postToShare = sharingPost;
-    let uIds = recipientUserIds || [];
-    let gIds = recipientGroupIds || [];
-    let nText = note;
+  const handleTogglePostInCollection = (collectionId: string, postId: string) => {
+    const updatedUser = DailyStorageService.togglePostInCollection(collectionId, postId);
+    setCurrentUser(updatedUser);
+  };
 
-    if (postOrParams && postOrParams.id) {
-      postToShare = postOrParams;
-    } else if (postOrParams && postOrParams.post) {
-      postToShare = postOrParams.post;
-      uIds = postOrParams.recipientUserIds || [];
-      gIds = postOrParams.recipientGroupIds || [];
-      nText = postOrParams.note;
+  // Notification Handlers
+  const handleMarkNotificationAsRead = (id: string) => {
+    const updated = DailyStorageService.markNotificationAsRead(id);
+    setNotifications(updated);
+  };
+
+  const handleMarkAllNotificationsAsRead = () => {
+    const updated = DailyStorageService.markAllNotificationsAsRead();
+    setNotifications(updated);
+  };
+
+  const handleClearAllNotifications = () => {
+    const updated = DailyStorageService.clearAllNotifications();
+    setNotifications(updated);
+  };
+
+  const handleNotificationClick = (notification: AppNotification) => {
+    handleMarkNotificationAsRead(notification.id);
+    if (notification.targetId) {
+      const match = posts.find((p) => p.id === notification.targetId);
+      if (match) {
+        setIsNotificationsOpen(false);
+        setCommentsPost(match);
+      }
+    } else if (notification.actorId) {
+      const userMatch = users.find((u) => u.id === notification.actorId);
+      if (userMatch) {
+        setIsNotificationsOpen(false);
+        setActiveProfileUser(userMatch);
+      }
     }
-
-    if (!postToShare) return;
-
-    DailyStorageService.sharePostToRecipients(
-      postToShare,
-      uIds,
-      gIds,
-      nText
-    );
-    setMessages(DailyStorageService.getAllMessages());
-    setSharingPost(null);
   };
 
-  // Request Delete post
+  // Edit Profile Save
+  const handleSaveProfile = (updatedProps: Partial<User>) => {
+    const updated = { ...currentUser, ...updatedProps };
+    setCurrentUser(updated);
+    DailyStorageService.saveCurrentUser(updated);
+    setIsEditProfileOpen(false);
+  };
+
+  // Delete Post
   const handleRequestDeletePost = (postId: string) => {
-    vibrateLight();
-    const targetPost = posts.find((p) => p.id === postId) || null;
-    if (targetPost) {
-      setPostPendingDelete(targetPost);
-    } else {
-      executeDeletePost(postId);
+    const postToDelete = posts.find((p) => p.id === postId);
+    if (postToDelete) {
+      setPostPendingDelete(postToDelete);
     }
   };
 
-  // Execute actual deletion
   const executeDeletePost = (postId: string) => {
-    vibrateLight();
     const { posts: updatedPosts, updatedUser } = DailyStorageService.deletePost(postId);
     setPosts(updatedPosts);
     setCurrentUser(updatedUser);
+    setPostPendingDelete(null);
     if (commentsPost && commentsPost.id === postId) {
       setCommentsPost(null);
     }
     if (insightsPost && insightsPost.id === postId) {
       setInsightsPost(null);
     }
-    if (sharingPost && sharingPost.id === postId) {
-      setSharingPost(null);
-    }
-    setPostPendingDelete(null);
   };
 
-  // Open Post Insights Modal
+  // Open Post Analytics/Insights
   const handleOpenInsights = (post: Post) => {
-    vibrateLight();
-    DailyStorageService.incrementPostViews(post.id);
-    const refreshedPosts = DailyStorageService.getAllPosts();
-    setPosts(refreshedPosts);
-    const updatedPost = refreshedPosts.find((p) => p.id === post.id) || post;
-    setInsightsPost(updatedPost);
+    setInsightsPost(post);
   };
 
-  // Toggle Join/Leave Group
-  const handleToggleJoinGroup = (groupId: string) => {
-    vibrateLight();
-    const { groups: updated } = DailyStorageService.toggleJoinGroup(groupId);
-    setGroups(updated);
-  };
-
-  // Handle pull to refresh
-  const handleFeedRefresh = async () => {
-    vibrateLight();
-    await new Promise((resolve) => setTimeout(resolve, 600));
+  // Feed Refresh Handler
+  const handleFeedRefresh = () => {
     setPosts(DailyStorageService.getAllPosts());
-    setUsers(DailyStorageService.getAllUsers());
-    setGroups(DailyStorageService.getAllGroups());
-    setCommunities(DailyStorageService.getAllCommunities());
-    setMessages(DailyStorageService.getAllMessages());
-    setCurrentUser(DailyStorageService.getCurrentUser());
+    setNotifications(DailyStorageService.getAllNotifications());
   };
 
-  // View post details
-  const handleViewPostFromId = (postId: string) => {
-    const found = posts.find((p) => p.id === postId);
-    if (found) {
-      setCommentsPost(found);
-    }
+  // Share post modal trigger
+  const handleOpenShare = (post: Post) => {
+    setSharingPost(post);
   };
 
-  // Edit Profile save
-  const handleSaveProfile = (updatedProps: Partial<User>) => {
-    const updated = { ...currentUser, ...updatedProps };
-    setCurrentUser(updated);
-    DailyStorageService.saveCurrentUser(updated);
-  };
+  // Send shared post in direct or group message
+  const handleSendSharedPost = (
+    post: Post,
+    recipientUserIds: string[],
+    recipientGroupIds: string[],
+    note?: string
+  ) => {
+    const postLinkUrl = `${window.location.origin}#post-${post.id}`;
+    const messageText = `Check out this proof from ${post.name} (🔥 ${post.userStreak}d streak):\n"${post.content.slice(0, 100)}${post.content.length > 100 ? '...' : ''}"${note ? `\n\n${note}` : ''}\n${postLinkUrl}`;
 
-  // View specific user profile modal
-  const handleViewUser = (target: { id: string; name?: string; username?: string; avatar?: string; streak?: number }) => {
-    if (target.id === currentUser.id) {
-      setCurrentTab('profile');
-      return;
-    }
-    const found = users.find((u) => u.id === target.id);
-    if (found) {
-      setActiveProfileUser(found);
-    } else {
-      setActiveProfileUser({
-        id: target.id,
-        name: target.name || 'User',
-        username: target.username || 'user',
-        avatar: target.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-        bio: 'Daily habit builder',
-        interests: [],
-        habits: [],
-        currentStreak: target.streak || 1,
-        longestStreak: target.streak || 1,
-        totalPosts: 1,
-        activityDates: [],
-        followersCount: 1,
-        followingCount: 1,
-        followedUserIds: [],
-        lastPostedDate: null,
-        joinedDate: new Date().toISOString().split('T')[0],
-        isCurrentUser: false,
+    // Send to direct message recipients
+    recipientUserIds.forEach((userId) => {
+      handleSendMessage({
+        receiverId: userId,
+        text: messageText,
+        imageUrl: post.imageUrl,
       });
+    });
+
+    // Send to group recipients
+    recipientGroupIds.forEach((groupId) => {
+      handleSendMessage({
+        groupId: groupId,
+        text: messageText,
+        imageUrl: post.imageUrl,
+      });
+    });
+
+    setSharingPost(null);
+    if (recipientUserIds.length > 0) {
+      setActiveChatUserId(recipientUserIds[0]);
+      setActiveGroupId(null);
+    } else if (recipientGroupIds.length > 0) {
+      setActiveGroupId(recipientGroupIds[0]);
+      setActiveChatUserId(null);
+    }
+    setIsDMsOpen(true);
+  };
+
+  // View full profile of another user
+  const handleViewUser = (user: User) => {
+    setActiveProfileUser(user);
+  };
+
+  // View user from simplified user object (from notifications/DMs/etc)
+  const handleViewSimplifiedUser = (user: { id: string; name: string; username: string; avatar: string; streak: number }) => {
+    const fullUser = users.find((u) => u.id === user.id);
+    if (fullUser) {
+      setActiveProfileUser(fullUser);
+    }
+  };
+
+  // View single post by ID (e.g. From chat shared card or community receipts)
+  const handleViewPostFromId = (postId: string) => {
+    const targetPost = posts.find((p) => p.id === postId);
+    if (targetPost) {
+      setCommentsPost(targetPost);
+    }
+  };
+
+  // Start DM from profile or card
+  const handleStartDMWithUser = (target: {
+    id: string;
+    name: string;
+    username: string;
+    avatar: string;
+    streak: number;
+  }) => {
+    setActiveChatUserId(target.id);
+    setActiveGroupId(null);
+    setIsDMsOpen(true);
+    if (activeProfileUser) {
+      setActiveProfileUser(null);
+    }
+
+    const existingUser = users.find((u) => u.id === target.id);
+    if (!existingUser) {
+      setUsers((prev) => [
+        ...prev,
+        {
+          id: target.id,
+          name: target.name,
+          username: target.username,
+          avatar: target.avatar,
+          bio: 'Building consistent daily habits.',
+          interests: [],
+          habits: [],
+          currentStreak: target.streak || 1,
+          longestStreak: target.streak || 1,
+          totalPosts: 1,
+          activityDates: [],
+          followersCount: 1,
+          followingCount: 1,
+          followedUserIds: [],
+          lastPostedDate: null,
+          joinedDate: new Date().toISOString().split('T')[0],
+          isCurrentUser: false,
+        },
+      ]);
     }
   };
 
@@ -441,6 +506,7 @@ export default function App() {
     setMessages(DailyStorageService.getAllMessages());
     setSavedPostIds(DailyStorageService.getSavedPostIds());
     setReportedPostIds(DailyStorageService.getReportedPostIds());
+    setNotifications(DailyStorageService.getAllNotifications());
   };
 
   return (
@@ -457,6 +523,8 @@ export default function App() {
           }}
           unreadCount={unreadMessagesCount}
           onSelectTab={setCurrentTab}
+          unreadNotificationsCount={unreadNotificationsCount}
+          onOpenNotifications={() => setIsNotificationsOpen(true)}
         />
 
         {/* Main Tab Screens */}
@@ -471,7 +539,7 @@ export default function App() {
               onSendDM={handleStartDMWithUser}
               onOpenCreate={() => setIsCreateOpen(true)}
               onSelectTab={setCurrentTab}
-              onViewUser={handleViewUser}
+              onViewUser={handleViewSimplifiedUser}
               savedPostIds={savedPostIds}
               reportedPostIds={reportedPostIds}
               onToggleSave={handleToggleSave}
@@ -480,6 +548,7 @@ export default function App() {
               onRefresh={handleFeedRefresh}
               onOpenInsights={handleOpenInsights}
               onDeletePost={handleRequestDeletePost}
+              onOpenAddToCollection={(post) => setSelectedPostForCollection(post)}
             />
           )}
 
@@ -532,6 +601,10 @@ export default function App() {
               onSharePost={handleOpenShare}
               onOpenInsights={handleOpenInsights}
               onDeletePost={handleRequestDeletePost}
+              onOpenCreateCollection={() => setIsCreateCollectionOpen(true)}
+              onDeleteCollection={handleDeleteCollection}
+              onRemovePostFromCollection={handleRemovePostFromCollection}
+              onOpenAddToCollection={(post) => setSelectedPostForCollection(post)}
             />
           )}
         </main>
@@ -551,6 +624,38 @@ export default function App() {
         />
 
         {/* Modals */}
+        {/* Notifications Modal */}
+        <NotificationsModal
+          isOpen={isNotificationsOpen}
+          onClose={() => setIsNotificationsOpen(false)}
+          notifications={notifications}
+          currentUser={currentUser}
+          onMarkAsRead={handleMarkNotificationAsRead}
+          onMarkAllAsRead={handleMarkAllNotificationsAsRead}
+          onClearAll={handleClearAllNotifications}
+        />
+
+        {/* Create Proof Collection Modal */}
+        <CreateCollectionModal
+          isOpen={isCreateCollectionOpen}
+          onClose={() => setIsCreateCollectionOpen(false)}
+          userPosts={posts}
+          onCreateCollection={handleCreateCollection}
+        />
+
+        {/* Add Post to Collection Modal */}
+        <AddToCollectionModal
+          isOpen={!!selectedPostForCollection}
+          onClose={() => setSelectedPostForCollection(null)}
+          post={selectedPostForCollection}
+          collections={currentUser.proofCollections || []}
+          onTogglePostInCollection={handleTogglePostInCollection}
+          onOpenCreateCollection={() => {
+            setSelectedPostForCollection(null);
+            setIsCreateCollectionOpen(true);
+          }}
+        />
+
         {/* Social Share Modal */}
         <ShareModal
           isOpen={!!sharingPost}
@@ -682,7 +787,7 @@ export default function App() {
           initialGroupId={activeGroupId}
           onOpenCreateGroup={() => setIsCreateGroupOpen(true)}
           onViewPost={handleViewPostFromId}
-          onViewUser={handleViewUser}
+          onViewUser={handleViewSimplifiedUser}
         />
 
         {/* Edit Profile Modal */}

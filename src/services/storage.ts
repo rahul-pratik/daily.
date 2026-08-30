@@ -1,5 +1,5 @@
-import { User, Post, Message, Comment, Group, SharedPostPreview, CommunityMemberRanking, PersonalHabit, Community, PostDraft } from '../types';
-import { INITIAL_CURRENT_USER, SAMPLE_USERS, INITIAL_POSTS, INITIAL_MESSAGES, SAMPLE_GROUPS, INITIAL_PERSONAL_HABITS, INITIAL_COMMUNITIES } from '../data/mockData';
+import { User, Post, Message, Comment, Group, SharedPostPreview, CommunityMemberRanking, PersonalHabit, Community, PostDraft, AppNotification, ProofCollection } from '../types';
+import { INITIAL_CURRENT_USER, SAMPLE_USERS, INITIAL_POSTS, INITIAL_MESSAGES, SAMPLE_GROUPS, INITIAL_PERSONAL_HABITS, INITIAL_COMMUNITIES, INITIAL_NOTIFICATIONS } from '../data/mockData';
 
 const STORAGE_KEYS = {
   CURRENT_USER: 'daily_app_current_user_v1',
@@ -14,6 +14,7 @@ const STORAGE_KEYS = {
   REPORTED_POSTS: 'daily_app_reported_posts_v1',
   HABITS: 'daily_app_personal_habits_v1',
   BLOCKED_USERS: 'daily_app_blocked_users_v1',
+  NOTIFICATIONS: 'daily_app_notifications_v1',
 };
 
 // Current reference date (today in the app context)
@@ -1060,6 +1061,199 @@ export class DailyStorageService {
     return updated;
   }
 
+  // --- NOTIFICATIONS SYSTEM ---
+  static getAllNotifications(): AppNotification[] {
+    const data = localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS);
+    if (!data) {
+      this.saveAllNotifications(INITIAL_NOTIFICATIONS);
+      return INITIAL_NOTIFICATIONS;
+    }
+    try {
+      return JSON.parse(data);
+    } catch {
+      return INITIAL_NOTIFICATIONS;
+    }
+  }
+
+  static saveAllNotifications(notifications: AppNotification[]): void {
+    localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifications));
+  }
+
+  static markNotificationAsRead(id: string): AppNotification[] {
+    const notifications = this.getAllNotifications();
+    const updated = notifications.map((n) => (n.id === id ? { ...n, isRead: true } : n));
+    this.saveAllNotifications(updated);
+    return updated;
+  }
+
+  static markAllNotificationsAsRead(): AppNotification[] {
+    const notifications = this.getAllNotifications();
+    const updated = notifications.map((n) => ({ ...n, isRead: true }));
+    this.saveAllNotifications(updated);
+    return updated;
+  }
+
+  static addNotification(
+    notification: Omit<AppNotification, 'id' | 'createdAt'> & { createdAt?: string }
+  ): AppNotification[] {
+    const current = this.getAllNotifications();
+    const newNotif: AppNotification = {
+      ...notification,
+      id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      createdAt: notification.createdAt || 'Just now',
+      timestamp: Date.now(),
+      isRead: false,
+    };
+    const updated = [newNotif, ...current];
+    this.saveAllNotifications(updated);
+    return updated;
+  }
+
+  static clearAllNotifications(): AppNotification[] {
+    this.saveAllNotifications([]);
+    return [];
+  }
+
+  // --- PROOF COLLECTIONS SYSTEM ---
+  static getProofCollections(): ProofCollection[] {
+    const currentUser = this.getCurrentUser();
+    return currentUser.proofCollections || [];
+  }
+
+  static createProofCollection(params: {
+    name: string;
+    description?: string;
+    icon?: string;
+    coverImageUrl?: string;
+    initialPostIds?: string[];
+  }): { currentUser: User; collection: ProofCollection } {
+    const currentUser = this.getCurrentUser();
+    const collections = currentUser.proofCollections || [];
+    const today = getTodayDateString();
+
+    const newCollection: ProofCollection = {
+      id: `col_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      name: params.name.trim(),
+      description: params.description?.trim(),
+      icon: params.icon || '📁',
+      coverImageUrl: params.coverImageUrl || 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=800&auto=format&fit=crop&q=80',
+      postIds: params.initialPostIds || [],
+      createdAt: today,
+      updatedAt: today,
+    };
+
+    const updatedUser: User = {
+      ...currentUser,
+      proofCollections: [newCollection, ...collections],
+    };
+
+    this.saveCurrentUser(updatedUser);
+    return { currentUser: updatedUser, collection: newCollection };
+  }
+
+  static addPostToCollection(collectionId: string, postId: string): User {
+    const currentUser = this.getCurrentUser();
+    const collections = currentUser.proofCollections || [];
+    const today = getTodayDateString();
+
+    const updatedCollections = collections.map((col) => {
+      if (col.id === collectionId) {
+        if (col.postIds.includes(postId)) return col;
+        return {
+          ...col,
+          postIds: [postId, ...col.postIds],
+          updatedAt: today,
+        };
+      }
+      return col;
+    });
+
+    const updatedUser: User = {
+      ...currentUser,
+      proofCollections: updatedCollections,
+    };
+
+    this.saveCurrentUser(updatedUser);
+    return updatedUser;
+  }
+
+  static togglePostInCollection(collectionId: string, postId: string): User {
+    const currentUser = this.getCurrentUser();
+    const collections = currentUser.proofCollections || [];
+    const targetCol = collections.find((c) => c.id === collectionId);
+    if (targetCol && targetCol.postIds.includes(postId)) {
+      return this.removePostFromCollection(collectionId, postId);
+    } else {
+      return this.addPostToCollection(collectionId, postId);
+    }
+  }
+
+  static removePostFromCollection(collectionId: string, postId: string): User {
+    const currentUser = this.getCurrentUser();
+    const collections = currentUser.proofCollections || [];
+    const today = getTodayDateString();
+
+    const updatedCollections = collections.map((col) => {
+      if (col.id === collectionId) {
+        return {
+          ...col,
+          postIds: col.postIds.filter((id) => id !== postId),
+          updatedAt: today,
+        };
+      }
+      return col;
+    });
+
+    const updatedUser: User = {
+      ...currentUser,
+      proofCollections: updatedCollections,
+    };
+
+    this.saveCurrentUser(updatedUser);
+    return updatedUser;
+  }
+
+  static deleteProofCollection(collectionId: string): User {
+    const currentUser = this.getCurrentUser();
+    const collections = currentUser.proofCollections || [];
+
+    const updatedUser: User = {
+      ...currentUser,
+      proofCollections: collections.filter((c) => c.id !== collectionId),
+    };
+
+    this.saveCurrentUser(updatedUser);
+    return updatedUser;
+  }
+
+  static updateProofCollection(
+    collectionId: string,
+    updates: Partial<ProofCollection>
+  ): User {
+    const currentUser = this.getCurrentUser();
+    const collections = currentUser.proofCollections || [];
+    const today = getTodayDateString();
+
+    const updatedCollections = collections.map((col) => {
+      if (col.id === collectionId) {
+        return {
+          ...col,
+          ...updates,
+          updatedAt: today,
+        };
+      }
+      return col;
+    });
+
+    const updatedUser: User = {
+      ...currentUser,
+      proofCollections: updatedCollections,
+    };
+
+    this.saveCurrentUser(updatedUser);
+    return updatedUser;
+  }
+
   // Reset demo data
   static resetToDefault(): void {
     localStorage.clear();
@@ -1069,6 +1263,7 @@ export class DailyStorageService {
     this.saveAllMessages(INITIAL_MESSAGES);
     this.saveAllGroups(SAMPLE_GROUPS);
     this.savePersonalHabits(INITIAL_PERSONAL_HABITS);
+    this.saveAllNotifications(INITIAL_NOTIFICATIONS);
     this.saveBlockedUserIds([]);
     this.saveSavedPostIds(['post_1', 'post_3']);
     this.saveReportedPostIds([]);

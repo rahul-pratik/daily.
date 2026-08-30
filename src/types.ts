@@ -1,3 +1,14 @@
+export interface ProofCollection {
+  id: string;
+  name: string; // e.g. "Running", "Coding", "Gym", "Design"
+  description?: string;
+  icon?: string; // emoji or icon
+  coverImageUrl?: string;
+  postIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -17,6 +28,7 @@ export interface User {
   joinedDate: string;
   savedPostIds?: string[];
   blockedUserIds?: string[];
+  proofCollections?: ProofCollection[];
   isCurrentUser?: boolean;
   verified?: boolean;
 }
@@ -186,3 +198,28 @@ export const AVAILABLE_HABITS = [
 ] as const;
 
 export type NavigationTab = 'home' | 'streak' | 'create' | 'discover' | 'profile';
+
+export type NotificationType =
+  | 'like'
+  | 'comment'
+  | 'follow'
+  | 'community_request'
+  | 'community_approved'
+  | 'streak_milestone';
+
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  actorId: string;
+  actorName: string;
+  actorUsername: string;
+  actorAvatar: string;
+  actorStreak?: number;
+  targetId?: string; // postId or communityId
+  targetPreview?: string; // post content snippet or community name
+  targetImage?: string; // post thumbnail
+  message: string;
+  createdAt: string; // e.g. "5m ago"
+  timestamp?: number;
+  isRead: boolean;
+}

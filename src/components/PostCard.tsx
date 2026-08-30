@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, MessageCircle, Send, Bookmark, Flame, MoreHorizontal, Check, UserPlus, Share2, Eye, User as UserIcon, Flag, ShieldAlert, BarChart3, Trash2, AlertTriangle, X } from 'lucide-react';
+import { Heart, MessageCircle, Send, Bookmark, Flame, MoreHorizontal, Check, UserPlus, Share2, Eye, User as UserIcon, Flag, ShieldAlert, BarChart3, Trash2, AlertTriangle, X, FolderPlus } from 'lucide-react';
 import { Post, User } from '../types';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
 import { handleHorizontalWheelScroll } from '../utils/scroll';
@@ -21,6 +21,7 @@ interface PostCardProps {
   onOpenInsights?: (post: Post) => void;
   onDeletePost?: (postId: string) => void;
   isFocusMode?: boolean;
+  onOpenAddToCollection?: (post: Post) => void;
 }
 
 export const PostCard: React.FC<PostCardProps> = ({
@@ -40,6 +41,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   onOpenInsights,
   onDeletePost,
   isFocusMode = false,
+  onOpenAddToCollection,
 }) => {
   const [showHeartBurst, setShowHeartBurst] = useState(false);
   const [localSaved, setLocalSaved] = useState(false);
@@ -445,17 +447,34 @@ export const PostCard: React.FC<PostCardProps> = ({
               )}
             </div>
 
-            {/* Bookmark */}
-            <button
-              onClick={handleSaveToggle}
-              className={`text-white/40 hover:text-white transition-transform active:scale-110 p-1.5 rounded-lg hover:bg-white/5 min-h-[36px] min-w-[36px] flex items-center justify-center ${
-                isSaved ? 'text-[#D4AF37] fill-[#D4AF37]' : ''
-              }`}
-              aria-label={isSaved ? 'Unsave post' : 'Save post'}
-              title={isSaved ? 'Remove from Saved' : 'Save to Profile'}
-            >
-              <Bookmark className={`w-4 h-4 ${isSaved ? 'fill-[#D4AF37] text-[#D4AF37]' : 'stroke-2'}`} />
-            </button>
+            {/* Right actions: Add to Collection & Bookmark */}
+            <div className="flex items-center gap-1">
+              {onOpenAddToCollection && (
+                <button
+                  onClick={() => {
+                    vibrateLight();
+                    onOpenAddToCollection(post);
+                  }}
+                  className="text-white/40 hover:text-[#D4AF37] transition-transform active:scale-110 p-1.5 rounded-lg hover:bg-white/5 min-h-[36px] min-w-[36px] flex items-center justify-center"
+                  aria-label="Add to collection"
+                  title="Add proof to collection"
+                >
+                  <FolderPlus className="w-4 h-4 stroke-2" />
+                </button>
+              )}
+
+              {/* Bookmark */}
+              <button
+                onClick={handleSaveToggle}
+                className={`text-white/40 hover:text-white transition-transform active:scale-110 p-1.5 rounded-lg hover:bg-white/5 min-h-[36px] min-w-[36px] flex items-center justify-center ${
+                  isSaved ? 'text-[#D4AF37] fill-[#D4AF37]' : ''
+                }`}
+                aria-label={isSaved ? 'Unsave post' : 'Save post'}
+                title={isSaved ? 'Remove from Saved' : 'Save to Profile'}
+              >
+                <Bookmark className={`w-4 h-4 ${isSaved ? 'fill-[#D4AF37] text-[#D4AF37]' : 'stroke-2'}`} />
+              </button>
+            </div>
           </div>
         )}
       </div>

@@ -21,6 +21,7 @@ import { User, Community, AVAILABLE_INTERESTS, AVAILABLE_HABITS } from '../types
 import { PullToRefresh } from './PullToRefresh';
 import { handleHorizontalWheelScroll } from '../utils/scroll';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
+import { EmptyStateIllustration } from './EmptyStateIllustration';
 
 interface DiscoverScreenProps {
   users: User[];
@@ -626,12 +627,24 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
 
           {/* Empty State */}
           {totalMatches === 0 && (
-            <div className="p-8 text-center bg-white/[0.02] border border-white/5 rounded-3xl space-y-2">
-              <Compass className="w-8 h-8 mx-auto text-white/20" />
-              <p className="text-sm font-bold text-white/60">No matching creators or communities</p>
-              <p className="text-xs text-white/40">
-                Try searching for a different habit, tag, or name.
-              </p>
+            <div className="pt-2">
+              <EmptyStateIllustration
+                type="search"
+                title="No matching creators or communities"
+                description={
+                  searchQuery
+                    ? `No creators, habits, or communities matched "${searchQuery}".`
+                    : 'Try selecting a different focus filter tag or explore all categories.'
+                }
+                primaryAction={{
+                  label: 'Clear Search & Filters',
+                  onClick: () => {
+                    setSearchQuery('');
+                    setActiveFilterTag(null);
+                    setEntityFilter('all');
+                  },
+                }}
+              />
             </div>
           )}
         </div>

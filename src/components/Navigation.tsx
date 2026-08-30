@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Flame, PlusCircle, Compass, User as UserIcon, MessageSquare } from 'lucide-react';
+import { Home, Flame, PlusCircle, Compass, User as UserIcon, MessageSquare, Bell } from 'lucide-react';
 import { NavigationTab, User } from '../types';
 
 interface NavigationProps {
@@ -16,7 +16,16 @@ export const TopHeader: React.FC<{
   onOpenDMs: () => void;
   unreadCount: number;
   onSelectTab: (tab: NavigationTab) => void;
-}> = ({ currentUser, onOpenDMs, unreadCount, onSelectTab }) => {
+  onOpenNotifications?: () => void;
+  unreadNotificationsCount?: number;
+}> = ({
+  currentUser,
+  onOpenDMs,
+  unreadCount,
+  onSelectTab,
+  onOpenNotifications = () => {},
+  unreadNotificationsCount = 0,
+}) => {
   return (
     <header className="sticky top-0 z-30 w-full bg-[#050505]/95 backdrop-blur-md border-b border-white/5 px-4 py-3 flex items-center justify-between">
       {/* Brand Logo */}
@@ -34,7 +43,7 @@ export const TopHeader: React.FC<{
         </p>
       </button>
 
-      {/* Right controls: Streak Counter pill + DM button */}
+      {/* Right controls: Streak Counter pill + Notification Bell + DM button */}
       <div className="flex items-center gap-2">
         {/* Streak Pill */}
         <button
@@ -46,11 +55,27 @@ export const TopHeader: React.FC<{
           <span className="whitespace-nowrap">{currentUser.currentStreak}d Streak</span>
         </button>
 
+        {/* Notifications Icon */}
+        <button
+          onClick={onOpenNotifications}
+          className="relative p-2.5 rounded-full bg-white/10 hover:bg-white/15 text-white transition-all active:scale-95 min-h-[44px] min-w-[44px] flex items-center justify-center"
+          aria-label="Notifications"
+          title="Notifications"
+        >
+          <Bell className="w-4 h-4" />
+          {unreadNotificationsCount > 0 && (
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#D4AF37] text-black font-black text-[9px] rounded-full flex items-center justify-center shadow-md animate-pulse">
+              {unreadNotificationsCount}
+            </span>
+          )}
+        </button>
+
         {/* Direct Messages Icon */}
         <button
           onClick={onOpenDMs}
           className="relative p-2.5 rounded-full bg-white/10 hover:bg-white/15 text-white transition-all active:scale-95 min-h-[44px] min-w-[44px] flex items-center justify-center"
           aria-label="Direct Messages"
+          title="Messages & Groups"
         >
           <MessageSquare className="w-4 h-4" />
           {unreadCount > 0 && (

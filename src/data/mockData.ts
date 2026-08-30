@@ -1,4 +1,4 @@
-import { User, Post, Message, Group, PersonalHabit, Community } from '../types';
+import { User, Post, Message, Group, PersonalHabit, Community, AppNotification, ProofCollection } from '../types';
 
 // Helper to generate past dates
 export const getPastDate = (daysAgo: number): string => {
@@ -42,6 +42,38 @@ export const INITIAL_CURRENT_USER: User = {
   blockedUserIds: [],
   lastPostedDate: getPastDate(0),
   joinedDate: '2026-06-15',
+  proofCollections: [
+    {
+      id: 'col_running',
+      name: 'Running',
+      description: 'Pacing logs, 5k/10k splits, and morning runs',
+      icon: '🏃‍♂️',
+      coverImageUrl: 'https://images.unsplash.com/photo-1502224562085-639556652f33?w=800&auto=format&fit=crop&q=80',
+      postIds: ['post_4', 'post_me_d4', 'post_me_d2'],
+      createdAt: '2026-08-01',
+      updatedAt: '2026-08-27',
+    },
+    {
+      id: 'col_coding',
+      name: 'Coding',
+      description: 'React engines, full-stack tools, and AI prototypes',
+      icon: '💻',
+      coverImageUrl: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=800&auto=format&fit=crop&q=80',
+      postIds: ['post_4', 'post_me_d6', 'post_me_d5', 'post_me_d3', 'post_me_d1'],
+      createdAt: '2026-08-01',
+      updatedAt: '2026-08-27',
+    },
+    {
+      id: 'col_gym',
+      name: 'Gym & Strength',
+      description: 'Daily resistance sessions and mobility workouts',
+      icon: '🏋️‍♂️',
+      coverImageUrl: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=800&auto=format&fit=crop&q=80',
+      postIds: ['post_me_d6', 'post_me_d4'],
+      createdAt: '2026-08-05',
+      updatedAt: '2026-08-26',
+    },
+  ],
   isCurrentUser: true,
 };
 
@@ -717,3 +749,78 @@ export const INITIAL_MESSAGES: Message[] = [
     isRead: true,
   },
 ];
+
+export const INITIAL_NOTIFICATIONS: AppNotification[] = [
+  {
+    id: 'notif_1',
+    type: 'like',
+    actorId: 'user_sarah',
+    actorName: 'Sarah Chen',
+    actorUsername: 'sarahcodes',
+    actorAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80',
+    actorStreak: 21,
+    targetId: 'post_4',
+    targetPreview: 'Day 7 completed! 🚀 Finished the core state machine...',
+    targetImage: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=1000&auto=format&fit=crop&q=80',
+    message: 'liked your proof of work',
+    createdAt: '15m ago',
+    timestamp: 15,
+    isRead: false,
+  },
+  {
+    id: 'notif_2',
+    type: 'comment',
+    actorId: 'user_elena',
+    actorName: 'Elena Rostova',
+    actorUsername: 'elenadesigns',
+    actorAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&auto=format&fit=crop&q=80',
+    actorStreak: 9,
+    targetId: 'post_4',
+    targetPreview: 'Day 7 completed! 🚀 Finished the core state machine...',
+    targetImage: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=1000&auto=format&fit=crop&q=80',
+    message: 'commented: "Incredible consistency! Love the clean architecture 🔥"',
+    createdAt: '1h ago',
+    timestamp: 60,
+    isRead: false,
+  },
+  {
+    id: 'notif_3',
+    type: 'follow',
+    actorId: 'user_marcus',
+    actorName: 'Marcus Vance',
+    actorUsername: 'marcus_fit',
+    actorAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
+    actorStreak: 14,
+    message: 'started following you',
+    createdAt: '3h ago',
+    timestamp: 180,
+    isRead: false,
+  },
+  {
+    id: 'notif_4',
+    type: 'community_approved',
+    actorId: 'user_sarah',
+    actorName: 'Sarah Chen',
+    actorUsername: 'sarahcodes',
+    actorAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80',
+    targetId: 'comm_daily_builders',
+    targetPreview: 'Daily Builders & Shippers',
+    message: 'approved your membership in Daily Builders & Shippers 🚀',
+    createdAt: 'Yesterday',
+    timestamp: 1440,
+    isRead: true,
+  },
+  {
+    id: 'notif_5',
+    type: 'streak_milestone',
+    actorId: 'system',
+    actorName: 'Streak Engine',
+    actorUsername: 'daily_system',
+    actorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+    message: '🔥 You hit a 7-Day Consistency Streak! Gold badge unlocked.',
+    createdAt: '2 days ago',
+    timestamp: 2880,
+    isRead: true,
+  },
+];
+
