@@ -4,6 +4,7 @@ import { Post, User } from '../types';
 import { PostCard } from './PostCard';
 import { getTodayDateString } from '../services/storage';
 import { PullToRefresh } from './PullToRefresh';
+import { StreakCalendarCard } from './StreakCalendarCard';
 import { handleHorizontalWheelScroll } from '../utils/scroll';
 import { vibrateLight } from '../services/haptics';
 
@@ -48,9 +49,9 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
 }) => {
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [isFocusMode, setIsFocusMode] = useState<boolean>(false);
+  const [selectedDateFilter, setSelectedDateFilter] = useState<string | null>(null);
 
   const today = getTodayDateString();
-  const hasPostedToday = currentUser.lastPostedDate === today;
 
   // Filter out blocked users
   const unblockedPosts = posts.filter(
@@ -67,8 +68,13 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
   const basePosts = followedAndOwnPosts.length > 0 ? followedAndOwnPosts : unblockedPosts;
 
   const filteredPosts = basePosts.filter((post) => {
-    if (activeTag) {
-      return post.tags && post.tags.includes(activeTag);
+    if (activeTag && (!post.tags || !post.tags.includes(activeTag))) {
+      return false;
+    }
+    if (selectedDateFilter) {
+      if (post.postDate && post.postDate === selectedDateFilter) return true;
+      if (selectedDateFilter === today && post.createdAt?.includes('Today')) return true;
+      return false;
     }
     return true;
   });
@@ -100,8 +106,19 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
       completedText="Feed updated • Just now"
     >
       <div className="w-full pb-20 pt-2 px-3 sm:px-4 max-w-lg mx-auto">
+        {/* Streak Calendar on Home Screen */}
+        {!isFocusMode && (
+          <StreakCalendarCard
+            currentUser={currentUser}
+            posts={posts}
+            onOpenCreate={onOpenCreate}
+            selectedDateFilter={selectedDateFilter}
+            onSelectDateFilter={setSelectedDateFilter}
+          />
+        )}
+
         {/* Focus Reading Mode Active Bar */}
-        {isFocusMode ? (
+        {isFocusMode && (
           <div className="mb-4 p-3.5 rounded-2xl bg-[#141414] border border-[#D4AF37]/40 flex items-center justify-between shadow-lg shadow-black/60 sticky top-2 z-20 backdrop-blur-md">
             <div className="flex items-center gap-2.5">
               <div className="w-7 h-7 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37]">
@@ -122,34 +139,6 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
               Exit Focus
             </button>
           </div>
-        ) : (
-          /* Daily Streak Reminder Banner (if not posted today) */
-          !hasPostedToday && (
-            <div className="mb-4 p-4 sm:p-5 rounded-[28px] bg-gradient-to-r from-[#1c110b] to-[#121212] border border-[#D4AF37]/40 flex items-center justify-between shadow-lg shadow-[#D4AF37]/10">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center shrink-0">
-                  <Flame className="w-5 h-5 text-[#D4AF37] fill-[#D4AF37] animate-pulse" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-extrabold text-xs text-white">What did you do today?</span>
-                    <span className="text-[10px] bg-[#D4AF37] text-black font-black px-2 py-0.5 rounded-full">
-                      🔥 {currentUser.currentStreak}d
-                    </span>
-                  </div>
-                  <p className="text-xs text-white/60 mt-0.5">
-                    Post your action, proof photo, and reflection to keep your streak.
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={onOpenCreate}
-                className="px-4 py-2.5 rounded-xl bg-[#D4AF37] hover:bg-[#E5B842] text-black font-black text-xs shrink-0 active:scale-95 transition-all shadow-md shadow-[#D4AF37]/20 min-h-[38px]"
-              >
-                Post Proof 🔥
-              </button>
-            </div>
-          )
         )}
 
         {/* Home Feed Header */}

@@ -406,7 +406,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white flex justify-center font-sans antialiased selection:bg-[#FF4D00] selection:text-black">
+    <div className="min-h-screen bg-[#050505] text-white flex justify-center font-sans antialiased selection:bg-[#D4AF37] selection:text-black">
       {/* Mobile-first centered frame container */}
       <div className="w-full max-w-lg min-h-screen bg-[#050505] flex flex-col shadow-2xl relative border-x border-white/5">
         {/* Top Header */}
@@ -494,10 +494,6 @@ export default function App() {
               onSharePost={handleOpenShare}
               onOpenInsights={handleOpenInsights}
               onDeletePost={handleRequestDeletePost}
-              onPostHabit={(payload) => {
-                handleCreatePost(payload);
-                setCurrentTab('home');
-              }}
             />
           )}
         </main>
