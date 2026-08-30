@@ -9,42 +9,44 @@ import {
   Sparkles,
   X,
   Users,
-  Users2,
+  Globe2,
+  ShieldCheck,
   PlusCircle,
-  Tag,
-  Layers,
+  Clock,
+  BookOpen,
   ArrowRight,
   Filter,
 } from 'lucide-react';
-import { User, Group, AVAILABLE_INTERESTS, AVAILABLE_HABITS } from '../types';
+import { User, Community, AVAILABLE_INTERESTS, AVAILABLE_HABITS } from '../types';
 import { PullToRefresh } from './PullToRefresh';
 import { handleHorizontalWheelScroll } from '../utils/scroll';
+import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
 
 interface DiscoverScreenProps {
   users: User[];
   currentUser: User;
-  groups?: Group[];
+  communities?: Community[];
   onToggleFollow: (userId: string) => void;
   onSendDM: (targetUser: { id: string; name: string; username: string; avatar: string; streak: number }) => void;
   onViewUser?: (user: User) => void;
-  onOpenGroupChat?: (groupId: string) => void;
-  onToggleJoinGroup?: (groupId: string) => void;
-  onCreateGroup?: () => void;
+  onOpenCommunity?: (community: Community) => void;
+  onToggleJoinCommunity?: (communityId: string) => void;
+  onCreateCommunity?: () => void;
   onRefresh?: () => Promise<void> | void;
 }
 
-type EntityTypeFilter = 'all' | 'people' | 'groups';
+type EntityTypeFilter = 'all' | 'people' | 'communities';
 
 export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
   users,
   currentUser,
-  groups = [],
+  communities = [],
   onToggleFollow,
   onSendDM,
   onViewUser,
-  onOpenGroupChat,
-  onToggleJoinGroup,
-  onCreateGroup,
+  onOpenCommunity,
+  onToggleJoinCommunity,
+  onCreateCommunity,
   onRefresh,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -62,7 +64,6 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
     const totalMatches = commonInterests.length * 1.5 + commonHabits.length * 1.5;
     const maxPossible = (myInterests.size + myHabits.size) * 1.2 || 1;
 
-    // Normalize to 60% - 98% range for realistic match aesthetics
     const rawRatio = Math.min(1, totalMatches / maxPossible);
     const score = Math.round(55 + rawRatio * 43);
     return Math.min(99, Math.max(50, score));
@@ -73,7 +74,6 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
 
   // Filter Users
   const filteredUsers = otherUsers.filter((user) => {
-    // Search query match
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       const matchName = user.name.toLowerCase().includes(q);
@@ -86,7 +86,6 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
       }
     }
 
-    // Tag match
     if (activeFilterTag) {
       const tagLower = activeFilterTag.toLowerCase();
       const hasInterest = user.interests?.some(
@@ -101,42 +100,41 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
     return true;
   });
 
-  // Sort filtered users by match score descending
   const sortedUsers = [...filteredUsers].sort((a, b) => {
     return calculateMatchScore(b) - calculateMatchScore(a);
   });
 
-  // Filter Groups
-  const filteredGroups = groups.filter((group) => {
-    // Search query match
+  // Filter Communities
+  const filteredCommunities = communities.filter((comm) => {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
-      const matchName = group.name.toLowerCase().includes(q);
-      const matchDesc = (group.description || '').toLowerCase().includes(q);
-      const matchCat = (group.category || '').toLowerCase().includes(q);
-      if (!matchName && !matchDesc && !matchCat) {
+      const matchName = comm.name.toLowerCase().includes(q);
+      const matchDesc = (comm.description || '').toLowerCase().includes(q);
+      const matchCat = (comm.category || '').toLowerCase().includes(q);
+      const matchMod = (comm.moderatorName || '').toLowerCase().includes(q);
+      if (!matchName && !matchDesc && !matchCat && !matchMod) {
         return false;
       }
     }
 
-    // Tag match
     if (activeFilterTag) {
       const tagLower = activeFilterTag.toLowerCase();
-      const catLower = (group.category || '').toLowerCase();
-      const nameLower = group.name.toLowerCase();
-      const descLower = (group.description || '').toLowerCase();
+      const catLower = (comm.category || '').toLowerCase();
+      const nameLower = comm.name.toLowerCase();
+      const descLower = (comm.description || '').toLowerCase();
+      const tagsMatch = (comm.tags || []).some((t) => t.toLowerCase() === tagLower);
 
       const matchCat = catLower === tagLower || catLower.includes(tagLower) || tagLower.includes(catLower);
       const matchName = nameLower.includes(tagLower);
       const matchDesc = descLower.includes(tagLower);
 
-      if (!matchCat && !matchName && !matchDesc) return false;
+      if (!matchCat && !matchName && !matchDesc && !tagsMatch) return false;
     }
 
     return true;
   });
 
-  // Build Filter Chips List (Interests + Habits)
+  // Filter Chips List
   const allFilterChips = [
     { label: 'All', value: null, icon: '🔥' },
     ...AVAILABLE_INTERESTS.map((interest) => ({
@@ -159,94 +157,70 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
     }
   };
 
-  const totalMatches = filteredUsers.length + filteredGroups.length;
+  const totalMatches = filteredUsers.length + filteredCommunities.length;
 
   return (
-    <PullToRefresh
-      onRefresh={handleDiscoverRefresh}
-      pullText="Pull down to refresh creators & groups"
-      releaseText="Release to reload suggestions"
-      refreshingText="Discovering active community..."
-      completedText="Discoveries updated • Just now"
-    >
-      <div className="w-full pb-24 pt-2 px-3 sm:px-4 max-w-lg mx-auto space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-black text-white flex items-center gap-2">
-              <Compass className="w-5 h-5 text-[#D4AF37]" />
-              Discover Community
-            </h1>
-            <p className="text-xs text-white/50 mt-1">
-              Find like-minded creators and accountability groups by specific interests.
-            </p>
+    <PullToRefresh onRefresh={handleDiscoverRefresh}>
+      <div className="w-full max-w-xl mx-auto px-3 sm:px-4 py-4 space-y-4 text-white">
+        {/* Top Header */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/20 flex items-center justify-center text-[#D4AF37]">
+              <Compass className="w-4 h-4" />
+            </div>
+            <div>
+              <h1 className="font-black text-lg text-white">Explore</h1>
+              <p className="text-[11px] text-white/50">Discover open communities & fellow builders</p>
+            </div>
           </div>
 
-          {onCreateGroup && (
+          {onCreateCommunity && (
             <button
-              onClick={onCreateGroup}
-              className="p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white transition-colors flex items-center gap-1.5 text-xs font-bold shrink-0"
-              title="Create a new accountability group"
+              onClick={onCreateCommunity}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#D4AF37] hover:bg-[#D4AF37]/90 text-black text-xs font-black transition-all shadow-md shadow-[#D4AF37]/20"
             >
-              <PlusCircle className="w-4 h-4 text-[#D4AF37]" />
-              <span className="hidden sm:inline">New Group</span>
+              <PlusCircle className="w-3.5 h-3.5" />
+              <span>Create Community</span>
             </button>
           )}
         </div>
 
-        {/* Search Input */}
+        {/* Search Bar */}
         <div className="relative">
           <Search className="w-4 h-4 text-white/40 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search creators & groups by name, #tag, habit..."
-            className="w-full pl-10 pr-10 py-3 bg-white/5 border border-white/10 focus:border-[#D4AF37] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors"
+            placeholder="Search communities, builders, habits, or tags..."
+            className="w-full pl-10 pr-9 py-2.5 bg-white/5 border border-white/10 focus:border-[#D4AF37] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-all"
           />
-          {searchQuery.trim().length > 0 && (
+          {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
               className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-white/40 hover:text-white"
-              aria-label="Clear search"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
 
-        {/* Filter Chip Bar */}
+        {/* Horizontal Filter Chips */}
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between px-0.5">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-white/40 flex items-center gap-1">
-              <Tag className="w-3 h-3 text-[#D4AF37]" />
-              Filter by Interest & Habit Tags
-            </span>
-            {activeFilterTag && (
-              <button
-                onClick={() => setActiveFilterTag(null)}
-                className="text-[10px] text-[#D4AF37] hover:underline font-bold flex items-center gap-1"
-              >
-                <X className="w-3 h-3" /> Clear filter
-              </button>
-            )}
-          </div>
-
-          <div 
+          <div
             onWheel={handleHorizontalWheelScroll}
-            className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap flex-nowrap pb-1 no-scrollbar touch-pan-x overscroll-x-contain py-0.5"
+            className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap flex-nowrap pb-1 no-scrollbar touch-pan-x overscroll-x-contain py-1"
           >
-            {allFilterChips.map((chip) => {
-              const isSelected =
-                chip.value === null
-                  ? activeFilterTag === null
-                  : activeFilterTag?.toLowerCase() === chip.value.toLowerCase();
-
+            {allFilterChips.map((chip, idx) => {
+              const isSelected = activeFilterTag === chip.value;
               return (
                 <button
-                  key={chip.label}
-                  onClick={() => setActiveFilterTag(chip.value)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all border min-h-[36px] flex items-center gap-1.5 ${
+                  key={idx}
+                  onClick={() => {
+                    vibrateLight();
+                    setActiveFilterTag(isSelected ? null : chip.value);
+                  }}
+                  className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border ${
                     isSelected
                       ? 'bg-[#D4AF37] text-black border-[#D4AF37] shadow-md shadow-[#D4AF37]/20 scale-105'
                       : 'bg-white/5 text-white/70 border-white/10 hover:border-white/20 hover:text-white'
@@ -260,7 +234,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
           </div>
         </div>
 
-        {/* Entity Segment Tabs (All / People / Groups) */}
+        {/* Entity Segment Tabs (All / Creators / Communities) */}
         <div className="flex items-center justify-between border-b border-white/5 pb-2">
           <div className="flex items-center gap-1.5 bg-white/5 p-1 rounded-2xl border border-white/5">
             <button
@@ -274,26 +248,26 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
               All ({totalMatches})
             </button>
             <button
+              onClick={() => setEntityFilter('communities')}
+              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                entityFilter === 'communities'
+                  ? 'bg-white text-black shadow-sm'
+                  : 'text-white/50 hover:text-white'
+              }`}
+            >
+              <Globe2 className="w-3 h-3 text-[#D4AF37]" />
+              <span>Communities ({filteredCommunities.length})</span>
+            </button>
+            <button
               onClick={() => setEntityFilter('people')}
-              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
+              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                 entityFilter === 'people'
                   ? 'bg-white text-black shadow-sm'
                   : 'text-white/50 hover:text-white'
               }`}
             >
-              <Users className="w-3 h-3" />
-              <span>People ({filteredUsers.length})</span>
-            </button>
-            <button
-              onClick={() => setEntityFilter('groups')}
-              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
-                entityFilter === 'groups'
-                  ? 'bg-white text-black shadow-sm'
-                  : 'text-white/50 hover:text-white'
-              }`}
-            >
-              <Users2 className="w-3 h-3" />
-              <span>Groups ({filteredGroups.length})</span>
+              <Users className="w-3 h-3 text-[#D4AF37]" />
+              <span>Creators ({filteredUsers.length})</span>
             </button>
           </div>
 
@@ -311,8 +285,8 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
               <Sparkles className="w-4 h-4 text-[#D4AF37] shrink-0" />
               <span>
                 Filtering by <strong className="text-[#D4AF37]">#{activeFilterTag}</strong>: Found{' '}
-                <strong>{filteredUsers.length}</strong> people and{' '}
-                <strong>{filteredGroups.length}</strong> groups
+                <strong>{filteredCommunities.length}</strong> communities and{' '}
+                <strong>{filteredUsers.length}</strong> creators
               </span>
             </div>
             <button
@@ -326,93 +300,165 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
         )}
 
         {/* Content Lists */}
-        <div className="space-y-5">
-          {/* SECTION 1: GROUPS */}
-          {(entityFilter === 'all' || entityFilter === 'groups') && filteredGroups.length > 0 && (
+        <div className="space-y-6">
+          {/* SECTION 1: COMMUNITIES (Public & Moderated Explore Spaces) */}
+          {(entityFilter === 'all' || entityFilter === 'communities') && filteredCommunities.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-xs uppercase font-bold tracking-wider text-white/50 flex items-center gap-1.5">
-                  <Users2 className="w-3.5 h-3.5 text-[#D4AF37]" />
-                  Accountability Groups & Clubs ({filteredGroups.length})
+                  <Globe2 className="w-3.5 h-3.5 text-[#D4AF37]" />
+                  Open Communities ({filteredCommunities.length})
                 </h2>
-                {entityFilter === 'all' && filteredGroups.length > 2 && (
+                {entityFilter === 'all' && filteredCommunities.length > 2 && (
                   <button
-                    onClick={() => setEntityFilter('groups')}
+                    onClick={() => setEntityFilter('communities')}
                     className="text-[11px] text-[#D4AF37] hover:underline font-bold"
                   >
-                    View all {filteredGroups.length}
+                    View all {filteredCommunities.length}
                   </button>
                 )}
               </div>
 
-              <div className="grid grid-cols-1 gap-2.5">
-                {filteredGroups.map((group) => {
-                  const isMember = (group.memberIds || []).includes(currentUser.id);
+              <div className="grid grid-cols-1 gap-3">
+                {filteredCommunities.map((comm) => {
+                  const isMember = (comm.memberIds || []).includes(currentUser.id);
+                  const isPending = (comm.pendingRequestUserIds || []).includes(currentUser.id);
+                  const isModerator = comm.moderatorId === currentUser.id;
 
                   return (
                     <div
-                      key={group.id}
-                      className="bg-white/5 border border-white/5 hover:border-white/10 rounded-[24px] p-4 transition-all"
+                      key={comm.id}
+                      className="bg-white/5 border border-white/5 hover:border-white/15 rounded-[24px] overflow-hidden transition-all group"
                     >
-                      <div className="flex items-start gap-3">
-                        <div className="w-12 h-12 rounded-2xl overflow-hidden border border-white/10 shrink-0">
-                          <img
-                            src={group.avatar}
-                            alt={group.name}
-                            referrerPolicy="no-referrer"
-                            className="w-full h-full object-cover"
-                          />
+                      {/* Banner / Cover */}
+                      <div
+                        onClick={() => onOpenCommunity && onOpenCommunity(comm)}
+                        className="relative h-24 w-full bg-black cursor-pointer overflow-hidden"
+                      >
+                        <img
+                          src={comm.coverImage || comm.avatar}
+                          alt={comm.name}
+                          referrerPolicy="no-referrer"
+                          className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-300"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] via-black/40 to-transparent" />
+
+                        {/* Badge: Access Model */}
+                        <div className="absolute top-2.5 left-3 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-[10px] font-bold text-[#D4AF37]">
+                          {comm.accessType === 'public' ? (
+                            <>
+                              <Globe2 className="w-3 h-3" />
+                              <span>Public Community</span>
+                            </>
+                          ) : (
+                            <>
+                              <ShieldCheck className="w-3 h-3" />
+                              <span>Moderated (Request)</span>
+                            </>
+                          )}
                         </div>
 
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <h3 className="font-bold text-sm text-white truncate">{group.name}</h3>
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#D4AF37]/15 text-[#D4AF37] border border-[#D4AF37]/30 font-bold uppercase tracking-wider shrink-0">
-                              #{group.category}
-                            </span>
-                          </div>
+                        {/* Category tag */}
+                        <div className="absolute top-2.5 right-3 text-[10px] px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white/80 font-semibold border border-white/10">
+                          #{comm.category}
+                        </div>
+                      </div>
 
-                          <p className="text-xs text-white/70 mt-1 line-clamp-2 leading-relaxed">
-                            {group.description}
-                          </p>
-
-                          <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-1.5 text-[11px] text-white/40 font-semibold">
-                              <Users className="w-3.5 h-3.5" />
-                              <span>{group.memberCount} members</span>
-                              {group.lastActivity && (
-                                <>
-                                  <span>•</span>
-                                  <span>Active {group.lastActivity}</span>
-                                </>
-                              )}
+                      {/* Info & Actions */}
+                      <div className="p-4 pt-2 space-y-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div
+                            onClick={() => onOpenCommunity && onOpenCommunity(comm)}
+                            className="flex items-center gap-3 min-w-0 cursor-pointer"
+                          >
+                            <div className="w-11 h-11 rounded-2xl overflow-hidden border border-[#D4AF37]/50 -mt-6 shadow-lg bg-black shrink-0">
+                              <img
+                                src={comm.avatar}
+                                alt={comm.name}
+                                referrerPolicy="no-referrer"
+                                className="w-full h-full object-cover"
+                              />
                             </div>
-
-                            <div className="flex items-center gap-1.5">
-                              {onToggleJoinGroup && (
-                                <button
-                                  onClick={() => onToggleJoinGroup(group.id)}
-                                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                                    isMember
-                                      ? 'bg-white/10 text-white/80 hover:bg-white/15 border border-white/10'
-                                      : 'bg-white text-black hover:bg-white/90 shadow-sm'
-                                  }`}
-                                >
-                                  {isMember ? 'Joined ✓' : 'Join Club'}
-                                </button>
-                              )}
-
-                              {onOpenGroupChat && (
-                                <button
-                                  onClick={() => onOpenGroupChat(group.id)}
-                                  className="p-2 bg-white/5 hover:bg-white/10 text-white/80 hover:text-white rounded-xl border border-white/10 transition-colors"
-                                  title="Open Group Chat"
-                                >
-                                  <MessageSquare className="w-3.5 h-3.5" />
-                                </button>
-                              )}
+                            <div className="min-w-0 pt-0.5">
+                              <h3 className="font-bold text-sm text-white truncate hover:text-[#D4AF37] transition-colors">
+                                {comm.name}
+                              </h3>
+                              <p className="text-[10px] text-white/40 truncate">
+                                Mod: @{comm.moderatorUsername}
+                              </p>
                             </div>
                           </div>
+
+                          {/* Join / Request / View Button */}
+                          <div className="shrink-0">
+                            {isMember ? (
+                              <button
+                                type="button"
+                                onClick={() => onOpenCommunity && onOpenCommunity(comm)}
+                                className="px-3 py-1 rounded-xl bg-white/10 text-white/90 hover:bg-white/15 border border-white/10 text-xs font-bold transition-all flex items-center gap-1"
+                              >
+                                <Check className="w-3 h-3 text-emerald-400" />
+                                <span>Joined</span>
+                              </button>
+                            ) : comm.accessType === 'moderated' ? (
+                              isPending ? (
+                                <button
+                                  type="button"
+                                  onClick={() => onToggleJoinCommunity && onToggleJoinCommunity(comm.id)}
+                                  className="px-3 py-1 rounded-xl bg-[#D4AF37]/15 hover:bg-red-500/20 text-[#D4AF37] hover:text-red-400 border border-[#D4AF37]/30 text-xs font-bold transition-all flex items-center gap-1"
+                                >
+                                  <Clock className="w-3 h-3" />
+                                  <span>Pending</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    vibrateLight();
+                                    onToggleJoinCommunity && onToggleJoinCommunity(comm.id);
+                                  }}
+                                  className="px-3 py-1 rounded-xl bg-[#D4AF37] hover:bg-[#D4AF37]/90 text-black text-xs font-black transition-all shadow-sm flex items-center gap-1"
+                                >
+                                  <ShieldCheck className="w-3 h-3" />
+                                  <span>Request Access</span>
+                                </button>
+                              )
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  vibrateStreakMilestone();
+                                  onToggleJoinCommunity && onToggleJoinCommunity(comm.id);
+                                }}
+                                className="px-3.5 py-1 rounded-xl bg-[#D4AF37] hover:bg-[#D4AF37]/90 text-black text-xs font-black transition-all shadow-sm flex items-center gap-1"
+                              >
+                                <span>Join Community</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-white/70 line-clamp-2 leading-relaxed">
+                          {comm.description}
+                        </p>
+
+                        {/* Footer Metadata */}
+                        <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] text-white/40">
+                          <div className="flex items-center gap-1.5 font-semibold">
+                            <Users className="w-3 h-3 text-[#D4AF37]" />
+                            <span>{comm.memberCount || comm.memberIds?.length || 1} members</span>
+                            <span>•</span>
+                            <span>{comm.accessType === 'public' ? 'Open Access' : 'Moderator Approval'}</span>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => onOpenCommunity && onOpenCommunity(comm)}
+                            className="text-xs font-bold text-[#D4AF37] hover:underline flex items-center gap-0.5"
+                          >
+                            <span>Explore Hub</span>
+                            <ArrowRight className="w-3 h-3" />
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -422,7 +468,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
             </div>
           )}
 
-          {/* SECTION 2: PEOPLE / CREATORS */}
+          {/* SECTION 2: CREATORS / BUILDERS */}
           {(entityFilter === 'all' || entityFilter === 'people') && sortedUsers.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -445,153 +491,130 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                   const matchScore = calculateMatchScore(user);
                   const isFollowing = currentUser.followedUserIds.includes(user.id);
 
-                  // Find overlapping interests & habits
                   const myInterestsSet = new Set(currentUser.interests || []);
                   const myHabitsSet = new Set(currentUser.habits || []);
+                  const commonInterests = (user.interests || []).filter((i) => myInterestsSet.has(i));
+                  const commonHabits = (user.habits || []).filter((h) => myHabitsSet.has(h));
 
                   return (
                     <div
                       key={user.id}
-                      className="bg-white/5 border border-white/5 hover:border-white/10 rounded-[28px] p-4 sm:p-5 transition-all"
+                      className="bg-white/5 border border-white/5 hover:border-white/10 rounded-[24px] p-4 transition-all"
                     >
-                      {/* Top Row: Avatar, Name, Match Badge */}
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3">
                         <div
                           onClick={() => onViewUser && onViewUser(user)}
-                          className="flex items-center gap-3 cursor-pointer group"
+                          className="w-12 h-12 rounded-full overflow-hidden border border-white/10 shrink-0 cursor-pointer"
                         >
-                          <div className="relative">
-                            <div className="w-11 h-11 rounded-full overflow-hidden border border-white/10 group-hover:border-[#D4AF37]/50 transition-colors">
-                              <img
-                                src={user.avatar}
-                                alt={user.name}
-                                referrerPolicy="no-referrer"
-                                className="w-full h-full object-cover"
-                              />
+                          <img
+                            src={user.avatar}
+                            alt={user.name}
+                            referrerPolicy="no-referrer"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <div
+                              onClick={() => onViewUser && onViewUser(user)}
+                              className="cursor-pointer min-w-0 truncate"
+                            >
+                              <div className="flex items-center gap-1.5 truncate">
+                                <h3 className="font-bold text-sm text-white truncate hover:underline">
+                                  {user.name}
+                                </h3>
+                                {user.verified && (
+                                  <span className="w-3.5 h-3.5 rounded-full bg-[#D4AF37] text-black text-[9px] flex items-center justify-center font-bold">
+                                    ✓
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-white/40 truncate">@{user.username}</p>
                             </div>
-                            {user.currentStreak > 0 && (
-                              <span className="absolute -bottom-1 -right-1 bg-black text-[#D4AF37] text-[9px] font-black px-1.5 rounded-full border border-[#D4AF37]/60 shadow">
-                                🔥{user.currentStreak}
-                              </span>
-                            )}
+
+                            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#D4AF37]/15 border border-[#D4AF37]/30 text-[#D4AF37] text-[10px] font-bold">
+                              <Flame className="w-3 h-3 fill-[#D4AF37]" />
+                              <span>{user.currentStreak}d</span>
+                            </div>
                           </div>
 
-                          <div>
-                            <h3 className="font-bold text-sm text-white group-hover:text-[#D4AF37] transition-colors">
-                              {user.name}
-                            </h3>
-                            <p className="text-xs text-white/40">@{user.username}</p>
+                          {user.bio && (
+                            <p className="text-xs text-white/70 mt-1 line-clamp-2 leading-relaxed">
+                              {user.bio}
+                            </p>
+                          )}
+
+                          {/* Common Tags */}
+                          {(commonInterests.length > 0 || commonHabits.length > 0) && (
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {commonInterests.slice(0, 2).map((i) => (
+                                <span
+                                  key={i}
+                                  className="text-[9px] px-2 py-0.5 rounded-lg bg-[#D4AF37]/10 text-[#D4AF37] border border-[#D4AF37]/20 font-semibold"
+                                >
+                                  #{i}
+                                </span>
+                              ))}
+                              {commonHabits.slice(0, 2).map((h) => (
+                                <span
+                                  key={h}
+                                  className="text-[9px] px-2 py-0.5 rounded-lg bg-white/5 text-white/60 border border-white/5 font-semibold"
+                                >
+                                  {h}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Actions */}
+                          <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between gap-2">
+                            <span className="text-[10px] text-white/40">
+                              <strong className="text-white/80">{matchScore}%</strong> alignment
+                            </span>
+
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => {
+                                  vibrateLight();
+                                  onToggleFollow(user.id);
+                                }}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
+                                  isFollowing
+                                    ? 'bg-white/10 text-white/80 hover:bg-white/15 border border-white/10'
+                                    : 'bg-white text-black hover:bg-white/90 shadow-sm'
+                                }`}
+                              >
+                                {isFollowing ? (
+                                  <>
+                                    <Check className="w-3 h-3" />
+                                    <span>Following</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <UserPlus className="w-3 h-3" />
+                                    <span>Follow</span>
+                                  </>
+                                )}
+                              </button>
+
+                              <button
+                                onClick={() =>
+                                  onSendDM({
+                                    id: user.id,
+                                    name: user.name,
+                                    username: user.username,
+                                    avatar: user.avatar,
+                                    streak: user.currentStreak,
+                                  })
+                                }
+                                className="p-2 bg-white/5 hover:bg-white/10 text-white/80 hover:text-white rounded-xl border border-white/10 transition-colors"
+                                title={`Message ${user.name}`}
+                              >
+                                <MessageSquare className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
-                        </div>
-
-                        {/* Match Percentage Badge */}
-                        <div className="flex flex-col items-end gap-1">
-                          <span className="inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-0.5 rounded-full bg-[#D4AF37]/10 border border-[#D4AF37]/30 text-[#D4AF37]">
-                            <Sparkles className="w-3 h-3 text-[#D4AF37]" />
-                            {matchScore}% Match
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Bio */}
-                      <p className="text-xs text-white/80 mt-2.5 leading-relaxed">
-                        {user.bio}
-                      </p>
-
-                      {/* Shared & Distinct Tags */}
-                      <div className="mt-3 flex flex-wrap gap-1.5">
-                        {/* Interests */}
-                        {user.interests?.map((interest) => {
-                          const isShared = myInterestsSet.has(interest);
-                          const isCurrentActive =
-                            activeFilterTag?.toLowerCase() === interest.toLowerCase();
-
-                          return (
-                            <button
-                              key={interest}
-                              onClick={() => setActiveFilterTag(interest)}
-                              className={`text-[10px] px-2.5 py-0.5 rounded-full border font-bold uppercase tracking-wider transition-colors ${
-                                isCurrentActive
-                                  ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
-                                  : isShared
-                                  ? 'bg-[#D4AF37]/15 text-[#D4AF37] border-[#D4AF37]/30'
-                                  : 'bg-white/5 text-white/60 border-white/10 hover:border-white/20'
-                              }`}
-                            >
-                              {isShared ? `✓ #${interest}` : `#${interest}`}
-                            </button>
-                          );
-                        })}
-
-                        {/* Habits */}
-                        {user.habits?.map((habit) => {
-                          const isShared = myHabitsSet.has(habit);
-                          const isCurrentActive =
-                            activeFilterTag?.toLowerCase() === habit.toLowerCase();
-
-                          return (
-                            <button
-                              key={habit}
-                              onClick={() => setActiveFilterTag(habit)}
-                              className={`text-[10px] px-2.5 py-0.5 rounded-full border font-bold uppercase tracking-wider transition-colors ${
-                                isCurrentActive
-                                  ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
-                                  : isShared
-                                  ? 'bg-white/15 text-white border-white/30'
-                                  : 'bg-white/5 text-white/60 border-white/10 hover:border-white/20'
-                              }`}
-                            >
-                              {isShared ? `⚡ ${habit}` : habit}
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {/* Actions Footer */}
-                      <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between gap-2">
-                        <div className="text-[10px] uppercase tracking-wider text-white/40 flex items-center gap-2 font-semibold">
-                          <span>🔥 {user.currentStreak}d Streak</span>
-                          <span>•</span>
-                          <span>{user.followersCount} Followers</span>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() =>
-                              onSendDM({
-                                id: user.id,
-                                name: user.name,
-                                username: user.username,
-                                avatar: user.avatar,
-                                streak: user.currentStreak,
-                              })
-                            }
-                            className="p-2.5 bg-white/5 hover:bg-white/10 text-white/80 hover:text-white rounded-xl border border-white/10 transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center"
-                            title="Send Direct Message"
-                          >
-                            <MessageSquare className="w-4 h-4" />
-                          </button>
-
-                          <button
-                            onClick={() => onToggleFollow(user.id)}
-                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 min-h-[40px] ${
-                              isFollowing
-                                ? 'bg-white/10 text-white hover:bg-white/15 border border-white/10'
-                                : 'bg-white text-black hover:bg-white/90 shadow-md shadow-white/5'
-                            }`}
-                          >
-                            {isFollowing ? (
-                              <>
-                                <Check className="w-3.5 h-3.5 stroke-[3]" />
-                                <span>Following</span>
-                              </>
-                            ) : (
-                              <>
-                                <UserPlus className="w-3.5 h-3.5" />
-                                <span>Follow</span>
-                              </>
-                            )}
-                          </button>
                         </div>
                       </div>
                     </div>
@@ -603,24 +626,12 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
 
           {/* Empty State */}
           {totalMatches === 0 && (
-            <div className="text-center py-12 bg-white/5 rounded-[28px] border border-white/10 p-6">
-              <Search className="w-8 h-8 text-white/30 mx-auto mb-2" />
-              <h3 className="font-bold text-white text-sm">No creators or groups found</h3>
-              <p className="text-xs text-white/40 mt-1 max-w-xs mx-auto">
-                {activeFilterTag
-                  ? `No matches found for #${activeFilterTag}. Try choosing a different tag or clear the filter.`
-                  : 'Try searching for different keywords or clear the search field.'}
+            <div className="p-8 text-center bg-white/[0.02] border border-white/5 rounded-3xl space-y-2">
+              <Compass className="w-8 h-8 mx-auto text-white/20" />
+              <p className="text-sm font-bold text-white/60">No matching creators or communities</p>
+              <p className="text-xs text-white/40">
+                Try searching for a different habit, tag, or name.
               </p>
-              <button
-                onClick={() => {
-                  setSearchQuery('');
-                  setActiveFilterTag(null);
-                  setEntityFilter('all');
-                }}
-                className="mt-4 px-4 py-2 bg-white/10 hover:bg-white/15 text-white text-xs font-bold rounded-xl"
-              >
-                Reset Search & All Filters
-              </button>
             </div>
           )}
         </div>

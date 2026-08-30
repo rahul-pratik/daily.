@@ -1,5 +1,5 @@
-import { User, Post, Message, Comment, Group, SharedPostPreview, CommunityMemberRanking, PersonalHabit } from '../types';
-import { INITIAL_CURRENT_USER, SAMPLE_USERS, INITIAL_POSTS, INITIAL_MESSAGES, SAMPLE_GROUPS, INITIAL_PERSONAL_HABITS } from '../data/mockData';
+import { User, Post, Message, Comment, Group, SharedPostPreview, CommunityMemberRanking, PersonalHabit, Community, PostDraft } from '../types';
+import { INITIAL_CURRENT_USER, SAMPLE_USERS, INITIAL_POSTS, INITIAL_MESSAGES, SAMPLE_GROUPS, INITIAL_PERSONAL_HABITS, INITIAL_COMMUNITIES } from '../data/mockData';
 
 const STORAGE_KEYS = {
   CURRENT_USER: 'daily_app_current_user_v1',
@@ -7,6 +7,8 @@ const STORAGE_KEYS = {
   POSTS: 'daily_app_posts_v1',
   MESSAGES: 'daily_app_messages_v1',
   GROUPS: 'daily_app_groups_v1',
+  COMMUNITIES: 'daily_app_communities_v1',
+  POST_DRAFT: 'daily_app_post_draft_v1',
   ONBOARDED: 'daily_app_onboarded_v1',
   SAVED_POSTS: 'daily_app_saved_posts_v1',
   REPORTED_POSTS: 'daily_app_reported_posts_v1',
@@ -563,6 +565,175 @@ export class DailyStorageService {
         badgeTitle,
       };
     });
+  }
+
+  // Post Drafts (Local Storage per user)
+  static getPostDraft(userId: string): PostDraft | null {
+    try {
+      const data = localStorage.getItem(`${STORAGE_KEYS.POST_DRAFT}_${userId}`);
+      if (!data) return null;
+      return JSON.parse(data);
+    } catch {
+      return null;
+    }
+  }
+
+  static savePostDraft(
+    userId: string,
+    draft: { content: string; imageUrl?: string; tags: string[] }
+  ): void {
+    try {
+      const payload: PostDraft = {
+        content: draft.content,
+        imageUrl: draft.imageUrl,
+        tags: draft.tags,
+        updatedAt: Date.now(),
+      };
+      localStorage.setItem(`${STORAGE_KEYS.POST_DRAFT}_${userId}`, JSON.stringify(payload));
+    } catch {
+      // Ignore quota error if any
+    }
+  }
+
+  static clearPostDraft(userId: string): void {
+    try {
+      localStorage.removeItem(`${STORAGE_KEYS.POST_DRAFT}_${userId}`);
+    } catch {
+      // Ignore
+    }
+  }
+
+  // Communities (Public / Moderated spaces in Explore)
+  static getAllCommunities(): Community[] {
+    const data = localStorage.getItem(STORAGE_KEYS.COMMUNITIES);
+    if (!data) {
+      this.saveAllCommunities(INITIAL_COMMUNITIES);
+      return INITIAL_COMMUNITIES;
+    }
+    try {
+      return JSON.parse(data);
+    } catch {
+      return INITIAL_COMMUNITIES;
+    }
+  }
+
+  static saveAllCommunities(communities: Community[]): void {
+    localStorage.setItem(STORAGE_KEYS.COMMUNITIES, JSON.stringify(communities));
+  }
+
+  static toggleJoinCommunity(communityId: string): {
+    communities: Community[];
+    status: 'joined' | 'left' | 'requested' | 'request_cancelled';
+  } {
+    const currentUser = this.getCurrentUser();
+    const communities = this.getAllCommunities();
+    let status: 'joined' | 'left' | 'requested' | 'request_cancelled' = 'joined';
+
+    const updated = communities.map((comm) => {
+      if (comm.id === communityId) {
+        const isMember = (comm.memberIds || []).includes(currentUser.id);
+        const isPending = (comm.pendingRequestUserIds || []).includes(currentUser.id);
+
+        if (isMember) {
+          // Leave community
+          const nextMemberIds = comm.memberIds.filter((id) => id !== currentUser.id);
+          status = 'left';
+          return {
+            ...comm,
+            memberIds: nextMemberIds,
+            memberCount: Math.max(0, nextMemberIds.length),
+          };
+        } else if (comm.accessType === 'moderated') {
+          if (isPending) {
+            // Cancel request
+            status = 'request_cancelled';
+            return {
+              ...comm,
+              pendingRequestUserIds: (comm.pendingRequestUserIds || []).filter((id) => id !== currentUser.id),
+            };
+          } else {
+            // Request access from moderator
+            status = 'requested';
+            return {
+              ...comm,
+              pendingRequestUserIds: [...(comm.pendingRequestUserIds || []), currentUser.id],
+            };
+          }
+        } else {
+          // Public community: Join instantly
+          status = 'joined';
+          const nextMemberIds = [...(comm.memberIds || []), currentUser.id];
+          return {
+            ...comm,
+            memberIds: nextMemberIds,
+            memberCount: nextMemberIds.length,
+          };
+        }
+      }
+      return comm;
+    });
+
+    this.saveAllCommunities(updated);
+    return { communities: updated, status };
+  }
+
+  static approveCommunityMember(communityId: string, applicantUserId: string): Community[] {
+    const communities = this.getAllCommunities();
+    const updated = communities.map((comm) => {
+      if (comm.id === communityId) {
+        const pending = (comm.pendingRequestUserIds || []).filter((id) => id !== applicantUserId);
+        const members = (comm.memberIds || []).includes(applicantUserId)
+          ? comm.memberIds
+          : [...(comm.memberIds || []), applicantUserId];
+        return {
+          ...comm,
+          pendingRequestUserIds: pending,
+          memberIds: members,
+          memberCount: members.length,
+        };
+      }
+      return comm;
+    });
+    this.saveAllCommunities(updated);
+    return updated;
+  }
+
+  static createCommunity(params: {
+    name: string;
+    description: string;
+    category: string;
+    accessType: 'public' | 'moderated';
+    avatar: string;
+    coverImage?: string;
+    rules?: string[];
+    tags?: string[];
+  }): Community {
+    const currentUser = this.getCurrentUser();
+    const newCommunity: Community = {
+      id: `comm_${Date.now()}`,
+      name: params.name.trim(),
+      description: params.description.trim(),
+      category: params.category || 'General',
+      accessType: params.accessType || 'public',
+      moderatorId: currentUser.id,
+      moderatorName: currentUser.name,
+      moderatorUsername: currentUser.username,
+      moderatorAvatar: currentUser.avatar,
+      avatar: params.avatar || 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=400&auto=format&fit=crop&q=80',
+      coverImage: params.coverImage || params.avatar,
+      memberCount: 1,
+      memberIds: [currentUser.id],
+      pendingRequestUserIds: [],
+      rules: params.rules || ['Be respectful and post daily progress'],
+      tags: params.tags || [params.category],
+      createdAt: getTodayDateString(),
+      lastActivity: 'Just now',
+    };
+
+    const currentCommunities = this.getAllCommunities();
+    const updated = [newCommunity, ...currentCommunities];
+    this.saveAllCommunities(updated);
+    return newCommunity;
   }
 
   static toggleJoinGroup(groupId: string): { groups: Group[]; isMember: boolean } {

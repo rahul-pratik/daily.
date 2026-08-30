@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Flame,
@@ -14,9 +14,11 @@ import {
   PenTool,
   CheckCircle2,
   ShieldCheck,
+  Save,
+  Clock,
 } from 'lucide-react';
 import { User, Post } from '../types';
-import { getTodayDateString } from '../services/storage';
+import { getTodayDateString, DailyStorageService } from '../services/storage';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
 
 interface CreatePostModalProps {
@@ -58,25 +60,24 @@ const PROOF_PHOTO_PRESETS = [
     url: 'https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=1000&auto=format&fit=crop&q=80',
   },
   {
-    name: 'Mindful Morning',
-    category: 'Meditate',
-    url: 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=1000&auto=format&fit=crop&q=80',
+    name: 'Outdoor Nature',
+    category: 'Outdoors',
+    url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1000&auto=format&fit=crop&q=80',
   },
 ];
 
 const REFLECTION_PROMPTS = [
-  "Built the authentication system today. Took 4 hours longer than expected.",
-  "Almost skipped the gym today. Went anyway.",
-  "Read 25 pages. The first half was slow, but chapter 4 got intense.",
-  "Shipped the new landing page and fixed 3 mobile bugs.",
-  "Ran 5km in the morning. Felt great after mile 2.",
+  'Shipped new feature and fixed state sync bugs.',
+  'Ran 5km at 5:30 pace. Felt great on the hill climb!',
+  'Read 20 pages of deep work principles. No phone notifications.',
+  'Finished mockups for mobile navigation tokens.',
+  'Completed 45m strength training session.',
 ];
 
 const HABIT_LINK_OPTIONS = [
   'Building',
   'Coding',
   'Fitness',
-  'Gym',
   'Reading',
   'Run',
   'Study',
@@ -101,14 +102,46 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const [imageUrl, setImageUrl] = useState<string>(initialImageUrl);
   const [selectedTags, setSelectedTags] = useState<string[]>(initialTags);
   const [showPresets, setShowPresets] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
+  const [draftSavedToast, setDraftSavedToast] = useState(false);
 
-  React.useEffect(() => {
+  // Restore draft or initial props on open
+  useEffect(() => {
     if (isOpen) {
-      if (initialContent) setContent(initialContent);
-      if (initialImageUrl) setImageUrl(initialImageUrl);
-      if (initialTags && initialTags.length > 0) setSelectedTags(initialTags);
+      if (initialContent || initialImageUrl) {
+        setContent(initialContent);
+        setImageUrl(initialImageUrl);
+        if (initialTags && initialTags.length > 0) setSelectedTags(initialTags);
+      } else {
+        const savedDraft = DailyStorageService.getPostDraft(currentUser.id);
+        if (savedDraft && (savedDraft.content || savedDraft.imageUrl)) {
+          setContent(savedDraft.content || '');
+          setImageUrl(savedDraft.imageUrl || '');
+          if (savedDraft.tags && savedDraft.tags.length > 0) {
+            setSelectedTags(savedDraft.tags);
+          }
+          setDraftRestored(true);
+        } else {
+          setContent('');
+          setImageUrl('');
+          setSelectedTags(['Building']);
+          setDraftRestored(false);
+        }
+      }
     }
-  }, [isOpen, initialContent, initialImageUrl, initialTags]);
+  }, [isOpen, currentUser.id, initialContent, initialImageUrl, initialTags]);
+
+  // Auto-save draft whenever user makes changes
+  useEffect(() => {
+    if (!isOpen) return;
+    if (content.trim() || imageUrl.trim()) {
+      DailyStorageService.savePostDraft(currentUser.id, {
+        content,
+        imageUrl,
+        tags: selectedTags,
+      });
+    }
+  }, [isOpen, content, imageUrl, selectedTags, currentUser.id]);
 
   if (!isOpen) return null;
 
@@ -145,6 +178,37 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     }
   };
 
+  const handleManualSaveDraft = () => {
+    vibrateLight();
+    DailyStorageService.savePostDraft(currentUser.id, {
+      content,
+      imageUrl,
+      tags: selectedTags,
+    });
+    setDraftSavedToast(true);
+    setTimeout(() => setDraftSavedToast(false), 2500);
+  };
+
+  const handleDiscardDraft = () => {
+    vibrateLight();
+    DailyStorageService.clearPostDraft(currentUser.id);
+    setContent('');
+    setImageUrl('');
+    setSelectedTags(['Building']);
+    setDraftRestored(false);
+  };
+
+  const handleSafeClose = () => {
+    if (content.trim() || imageUrl.trim()) {
+      DailyStorageService.savePostDraft(currentUser.id, {
+        content,
+        imageUrl,
+        tags: selectedTags,
+      });
+    }
+    onClose();
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (hasPostedToday) return;
@@ -157,10 +221,13 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       tags: selectedTags.length > 0 ? selectedTags : ['DailyProof'],
     });
 
+    // Clear draft upon successful submission
+    DailyStorageService.clearPostDraft(currentUser.id);
     setContent('');
     setImageUrl('');
     setSelectedTags(['Building']);
     setShowPresets(false);
+    setDraftRestored(false);
     onClose();
   };
 
@@ -168,7 +235,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     <div
       id="create-proof-modal"
       className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200"
-      onClick={onClose}
+      onClick={handleSafeClose}
     >
       <div
         className="w-full max-w-lg bg-[#0D0D0D] border border-white/15 rounded-[32px] p-5 sm:p-6 shadow-2xl relative text-white my-6 max-h-[92vh] flex flex-col animate-in zoom-in-95 duration-200"
@@ -200,9 +267,10 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               <span>{currentUser.currentStreak}d Streak</span>
             </div>
             <button
-              onClick={onClose}
+              onClick={handleSafeClose}
               className="p-1.5 rounded-full text-white/40 hover:text-white hover:bg-white/10 transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
               aria-label="Close modal"
+              title="Close (auto-saved as draft)"
             >
               <X className="w-5 h-5" />
             </button>
@@ -299,6 +367,25 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
         ) : (
           /* HIERARCHY FORM: 1. Add Proof 📸 -> 2. Write Reflection ✍️ -> 3. Link Habit/Goal 🎯 -> POST TODAY 🔥 */
           <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto py-3 space-y-4 pr-1 no-scrollbar">
+            {/* DRAFT BANNER OR STATUS */}
+            {draftRestored && (
+              <div className="p-2.5 bg-[#D4AF37]/10 border border-[#D4AF37]/30 rounded-2xl flex items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2 text-[#D4AF37] min-w-0">
+                  <Clock className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate font-semibold text-[11px]">Draft restored from local device</span>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleDiscardDraft}
+                    className="text-[10px] font-bold text-red-400 hover:text-red-300 px-2 py-1 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition-colors"
+                  >
+                    Discard
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* STEP 1: ADD PROOF 📸 */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -470,8 +557,37 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               </div>
             </div>
 
+            {/* DRAFT ACTIONS & AUTO-SAVE INDICATOR */}
+            <div className="flex items-center justify-between pt-1 text-[11px] text-white/40 px-1">
+              <span className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                {draftSavedToast ? 'Draft saved to local storage ✓' : 'Auto-saving draft locally'}
+              </span>
+              <div className="flex items-center gap-2">
+                {(content.trim() || imageUrl.trim()) && (
+                  <button
+                    type="button"
+                    onClick={handleManualSaveDraft}
+                    className="text-[10px] font-bold text-[#D4AF37] hover:underline flex items-center gap-1"
+                  >
+                    <Save className="w-3 h-3" />
+                    Save Draft
+                  </button>
+                )}
+                {(content.trim() || imageUrl.trim()) && (
+                  <button
+                    type="button"
+                    onClick={handleDiscardDraft}
+                    className="text-[10px] text-white/40 hover:text-red-400 transition-colors"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+
             {/* SUBMIT BUTTON: POST TODAY 🔥 */}
-            <div className="pt-2">
+            <div className="pt-1">
               <button
                 id="submit-proof-post-btn"
                 type="submit"

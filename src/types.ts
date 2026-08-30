@@ -18,6 +18,7 @@ export interface User {
   savedPostIds?: string[];
   blockedUserIds?: string[];
   isCurrentUser?: boolean;
+  verified?: boolean;
 }
 
 export interface PersonalHabit {
@@ -83,6 +84,13 @@ export interface SharedPostPreview {
   tags?: string[];
 }
 
+export interface PostDraft {
+  content: string;
+  imageUrl?: string;
+  tags: string[];
+  updatedAt: number;
+}
+
 export interface Group {
   id: string;
   name: string;
@@ -94,9 +102,31 @@ export interface Group {
   lastActivity?: string;
   createdBy: string;
   createdAt: string;
+  isPrivateGroup?: boolean;
   rules?: string[];
   pinnedTopic?: string;
   coverImage?: string;
+}
+
+export interface Community {
+  id: string;
+  name: string;
+  description: string;
+  avatar: string;
+  coverImage?: string;
+  category: string;
+  accessType: 'public' | 'moderated'; // 'public': anyone can join instantly; 'moderated': requires moderator approval
+  moderatorId: string;
+  moderatorName: string;
+  moderatorUsername?: string;
+  moderatorAvatar?: string;
+  memberCount: number;
+  memberIds: string[];
+  pendingRequestUserIds?: string[];
+  rules?: string[];
+  tags?: string[];
+  createdAt: string;
+  lastActivity?: string;
 }
 
 export interface CommunityMemberRanking {
