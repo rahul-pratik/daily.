@@ -77,14 +77,16 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
   // Pending applicants
   const pendingUsers = allUsers.filter((u) => (community.pendingRequestUserIds || []).includes(u.id));
 
-  // Related posts (by tag or category)
+  // Related posts (by direct community tag, ID, or category)
   const categoryPosts = posts.filter(
     (p) =>
+      p.communityId === community.id ||
       p.tags?.some(
         (t) =>
           t.toLowerCase() === community.category.toLowerCase() ||
           community.name.toLowerCase().includes(t.toLowerCase())
-      ) || p.tags?.includes('DailyProof')
+      ) ||
+      p.tags?.includes('DailyProof')
   );
 
   const handlePostComment = (e: React.FormEvent) => {

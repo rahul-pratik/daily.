@@ -117,7 +117,15 @@ export default function App() {
   };
 
   // Create Post Handler with Streak and Confetti Animation
-  const handleCreatePost = (payload: { content: string; imageUrl?: string; tags: string[] }) => {
+  const handleCreatePost = (payload: {
+    content: string;
+    imageUrl?: string;
+    tags: string[];
+    isMainPost?: boolean;
+    communityId?: string;
+    communityName?: string;
+    isCollage?: boolean;
+  }) => {
     const result = DailyStorageService.createPost(payload);
     if (result.error) {
       return;
@@ -129,12 +137,20 @@ export default function App() {
     // Tactile haptic vibration feedback on submission
     vibratePostSubmit();
 
-    // Show celebration modal
-    setCelebrationState({
-      isOpen: true,
-      streakCount: result.updatedUser.currentStreak,
-      isNewStreakDay: result.isNewStreakDay,
-    });
+    // Show celebration modal only if it was a new main streak day
+    if (result.isNewStreakDay) {
+      setCelebrationState({
+        isOpen: true,
+        streakCount: result.updatedUser.currentStreak,
+        isNewStreakDay: result.isNewStreakDay,
+      });
+    }
+  };
+
+  // Update 3 discipline milestones
+  const handleUpdateMilestones = (milestoneIds: string[]) => {
+    const updated = DailyStorageService.updateDisciplineMilestones(milestoneIds);
+    setCurrentUser(updated);
   };
 
   // Send Message (Direct 1:1 or Group Chat)
@@ -605,6 +621,7 @@ export default function App() {
               onDeleteCollection={handleDeleteCollection}
               onRemovePostFromCollection={handleRemovePostFromCollection}
               onOpenAddToCollection={(post) => setSelectedPostForCollection(post)}
+              onUpdateMilestones={handleUpdateMilestones}
             />
           )}
         </main>
@@ -744,12 +761,13 @@ export default function App() {
           onComplete={handleCompleteOnboarding}
         />
 
-        {/* Create Post Modal with Local Draft Saving */}
+        {/* Create Post Modal with Local Draft Saving, Main vs Community rules & Collab Stitcher */}
         <CreatePostModal
           isOpen={isCreateOpen}
           onClose={() => setIsCreateOpen(false)}
           currentUser={currentUser}
           posts={posts}
+          communities={communities}
           onSubmitPost={handleCreatePost}
           onViewMyPost={handleViewPostFromId}
         />

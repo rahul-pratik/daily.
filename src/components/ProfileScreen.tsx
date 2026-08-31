@@ -19,10 +19,13 @@ import {
   Plus,
   ExternalLink,
   Check,
+  Award,
+  ShieldCheck,
 } from 'lucide-react';
-import { User, Post, ProofCollection } from '../types';
+import { User, Post, ProofCollection, AVAILABLE_DISCIPLINE_MILESTONES } from '../types';
 import { PostCard } from './PostCard';
 import { EmptyStateIllustration } from './EmptyStateIllustration';
+import { DisciplineMilestonesModal } from './DisciplineMilestonesModal';
 import { vibrateLight } from '../services/haptics';
 
 interface ProfileScreenProps {
@@ -45,6 +48,7 @@ interface ProfileScreenProps {
   onDeleteCollection?: (collectionId: string) => void;
   onRemovePostFromCollection?: (collectionId: string, postId: string) => void;
   onOpenAddToCollection?: (post: Post) => void;
+  onUpdateMilestones?: (milestoneIds: string[]) => void;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
@@ -67,6 +71,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onDeleteCollection = (_collectionId: string) => {},
   onRemovePostFromCollection = (_collectionId: string, _postId: string) => {},
   onOpenAddToCollection,
+  onUpdateMilestones,
 }) => {
   const [profileTab, setProfileTab] = useState<'my_posts' | 'collections' | 'saved'>('my_posts');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -74,6 +79,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [copiedLink, setCopiedLink] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
+  const [isMilestonesModalOpen, setIsMilestonesModalOpen] = useState(false);
 
   // Filter posts created by current user
   const userPosts = posts.filter((p) => p.userId === currentUser.id);
@@ -245,6 +251,71 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               {currentUser.followersCount}
             </span>
             <span className="text-[10px] uppercase tracking-wider text-white/40 font-semibold">Followers</span>
+          </div>
+        </div>
+
+        {/* 3 DISCIPLINE MILESTONES SHOWCASE */}
+        <div className="mt-4 pt-3 border-t border-white/5 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-[#D4AF37] font-black uppercase tracking-wider flex items-center gap-1">
+              <Award className="w-3.5 h-3.5" />
+              Discipline Milestones ({currentUser.disciplineMilestones?.length || 0}/3)
+            </span>
+            <button
+              onClick={() => {
+                vibrateLight();
+                setIsMilestonesModalOpen(true);
+              }}
+              className="text-[10px] font-bold text-blue-400 hover:text-blue-300 hover:underline flex items-center gap-1"
+            >
+              <Sparkles className="w-3 h-3" />
+              <span>Apply Milestones</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            {[0, 1, 2].map((slotIdx) => {
+              const activeId = currentUser.disciplineMilestones?.[slotIdx];
+              const milestone = AVAILABLE_DISCIPLINE_MILESTONES.find((m) => m.id === activeId);
+
+              if (milestone) {
+                return (
+                  <div
+                    key={slotIdx}
+                    onClick={() => {
+                      vibrateLight();
+                      setIsMilestonesModalOpen(true);
+                    }}
+                    className="p-2.5 rounded-2xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 hover:border-[#D4AF37] text-left cursor-pointer transition-all relative group shadow-sm"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xl">{milestone.icon}</span>
+                      <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-black/60 text-[#D4AF37] border border-[#D4AF37]/20">
+                        {milestone.category}
+                      </span>
+                    </div>
+                    <p className="font-black text-xs text-white truncate mt-1.5">{milestone.title}</p>
+                    <p className="text-[9px] text-white/50 truncate">{milestone.headline}</p>
+                  </div>
+                );
+              }
+
+              return (
+                <button
+                  key={slotIdx}
+                  onClick={() => {
+                    vibrateLight();
+                    setIsMilestonesModalOpen(true);
+                  }}
+                  className="p-2.5 rounded-2xl bg-white/[0.02] hover:bg-white/[0.06] border border-dashed border-white/15 text-center flex flex-col items-center justify-center min-h-[72px] transition-all cursor-pointer group"
+                >
+                  <Plus className="w-4 h-4 text-white/30 group-hover:text-[#D4AF37] transition-colors" />
+                  <span className="text-[9px] font-bold text-white/40 group-hover:text-white mt-1">
+                    Apply Slot {slotIdx + 1}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -720,6 +791,18 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           )}
         </>
       )}
+
+      {/* Discipline Milestones Modal */}
+      <DisciplineMilestonesModal
+        isOpen={isMilestonesModalOpen}
+        onClose={() => setIsMilestonesModalOpen(false)}
+        selectedMilestoneIds={currentUser.disciplineMilestones || []}
+        onSaveMilestones={(milestoneIds) => {
+          if (onUpdateMilestones) {
+            onUpdateMilestones(milestoneIds);
+          }
+        }}
+      />
     </div>
   );
 };

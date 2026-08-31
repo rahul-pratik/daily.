@@ -224,8 +224,12 @@ export class DailyStorageService {
     return { posts: updated, comment: newComment };
   }
 
-  // Check if user has already posted today (strictly 1 photo/tweet of the day limit)
+  // Check if user has already posted their 1 Main Daily Post today
   static hasUserPostedToday(userId?: string): boolean {
+    return this.hasUserPostedMainToday(userId);
+  }
+
+  static hasUserPostedMainToday(userId?: string): boolean {
     const currentUser = this.getCurrentUser();
     const targetId = userId || currentUser.id;
     const today = getTodayDateString();
@@ -233,7 +237,7 @@ export class DailyStorageService {
       return true;
     }
     const posts = this.getAllPosts();
-    return posts.some((p) => p.userId === targetId && p.postDate === today);
+    return posts.some((p) => p.userId === targetId && p.postDate === today && (p.isMainPost !== false && p.isDailyStreakPost));
   }
 
   static getTodayPostForUser(userId?: string): Post | undefined {
@@ -241,91 +245,161 @@ export class DailyStorageService {
     const targetId = userId || currentUser.id;
     const today = getTodayDateString();
     const posts = this.getAllPosts();
-    return posts.find((p) => p.userId === targetId && p.postDate === today);
+    return posts.find((p) => p.userId === targetId && p.postDate === today && (p.isMainPost !== false && p.isDailyStreakPost));
   }
 
-  // Create New Post with 1-post-per-day limit and Streak Logic
+  // Get all community proofs submitted today by user (for collab collage)
+  static getTodayCommunityPostsForUser(userId?: string): Post[] {
+    const currentUser = this.getCurrentUser();
+    const targetId = userId || currentUser.id;
+    const today = getTodayDateString();
+    const posts = this.getAllPosts();
+    return posts.filter((p) => p.userId === targetId && (p.postDate === today || p.createdAt === 'Just now'));
+  }
+
+  // Update 3 discipline milestones
+  static updateDisciplineMilestones(milestoneIds: string[]): User {
+    const currentUser = this.getCurrentUser();
+    const safeMilestones = milestoneIds.slice(0, 3);
+    const updatedUser = {
+      ...currentUser,
+      disciplineMilestones: safeMilestones,
+    };
+    this.saveCurrentUser(updatedUser);
+    return updatedUser;
+  }
+
+  // Create New Post: Main Daily Post (Limit 1 per day) OR Community Post (Unlimited)
   static createPost(payload: {
     content: string;
     imageUrl?: string;
     tags: string[];
+    isMainPost?: boolean;
+    communityId?: string;
+    communityName?: string;
+    isCollage?: boolean;
   }): { post: Post; updatedUser: User; isNewStreakDay: boolean; error?: string } {
     const currentUser = this.getCurrentUser();
     const today = getTodayDateString();
     const yesterday = getYesterdayDateString();
 
-    const alreadyPostedToday = this.hasUserPostedToday(currentUser.id);
-    if (alreadyPostedToday) {
-      const existing = this.getTodayPostForUser(currentUser.id);
-      if (existing) {
+    const isTargetingMain = payload.isMainPost ?? (!payload.communityId || payload.communityId === 'main');
+
+    if (isTargetingMain) {
+      const alreadyPostedMainToday = this.hasUserPostedMainToday(currentUser.id);
+      if (alreadyPostedMainToday) {
+        const existing = this.getTodayPostForUser(currentUser.id);
         return {
-          post: existing,
+          post: existing || this.getAllPosts()[0],
           updatedUser: currentUser,
           isNewStreakDay: false,
-          error: 'You have already uploaded today, please upload tomorrow',
+          error: 'You have already submitted proof as the main post for today',
         };
       }
-    }
 
-    const isConsecutive = currentUser.lastPostedDate === yesterday || currentUser.lastPostedDate === today;
+      // Update streak for 1 daily main post
+      const isConsecutive = currentUser.lastPostedDate === yesterday || currentUser.lastPostedDate === today;
+      let newCurrentStreak = currentUser.currentStreak;
+      let newActivityDates = [...currentUser.activityDates];
 
-    let newCurrentStreak = currentUser.currentStreak;
-    let newActivityDates = [...currentUser.activityDates];
-
-    if (!alreadyPostedToday) {
       if (isConsecutive || currentUser.currentStreak === 0) {
         newCurrentStreak = currentUser.currentStreak + 1;
       } else {
-        // Streak was broken if more than 1 day passed, start fresh at 1
         newCurrentStreak = 1;
       }
+
       if (!newActivityDates.includes(today)) {
         newActivityDates = [today, ...newActivityDates];
       }
+
+      const newLongestStreak = Math.max(currentUser.longestStreak, newCurrentStreak);
+      const newTotalPosts = currentUser.totalPosts + 1;
+
+      const updatedUser: User = {
+        ...currentUser,
+        currentStreak: newCurrentStreak,
+        longestStreak: newLongestStreak,
+        totalPosts: newTotalPosts,
+        activityDates: newActivityDates,
+        lastPostedDate: today,
+      };
+
+      this.saveCurrentUser(updatedUser);
+
+      const newPost: Post = {
+        id: `post_${Date.now()}`,
+        userId: updatedUser.id,
+        name: updatedUser.name,
+        username: updatedUser.username,
+        userAvatar: updatedUser.avatar,
+        userStreak: newCurrentStreak,
+        content: payload.content,
+        imageUrl: payload.imageUrl,
+        tags: payload.tags,
+        likesCount: 0,
+        likedByMe: false,
+        viewsCount: 1,
+        sharesCount: 0,
+        comments: [],
+        createdAt: 'Just now',
+        isDailyStreakPost: true,
+        isMainPost: true,
+        isCollage: payload.isCollage,
+        communityId: payload.communityId && payload.communityId !== 'main' ? payload.communityId : undefined,
+        communityName: payload.communityName,
+        postDate: today,
+      };
+
+      const posts = this.getAllPosts();
+      this.saveAllPosts([newPost, ...posts]);
+
+      return {
+        post: newPost,
+        updatedUser,
+        isNewStreakDay: true,
+      };
+    } else {
+      // Community-Only Proof: Unlimited submissions allowed!
+      const newTotalPosts = currentUser.totalPosts + 1;
+      const updatedUser: User = {
+        ...currentUser,
+        totalPosts: newTotalPosts,
+      };
+      this.saveCurrentUser(updatedUser);
+
+      const newPost: Post = {
+        id: `post_${Date.now()}`,
+        userId: currentUser.id,
+        name: currentUser.name,
+        username: currentUser.username,
+        userAvatar: currentUser.avatar,
+        userStreak: currentUser.currentStreak,
+        content: payload.content,
+        imageUrl: payload.imageUrl,
+        tags: payload.tags,
+        likesCount: 0,
+        likedByMe: false,
+        viewsCount: 1,
+        sharesCount: 0,
+        comments: [],
+        createdAt: 'Just now',
+        isDailyStreakPost: false,
+        isMainPost: false,
+        isCollage: payload.isCollage,
+        communityId: payload.communityId,
+        communityName: payload.communityName,
+        postDate: today,
+      };
+
+      const posts = this.getAllPosts();
+      this.saveAllPosts([newPost, ...posts]);
+
+      return {
+        post: newPost,
+        updatedUser,
+        isNewStreakDay: false,
+      };
     }
-
-    const newLongestStreak = Math.max(currentUser.longestStreak, newCurrentStreak);
-    const newTotalPosts = currentUser.totalPosts + 1;
-
-    const updatedUser: User = {
-      ...currentUser,
-      currentStreak: newCurrentStreak,
-      longestStreak: newLongestStreak,
-      totalPosts: newTotalPosts,
-      activityDates: newActivityDates,
-      lastPostedDate: today,
-    };
-
-    this.saveCurrentUser(updatedUser);
-
-    const newPost: Post = {
-      id: `post_${Date.now()}`,
-      userId: updatedUser.id,
-      name: updatedUser.name,
-      username: updatedUser.username,
-      userAvatar: updatedUser.avatar,
-      userStreak: newCurrentStreak,
-      content: payload.content,
-      imageUrl: payload.imageUrl,
-      tags: payload.tags,
-      likesCount: 0,
-      likedByMe: false,
-      viewsCount: 1,
-      sharesCount: 0,
-      comments: [],
-      createdAt: 'Just now',
-      isDailyStreakPost: true,
-      postDate: today,
-    };
-
-    const posts = this.getAllPosts();
-    this.saveAllPosts([newPost, ...posts]);
-
-    return {
-      post: newPost,
-      updatedUser,
-      isNewStreakDay: true,
-    };
   }
 
   // Delete a post and reset today's photo limit if it was today's post

@@ -93,14 +93,9 @@ export const StreakCalendarCard: React.FC<StreakCalendarCardProps> = ({
               <Flame className="w-6 h-6 text-[#D4AF37] fill-[#D4AF37] animate-pulse" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-lg sm:text-xl font-black text-white tracking-tight">
-                  {currentUser.currentStreak} Day Streak
-                </span>
-                <span className="text-[10px] font-black uppercase tracking-wider bg-[#D4AF37] text-black px-2 py-0.5 rounded-full">
-                  🔥 Active
-                </span>
-              </div>
+              <h3 className="text-lg sm:text-xl font-black text-white tracking-tight">
+                {currentUser.currentStreak} Day Streak
+              </h3>
               <p className="text-xs text-white/60 mt-0.5">
                 {hasPostedToday
                   ? "✓ Today's proof logged! Momentum locked in."

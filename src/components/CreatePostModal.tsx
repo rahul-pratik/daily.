@@ -19,17 +19,33 @@ import {
   RefreshCw,
   Lightbulb,
   CornerDownLeft,
+  Users,
+  Globe,
+  Layers,
+  ArrowRight,
+  PlusCircle,
 } from 'lucide-react';
-import { User, Post } from '../types';
+import { User, Post, Community } from '../types';
 import { getTodayDateString, DailyStorageService } from '../services/storage';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
+import { CollabCollageStudio } from './CollabCollageStudio';
 
 interface CreatePostModalProps {
   isOpen: boolean;
   currentUser: User;
   onClose: () => void;
   posts?: Post[];
-  onSubmitPost: (payload: { content: string; imageUrl?: string; tags: string[] }) => void;
+  communities?: Community[];
+  initialCommunityId?: string;
+  onSubmitPost: (payload: {
+    content: string;
+    imageUrl?: string;
+    tags: string[];
+    isMainPost?: boolean;
+    communityId?: string;
+    communityName?: string;
+    isCollage?: boolean;
+  }) => void;
   onViewMyPost?: (postId: string) => void;
   initialContent?: string;
   initialImageUrl?: string;
@@ -63,9 +79,9 @@ const PROOF_PHOTO_PRESETS = [
     url: 'https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=1000&auto=format&fit=crop&q=80',
   },
   {
-    name: 'Outdoor Nature',
-    category: 'Outdoors',
-    url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1000&auto=format&fit=crop&q=80',
+    name: 'Garden / Plants',
+    category: 'Gardening',
+    url: 'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?w=1000&auto=format&fit=crop&q=80',
   },
 ];
 
@@ -105,15 +121,22 @@ const CATEGORY_REFLECTION_PROMPTS: Record<string, string[]> = {
     'Refined dark theme color tokens and contrast ratios.',
     'Created vector iconography set for primary actions.',
   ],
-  Writing: [
-    'Drafted 1,200 words for the upcoming weekly essay.',
-    'Outlined chapter structure and completed first review.',
-    'Refined opening hooks and removed unnecessary fluff.',
+  Gardening: [
+    'Tended to soil, pruned vegetable rows, and watered garden beds.',
+    'Planted new seasonal seedlings and checked hydroponic roots.',
+    'Harvested fresh organic produce and maintained garden beds.',
   ],
-  Study: [
-    'Completed 2 full practice exam modules under timed conditions.',
-    'Reviewed 45 Anki spaced repetition cards with zero errors.',
-    'Mastered key algorithmic concepts for upcoming interview.',
+  Singing: [
+    'Completed 30m vocal scales, pitch training, and breath control exercises.',
+    'Practiced acoustic set with metronome; refined high resonance.',
+  ],
+  Dancing: [
+    'Practiced 45m choreography routine and rhythm synchronization.',
+    'Worked on footwork drills and body movement flow.',
+  ],
+  Storytelling: [
+    'Wrote 1,000 words for the chapter narrative and character arc.',
+    'Structured dialogue rhythm and refined the plot hook.',
   ],
   Default: [
     'Stayed disciplined and showed up for my daily standard.',
@@ -128,21 +151,10 @@ const REFLECTION_STARTERS = [
   'Ran ',
   'Shipped ',
   'Completed ',
+  'Planted ',
+  'Singing ',
   'Learned ',
   'Hit daily goal: ',
-];
-
-const HABIT_LINK_OPTIONS = [
-  'Building',
-  'Coding',
-  'Fitness',
-  'Reading',
-  'Run',
-  'Study',
-  'Design',
-  'Writing',
-  'Meditate',
-  'Early Rise',
 ];
 
 export const CreatePostModal: React.FC<CreatePostModalProps> = ({
@@ -150,29 +162,57 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   currentUser,
   onClose,
   posts = [],
+  communities = [],
+  initialCommunityId,
   onSubmitPost,
   onViewMyPost,
   initialContent,
   initialImageUrl,
   initialTags,
 }) => {
+  const [postDestination, setPostDestination] = useState<'main' | 'community'>('main');
+  const [selectedCommunityId, setSelectedCommunityId] = useState<string>('');
   const [content, setContent] = useState('');
   const [imageUrl, setImageUrl] = useState<string>('');
   const [selectedTags, setSelectedTags] = useState<string[]>(['Building']);
   const [showPresets, setShowPresets] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
   const [draftSavedToast, setDraftSavedToast] = useState(false);
-  const [promptCategory, setPromptCategory] = useState<string>('All');
+  const [isCollageGenerated, setIsCollageGenerated] = useState(false);
+  const [isCollageStudioOpen, setIsCollageStudioOpen] = useState(false);
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const hasInitializedRef = useRef(false);
 
-  // Initialize form state ONLY ONCE when modal is opened
+  // Available user communities
+  const availableCommunities = communities.length > 0
+    ? communities
+    : DailyStorageService.getAllCommunities();
+
+  const today = getTodayDateString();
+  const hasPostedMainToday = DailyStorageService.hasUserPostedMainToday(currentUser.id);
+  const todayMainPost = DailyStorageService.getTodayPostForUser(currentUser.id);
+  const todayCommunityPosts = DailyStorageService.getTodayCommunityPostsForUser(currentUser.id);
+
+  // Initialize form state
   useEffect(() => {
     if (isOpen) {
       if (!hasInitializedRef.current) {
         hasInitializedRef.current = true;
         
+        if (initialCommunityId) {
+          setPostDestination('community');
+          setSelectedCommunityId(initialCommunityId);
+        } else if (hasPostedMainToday) {
+          // If already posted main, default to community mode
+          setPostDestination('community');
+          if (availableCommunities.length > 0) {
+            setSelectedCommunityId(availableCommunities[0].id);
+          }
+        } else {
+          setPostDestination('main');
+        }
+
         if (initialContent !== undefined || initialImageUrl !== undefined) {
           setContent(initialContent || '');
           setImageUrl(initialImageUrl || '');
@@ -205,10 +245,11 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     } else {
       hasInitializedRef.current = false;
       setDraftSavedToast(false);
+      setIsCollageGenerated(false);
     }
-  }, [isOpen, currentUser.id, initialContent, initialImageUrl, initialTags]);
+  }, [isOpen, currentUser.id, initialContent, initialImageUrl, initialTags, initialCommunityId, hasPostedMainToday]);
 
-  // Debounced auto-save draft whenever user makes changes while modal is open
+  // Debounced auto-save draft
   useEffect(() => {
     if (!isOpen || !hasInitializedRef.current) return;
 
@@ -226,14 +267,6 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   }, [isOpen, content, imageUrl, selectedTags, currentUser.id]);
 
   if (!isOpen) return null;
-
-  const today = getTodayDateString();
-  const todayUserPost = posts.find(
-    (p) =>
-      (p.userId === currentUser.id || p.userId === 'user_me') &&
-      ((p.postDate && p.postDate === today) || (p.createdAt && p.createdAt.includes('Today')))
-  );
-  const hasPostedToday = currentUser.lastPostedDate === today || !!todayUserPost;
 
   const toggleTag = (tag: string) => {
     vibrateLight();
@@ -256,21 +289,11 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
         if (typeof reader.result === 'string') {
           setImageUrl(reader.result);
           setShowPresets(false);
+          setIsCollageGenerated(false);
         }
       };
       reader.readAsDataURL(file);
     }
-  };
-
-  const handleManualSaveDraft = () => {
-    vibrateLight();
-    DailyStorageService.savePostDraft(currentUser.id, {
-      content,
-      imageUrl,
-      tags: selectedTags,
-    });
-    setDraftSavedToast(true);
-    setTimeout(() => setDraftSavedToast(false), 2200);
   };
 
   const handleDiscardDraft = () => {
@@ -280,6 +303,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     setImageUrl('');
     setSelectedTags(['Building']);
     setDraftRestored(false);
+    setIsCollageGenerated(false);
     if (textareaRef.current) {
       textareaRef.current.focus();
     }
@@ -296,14 +320,6 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     onClose();
   };
 
-  const handleInsertPrompt = (promptText: string) => {
-    vibrateLight();
-    setContent(promptText);
-    if (textareaRef.current) {
-      textareaRef.current.focus();
-    }
-  };
-
   const handleInsertStarter = (starterText: string) => {
     vibrateLight();
     if (!content.trim()) {
@@ -316,177 +332,242 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     }
   };
 
+  const handleApplyStitchedCollage = (stitchedDataUrl: string) => {
+    setImageUrl(stitchedDataUrl);
+    setIsCollageGenerated(true);
+    setShowPresets(false);
+    if (!content.trim()) {
+      setContent('Daily proof collage: Combined progress receipts for today’s main post!');
+    }
+    setSelectedTags(['DailyProof', 'Collab']);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (hasPostedToday) return;
     if (!content.trim()) return;
+
+    const isMain = postDestination === 'main';
+
+    if (isMain && hasPostedMainToday) {
+      return;
+    }
+
+    const selectedComm = availableCommunities.find((c) => c.id === selectedCommunityId);
 
     vibrateStreakMilestone();
     onSubmitPost({
       content: content.trim(),
       imageUrl: imageUrl.trim() || undefined,
       tags: selectedTags.length > 0 ? selectedTags : ['DailyProof'],
+      isMainPost: isMain,
+      communityId: !isMain && selectedComm ? selectedComm.id : undefined,
+      communityName: !isMain && selectedComm ? selectedComm.name : undefined,
+      isCollage: isCollageGenerated,
     });
 
-    // Clear draft upon successful submission
     DailyStorageService.clearPostDraft(currentUser.id);
     setContent('');
     setImageUrl('');
     setSelectedTags(['Building']);
     setShowPresets(false);
     setDraftRestored(false);
+    setIsCollageGenerated(false);
     onClose();
   };
 
-  // Get dynamic prompts based on currently active/selected tag
-  const primaryTag = selectedTags[0] || 'Building';
-  const tagPrompts =
-    CATEGORY_REFLECTION_PROMPTS[primaryTag] || CATEGORY_REFLECTION_PROMPTS['Default'];
+  const isMainPostBlocked = postDestination === 'main' && hasPostedMainToday;
 
   return (
-    <div
-      id="create-proof-modal"
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200"
-      onClick={handleSafeClose}
-    >
+    <>
       <div
-        className="w-full max-w-lg bg-[#0D0D0D] border border-white/15 rounded-[32px] p-5 sm:p-6 shadow-2xl relative text-white my-auto max-h-[92vh] flex flex-col animate-in zoom-in-95 duration-200"
-        onClick={(e) => e.stopPropagation()}
+        id="create-proof-modal"
+        className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200"
+        onClick={handleSafeClose}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between pb-3.5 border-b border-white/10">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-full overflow-hidden border border-white/20 shrink-0">
-              <img
-                src={currentUser.avatar}
-                alt={currentUser.name}
-                referrerPolicy="no-referrer"
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div>
-              <h3 className="font-black text-sm text-white flex items-center gap-1.5">
-                Log Proof of Work
-              </h3>
-              <p className="text-[10px] text-white/50">Receipt • Reflection • Habit Link</p>
-            </div>
-          </div>
-
-          {/* Close & Streak Badge */}
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 text-[11px] font-bold text-[#D4AF37] bg-[#D4AF37]/10 px-2.5 py-1 rounded-full border border-[#D4AF37]/20">
-              <Flame className="w-3.5 h-3.5 fill-[#D4AF37]" />
-              <span>{currentUser.currentStreak}d Streak</span>
-            </div>
-            <button
-              onClick={handleSafeClose}
-              className="p-1.5 rounded-full text-white/40 hover:text-white hover:bg-white/10 transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
-              aria-label="Close modal"
-              title="Close (auto-saved as draft)"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* ALREADY POSTED TODAY VIEW */}
-        {hasPostedToday ? (
-          <div className="py-6 px-2 flex-1 flex flex-col items-center justify-center text-center space-y-5">
-            <div className="relative">
-              <div className="w-20 h-20 rounded-3xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center shadow-lg shadow-[#D4AF37]/10">
-                <CalendarCheck className="w-10 h-10 text-[#D4AF37]" />
+        <div
+          className="w-full max-w-lg bg-[#0D0D0D] border border-white/15 rounded-[32px] p-5 sm:p-6 shadow-2xl relative text-white my-auto max-h-[92vh] flex flex-col animate-in zoom-in-95 duration-200"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between pb-3.5 border-b border-white/10">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-full overflow-hidden border border-white/20 shrink-0">
+                <img
+                  src={currentUser.avatar}
+                  alt={currentUser.name}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover"
+                />
               </div>
-              <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-emerald-500 text-black flex items-center justify-center shadow-md">
-                <Check className="w-4 h-4 stroke-[3]" />
+              <div>
+                <h3 className="font-black text-sm text-white flex items-center gap-1.5">
+                  Log Proof of Work
+                </h3>
+                <p className="text-[10px] text-white/50">Receipt • Reflection • Habit Link</p>
               </div>
             </div>
 
-            <div className="space-y-2 max-w-sm">
-              <h4 className="text-lg sm:text-xl font-black text-white tracking-tight">
-                You showed up today!
-              </h4>
-              <p className="text-sm font-semibold text-[#D4AF37] bg-[#D4AF37]/10 py-2 px-3.5 rounded-xl border border-[#D4AF37]/20">
-                Daily Proof Logged • Streak Active 🔥
-              </p>
-              <p className="text-xs text-white/50 leading-relaxed pt-1">
-                To keep content authentic and focused on real action, each member documents strictly{' '}
-                <strong className="text-white">one proof-of-work receipt</strong> per day.
-              </p>
-            </div>
-
-            {/* Preview of today's post */}
-            {todayUserPost && (
-              <div className="w-full bg-white/[0.03] border border-white/10 rounded-2xl p-3.5 text-left text-xs space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-[#D4AF37] flex items-center gap-1">
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    Today’s Proof Receipt
-                  </span>
-                  <span className="text-[10px] text-white/40">{todayUserPost.createdAt}</span>
-                </div>
-
-                <div className="flex gap-3">
-                  {todayUserPost.imageUrl && (
-                    <img
-                      src={todayUserPost.imageUrl}
-                      alt="Today's proof"
-                      referrerPolicy="no-referrer"
-                      className="w-16 h-16 rounded-xl object-cover border border-white/10 shrink-0"
-                    />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white/90 line-clamp-2 leading-snug">
-                      {todayUserPost.content}
-                    </p>
-                    <div className="flex flex-wrap gap-1 mt-1.5">
-                      {todayUserPost.tags?.map((t) => (
-                        <span
-                          key={t}
-                          className="text-[9px] px-1.5 py-0.5 rounded-md bg-white/5 text-[#D4AF37] border border-white/5 font-semibold"
-                        >
-                          #{t}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+            {/* Close & Streak Badge */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 text-[11px] font-bold text-[#D4AF37] bg-[#D4AF37]/10 px-2.5 py-1 rounded-full border border-[#D4AF37]/20">
+                <Flame className="w-3.5 h-3.5 fill-[#D4AF37]" />
+                <span>{currentUser.currentStreak}d Streak</span>
               </div>
-            )}
-
-            <div className="w-full pt-2 flex gap-2.5">
-              {todayUserPost && onViewMyPost && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onViewMyPost(todayUserPost.id);
-                    onClose();
-                  }}
-                  className="flex-1 py-3 px-4 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 text-xs font-bold text-white transition-colors flex items-center justify-center gap-1.5"
-                >
-                  <ExternalLink className="w-3.5 h-3.5 text-[#D4AF37]" />
-                  <span>View Post</span>
-                </button>
-              )}
               <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 py-3 px-4 rounded-xl bg-[#D4AF37] hover:bg-[#D4AF37]/90 text-black font-black text-xs transition-all shadow-md shadow-[#D4AF37]/20 flex items-center justify-center"
+                onClick={handleSafeClose}
+                className="p-1.5 rounded-full text-white/40 hover:text-white hover:bg-white/10 transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
+                aria-label="Close modal"
+                title="Close"
               >
-                Done
+                <X className="w-5 h-5" />
               </button>
             </div>
           </div>
-        ) : (
-          /* HIERARCHY FORM: 1. Add Proof 📸 -> 2. Write Reflection ✍️ -> 3. Link Habit/Goal 🎯 -> POST TODAY 🔥 */
-          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto py-3 space-y-4 pr-1 no-scrollbar">
-            {/* DRAFT BANNER OR STATUS */}
-            {draftRestored && (
-              <div className="p-2.5 bg-[#D4AF37]/10 border border-[#D4AF37]/30 rounded-2xl flex items-center justify-between gap-2 text-xs">
-                <div className="flex items-center gap-2 text-[#D4AF37] min-w-0">
-                  <Clock className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate font-semibold text-[11px]">Draft restored from local device</span>
+
+          {/* DESTINATION SELECTOR: 1 Main Post (Feed) vs Community (Unlimited) */}
+          <div className="pt-3 pb-2">
+            <div className="grid grid-cols-2 gap-2 p-1 bg-white/5 rounded-2xl border border-white/10">
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateLight();
+                  setPostDestination('main');
+                }}
+                className={`py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 min-h-[40px] ${
+                  postDestination === 'main'
+                    ? 'bg-[#D4AF37] text-black shadow-md shadow-[#D4AF37]/20'
+                    : 'text-white/60 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Flame className="w-3.5 h-3.5" />
+                <span>Main Post (1/day)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateLight();
+                  setPostDestination('community');
+                  if (!selectedCommunityId && availableCommunities.length > 0) {
+                    setSelectedCommunityId(availableCommunities[0].id);
+                  }
+                }}
+                className={`py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 min-h-[40px] ${
+                  postDestination === 'community'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                    : 'text-white/60 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Globe className="w-3.5 h-3.5" />
+                <span>Community (Unlimited)</span>
+              </button>
+            </div>
+
+            {/* Community selector dropdown if in community mode */}
+            {postDestination === 'community' && (
+              <div className="mt-2 flex items-center gap-2 p-2 bg-blue-500/10 border border-blue-500/30 rounded-xl">
+                <Users className="w-4 h-4 text-blue-400 shrink-0" />
+                <span className="text-[11px] font-bold text-white/80 shrink-0">Community:</span>
+                <select
+                  value={selectedCommunityId}
+                  onChange={(e) => setSelectedCommunityId(e.target.value)}
+                  className="bg-black/60 border border-white/20 rounded-lg px-2 py-1 text-xs text-white flex-1 focus:outline-none focus:border-blue-400"
+                >
+                  {availableCommunities.map((comm) => (
+                    <option key={comm.id} value={comm.id} className="bg-[#121212] text-white">
+                      {comm.name} ({comm.category})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {/* MAIN POST ALREADY SUBMITTED NOTIFICATION BANNER */}
+          {isMainPostBlocked ? (
+            <div className="py-4 px-2 flex-1 flex flex-col items-center justify-center text-center space-y-4">
+              <div className="w-16 h-16 rounded-2xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37] shadow-lg">
+                <CalendarCheck className="w-8 h-8" />
+              </div>
+
+              <div className="space-y-1 max-w-sm">
+                <h4 className="text-base sm:text-lg font-black text-white">
+                  You have already submitted proof as the main post for today
+                </h4>
+                <p className="text-xs text-white/60 leading-relaxed">
+                  Main post is strictly limited to 1 per day for unbroken streak integrity. However, you can post unlimited proofs in communities!
+                </p>
+              </div>
+
+              {/* Action: Switch to Community */}
+              <div className="w-full pt-1 space-y-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    vibrateLight();
+                    setPostDestination('community');
+                    if (availableCommunities.length > 0) {
+                      setSelectedCommunityId(availableCommunities[0].id);
+                    }
+                  }}
+                  className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs transition-all shadow-md flex items-center justify-center gap-2"
+                >
+                  <Globe className="w-4 h-4" />
+                  <span>Post in a Community instead (Unlimited)</span>
+                </button>
+
+                {todayMainPost && onViewMyPost && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onViewMyPost(todayMainPost.id);
+                      onClose();
+                    }}
+                    className="w-full py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-white/70 transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-[#D4AF37]" />
+                    <span>View Today's Main Post</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* ACTIVE POST FORM */
+            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto py-2 space-y-4 pr-1 no-scrollbar">
+              {/* UNPOSTED MAIN POST PROMPT / COLLAB CALLOUT */}
+              {postDestination === 'main' && !hasPostedMainToday && (
+                <div className="p-3 bg-gradient-to-r from-[#D4AF37]/15 via-[#D4AF37]/5 to-transparent border border-[#D4AF37]/30 rounded-2xl flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 text-xs font-black text-[#D4AF37]">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Today's 1 Main Daily Post Pending</span>
+                    </div>
+                    <p className="text-[10px] text-white/60 mt-0.5">
+                      Submit single proof or merge multiple receipts into 1 photo.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vibrateLight();
+                      setIsCollageStudioOpen(true);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-[#D4AF37] hover:bg-[#E5B842] text-black font-black text-[11px] shrink-0 active:scale-95 transition-all shadow-md shadow-[#D4AF37]/20 flex items-center gap-1 min-h-[34px]"
+                  >
+                    <Layers className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span>Collab Collage</span>
+                  </button>
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0">
+              )}
+
+              {/* DRAFT BANNER OR STATUS */}
+              {draftRestored && (
+                <div className="p-2.5 bg-[#D4AF37]/10 border border-[#D4AF37]/30 rounded-2xl flex items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2 text-[#D4AF37] min-w-0">
+                    <Clock className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate font-semibold text-[11px]">Draft restored from local device</span>
+                  </div>
                   <button
                     type="button"
                     onClick={handleDiscardDraft}
@@ -495,55 +576,76 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                     Discard
                   </button>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* STEP 1: ADD PROOF 📸 */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-black uppercase tracking-wider text-white/80 flex items-center gap-1.5">
-                  <Camera className="w-4 h-4 text-blue-400" />
-                  1. Proof Receipt (Photo)
-                </span>
-                {!imageUrl && (
-                  <button
-                    type="button"
-                    onClick={() => setShowPresets(!showPresets)}
-                    className="text-xs text-blue-400 hover:underline font-bold flex items-center gap-1"
-                  >
-                    <Sparkles className="w-3 h-3" />
-                    {showPresets ? 'Hide presets' : 'Preset ideas'}
-                  </button>
-                )}
-              </div>
-
-              {imageUrl ? (
-                <div className="relative rounded-2xl overflow-hidden border border-white/15 aspect-[16/9] bg-black group">
-                  <img
-                    src={imageUrl}
-                    alt="Proof preview"
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute top-2 left-2 bg-black/70 backdrop-blur-md px-2 py-1 rounded-lg text-[10px] font-bold text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3" />
-                    Proof Attached
+              {/* STEP 1: ADD PROOF 📸 */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-white/80 flex items-center gap-1.5">
+                    <Camera className="w-4 h-4 text-blue-400" />
+                    1. Proof Receipt (Photo)
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {postDestination === 'main' && !hasPostedMainToday && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateLight();
+                          setIsCollageStudioOpen(true);
+                        }}
+                        className="text-xs text-[#D4AF37] hover:underline font-black flex items-center gap-1"
+                      >
+                        <Layers className="w-3.5 h-3.5" />
+                        Collab Collage
+                      </button>
+                    )}
+                    {!imageUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setShowPresets(!showPresets)}
+                        className="text-xs text-blue-400 hover:underline font-bold flex items-center gap-1"
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        {showPresets ? 'Hide presets' : 'Preset ideas'}
+                      </button>
+                    )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setImageUrl('')}
-                    className="absolute top-2 right-2 p-1.5 bg-black/80 hover:bg-black text-red-400 rounded-full border border-white/15 shadow-md transition-colors"
-                    title="Remove photo"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  <div className="grid grid-cols-2 gap-2">
-                    <label className="flex items-center justify-center gap-2 p-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-blue-500/40 rounded-2xl cursor-pointer transition-all text-xs font-bold text-white min-h-[44px]">
-                      <Upload className="w-4 h-4 text-blue-400" />
-                      <span>Upload Photo</span>
+
+                {imageUrl ? (
+                  <div className="relative rounded-2xl overflow-hidden border border-white/20 aspect-video group max-h-[180px] bg-black">
+                    <img
+                      src={imageUrl}
+                      alt="Proof preview"
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover"
+                    />
+                    {isCollageGenerated && (
+                      <div className="absolute top-2 left-2 bg-[#D4AF37] text-black text-[9px] font-black uppercase px-2 py-0.5 rounded-md shadow-md flex items-center gap-1">
+                        <Layers className="w-3 h-3" />
+                        Collab Photo Stitch
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImageUrl('');
+                        setIsCollageGenerated(false);
+                      }}
+                      className="absolute top-2 right-2 p-1.5 rounded-full bg-black/70 hover:bg-black text-white/80 hover:text-red-400 transition-colors"
+                      aria-label="Remove image"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <label className="border-2 border-dashed border-white/20 hover:border-[#D4AF37]/50 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer bg-white/[0.02] hover:bg-white/[0.05] transition-all min-h-[90px]">
+                      <Upload className="w-5 h-5 text-[#D4AF37]" />
+                      <div className="text-center">
+                        <span className="text-xs font-bold text-white">Upload receipt photo</span>
+                        <span className="text-[10px] text-white/40 block mt-0.5">JPG, PNG, WebP</span>
+                      </div>
                       <input
                         type="file"
                         accept="image/*"
@@ -551,209 +653,151 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                         className="hidden"
                       />
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowPresets(!showPresets)}
-                      className="flex items-center justify-center gap-2 p-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-blue-500/40 rounded-2xl transition-all text-xs font-bold text-white min-h-[44px]"
-                    >
-                      <Sparkles className="w-4 h-4 text-blue-400" />
-                      <span>Proof Presets</span>
-                    </button>
-                  </div>
 
-                  {showPresets && (
-                    <div className="grid grid-cols-3 gap-2 p-2 bg-white/[0.03] rounded-2xl border border-white/10">
-                      {PROOF_PHOTO_PRESETS.map((preset, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => {
-                            vibrateLight();
-                            setImageUrl(preset.url);
-                            if (!selectedTags.includes(preset.category)) {
-                              setSelectedTags([preset.category, ...selectedTags.slice(0, 2)]);
-                            }
-                            setShowPresets(false);
-                          }}
-                          className="group relative rounded-xl overflow-hidden aspect-video border border-white/10 hover:border-blue-500 transition-all text-left"
-                        >
-                          <img
-                            src={preset.url}
-                            alt={preset.name}
-                            referrerPolicy="no-referrer"
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent flex items-end p-1.5">
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-white leading-none truncate">
-                              {preset.name}
+                    {/* Presets Grid */}
+                    {showPresets && (
+                      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 p-2.5 bg-black/40 rounded-2xl border border-white/10">
+                        {PROOF_PHOTO_PRESETS.map((preset) => (
+                          <div
+                            key={preset.url}
+                            onClick={() => {
+                              vibrateLight();
+                              setImageUrl(preset.url);
+                              setShowPresets(false);
+                            }}
+                            className="aspect-square rounded-xl overflow-hidden border border-white/10 hover:border-[#D4AF37] cursor-pointer relative group transition-all"
+                          >
+                            <img
+                              src={preset.url}
+                              alt={preset.name}
+                              referrerPolicy="no-referrer"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                            <span className="absolute bottom-0 inset-x-0 bg-black/70 text-[9px] text-white p-0.5 text-center truncate">
+                              {preset.category}
                             </span>
                           </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* STEP 2: WRITE REFLECTION ✍️ */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label
-                  htmlFor="reflection-textarea"
-                  className="text-xs font-black uppercase tracking-wider text-white/80 flex items-center gap-1.5"
-                >
-                  <PenTool className="w-4 h-4 text-blue-400" />
-                  2. Add Reflection (Short Thought)
-                </label>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`text-[10px] font-mono font-bold ${
-                      content.length >= 280
-                        ? 'text-red-400'
-                        : content.length >= 200
-                        ? 'text-amber-400'
-                        : 'text-white/40'
-                    }`}
-                  >
-                    {content.length}/300
-                  </span>
-                </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {/* Reflection Textarea */}
-              <div className="relative">
+              {/* STEP 2: WRITE REFLECTION ✍️ */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-white/80 flex items-center gap-1.5">
+                    <PenTool className="w-4 h-4 text-emerald-400" />
+                    2. Daily Reflection / Proof Note
+                  </span>
+                  <span className="text-[10px] text-white/40">{content.length}/280</span>
+                </div>
+
                 <textarea
-                  id="reflection-textarea"
                   ref={textareaRef}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  placeholder="What did you actually accomplish today? What was hard? (e.g., 'Shipped database migration. Took 2 hours to fix edge cases.')"
+                  placeholder={
+                    postDestination === 'main'
+                      ? "What hard work did you execute today? Log your 1 main proof..."
+                      : `Share proof and discuss with ${availableCommunities.find(c => c.id === selectedCommunityId)?.name || 'the community'}...`
+                  }
+                  maxLength={280}
                   rows={3}
-                  maxLength={300}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 focus:border-blue-500 rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-all resize-none leading-relaxed focus:bg-white/[0.07]"
+                  className="w-full bg-white/[0.04] border border-white/15 focus:border-[#D4AF37] rounded-2xl p-3 text-xs text-white placeholder-white/30 focus:outline-none transition-all resize-none leading-relaxed"
                 />
-              </div>
 
-              {/* Quick Reflection Starters */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-[10px] text-white/40 font-bold uppercase tracking-wider">
-                  <span className="flex items-center gap-1">
-                    <Lightbulb className="w-3 h-3 text-blue-400" /> Quick Starters & Prompts ({primaryTag})
-                  </span>
-                </div>
-
-                {/* Reflection Starters Pills */}
-                <div className="flex flex-wrap gap-1">
+                {/* Quick Starters */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                  <span className="text-[10px] font-bold text-white/40 shrink-0">Quick start:</span>
                   {REFLECTION_STARTERS.map((starter) => (
                     <button
                       key={starter}
                       type="button"
                       onClick={() => handleInsertStarter(starter)}
-                      className="text-[10px] px-2 py-0.5 rounded-lg bg-white/5 hover:bg-white/10 hover:border-blue-500/50 text-white/70 hover:text-white border border-white/5 transition-all flex items-center gap-1 active:scale-95"
+                      className="px-2 py-0.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[10px] text-white/70 hover:text-white shrink-0 transition-colors"
                     >
-                      <CornerDownLeft className="w-2.5 h-2.5 text-blue-400" />
-                      <span>{starter}</span>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Specific prompts for selected tag */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
-                  {tagPrompts.slice(0, 4).map((prompt, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => handleInsertPrompt(prompt)}
-                      className="text-[10px] p-2 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] text-white/70 hover:text-white border border-white/5 hover:border-blue-500/40 transition-all text-left line-clamp-2 leading-tight group flex items-start gap-1.5"
-                    >
-                      <Sparkles className="w-3 h-3 text-blue-400 shrink-0 mt-0.5 opacity-60 group-hover:opacity-100" />
-                      <span>"{prompt}"</span>
+                      {starter}
                     </button>
                   ))}
                 </div>
               </div>
-            </div>
 
-            {/* STEP 3: LINK HABIT / CHALLENGE / GOAL 🎯 */}
-            <div className="space-y-1.5 pt-1">
-              <div className="flex items-center justify-between">
+              {/* STEP 3: TAGS & CATEGORIES 🎯 */}
+              <div className="space-y-2">
                 <span className="text-xs font-black uppercase tracking-wider text-white/80 flex items-center gap-1.5">
-                  <Target className="w-4 h-4 text-blue-400" />
-                  3. Link Habit / Focus Area
+                  <Target className="w-4 h-4 text-purple-400" />
+                  3. Discipline Tag
                 </span>
-                <span className="text-[10px] text-white/40">Select 1-4 tags</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    'Coding',
+                    'Fitness',
+                    'Run',
+                    'Reading',
+                    'Building',
+                    'Design',
+                    'Gardening',
+                    'Singing',
+                    'Dancing',
+                    'Storytelling',
+                    'Meditation',
+                    'EarlyRise',
+                  ].map((tag) => {
+                    const isSelected = selectedTags.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => toggleTag(tag)}
+                        className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all border ${
+                          isSelected
+                            ? 'bg-[#D4AF37] text-black border-[#D4AF37] shadow-sm font-black'
+                            : 'bg-white/5 text-white/60 border-white/10 hover:border-white/20 hover:text-white'
+                        }`}
+                      >
+                        #{tag}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-              <div className="flex flex-wrap gap-1.5">
-                {HABIT_LINK_OPTIONS.map((tag) => {
-                  const isSelected = selectedTags.includes(tag);
-                  return (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => toggleTag(tag)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border min-h-[34px] ${
-                        isSelected
-                          ? 'bg-blue-600 text-white border-blue-500 shadow-sm scale-105 font-bold'
-                          : 'bg-white/5 text-white/60 border-white/10 hover:border-white/20 hover:text-white'
-                      }`}
-                    >
-                      {isSelected ? (
-                        <Check className="w-3.5 h-3.5 stroke-[3]" />
-                      ) : (
-                        <span className="text-white/30 text-xs">#</span>
-                      )}
-                      <span>{tag}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
 
-            {/* DRAFT ACTIONS & AUTO-SAVE INDICATOR */}
-            <div className="flex items-center justify-between pt-1 text-[11px] text-white/40 px-1 border-t border-white/5">
-              <span className="flex items-center gap-1.5 text-[10px]">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                {draftSavedToast ? 'Draft saved locally ✓' : 'Auto-saving draft'}
-              </span>
-              <div className="flex items-center gap-2">
-                {(content.trim() || imageUrl.trim()) && (
-                  <button
-                    type="button"
-                    onClick={handleManualSaveDraft}
-                    className="text-[10px] font-bold text-blue-400 hover:underline flex items-center gap-1"
-                  >
-                    <Save className="w-3 h-3" />
-                    Save Draft
-                  </button>
-                )}
-                {(content.trim() || imageUrl.trim()) && (
-                  <button
-                    type="button"
-                    onClick={handleDiscardDraft}
-                    className="text-[10px] text-white/40 hover:text-red-400 transition-colors"
-                  >
-                    Clear All
-                  </button>
-                )}
+              {/* Submit Button */}
+              <div className="pt-3 border-t border-white/10">
+                <button
+                  type="submit"
+                  disabled={!content.trim()}
+                  className={`w-full py-3.5 px-4 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg min-h-[46px] ${
+                    !content.trim()
+                      ? 'bg-white/10 text-white/30 cursor-not-allowed border border-white/5'
+                      : postDestination === 'main'
+                      ? 'bg-[#D4AF37] hover:bg-[#E5B842] text-black shadow-[#D4AF37]/25 active:scale-[0.99]'
+                      : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/25 active:scale-[0.99]'
+                  }`}
+                >
+                  <ShieldCheck className="w-4 h-4 stroke-[2.5]" />
+                  <span>
+                    {postDestination === 'main'
+                      ? 'Submit 1 Main Daily Proof'
+                      : `Post to ${availableCommunities.find(c => c.id === selectedCommunityId)?.name || 'Community'}`}
+                  </span>
+                </button>
               </div>
-            </div>
-
-            {/* SUBMIT BUTTON: POST TODAY 🔥 */}
-            <div className="pt-1">
-              <button
-                id="submit-proof-post-btn"
-                type="submit"
-                disabled={!content.trim()}
-                className="w-full py-4 rounded-2xl bg-[#D4AF37] text-black font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-[#D4AF37]/90 active:scale-[0.98] transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-lg shadow-[#D4AF37]/25 min-h-[48px]"
-              >
-                <Flame className="w-5 h-5 fill-black" />
-                <span>POST TODAY 🔥</span>
-              </button>
-            </div>
-          </form>
-        )}
+            </form>
+          )}
+        </div>
       </div>
-    </div>
+
+      {/* Collab Collage Studio Modal */}
+      <CollabCollageStudio
+        isOpen={isCollageStudioOpen}
+        onClose={() => setIsCollageStudioOpen(false)}
+        currentUser={currentUser}
+        todayCommunityPosts={todayCommunityPosts}
+        onApplyCollage={handleApplyStitchedCollage}
+      />
+    </>
   );
 };

@@ -525,11 +525,6 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                                 <h3 className="font-bold text-sm text-white truncate hover:underline">
                                   {user.name}
                                 </h3>
-                                {user.verified && (
-                                  <span className="w-3.5 h-3.5 rounded-full bg-[#D4AF37] text-black text-[9px] flex items-center justify-center font-bold">
-                                    ✓
-                                  </span>
-                                )}
                               </div>
                               <p className="text-[10px] text-white/40 truncate">@{user.username}</p>
                             </div>
