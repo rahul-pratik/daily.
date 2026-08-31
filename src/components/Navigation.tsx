@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Flame, PlusCircle, Compass, User as UserIcon, MessageSquare, Bell } from 'lucide-react';
+import { Home, Flame, PlusCircle, Compass, User as UserIcon, MessageSquare, Bell, Search } from 'lucide-react';
 import { NavigationTab, User } from '../types';
 
 interface NavigationProps {
@@ -18,6 +18,7 @@ export const TopHeader: React.FC<{
   onSelectTab: (tab: NavigationTab) => void;
   onOpenNotifications?: () => void;
   unreadNotificationsCount?: number;
+  onOpenSearch?: () => void;
 }> = ({
   currentUser,
   onOpenDMs,
@@ -25,6 +26,7 @@ export const TopHeader: React.FC<{
   onSelectTab,
   onOpenNotifications = () => {},
   unreadNotificationsCount = 0,
+  onOpenSearch = () => {},
 }) => {
   return (
     <header className="sticky top-0 z-30 w-full bg-[#050505]/95 backdrop-blur-md border-b border-white/5 px-4 py-3 flex items-center justify-between">
@@ -35,7 +37,7 @@ export const TopHeader: React.FC<{
       >
         <div className="flex items-center gap-1.5">
           <h1 className="text-xl font-black tracking-tighter text-white">
-            DAILY<span className="text-[#D4AF37]">.</span>
+            DAILY<span className="text-[#3B82F6]">.</span>
           </h1>
         </div>
         <p className="text-[9px] uppercase tracking-widest text-white/40 font-semibold leading-none mt-0.5">
@@ -43,8 +45,18 @@ export const TopHeader: React.FC<{
         </p>
       </button>
 
-      {/* Right controls: Streak Counter pill + Notification Bell + DM button */}
+      {/* Right controls: Global Search + Streak Counter pill + Notification Bell + DM button */}
       <div className="flex items-center gap-2">
+        {/* Global Search Button */}
+        <button
+          onClick={onOpenSearch}
+          className="p-2.5 rounded-full bg-white/5 hover:bg-[#3B82F6]/20 border border-white/10 hover:border-[#3B82F6]/40 text-white/80 hover:text-[#3B82F6] transition-all active:scale-95 min-h-[40px] min-w-[40px] flex items-center justify-center"
+          aria-label="Global Search"
+          title="Search communities, users, tags..."
+        >
+          <Search className="w-4 h-4" />
+        </button>
+
         {/* Streak Pill */}
         <button
           onClick={() => onSelectTab('streak')}
@@ -55,31 +67,31 @@ export const TopHeader: React.FC<{
           <span className="whitespace-nowrap">{currentUser.currentStreak}d Streak</span>
         </button>
 
-        {/* Notifications Icon */}
+        {/* Notifications Icon with Brand Blue Badge */}
         <button
           onClick={onOpenNotifications}
-          className="relative p-2.5 rounded-full bg-white/10 hover:bg-white/15 text-white transition-all active:scale-95 min-h-[44px] min-w-[44px] flex items-center justify-center"
+          className="relative p-2.5 rounded-full bg-white/10 hover:bg-white/15 text-white transition-all active:scale-95 min-h-[40px] min-w-[40px] flex items-center justify-center"
           aria-label="Notifications"
           title="Notifications"
         >
-          <Bell className="w-4 h-4 text-white/90 hover:text-blue-400 transition-colors" />
+          <Bell className="w-4 h-4 text-white/90 hover:text-[#3B82F6] transition-colors" />
           {unreadNotificationsCount > 0 && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 text-white font-black text-[9px] rounded-full flex items-center justify-center shadow-md animate-pulse">
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#3B82F6] text-white font-black text-[9px] rounded-full flex items-center justify-center shadow-md animate-pulse">
               {unreadNotificationsCount}
             </span>
           )}
         </button>
 
-        {/* Direct Messages Icon */}
+        {/* Direct Messages Icon with Brand Blue Badge */}
         <button
           onClick={onOpenDMs}
-          className="relative p-2.5 rounded-full bg-white/10 hover:bg-white/15 text-white transition-all active:scale-95 min-h-[44px] min-w-[44px] flex items-center justify-center"
+          className="relative p-2.5 rounded-full bg-white/10 hover:bg-white/15 text-white transition-all active:scale-95 min-h-[40px] min-w-[40px] flex items-center justify-center"
           aria-label="Direct Messages"
           title="Messages & Groups"
         >
-          <MessageSquare className="w-4 h-4 text-white/90 hover:text-blue-400 transition-colors" />
+          <MessageSquare className="w-4 h-4 text-white/90 hover:text-[#3B82F6] transition-colors" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 text-white font-black text-[9px] rounded-full flex items-center justify-center animate-bounce shadow-md">
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#3B82F6] text-white font-black text-[9px] rounded-full flex items-center justify-center animate-bounce shadow-md">
               {unreadCount}
             </span>
           )}

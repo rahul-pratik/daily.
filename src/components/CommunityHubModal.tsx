@@ -15,6 +15,8 @@ import {
   Sparkles,
   Share2,
   LogOut,
+  Flag,
+  AlertCircle,
 } from 'lucide-react';
 import { Community, User, Post, Message } from '../types';
 import { DailyStorageService } from '../services/storage';
@@ -31,6 +33,7 @@ interface CommunityHubModalProps {
   onApproveMember?: (communityId: string, userId: string) => void;
   onViewUser?: (user: User) => void;
   onViewPost?: (postId: string) => void;
+  onReportViolation?: (communityName: string, ruleText: string) => void;
 }
 
 export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
@@ -44,9 +47,11 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
   onApproveMember,
   onViewUser,
   onViewPost,
+  onReportViolation,
 }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'activity' | 'moderation'>('overview');
   const [quickMessage, setQuickMessage] = useState('');
+  const [reportedRuleIndex, setReportedRuleIndex] = useState<number | null>(null);
   const [localComments, setLocalComments] = useState<{ id: string; user: User; text: string; time: string }[]>([
     {
       id: 'c1',
@@ -63,6 +68,17 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
   ]);
 
   if (!isOpen) return null;
+
+  const handleReportRule = (rule: string, idx: number) => {
+    vibrateLight();
+    setReportedRuleIndex(idx);
+    if (onReportViolation) {
+      onReportViolation(community.name, rule);
+    }
+    setTimeout(() => {
+      setReportedRuleIndex(null);
+    }, 2500);
+  };
 
   const isMember = (community.memberIds || []).includes(currentUser.id);
   const isPending = (community.pendingRequestUserIds || []).includes(currentUser.id);
@@ -281,6 +297,56 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {activeTab === 'overview' && (
             <div className="space-y-4">
+              {/* Community Guidelines (Prominently at Top) */}
+              <div className="p-4 bg-white/5 border border-blue-500/30 rounded-2xl space-y-3 shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-white">
+                    <BookOpen className="w-4 h-4 text-[#3B82F6]" />
+                    <span>Community Rules & Standards</span>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 font-bold border border-blue-500/20">
+                    Strictly Enforced
+                  </span>
+                </div>
+                
+                <ul className="space-y-2.5 text-xs text-white/80">
+                  {(community.rules || [
+                    'Post authentic daily proof of work (no falsified or stolen photos)',
+                    'Maintain a constructive, encouraging, and supportive environment',
+                    'Zero spam, unsolicited promotion, or abusive behavior'
+                  ]).map((rule, idx) => (
+                    <li
+                      key={idx}
+                      className="p-2.5 rounded-xl bg-black/40 border border-white/10 flex items-center justify-between gap-3 group"
+                    >
+                      <div className="flex items-start gap-2.5 min-w-0">
+                        <span className="w-5 h-5 rounded-full bg-blue-500/20 text-[#3B82F6] text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5">
+                          {idx + 1}
+                        </span>
+                        <span className="text-xs text-white/90 leading-snug">{rule}</span>
+                      </div>
+
+                      {reportedRuleIndex === idx ? (
+                        <span className="text-[10px] font-bold text-emerald-400 shrink-0 flex items-center gap-1 bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20 animate-in fade-in">
+                          <Check className="w-3 h-3" />
+                          Reported
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleReportRule(rule, idx)}
+                          className="text-[10px] font-bold text-white/40 hover:text-red-400 hover:bg-red-500/10 px-2 py-1 rounded-lg border border-transparent hover:border-red-500/20 transition-all shrink-0 flex items-center gap-1"
+                          title="Report rule violation to moderator"
+                        >
+                          <Flag className="w-3 h-3" />
+                          <span>Report</span>
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
               {/* Mission Statement */}
               <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-2">
                 <h3 className="text-xs font-black uppercase tracking-wider text-white/40">Mission & Purpose</h3>
@@ -304,12 +370,12 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
                     src={community.moderatorAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80'}
                     alt={community.moderatorName}
                     referrerPolicy="no-referrer"
-                    className="w-10 h-10 rounded-full object-cover border border-[#D4AF37]/50"
+                    className="w-10 h-10 rounded-full object-cover border border-[#3B82F6]/50"
                   />
                   <div>
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs font-bold text-white">{community.moderatorName}</span>
-                      <span className="px-1.5 py-0.5 rounded bg-[#D4AF37]/20 text-[#D4AF37] text-[9px] font-black border border-[#D4AF37]/30">
+                      <span className="px-1.5 py-0.5 rounded bg-[#3B82F6]/20 text-[#3B82F6] text-[9px] font-black border border-[#3B82F6]/30">
                         MODERATOR
                       </span>
                     </div>
@@ -323,36 +389,18 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
                 </div>
               </div>
 
-              {/* Community Guidelines */}
-              <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-2.5">
-                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-white">
-                  <BookOpen className="w-4 h-4 text-[#D4AF37]" />
-                  <span>Community Guidelines</span>
-                </div>
-                <ul className="space-y-2 text-xs text-white/70">
-                  {(community.rules || ['Post daily proof of work', 'Maintain encouraging atmosphere']).map(
-                    (rule, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <span className="text-[#D4AF37] font-bold shrink-0">{idx + 1}.</span>
-                        <span>{rule}</span>
-                      </li>
-                    )
-                  )}
-                </ul>
-              </div>
-
               {/* Access Information */}
-              <div className="p-3 bg-[#D4AF37]/5 border border-[#D4AF37]/20 rounded-2xl text-xs text-[#D4AF37] flex items-center gap-2.5">
+              <div className="p-3 bg-[#3B82F6]/5 border border-[#3B82F6]/20 rounded-2xl text-xs text-blue-300 flex items-center gap-2.5">
                 {community.accessType === 'public' ? (
                   <>
-                    <Globe2 className="w-4 h-4 shrink-0" />
+                    <Globe2 className="w-4 h-4 shrink-0 text-[#3B82F6]" />
                     <span className="text-[11px] leading-tight">
                       <strong>Public Community</strong>: Free and open to everyone in the Explore directory.
                     </span>
                   </>
                 ) : (
                   <>
-                    <ShieldCheck className="w-4 h-4 shrink-0" />
+                    <ShieldCheck className="w-4 h-4 shrink-0 text-[#3B82F6]" />
                     <span className="text-[11px] leading-tight">
                       <strong>Moderated Access</strong>: Applications are reviewed by @{community.moderatorUsername} before joining.
                     </span>

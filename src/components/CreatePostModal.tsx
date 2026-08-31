@@ -194,7 +194,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const todayMainPost = DailyStorageService.getTodayPostForUser(currentUser.id);
   const todayCommunityPosts = DailyStorageService.getTodayCommunityPostsForUser(currentUser.id);
 
-  // Initialize form state
+  // Initialize form state once on open
   useEffect(() => {
     if (isOpen) {
       if (!hasInitializedRef.current) {
@@ -247,9 +247,9 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       setDraftSavedToast(false);
       setIsCollageGenerated(false);
     }
-  }, [isOpen, currentUser.id, initialContent, initialImageUrl, initialTags, initialCommunityId, hasPostedMainToday]);
+  }, [isOpen, currentUser.id, initialCommunityId]);
 
-  // Debounced auto-save draft
+  // Debounced auto-save draft to local storage so drafts persist continuously
   useEffect(() => {
     if (!isOpen || !hasInitializedRef.current) return;
 
@@ -261,7 +261,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
           tags: selectedTags,
         });
       }
-    }, 500);
+    }, 400);
 
     return () => clearTimeout(timer);
   }, [isOpen, content, imageUrl, selectedTags, currentUser.id]);
@@ -326,9 +326,6 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       setContent(starterText);
     } else {
       setContent((prev) => `${prev.trim()} ${starterText}`);
-    }
-    if (textareaRef.current) {
-      textareaRef.current.focus();
     }
   };
 
@@ -705,7 +702,9 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                   }
                   maxLength={280}
                   rows={3}
-                  className="w-full bg-white/[0.04] border border-white/15 focus:border-[#D4AF37] rounded-2xl p-3 text-xs text-white placeholder-white/30 focus:outline-none transition-all resize-none leading-relaxed"
+                  spellCheck={false}
+                  autoComplete="off"
+                  className="w-full bg-white/[0.04] border border-white/15 focus:border-[#3B82F6] focus:ring-1 focus:ring-[#3B82F6]/50 rounded-2xl p-3 text-xs sm:text-sm text-white placeholder-white/30 focus:outline-none transition-all resize-none leading-relaxed whitespace-pre-wrap break-words"
                 />
 
                 {/* Quick Starters */}

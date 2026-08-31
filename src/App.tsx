@@ -28,6 +28,7 @@ import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { NotificationsModal } from './components/NotificationsModal';
 import { CreateCollectionModal } from './components/CreateCollectionModal';
 import { AddToCollectionModal } from './components/AddToCollectionModal';
+import { GlobalSearchModal } from './components/GlobalSearchModal';
 import { vibratePostSubmit, vibrateLight, vibrateStreakMilestone } from './services/haptics';
 
 export default function App() {
@@ -45,6 +46,7 @@ export default function App() {
 
   // UI Navigation & Modals
   const [currentTab, setCurrentTab] = useState<NavigationTab>('home');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isDMsOpen, setIsDMsOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -541,6 +543,7 @@ export default function App() {
           onSelectTab={setCurrentTab}
           unreadNotificationsCount={unreadNotificationsCount}
           onOpenNotifications={() => setIsNotificationsOpen(true)}
+          onOpenSearch={() => setIsSearchOpen(true)}
         />
 
         {/* Main Tab Screens */}
@@ -822,6 +825,27 @@ export default function App() {
           post={insightsPost}
           onClose={() => setInsightsPost(null)}
           onSharePost={handleOpenShare}
+        />
+
+        {/* Global Search Modal */}
+        <GlobalSearchModal
+          isOpen={isSearchOpen}
+          onClose={() => setIsSearchOpen(false)}
+          users={users}
+          communities={communities}
+          posts={posts}
+          onSelectUser={(user) => {
+            handleViewUser(user);
+          }}
+          onSelectCommunity={(comm) => {
+            setActiveCommunityHub(comm);
+          }}
+          onSelectPost={(post) => {
+            handleViewPostFromId(post.id);
+          }}
+          onSelectTag={(tag) => {
+            setCurrentTab('discover');
+          }}
         />
 
         {/* Delete Confirmation Alert Modal */}
