@@ -37,7 +37,7 @@ export const TopHeader: React.FC<{
       >
         <div className="flex items-center gap-1.5">
           <h1 className="text-xl font-black tracking-tighter text-white">
-            DAILY<span className="text-[#3B82F6]">.</span>
+            DAILY<span className="text-[#D4AF37]">.</span>
           </h1>
         </div>
         <p className="text-[9px] uppercase tracking-widest text-white/40 font-semibold leading-none mt-0.5">
@@ -57,17 +57,17 @@ export const TopHeader: React.FC<{
           <Search className="w-4 h-4" />
         </button>
 
-        {/* Streak Pill */}
+        {/* Streak Pill (Electric Blue) */}
         <button
           onClick={() => onSelectTab('streak')}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 hover:border-[#D4AF37]/40 transition-colors text-xs font-bold text-[#D4AF37] min-h-[40px] active:scale-95"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 hover:border-[#3B82F6]/40 transition-colors text-xs font-bold text-[#3B82F6] min-h-[40px] active:scale-95"
           title="View your streak history"
         >
-          <Flame className="w-4 h-4 text-[#D4AF37] fill-[#D4AF37] animate-pulse shrink-0" />
+          <Flame className="w-4 h-4 text-[#3B82F6] fill-[#3B82F6] animate-pulse shrink-0" />
           <span className="whitespace-nowrap">{currentUser.currentStreak}d Streak</span>
         </button>
 
-        {/* Notifications Icon with Brand Blue Badge */}
+        {/* Notifications Icon with Brand Golden/Blue Badge */}
         <button
           onClick={onOpenNotifications}
           className="relative p-2.5 rounded-full bg-white/10 hover:bg-white/15 text-white transition-all active:scale-95 min-h-[40px] min-w-[40px] flex items-center justify-center"
@@ -76,13 +76,13 @@ export const TopHeader: React.FC<{
         >
           <Bell className="w-4 h-4 text-white/90 hover:text-[#3B82F6] transition-colors" />
           {unreadNotificationsCount > 0 && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#3B82F6] text-white font-black text-[9px] rounded-full flex items-center justify-center shadow-md animate-pulse">
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#D4AF37] text-black font-black text-[9px] rounded-full flex items-center justify-center shadow-md animate-pulse">
               {unreadNotificationsCount}
             </span>
           )}
         </button>
 
-        {/* Direct Messages Icon with Brand Blue Badge */}
+        {/* Direct Messages Icon with Golden Badge */}
         <button
           onClick={onOpenDMs}
           className="relative p-2.5 rounded-full bg-white/10 hover:bg-white/15 text-white transition-all active:scale-95 min-h-[40px] min-w-[40px] flex items-center justify-center"
@@ -91,7 +91,7 @@ export const TopHeader: React.FC<{
         >
           <MessageSquare className="w-4 h-4 text-white/90 hover:text-[#3B82F6] transition-colors" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#3B82F6] text-white font-black text-[9px] rounded-full flex items-center justify-center animate-bounce shadow-md">
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#D4AF37] text-black font-black text-[9px] rounded-full flex items-center justify-center animate-bounce shadow-md">
               {unreadCount}
             </span>
           )}

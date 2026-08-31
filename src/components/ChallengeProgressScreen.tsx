@@ -22,6 +22,8 @@ import {
   MessageSquare,
   ThumbsUp,
   Share2,
+  Hourglass,
+  Flag,
 } from 'lucide-react';
 import { User, Challenge, ChallengeProgressPost } from '../types';
 import { DailyStorageService, getTodayDateString } from '../services/storage';
@@ -69,6 +71,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [selectedPhotoPreview, setSelectedPhotoPreview] = useState<string | null>(null);
+  const [selectedDayProof, setSelectedDayProof] = useState<ChallengeProgressPost | null>(null);
 
   // Load progress posts
   useEffect(() => {
@@ -79,6 +82,26 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
   const userProgress = DailyStorageService.getChallengeUserProgress(challenge.id, currentUser.id);
   const today = getTodayDateString();
   const isJoined = (challenge.participantIds || []).includes(currentUser.id);
+
+  // Calculate countdown days remaining
+  const daysCompleted = userProgress.daysCompleted;
+  const totalDays = challenge.durationDays || 30;
+  const remainingDays = Math.max(0, totalDays - daysCompleted);
+
+  // Compute countdown to deadline
+  const calculateDeadlineCountdown = () => {
+    try {
+      const todayDate = new Date();
+      const deadline = new Date(`${challenge.deadlineDate}T23:59:59`);
+      const diffMs = deadline.getTime() - todayDate.getTime();
+      const diffDays = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+      return diffDays;
+    } catch {
+      return remainingDays;
+    }
+  };
+
+  const deadlineDaysLeft = calculateDeadlineCountdown();
 
   // Handle joining / leaving challenge
   const handleToggleJoin = () => {
@@ -144,7 +167,22 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
     setProgressPosts(updated.filter((p) => p.challengeId === challenge.id));
   };
 
-  const percentComplete = Math.min(100, Math.round((userProgress.daysCompleted / challenge.durationDays) * 100));
+  // Find user's progress post for a specific day
+  const getProgressPostForDay = (dayNum: number) => {
+    return progressPosts.find((p) => p.userId === currentUser.id && p.dayNumber === dayNum);
+  };
+
+  const handleDayClick = (dayNum: number) => {
+    vibrateLight();
+    const postForDay = getProgressPostForDay(dayNum);
+    if (postForDay) {
+      setSelectedDayProof(postForDay);
+    } else if (dayNum === daysCompleted + 1 && !userProgress.hasPostedToday && !userProgress.isCompleted) {
+      setIsPostModalOpen(true);
+    }
+  };
+
+  const percentComplete = Math.min(100, Math.round((daysCompleted / totalDays) * 100));
 
   return (
     <div className="w-full min-h-screen bg-[#050505] text-white flex flex-col pb-24 animate-in fade-in duration-200">
@@ -169,27 +207,28 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
             </button>
           )}
 
-          <div className="flex items-center gap-1 text-[11px] font-black text-[#D4AF37] bg-[#D4AF37]/10 px-2.5 py-1 rounded-full border border-[#D4AF37]/20">
+          <div className="flex items-center gap-1 text-[11px] font-black text-[#D4AF37] bg-[#D4AF37]/10 px-2.5 py-1 rounded-full border border-[#D4AF37]/30">
             <Trophy className="w-3.5 h-3.5" />
-            <span>{challenge.durationDays} Days</span>
+            <span>{totalDays} Days</span>
           </div>
         </div>
       </div>
 
-      {/* Challenge Hero Information Card */}
+      {/* Main Challenge Content */}
       <div className="p-4 space-y-4 max-w-lg mx-auto w-full">
+        {/* Challenge Hero Information Card */}
         <div className="bg-[#0F0F0F] border border-white/15 rounded-3xl p-5 shadow-2xl space-y-4 relative overflow-hidden">
           <div className="flex items-start gap-3.5">
-            <div className="w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-3xl shrink-0 shadow-lg">
+            <div className="w-14 h-14 rounded-2xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-3xl shrink-0 shadow-lg">
               {challenge.icon}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap mb-1">
-                <span className="px-2.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-[10px] font-black text-blue-400 uppercase tracking-wider">
+                <span className="px-2.5 py-0.5 rounded-full bg-[#D4AF37]/10 border border-[#D4AF37]/30 text-[10px] font-black text-[#D4AF37] uppercase tracking-wider">
                   #{challenge.tag || challenge.category}
                 </span>
                 <span className="text-[10px] text-white/40 flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
+                  <Clock className="w-3 h-3 text-[#D4AF37]" />
                   Ends {challenge.deadlineDate}
                 </span>
               </div>
@@ -205,7 +244,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
           {/* Participants bar & Actions */}
           <div className="flex items-center justify-between pt-3 border-t border-white/10 text-xs">
             <div className="flex items-center gap-1.5 text-white/60">
-              <Users className="w-3.5 h-3.5 text-blue-400" />
+              <Users className="w-3.5 h-3.5 text-[#D4AF37]" />
               <span className="font-bold text-white">
                 {(challenge.participantsCount || 1).toLocaleString()}
               </span>
@@ -215,7 +254,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
             {!isJoined ? (
               <button
                 onClick={handleToggleJoin}
-                className="py-2 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs transition-all shadow-md shadow-blue-500/25 flex items-center gap-1.5"
+                className="py-2 px-4 rounded-xl bg-[#D4AF37] hover:bg-[#e5c158] text-black font-black text-xs transition-all shadow-md shadow-[#D4AF37]/25 flex items-center gap-1.5"
               >
                 <Trophy className="w-3.5 h-3.5" />
                 <span>Join Challenge</span>
@@ -229,77 +268,132 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
           </div>
         </div>
 
-        {/* User's 30-Day (or Total Duration) Progress Tracker */}
+        {/* VISUAL 30-DAY DAY-BY-DAY PROGRESS TRACKER & COUNTDOWN */}
         {isJoined && (
-          <div className="bg-[#0F0F0F] border border-white/15 rounded-3xl p-5 shadow-xl space-y-3.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Flame className="w-4 h-4 text-[#D4AF37]" />
-                <h3 className="text-xs font-black uppercase tracking-wider text-white">
-                  Your Challenge Journey
-                </h3>
+          <div className="bg-[#0F0F0F] border border-white/15 rounded-3xl p-5 shadow-xl space-y-4">
+            {/* Header with Title and Countdown */}
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-lg bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                    <Flame className="w-3.5 h-3.5 fill-blue-400" />
+                  </div>
+                  <h3 className="text-xs font-black uppercase tracking-wider text-white">
+                    {totalDays}-Day Progress Tracker
+                  </h3>
+                </div>
+                <p className="text-[10px] text-white/40 mt-0.5">
+                  Tap any completed day to view its proof receipt
+                </p>
               </div>
-              <div className="text-xs font-black text-[#D4AF37]">
-                {userProgress.daysCompleted} / {challenge.durationDays} Days Tracked
+
+              {/* Remaining Duration Countdown Pill */}
+              <div className="text-right">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-black">
+                  <Hourglass className="w-3.5 h-3.5 animate-pulse" />
+                  <span>{remainingDays} Days Left</span>
+                </div>
+                <div className="text-[9px] text-white/40 mt-0.5 font-bold">
+                  {deadlineDaysLeft}d until {challenge.deadlineDate}
+                </div>
               </div>
             </div>
 
-            {/* Progress bar */}
+            {/* Visual Progress Stats Bar */}
             <div className="space-y-1.5">
-              <div className="h-2.5 w-full bg-white/10 rounded-full overflow-hidden p-0.5 border border-white/5">
+              <div className="h-3 w-full bg-white/10 rounded-full overflow-hidden p-0.5 border border-white/5">
                 <div
-                  className="h-full bg-gradient-to-r from-blue-500 via-[#D4AF37] to-amber-400 rounded-full transition-all duration-500"
+                  className="h-full bg-gradient-to-r from-[#D4AF37] via-amber-400 to-blue-500 rounded-full transition-all duration-500"
                   style={{ width: `${percentComplete}%` }}
                 />
               </div>
-              <div className="flex items-center justify-between text-[10px] text-white/40 font-bold">
+              <div className="flex items-center justify-between text-[10px] text-white/50 font-bold">
                 <span>Day 1</span>
-                <span>{percentComplete}% Completed</span>
-                <span>Day {challenge.durationDays}</span>
+                <span className="text-[#D4AF37] font-black">{daysCompleted} of {totalDays} Completed ({percentComplete}%)</span>
+                <span>Day {totalDays} 🏁</span>
               </div>
             </div>
 
-            {/* Visual Days Grid (interactive preview of all duration days) */}
+            {/* Visual Day-by-Day Matrix (30-Day Window Grid) */}
             <div className="pt-2">
-              <p className="text-[10px] text-white/40 uppercase font-bold tracking-wider mb-2">
-                Day-by-Day Milestone Grid:
-              </p>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] text-white/40 uppercase font-bold tracking-wider">
+                  30-Day Window Tracker:
+                </span>
+                <div className="flex items-center gap-2 text-[9px] text-white/40">
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded bg-blue-600 inline-block" /> Completed
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded border border-[#D4AF37] inline-block" /> Target
+                  </span>
+                </div>
+              </div>
+
+              {/* Day cells matrix */}
               <div className="grid grid-cols-6 sm:grid-cols-10 gap-1.5">
-                {Array.from({ length: challenge.durationDays }).map((_, idx) => {
+                {Array.from({ length: totalDays }).map((_, idx) => {
                   const dayNum = idx + 1;
-                  const isChecked = dayNum <= userProgress.daysCompleted;
+                  const isChecked = dayNum <= daysCompleted;
+                  const isCurrentTarget = dayNum === daysCompleted + 1 && !userProgress.isCompleted;
+                  const isMilestone = [7, 14, 21, 30].includes(dayNum);
+                  const postForDay = getProgressPostForDay(dayNum);
+
                   return (
-                    <div
+                    <button
                       key={dayNum}
-                      className={`h-8 rounded-lg flex flex-col items-center justify-center text-[10px] font-bold transition-all border ${
+                      type="button"
+                      onClick={() => handleDayClick(dayNum)}
+                      className={`h-10 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold transition-all border relative cursor-pointer ${
                         isChecked
-                          ? 'bg-[#D4AF37]/20 border-[#D4AF37]/60 text-[#D4AF37] shadow-sm'
-                          : 'bg-white/5 border-white/10 text-white/30'
+                          ? 'bg-blue-600 border-blue-400 text-white shadow-md shadow-blue-500/25 hover:scale-105 active:scale-95'
+                          : isCurrentTarget
+                          ? 'bg-[#D4AF37]/15 border-2 border-[#D4AF37] text-[#D4AF37] shadow-lg shadow-[#D4AF37]/20 hover:scale-105 animate-pulse'
+                          : 'bg-white/5 border-white/10 text-white/30 hover:bg-white/10 hover:text-white/60'
                       }`}
-                      title={`Day ${dayNum}`}
+                      title={
+                        isChecked
+                          ? `Day ${dayNum} Completed - Click to view proof`
+                          : isCurrentTarget
+                          ? `Day ${dayNum} (Today's Target) - Click to post proof`
+                          : `Day ${dayNum} - ${remainingDays} days left`
+                      }
                     >
                       {isChecked ? (
-                        <Check className="w-3.5 h-3.5 stroke-[3]" />
+                        <>
+                          <Check className="w-3.5 h-3.5 stroke-[3] text-white" />
+                          <span className="text-[8px] font-black text-white/90 leading-none">D{dayNum}</span>
+                        </>
+                      ) : isCurrentTarget ? (
+                        <>
+                          <span className="text-[9px] font-black text-[#D4AF37] leading-none">{dayNum}</span>
+                          <span className="text-[7px] font-bold text-[#D4AF37] uppercase leading-none mt-0.5">Now</span>
+                        </>
                       ) : (
-                        <span>{dayNum}</span>
+                        <>
+                          <span>{dayNum}</span>
+                          {isMilestone && (
+                            <span className="w-1 h-1 rounded-full bg-white/40 absolute top-1 right-1" />
+                          )}
+                        </>
                       )}
-                    </div>
+                    </button>
                   );
                 })}
               </div>
             </div>
 
-            {/* STATUS & POST ACTION LOGIC */}
+            {/* Countdown Milestone Progress & Status Actions */}
             <div className="pt-3 border-t border-white/10">
               {userProgress.isCompleted ? (
                 /* 30 DAYS OVER / COMPLETED STATE */
-                <div className="p-3.5 rounded-2xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 text-center space-y-2">
-                  <div className="flex items-center justify-center gap-2 text-[#D4AF37] font-black text-sm">
+                <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-center space-y-2">
+                  <div className="flex items-center justify-center gap-2 text-blue-400 font-black text-sm">
                     <Award className="w-5 h-5" />
-                    <span>🎉 Challenge Completed! ({challenge.durationDays}/{challenge.durationDays} Days)</span>
+                    <span>🎉 Challenge Completed! ({totalDays}/{totalDays} Days)</span>
                   </div>
                   <p className="text-xs text-white/70 leading-relaxed">
-                    You have tracked all {challenge.durationDays} days of this challenge! Posting is now closed. You can continue browsing other members' progress or leave the group whenever you wish.
+                    You have tracked all {totalDays} days of this challenge! Posting is now closed. You can continue viewing other cohort members' proofs or leave the group whenever you wish.
                   </p>
                   <button
                     onClick={() => setShowLeaveConfirm(true)}
@@ -314,21 +408,24 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                   <div className="flex items-center gap-2 text-blue-300">
                     <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0" />
                     <span>
-                      <strong>Day {userProgress.daysCompleted} proof logged!</strong> Return tomorrow for Day {userProgress.daysCompleted + 1}.
+                      <strong>Day {daysCompleted} proof logged!</strong> Return tomorrow for Day {daysCompleted + 1}.
                     </span>
                   </div>
+                  <span className="text-[10px] text-white/40 font-bold">
+                    {remainingDays}d countdown active
+                  </span>
                 </div>
               ) : (
-                /* ACTIVE POST PROOF BUTTON */
+                /* ACTIVE POST PROOF BUTTON (Golden Theme) */
                 <button
                   onClick={() => {
                     vibrateLight();
                     setIsPostModalOpen(true);
                   }}
-                  className="w-full py-3.5 px-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs transition-all shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 hover:scale-[1.01]"
+                  className="w-full py-3.5 px-4 rounded-2xl bg-[#D4AF37] hover:bg-[#e5c158] text-black font-black text-xs transition-all shadow-lg shadow-[#D4AF37]/25 flex items-center justify-center gap-2 hover:scale-[1.01]"
                 >
-                  <Camera className="w-4 h-4" />
-                  <span>Post Day {userProgress.daysCompleted + 1} Progress Proof</span>
+                  <Camera className="w-4 h-4 text-black" />
+                  <span>Post Day {daysCompleted + 1} Progress Proof</span>
                 </button>
               )}
             </div>
@@ -339,7 +436,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
         <div className="space-y-3 pt-2">
           <div className="flex items-center justify-between px-1">
             <h2 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+              <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
               <span>Cohort Member Proofs ({progressPosts.length})</span>
             </h2>
             <span className="text-[10px] text-white/40">Photo receipts mandatory</span>
@@ -373,16 +470,16 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                         <span className="font-bold text-xs text-white">{post.userName}</span>
                         <span className="text-[10px] text-white/40">@{post.userUsername}</span>
                       </div>
-                      <div className="flex items-center gap-1 text-[10px] text-[#D4AF37] font-bold">
-                        <Flame className="w-3 h-3 fill-[#D4AF37]" />
+                      <div className="flex items-center gap-1 text-[10px] text-blue-400 font-bold">
+                        <Flame className="w-3 h-3 fill-blue-400" />
                         <span>{post.userStreak}d Streak</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Day Badge */}
-                  <div className="px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 font-black text-[10px] uppercase tracking-wider">
-                    Day {post.dayNumber} of {challenge.durationDays}
+                  <div className="px-2.5 py-1 rounded-full bg-[#D4AF37]/10 border border-[#D4AF37]/30 text-[#D4AF37] font-black text-[10px] uppercase tracking-wider">
+                    Day {post.dayNumber} of {totalDays}
                   </div>
                 </div>
 
@@ -416,9 +513,9 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
 
                   <button
                     onClick={() => handleToggleCheer(post.id)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all min-h-[32px] ${
+                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all min-h-[32px] ${
                       post.cheeredByMe
-                        ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                        ? 'bg-[#D4AF37] text-black font-black shadow-md shadow-[#D4AF37]/25'
                         : 'bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/10'
                     }`}
                   >
@@ -446,8 +543,8 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
             <div className="flex items-center justify-between pb-3.5 border-b border-white/10">
               <div>
                 <h3 className="font-black text-sm text-white flex items-center gap-1.5">
-                  <Camera className="w-4 h-4 text-blue-400" />
-                  Log Day {userProgress.daysCompleted + 1} Progress
+                  <Camera className="w-4 h-4 text-[#D4AF37]" />
+                  Log Day {daysCompleted + 1} Progress
                 </h3>
                 <p className="text-[10px] text-white/50">{challenge.title}</p>
               </div>
@@ -462,10 +559,10 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
 
             <form onSubmit={handleSubmitProgress} className="flex-1 overflow-y-auto space-y-4 py-3.5 pr-1">
               {/* Photo Requirement Notice */}
-              <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-2xl text-xs text-blue-300 flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-                <span className="leading-relaxed">
-                  <strong>Photo proof is mandatory:</strong> Please insert a photo as your achievement (photo only, or photo + text reflection).
+              <div className="p-3 bg-[#D4AF37]/10 border border-[#D4AF37]/30 rounded-2xl text-xs text-[#D4AF37] flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-[#D4AF37] shrink-0 mt-0.5" />
+                <span className="leading-relaxed text-white/90">
+                  <strong className="text-[#D4AF37]">Photo proof is mandatory:</strong> Please insert a photo as your achievement (photo only, or photo + text reflection).
                 </span>
               </div>
 
@@ -483,7 +580,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                   <button
                     type="button"
                     onClick={() => setShowPresets(!showPresets)}
-                    className="text-xs text-blue-400 hover:underline font-bold lowercase flex items-center gap-1"
+                    className="text-xs text-[#D4AF37] hover:underline font-bold lowercase flex items-center gap-1"
                   >
                     <Sparkles className="w-3.5 h-3.5" />
                     {showPresets ? 'hide presets' : 'sample receipts'}
@@ -508,8 +605,8 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-2">
-                    <label className="border-2 border-dashed border-white/15 hover:border-blue-500/50 rounded-2xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer bg-white/[0.02] hover:bg-white/[0.04] transition-all text-center">
-                      <Upload className="w-5 h-5 text-blue-400" />
+                    <label className="border-2 border-dashed border-white/15 hover:border-[#D4AF37]/50 rounded-2xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer bg-white/[0.02] hover:bg-white/[0.04] transition-all text-center">
+                      <Upload className="w-5 h-5 text-[#D4AF37]" />
                       <span className="text-xs font-semibold text-white">Upload Photo</span>
                       <span className="text-[10px] text-white/40">Required proof</span>
                       <input
@@ -552,7 +649,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                             setPhotoError(null);
                             setShowPresets(false);
                           }}
-                          className="relative rounded-xl overflow-hidden border border-white/10 aspect-video group text-left hover:border-blue-500"
+                          className="relative rounded-xl overflow-hidden border border-white/10 aspect-video group text-left hover:border-[#D4AF37]"
                         >
                           <img
                             src={item.url}
@@ -580,26 +677,89 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                   onChange={(e) => setPostReflection(e.target.value)}
                   placeholder="Notes on what you accomplished, obstacles, or lessons..."
                   rows={3}
-                  className="w-full bg-[#141414] border border-white/15 focus:border-blue-500 rounded-2xl p-3 text-xs text-white placeholder-white/30 focus:outline-none transition-colors resize-none leading-relaxed"
+                  className="w-full bg-[#141414] border border-white/15 focus:border-[#D4AF37] rounded-2xl p-3 text-xs text-white placeholder-white/30 focus:outline-none transition-colors resize-none leading-relaxed"
                 />
               </div>
 
-              {/* Submit Button */}
+              {/* Submit Button (Golden Theme) */}
               <div className="pt-2">
                 <button
                   type="submit"
                   disabled={!postPhotoUrl || isSubmitting}
                   className={`w-full py-3.5 px-4 rounded-2xl font-black text-xs transition-all shadow-lg flex items-center justify-center gap-2 min-h-[44px] ${
                     postPhotoUrl
-                      ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/25 hover:scale-[1.01]'
+                      ? 'bg-[#D4AF37] hover:bg-[#e5c158] text-black shadow-[#D4AF37]/25 hover:scale-[1.01]'
                       : 'bg-white/10 text-white/30 cursor-not-allowed'
                   }`}
                 >
-                  <Trophy className="w-4 h-4" />
-                  <span>Submit Day {userProgress.daysCompleted + 1} Achievement</span>
+                  <Trophy className="w-4 h-4 text-black" />
+                  <span>Submit Day {daysCompleted + 1} Achievement</span>
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* CLICKED DAY PROOF DETAIL MODAL */}
+      {selectedDayProof && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200"
+          onClick={() => setSelectedDayProof(null)}
+        >
+          <div
+            className="w-full max-w-md bg-[#0D0D0D] border border-white/15 rounded-[32px] p-5 shadow-2xl text-white space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 font-black text-xs">
+                  D{selectedDayProof.dayNumber}
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-white">
+                    Day {selectedDayProof.dayNumber} Verified Proof
+                  </h4>
+                  <span className="text-[10px] text-white/40">{selectedDayProof.createdAt}</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedDayProof(null)}
+                className="p-1.5 rounded-full text-white/40 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {selectedDayProof.imageUrl && (
+              <div className="rounded-2xl overflow-hidden border border-white/15 aspect-video bg-black/60">
+                <img
+                  src={selectedDayProof.imageUrl}
+                  alt={`Day ${selectedDayProof.dayNumber}`}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+
+            {selectedDayProof.text && (
+              <p className="text-xs text-white/90 leading-relaxed font-sans">
+                {selectedDayProof.text}
+              </p>
+            )}
+
+            <div className="pt-2 border-t border-white/10 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-1 text-blue-400 font-bold text-[11px]">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Verified Achievement</span>
+              </div>
+              <button
+                onClick={() => setSelectedDayProof(null)}
+                className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

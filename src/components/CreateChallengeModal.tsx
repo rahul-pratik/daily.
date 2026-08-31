@@ -62,7 +62,7 @@ export const CreateChallengeModal: React.FC<CreateChallengeModalProps> = ({
     setDurationDays(days);
     const d = new Date();
     d.setDate(d.getDate() + days);
-    setDeadlineDate(d.toISOString().split('T')[0]);
+    return setDeadlineDate(d.toISOString().split('T')[0]);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -97,7 +97,7 @@ export const CreateChallengeModal: React.FC<CreateChallengeModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between pb-3.5 border-b border-white/10">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-xl shrink-0">
+            <div className="w-10 h-10 rounded-2xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-xl shrink-0">
               {icon}
             </div>
             <div>
@@ -135,7 +135,7 @@ export const CreateChallengeModal: React.FC<CreateChallengeModalProps> = ({
                   }}
                   className={`w-9 h-9 rounded-xl text-lg flex items-center justify-center shrink-0 transition-all ${
                     icon === emoji
-                      ? 'bg-blue-600 border-2 border-white scale-110 shadow-md'
+                      ? 'bg-[#D4AF37] border-2 border-white scale-110 shadow-md'
                       : 'bg-white/5 hover:bg-white/10 border border-white/10'
                   }`}
                 >
@@ -155,7 +155,7 @@ export const CreateChallengeModal: React.FC<CreateChallengeModalProps> = ({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. 30 Days of Rust & Backend, 60-Day Strength"
-              className="w-full bg-[#141414] border border-white/15 focus:border-blue-500 rounded-2xl p-3 text-xs text-white placeholder-white/30 focus:outline-none transition-colors"
+              className="w-full bg-[#141414] border border-white/15 focus:border-[#D4AF37] rounded-2xl p-3 text-xs text-white placeholder-white/30 focus:outline-none transition-colors"
               required
             />
           </div>
@@ -176,7 +176,7 @@ export const CreateChallengeModal: React.FC<CreateChallengeModalProps> = ({
                   }}
                   className={`px-3 py-1 rounded-full text-xs font-bold transition-all min-h-[30px] ${
                     category === cat
-                      ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30'
+                      ? 'bg-[#D4AF37] text-black font-black shadow-md shadow-[#D4AF37]/25'
                       : 'bg-white/5 text-white/70 hover:text-white hover:bg-white/10 border border-white/10'
                   }`}
                 >
@@ -190,7 +190,7 @@ export const CreateChallengeModal: React.FC<CreateChallengeModalProps> = ({
           <div>
             <label className="block text-[11px] font-bold text-white/70 uppercase tracking-wider mb-1.5 flex items-center justify-between">
               <span>Duration (Days)</span>
-              <span className="text-blue-400 font-bold">{durationDays} Days Tracked</span>
+              <span className="text-blue-400 font-bold">{durationDays} Days Window</span>
             </label>
             <div className="flex flex-wrap gap-1.5">
               {DURATION_PRESETS.map((days) => (
@@ -200,7 +200,7 @@ export const CreateChallengeModal: React.FC<CreateChallengeModalProps> = ({
                   onClick={() => handleDurationSelect(days)}
                   className={`px-3 py-1 rounded-xl text-xs font-black transition-all min-h-[32px] ${
                     durationDays === days
-                      ? 'bg-[#D4AF37] text-black shadow-md shadow-[#D4AF37]/30'
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30'
                       : 'bg-white/5 text-white/70 hover:text-white hover:bg-white/10 border border-white/10'
                   }`}
                 >
@@ -222,7 +222,7 @@ export const CreateChallengeModal: React.FC<CreateChallengeModalProps> = ({
                 value={deadlineDate}
                 min={getTodayDateString()}
                 onChange={(e) => setDeadlineDate(e.target.value)}
-                className="w-full bg-[#141414] border border-white/15 focus:border-blue-500 rounded-2xl p-3 text-xs text-white placeholder-white/30 focus:outline-none transition-colors"
+                className="w-full bg-[#141414] border border-white/15 focus:border-[#D4AF37] rounded-2xl p-3 text-xs text-white placeholder-white/30 focus:outline-none transition-colors"
                 required
               />
             </div>
@@ -238,23 +238,23 @@ export const CreateChallengeModal: React.FC<CreateChallengeModalProps> = ({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="What must participants execute every single day? (e.g., Code for at least 45 minutes and insert photo proof receipt)."
               rows={3}
-              className="w-full bg-[#141414] border border-white/15 focus:border-blue-500 rounded-2xl p-3 text-xs text-white placeholder-white/30 focus:outline-none transition-colors resize-none leading-relaxed"
+              className="w-full bg-[#141414] border border-white/15 focus:border-[#D4AF37] rounded-2xl p-3 text-xs text-white placeholder-white/30 focus:outline-none transition-colors resize-none leading-relaxed"
               required
             />
           </div>
 
-          {/* Submit */}
+          {/* Submit (Golden Theme) */}
           <div className="pt-2">
             <button
               type="submit"
               disabled={!title.trim() || !description.trim()}
               className={`w-full py-3.5 px-4 rounded-2xl font-black text-xs transition-all shadow-lg flex items-center justify-center gap-2 min-h-[44px] ${
                 title.trim() && description.trim()
-                  ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/25 hover:scale-[1.01]'
+                  ? 'bg-[#D4AF37] hover:bg-[#e5c158] text-black shadow-[#D4AF37]/25 hover:scale-[1.01]'
                   : 'bg-white/10 text-white/30 cursor-not-allowed'
               }`}
             >
-              <Trophy className="w-4 h-4" />
+              <Trophy className="w-4 h-4 text-black" />
               <span>Launch {durationDays}-Day Challenge</span>
             </button>
           </div>
