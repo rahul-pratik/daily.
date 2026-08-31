@@ -145,6 +145,41 @@ export interface Community {
   lastActivity?: string;
 }
 
+export interface ChallengeProgressPost {
+  id: string;
+  challengeId: string;
+  userId: string;
+  userName: string;
+  userUsername: string;
+  userAvatar: string;
+  userStreak: number;
+  dayNumber: number; // e.g. Day 1, Day 2 ... Day 30
+  imageUrl: string; // MANDATORY photo proof
+  text?: string; // Optional reflection/achievement notes
+  createdAt: string;
+  postDate: string; // YYYY-MM-DD
+  cheersCount: number;
+  cheeredByMe?: boolean;
+}
+
+export interface Challenge {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  category: string;
+  tag: string;
+  durationDays: number; // e.g. 30
+  deadlineDate: string; // YYYY-MM-DD
+  createdBy: string;
+  createdByName: string;
+  createdAt: string;
+  participantsCount: number;
+  participantIds: string[];
+  completedUserIds: string[]; // Users who completed all durationDays or finished
+  userPostDates: Record<string, string[]>; // { [userId]: ["2026-08-25", ...] }
+}
+
 export interface CommunityMemberRanking {
   user: User;
   rank: number;

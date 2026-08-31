@@ -1,5 +1,5 @@
-import { User, Post, Message, Comment, Group, SharedPostPreview, CommunityMemberRanking, PersonalHabit, Community, PostDraft, AppNotification, ProofCollection } from '../types';
-import { INITIAL_CURRENT_USER, SAMPLE_USERS, INITIAL_POSTS, INITIAL_MESSAGES, SAMPLE_GROUPS, INITIAL_PERSONAL_HABITS, INITIAL_COMMUNITIES, INITIAL_NOTIFICATIONS } from '../data/mockData';
+import { User, Post, Message, Comment, Group, SharedPostPreview, CommunityMemberRanking, PersonalHabit, Community, PostDraft, AppNotification, ProofCollection, Challenge, ChallengeProgressPost } from '../types';
+import { INITIAL_CURRENT_USER, SAMPLE_USERS, INITIAL_POSTS, INITIAL_MESSAGES, SAMPLE_GROUPS, INITIAL_PERSONAL_HABITS, INITIAL_COMMUNITIES, INITIAL_NOTIFICATIONS, getPastDate } from '../data/mockData';
 
 const STORAGE_KEYS = {
   CURRENT_USER: 'daily_app_current_user_v1',
@@ -8,6 +8,8 @@ const STORAGE_KEYS = {
   MESSAGES: 'daily_app_messages_v1',
   GROUPS: 'daily_app_groups_v1',
   COMMUNITIES: 'daily_app_communities_v1',
+  CHALLENGES: 'daily_app_challenges_v1',
+  CHALLENGE_PROGRESS_POSTS: 'daily_app_challenge_progress_posts_v1',
   POST_DRAFT: 'daily_app_post_draft_v1',
   ONBOARDED: 'daily_app_onboarded_v1',
   SAVED_POSTS: 'daily_app_saved_posts_v1',
@@ -1343,4 +1345,489 @@ export class DailyStorageService {
     this.saveReportedPostIds([]);
     this.setOnboarded(true);
   }
+
+  // ==========================================
+  // CHALLENGES ENGINE
+  // ==========================================
+  static getInitialChallenges(): Challenge[] {
+    return [
+      {
+        id: 'challenge_build_30',
+        title: '30 Days of Building',
+        description: 'Build and ship real working software every single day for 30 consecutive days. Insert photo proof.',
+        icon: '💻',
+        category: 'Coding',
+        tag: 'Building',
+        durationDays: 30,
+        deadlineDate: '2026-09-30',
+        createdBy: 'user_sarah',
+        createdByName: 'Sarah Chen',
+        createdAt: '2026-08-01',
+        participantsCount: 12438,
+        participantIds: ['user_me', 'user_sarah', 'user_david', 'user_aryan', 'user_priya'],
+        completedUserIds: [],
+        userPostDates: {
+          user_me: [
+            getPastDate(17), getPastDate(16), getPastDate(15), getPastDate(14),
+            getPastDate(13), getPastDate(12), getPastDate(11), getPastDate(10),
+            getPastDate(9), getPastDate(8), getPastDate(7), getPastDate(6),
+            getPastDate(5), getPastDate(4), getPastDate(3), getPastDate(2),
+            getPastDate(1)
+          ],
+          user_sarah: [
+            getPastDate(20), getPastDate(19), getPastDate(18), getPastDate(17),
+            getPastDate(16), getPastDate(15), getPastDate(14), getPastDate(13),
+            getPastDate(12), getPastDate(11), getPastDate(10), getPastDate(9),
+            getPastDate(8), getPastDate(7), getPastDate(6), getPastDate(5),
+            getPastDate(4), getPastDate(3), getPastDate(2), getPastDate(1),
+            getPastDate(0)
+          ],
+        },
+      },
+      {
+        id: 'challenge_fitness_60',
+        title: '60-Day Fitness Mastery',
+        description: 'Workout and physical conditioning proof every single day. No excuses. Photo receipts mandatory.',
+        icon: '🏋️‍♂️',
+        category: 'Fitness',
+        tag: 'Fitness',
+        durationDays: 60,
+        deadlineDate: '2026-10-31',
+        createdBy: 'user_marcus',
+        createdByName: 'Marcus Vance',
+        createdAt: '2026-08-01',
+        participantsCount: 8920,
+        participantIds: ['user_me', 'user_marcus', 'user_elena'],
+        completedUserIds: [],
+        userPostDates: {
+          user_me: [
+            getPastDate(10), getPastDate(9), getPastDate(8), getPastDate(7),
+            getPastDate(6), getPastDate(5), getPastDate(4), getPastDate(3),
+            getPastDate(2), getPastDate(1)
+          ],
+        },
+      },
+      {
+        id: 'challenge_reading_30',
+        title: '30 Days of Deep Reading',
+        description: 'Read 25+ pages daily and photograph key margin notes or book highlights.',
+        icon: '📚',
+        category: 'Learning',
+        tag: 'Reading',
+        durationDays: 30,
+        deadlineDate: '2026-09-30',
+        createdBy: 'user_elena',
+        createdByName: 'Elena Rostova',
+        createdAt: '2026-08-10',
+        participantsCount: 6410,
+        participantIds: ['user_sarah', 'user_elena'],
+        completedUserIds: [],
+        userPostDates: {},
+      },
+      {
+        id: 'challenge_dawn_21',
+        title: '21-Day 5:00 AM Dawn Protocol',
+        description: 'Rise before dawn, log morning sunlight/study proof, and seize the day.',
+        icon: '🌅',
+        category: 'Mindset',
+        tag: 'EarlyRise',
+        durationDays: 21,
+        deadlineDate: '2026-09-21',
+        createdBy: 'user_me',
+        createdByName: 'Alex Rivera',
+        createdAt: '2026-08-15',
+        participantsCount: 4230,
+        participantIds: ['user_me', 'user_marcus', 'user_priya'],
+        completedUserIds: [],
+        userPostDates: {
+          user_me: [
+            getPastDate(6), getPastDate(5), getPastDate(4), getPastDate(3),
+            getPastDate(2), getPastDate(1)
+          ],
+        },
+      },
+    ];
+  }
+
+  static getInitialChallengeProgressPosts(): ChallengeProgressPost[] {
+    return [
+      {
+        id: 'cpost_1',
+        challengeId: 'challenge_build_30',
+        userId: 'user_sarah',
+        userName: 'Sarah Chen',
+        userUsername: 'sarahcodes',
+        userAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80',
+        userStreak: 21,
+        dayNumber: 21,
+        imageUrl: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=1000&auto=format&fit=crop&q=80',
+        text: 'Day 21 of 30! Built out token authentication, rate-limiting, and error toast alerts.',
+        createdAt: '2h ago',
+        postDate: getTodayDateString(),
+        cheersCount: 28,
+        cheeredByMe: true,
+      },
+      {
+        id: 'cpost_2',
+        challengeId: 'challenge_build_30',
+        userId: 'user_david',
+        userName: 'David Kim',
+        userUsername: 'davidk_dev',
+        userAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
+        userStreak: 19,
+        dayNumber: 19,
+        imageUrl: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=1000&auto=format&fit=crop&q=80',
+        text: 'Day 19: Cleaned up Postgres schema migrations and verified connection pool latency.',
+        createdAt: '4h ago',
+        postDate: getTodayDateString(),
+        cheersCount: 14,
+      },
+      {
+        id: 'cpost_3',
+        challengeId: 'challenge_fitness_60',
+        userId: 'user_marcus',
+        userName: 'Marcus Vance',
+        userUsername: 'marcus_fit',
+        userAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80',
+        userStreak: 27,
+        dayNumber: 27,
+        imageUrl: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1000&auto=format&fit=crop&q=80',
+        text: 'Day 27/60: Heavy deadlifts + 30 min incline treadmill walk. Staying locked in.',
+        createdAt: '1h ago',
+        postDate: getTodayDateString(),
+        cheersCount: 35,
+        cheeredByMe: true,
+      },
+      {
+        id: 'cpost_4',
+        challengeId: 'challenge_dawn_21',
+        userId: 'user_marcus',
+        userName: 'Marcus Vance',
+        userUsername: 'marcus_fit',
+        userAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80',
+        userStreak: 14,
+        dayNumber: 14,
+        imageUrl: 'https://images.unsplash.com/photo-1470246973918-29a93221c455?w=1000&auto=format&fit=crop&q=80',
+        text: 'Day 14: Up at 4:55 AM. 10m breathing + 45m deep book study before dawn.',
+        createdAt: '5h ago',
+        postDate: getTodayDateString(),
+        cheersCount: 19,
+      },
+    ];
+  }
+
+  static getAllChallenges(): Challenge[] {
+    const data = localStorage.getItem(STORAGE_KEYS.CHALLENGES);
+    if (!data) {
+      const initial = this.getInitialChallenges();
+      this.saveAllChallenges(initial);
+      return initial;
+    }
+    try {
+      return JSON.parse(data);
+    } catch {
+      const initial = this.getInitialChallenges();
+      this.saveAllChallenges(initial);
+      return initial;
+    }
+  }
+
+  static saveAllChallenges(challenges: Challenge[]): void {
+    localStorage.setItem(STORAGE_KEYS.CHALLENGES, JSON.stringify(challenges));
+  }
+
+  static getChallengeById(challengeId: string): Challenge | undefined {
+    const all = this.getAllChallenges();
+    return all.find((c) => c.id === challengeId);
+  }
+
+  static getAllChallengeProgressPosts(challengeId?: string): ChallengeProgressPost[] {
+    const data = localStorage.getItem(STORAGE_KEYS.CHALLENGE_PROGRESS_POSTS);
+    let posts: ChallengeProgressPost[] = [];
+    if (!data) {
+      posts = this.getInitialChallengeProgressPosts();
+      this.saveAllChallengeProgressPosts(posts);
+    } else {
+      try {
+        posts = JSON.parse(data);
+      } catch {
+        posts = this.getInitialChallengeProgressPosts();
+        this.saveAllChallengeProgressPosts(posts);
+      }
+    }
+
+    if (challengeId) {
+      return posts.filter((p) => p.challengeId === challengeId);
+    }
+    return posts;
+  }
+
+  static saveAllChallengeProgressPosts(posts: ChallengeProgressPost[]): void {
+    localStorage.setItem(STORAGE_KEYS.CHALLENGE_PROGRESS_POSTS, JSON.stringify(posts));
+  }
+
+  static createChallenge(payload: {
+    title: string;
+    description: string;
+    icon: string;
+    category: string;
+    durationDays: number;
+    deadlineDate: string;
+    tag?: string;
+  }): Challenge {
+    const currentUser = this.getCurrentUser();
+    const today = getTodayDateString();
+    const cleanTag = payload.tag?.trim() || payload.category || 'Challenge';
+
+    const newChallenge: Challenge = {
+      id: `challenge_${Date.now()}`,
+      title: payload.title.trim(),
+      description: payload.description.trim(),
+      icon: payload.icon || '🔥',
+      category: payload.category || 'Discipline',
+      tag: cleanTag.replace(/^#/, ''),
+      durationDays: Math.max(1, payload.durationDays || 30),
+      deadlineDate: payload.deadlineDate || '2026-10-31',
+      createdBy: currentUser.id,
+      createdByName: currentUser.name,
+      createdAt: today,
+      participantsCount: 1,
+      participantIds: [currentUser.id],
+      completedUserIds: [],
+      userPostDates: {
+        [currentUser.id]: [],
+      },
+    };
+
+    const all = this.getAllChallenges();
+    const updated = [newChallenge, ...all];
+    this.saveAllChallenges(updated);
+    return newChallenge;
+  }
+
+  static toggleJoinChallenge(challengeId: string): { challenge: Challenge; joined: boolean; isCompleted: boolean } {
+    const currentUser = this.getCurrentUser();
+    const all = this.getAllChallenges();
+    let joined = false;
+    let isCompleted = false;
+
+    const updated = all.map((c) => {
+      if (c.id === challengeId) {
+        const isMember = (c.participantIds || []).includes(currentUser.id);
+        const userDates = c.userPostDates?.[currentUser.id] || [];
+        const hasFinishedDays = userDates.length >= c.durationDays;
+        const isMarkedCompleted = (c.completedUserIds || []).includes(currentUser.id) || hasFinishedDays;
+
+        if (isMember) {
+          // Leave challenge
+          joined = false;
+          const nextParticipants = c.participantIds.filter((id) => id !== currentUser.id);
+          // If user had completed, keep them in completedUserIds so if they rejoin, they cannot post
+          const nextCompleted = isMarkedCompleted
+            ? Array.from(new Set([...(c.completedUserIds || []), currentUser.id]))
+            : c.completedUserIds || [];
+
+          return {
+            ...c,
+            participantIds: nextParticipants,
+            participantsCount: Math.max(0, nextParticipants.length),
+            completedUserIds: nextCompleted,
+          };
+        } else {
+          // Join challenge
+          joined = true;
+          isCompleted = isMarkedCompleted;
+          const nextParticipants = Array.from(new Set([...(c.participantIds || []), currentUser.id]));
+          return {
+            ...c,
+            participantIds: nextParticipants,
+            participantsCount: nextParticipants.length,
+          };
+        }
+      }
+      return c;
+    });
+
+    this.saveAllChallenges(updated);
+    const targetChallenge = updated.find((c) => c.id === challengeId)!;
+    return { challenge: targetChallenge, joined, isCompleted };
+  }
+
+  static getChallengeUserProgress(
+    challengeId: string,
+    userId?: string
+  ): {
+    daysCompleted: number;
+    totalDays: number;
+    isJoined: boolean;
+    isCompleted: boolean;
+    hasPostedToday: boolean;
+    canPost: boolean;
+    reason?: string;
+  } {
+    const currentUser = this.getCurrentUser();
+    const targetUserId = userId || currentUser.id;
+    const challenge = this.getChallengeById(challengeId);
+    const today = getTodayDateString();
+
+    if (!challenge) {
+      return {
+        daysCompleted: 0,
+        totalDays: 30,
+        isJoined: false,
+        isCompleted: false,
+        hasPostedToday: false,
+        canPost: false,
+        reason: 'Challenge not found',
+      };
+    }
+
+    const isJoined = (challenge.participantIds || []).includes(targetUserId);
+    const postDates = challenge.userPostDates?.[targetUserId] || [];
+    const daysCompleted = postDates.length;
+    const hasPostedToday = postDates.includes(today);
+    
+    // Check if challenge is expired by deadline
+    const isDeadlinePassed = Boolean(challenge.deadlineDate && challenge.deadlineDate < today);
+
+    // Completed if user reached total days OR marked in completedUserIds
+    const isCompleted =
+      daysCompleted >= challenge.durationDays ||
+      (challenge.completedUserIds || []).includes(targetUserId);
+
+    let canPost = false;
+    let reason: string | undefined;
+
+    if (!isJoined) {
+      canPost = false;
+      reason = 'Join this challenge to track and submit your progress.';
+    } else if (isCompleted) {
+      canPost = false;
+      reason = `You have completed all ${challenge.durationDays} days of this challenge! Posting is now closed.`;
+    } else if (isDeadlinePassed) {
+      canPost = false;
+      reason = 'This challenge deadline has passed. Posting is closed.';
+    } else if (hasPostedToday) {
+      canPost = false;
+      reason = 'You have already logged your challenge proof for today! Come back tomorrow.';
+    } else {
+      canPost = true;
+    }
+
+    return {
+      daysCompleted,
+      totalDays: challenge.durationDays,
+      isJoined,
+      isCompleted,
+      hasPostedToday,
+      canPost,
+      reason,
+    };
+  }
+
+  static postChallengeProgress(
+    challengeId: string,
+    payload: { imageUrl: string; text?: string }
+  ): {
+    success: boolean;
+    progressPost?: ChallengeProgressPost;
+    challenge?: Challenge;
+    error?: string;
+  } {
+    const currentUser = this.getCurrentUser();
+    const today = getTodayDateString();
+    const allChallenges = this.getAllChallenges();
+    const targetChallenge = allChallenges.find((c) => c.id === challengeId);
+
+    if (!targetChallenge) {
+      return { success: false, error: 'Challenge not found' };
+    }
+
+    // Mandatory photo validation
+    if (!payload.imageUrl || !payload.imageUrl.trim()) {
+      return {
+        success: false,
+        error: 'Please insert a photo as your achievement proof (photo is required).',
+      };
+    }
+
+    const progress = this.getChallengeUserProgress(challengeId, currentUser.id);
+    if (!progress.canPost) {
+      return {
+        success: false,
+        error: progress.reason || 'You cannot post to this challenge at this time.',
+      };
+    }
+
+    const currentDates = targetChallenge.userPostDates?.[currentUser.id] || [];
+    const nextDates = [...currentDates, today];
+    const newDayNumber = nextDates.length;
+    const isNowFinished = newDayNumber >= targetChallenge.durationDays;
+
+    const nextCompletedUserIds = isNowFinished
+      ? Array.from(new Set([...(targetChallenge.completedUserIds || []), currentUser.id]))
+      : targetChallenge.completedUserIds || [];
+
+    const updatedChallenges = allChallenges.map((c) => {
+      if (c.id === challengeId) {
+        return {
+          ...c,
+          completedUserIds: nextCompletedUserIds,
+          userPostDates: {
+            ...(c.userPostDates || {}),
+            [currentUser.id]: nextDates,
+          },
+        };
+      }
+      return c;
+    });
+
+    this.saveAllChallenges(updatedChallenges);
+
+    const newProgressPost: ChallengeProgressPost = {
+      id: `cpost_${Date.now()}`,
+      challengeId,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      userUsername: currentUser.username,
+      userAvatar: currentUser.avatar,
+      userStreak: currentUser.currentStreak,
+      dayNumber: newDayNumber,
+      imageUrl: payload.imageUrl.trim(),
+      text: payload.text?.trim() || undefined,
+      createdAt: 'Just now',
+      postDate: today,
+      cheersCount: 0,
+      cheeredByMe: false,
+    };
+
+    const allPosts = this.getAllChallengeProgressPosts();
+    this.saveAllChallengeProgressPosts([newProgressPost, ...allPosts]);
+
+    const updatedChallenge = updatedChallenges.find((c) => c.id === challengeId);
+
+    return {
+      success: true,
+      progressPost: newProgressPost,
+      challenge: updatedChallenge,
+    };
+  }
+
+  static toggleCheerChallengePost(postId: string): ChallengeProgressPost[] {
+    const posts = this.getAllChallengeProgressPosts();
+    const updated = posts.map((p) => {
+      if (p.id === postId) {
+        const cheered = !p.cheeredByMe;
+        return {
+          ...p,
+          cheeredByMe: cheered,
+          cheersCount: cheered ? p.cheersCount + 1 : Math.max(0, p.cheersCount - 1),
+        };
+      }
+      return p;
+    });
+    this.saveAllChallengeProgressPosts(updated);
+    return updated;
+  }
 }
+
