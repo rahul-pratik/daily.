@@ -421,30 +421,6 @@ export const PostCard: React.FC<PostCardProps> = ({
                 <Share2 className="w-4 h-4 text-white/50 hover:text-[#D4AF37] transition-colors" />
                 <span className="font-semibold">Share</span>
               </button>
-
-              {/* Insights button for own posts */}
-              {isMyPost && onOpenInsights && (
-                <button
-                  onClick={() => onOpenInsights(post)}
-                  className="transition-all flex items-center gap-1 text-[11px] py-1 px-2.5 rounded-lg border bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 text-[#D4AF37] border-[#D4AF37]/30 min-h-[32px]"
-                  title="View Post Engagement Statistics"
-                >
-                  <BarChart3 className="w-3.5 h-3.5" />
-                  <span className="font-bold">Stats</span>
-                </button>
-              )}
-
-              {/* Delete button for own posts */}
-              {isMyPost && onDeletePost && (
-                <button
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="transition-all flex items-center gap-1 text-[11px] py-1 px-2 rounded-lg border bg-red-500/10 hover:bg-red-500/20 text-red-400 border-red-500/20 min-h-[32px]"
-                  title="Delete Post"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span className="font-bold">Delete</span>
-                </button>
-              )}
             </div>
 
             {/* Right actions: Add to Collection & Bookmark */}
