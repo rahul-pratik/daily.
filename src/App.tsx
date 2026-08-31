@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
-import { User, Post, Message, Group, Community, NavigationTab, ReportReason, AppNotification, ProofCollection } from './types';
+import React, { useState, useEffect } from 'react';
+import { User, Post, Message, Group, Community, NavigationTab, ReportReason, AppNotification, ProofCollection, PostDraft } from './types';
 import { DailyStorageService } from './services/storage';
 import { TopHeader, BottomNavigation } from './components/Navigation';
 import { HomeFeed } from './components/HomeFeed';
@@ -65,6 +65,32 @@ export default function App() {
   const [activeCommunityHub, setActiveCommunityHub] = useState<Community | null>(null);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [activeProfileUser, setActiveProfileUser] = useState<User | null>(null);
+  const [activeDraftToEdit, setActiveDraftToEdit] = useState<PostDraft | null>(null);
+
+  // Background processor for auto-publishing scheduled posts when due
+  useEffect(() => {
+    const checkScheduledPosts = () => {
+      const allDrafts = DailyStorageService.getAllDrafts(currentUser.id);
+      const nowIso = new Date().toISOString();
+      const dueDrafts = allDrafts.filter(
+        (d) => d.isScheduled && d.scheduledAt && d.scheduledAt <= nowIso
+      );
+
+      if (dueDrafts.length > 0) {
+        dueDrafts.forEach((draft) => {
+          const res = DailyStorageService.publishDraftNow(currentUser.id, draft.id);
+          if (res.success) {
+            setPosts(DailyStorageService.getAllPosts());
+            setCurrentUser(DailyStorageService.getCurrentUser());
+          }
+        });
+      }
+    };
+
+    checkScheduledPosts();
+    const interval = setInterval(checkScheduledPosts, 15000);
+    return () => clearInterval(interval);
+  }, [currentUser.id]);
 
   // Streak celebration modal state
   const [celebrationState, setCelebrationState] = useState<{
@@ -625,6 +651,28 @@ export default function App() {
               onRemovePostFromCollection={handleRemovePostFromCollection}
               onOpenAddToCollection={(post) => setSelectedPostForCollection(post)}
               onUpdateMilestones={handleUpdateMilestones}
+              onOpenResumeDraft={(draft) => {
+                setActiveDraftToEdit(draft);
+                setIsCreateOpen(true);
+              }}
+              onOpenCreateDraft={() => {
+                setActiveDraftToEdit(null);
+                setIsCreateOpen(true);
+              }}
+              onPublishDraftDirectly={(draftId) => {
+                const res = DailyStorageService.publishDraftNow(currentUser.id, draftId);
+                if (res.success) {
+                  setPosts(DailyStorageService.getAllPosts());
+                  setCurrentUser(DailyStorageService.getCurrentUser());
+                  if (res.post) {
+                    setCelebrationState({
+                      isOpen: true,
+                      streakCount: currentUser.currentStreak,
+                      isNewStreakDay: false,
+                    });
+                  }
+                }
+              }}
             />
           )}
         </main>
@@ -764,13 +812,22 @@ export default function App() {
           onComplete={handleCompleteOnboarding}
         />
 
-        {/* Create Post Modal with Local Draft Saving, Main vs Community rules & Collab Stitcher */}
+        {/* Create Post Modal with Local Draft Saving, Schedule Queue & Draft Editor */}
         <CreatePostModal
           isOpen={isCreateOpen}
-          onClose={() => setIsCreateOpen(false)}
+          onClose={() => {
+            setIsCreateOpen(false);
+            setActiveDraftToEdit(null);
+          }}
           currentUser={currentUser}
           posts={posts}
           communities={communities}
+          initialDraftId={activeDraftToEdit?.id}
+          initialContent={activeDraftToEdit?.content}
+          initialImageUrl={activeDraftToEdit?.imageUrl}
+          initialTags={activeDraftToEdit?.tags}
+          initialScheduledAt={activeDraftToEdit?.scheduledAt}
+          initialIsScheduled={activeDraftToEdit?.isScheduled}
           onSubmitPost={handleCreatePost}
           onViewMyPost={handleViewPostFromId}
         />

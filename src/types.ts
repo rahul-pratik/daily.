@@ -101,10 +101,17 @@ export interface SharedPostPreview {
 }
 
 export interface PostDraft {
+  id: string;
+  title?: string;
   content: string;
   imageUrl?: string;
   tags: string[];
   updatedAt: number;
+  scheduledAt?: string; // ISO string e.g. "2026-09-01T09:00"
+  isScheduled?: boolean;
+  communityId?: string;
+  communityName?: string;
+  isCollage?: boolean;
 }
 
 export interface Group {

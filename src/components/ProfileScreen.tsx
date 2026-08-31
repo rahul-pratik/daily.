@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Flame,
   Grid,
@@ -21,12 +21,19 @@ import {
   Check,
   Award,
   ShieldCheck,
+  FileText,
+  Clock,
+  Send,
+  Calendar,
+  Layers,
+  ChevronRight,
 } from 'lucide-react';
-import { User, Post, ProofCollection, AVAILABLE_DISCIPLINE_MILESTONES } from '../types';
+import { User, Post, ProofCollection, AVAILABLE_DISCIPLINE_MILESTONES, PostDraft } from '../types';
 import { PostCard } from './PostCard';
 import { EmptyStateIllustration } from './EmptyStateIllustration';
 import { DisciplineMilestonesModal } from './DisciplineMilestonesModal';
-import { vibrateLight } from '../services/haptics';
+import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
+import { DailyStorageService } from '../services/storage';
 
 interface ProfileScreenProps {
   currentUser: User;
@@ -49,6 +56,9 @@ interface ProfileScreenProps {
   onRemovePostFromCollection?: (collectionId: string, postId: string) => void;
   onOpenAddToCollection?: (post: Post) => void;
   onUpdateMilestones?: (milestoneIds: string[]) => void;
+  onOpenResumeDraft?: (draft: PostDraft) => void;
+  onOpenCreateDraft?: () => void;
+  onPublishDraftDirectly?: (draftId: string) => void;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
@@ -72,14 +82,60 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onRemovePostFromCollection = (_collectionId: string, _postId: string) => {},
   onOpenAddToCollection,
   onUpdateMilestones,
+  onOpenResumeDraft,
+  onOpenCreateDraft,
+  onPublishDraftDirectly,
 }) => {
-  const [profileTab, setProfileTab] = useState<'my_posts' | 'collections' | 'saved'>('my_posts');
+  const [profileTab, setProfileTab] = useState<'my_posts' | 'drafts' | 'collections' | 'saved'>('my_posts');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
   const [isMilestonesModalOpen, setIsMilestonesModalOpen] = useState(false);
+
+  // Drafts & Scheduled Queue State
+  const [drafts, setDrafts] = useState<PostDraft[]>(() => DailyStorageService.getAllDrafts(currentUser.id));
+  const [draftFilter, setDraftFilter] = useState<'all' | 'scheduled' | 'standard'>('all');
+  const [draftActionToast, setDraftActionToast] = useState<string | null>(null);
+
+  // Reload drafts when tab changes or currentUser changes
+  useEffect(() => {
+    setDrafts(DailyStorageService.getAllDrafts(currentUser.id));
+  }, [currentUser.id, profileTab]);
+
+  const showToast = (msg: string) => {
+    setDraftActionToast(msg);
+    setTimeout(() => {
+      setDraftActionToast(null);
+    }, 2800);
+  };
+
+  const handleDeleteDraft = (draftId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    vibrateLight();
+    const updated = DailyStorageService.deleteDraft(currentUser.id, draftId);
+    setDrafts(updated);
+    showToast('Draft deleted');
+  };
+
+  const handlePublishDraft = (draftId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    vibrateStreakMilestone();
+    if (onPublishDraftDirectly) {
+      onPublishDraftDirectly(draftId);
+      const updated = DailyStorageService.getAllDrafts(currentUser.id);
+      setDrafts(updated);
+    } else {
+      const result = DailyStorageService.publishDraftNow(currentUser.id, draftId);
+      if (result.success) {
+        setDrafts(result.remainingDrafts);
+        showToast('Draft published to feed! 🔥');
+      } else {
+        showToast(result.error || 'Failed to publish draft');
+      }
+    }
+  };
 
   // Filter posts created by current user
   const userPosts = posts.filter((p) => p.userId === currentUser.id);
@@ -98,6 +154,16 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const collectionPosts = selectedCollection
     ? posts.filter((p) => selectedCollection.postIds.includes(p.id))
     : [];
+
+  // Filtered drafts
+  const scheduledDrafts = drafts.filter((d) => Boolean(d.isScheduled && d.scheduledAt));
+  const standardDrafts = drafts.filter((d) => !d.isScheduled);
+  const displayDrafts =
+    draftFilter === 'scheduled'
+      ? scheduledDrafts
+      : draftFilter === 'standard'
+      ? standardDrafts
+      : drafts;
 
   const handleShareProfile = () => {
     navigator.clipboard?.writeText(window.location.href);
@@ -359,11 +425,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         </div>
       </div>
 
-      {/* Profile Navigation Tabs: My Proofs, Collections, Saved */}
+      {/* Profile Navigation Tabs: My Proofs, Drafts, Collections, Saved */}
       <div className="space-y-3 pt-2">
         <div className="flex items-center justify-between border-b border-white/5 pb-3">
           {/* Tab buttons */}
-          <div className="flex items-center gap-1 bg-white/5 p-1 rounded-2xl border border-white/5 overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-1 bg-white/5 p-1 rounded-2xl border border-white/5 overflow-x-auto no-scrollbar max-w-full">
             <button
               onClick={() => {
                 vibrateLight();
@@ -377,7 +443,26 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               }`}
             >
               <Flame className="w-3.5 h-3.5 text-[#D4AF37]" />
-              <span>My Proofs ({userPosts.length})</span>
+              <span>Proofs ({userPosts.length})</span>
+            </button>
+
+            <button
+              onClick={() => {
+                vibrateLight();
+                setProfileTab('drafts');
+                setSelectedCollectionId(null);
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap relative ${
+                profileTab === 'drafts'
+                  ? 'bg-[#D4AF37] text-black shadow-sm font-black'
+                  : 'text-white/50 hover:text-white'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>Drafts ({drafts.length})</span>
+              {scheduledDrafts.length > 0 && (
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 absolute top-1 right-1" />
+              )}
             </button>
 
             <button
@@ -388,12 +473,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               }}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
                 profileTab === 'collections'
-                  ? 'bg-[#D4AF37] text-black shadow-sm font-black'
+                  ? 'bg-white text-black shadow-sm font-black'
                   : 'text-white/50 hover:text-white'
               }`}
             >
               <Folder className="w-3.5 h-3.5" />
-              <span>Collections ({collections.length})</span>
+              <span>Boxes ({collections.length})</span>
             </button>
 
             <button
@@ -413,8 +498,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             </button>
           </div>
 
-          {/* Grid vs List View Selector (when viewing posts) */}
-          {profileTab !== 'collections' || selectedCollectionId ? (
+          {/* Grid vs List View Selector (when viewing posts) or Action Button */}
+          {profileTab === 'my_posts' || profileTab === 'saved' || selectedCollectionId ? (
             <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/5 shrink-0">
               <button
                 onClick={() => setViewMode('grid')}
@@ -437,6 +522,28 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 <List className="w-4 h-4" />
               </button>
             </div>
+          ) : profileTab === 'drafts' ? (
+            <button
+              onClick={() => {
+                vibrateLight();
+                if (onOpenCreateDraft) {
+                  onOpenCreateDraft();
+                } else if (onOpenResumeDraft) {
+                  onOpenResumeDraft({
+                    id: `draft_${Date.now()}`,
+                    title: '',
+                    content: '',
+                    tags: [],
+                    updatedAt: Date.now(),
+                    isScheduled: false,
+                  });
+                }
+              }}
+              className="px-3 py-1.5 rounded-xl bg-[#D4AF37] text-black font-black text-xs flex items-center gap-1 shadow-md shadow-[#D4AF37]/20 active:scale-95 whitespace-nowrap shrink-0 min-h-[36px]"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[3]" />
+              <span>New Draft</span>
+            </button>
           ) : (
             <button
               onClick={() => {
@@ -451,6 +558,264 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           )}
         </div>
       </div>
+
+      {/* Floating Action Toast Notification */}
+      {draftActionToast && (
+        <div className="p-3 rounded-2xl bg-[#D4AF37] text-black font-black text-xs flex items-center justify-between shadow-xl animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-2">
+            <Check className="w-4 h-4 stroke-[3]" />
+            <span>{draftActionToast}</span>
+          </div>
+          <button
+            onClick={() => setDraftActionToast(null)}
+            className="text-black/70 hover:text-black text-[11px]"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Tab Content: DRAFTS TAB */}
+      {profileTab === 'drafts' && (
+        <div className="space-y-4 animate-in fade-in">
+          {/* Header Summary Banner */}
+          <div className="p-4 rounded-3xl bg-white/[0.03] border border-white/10 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-black text-white flex items-center gap-1.5">
+                  <FileText className="w-4 h-4 text-[#D4AF37]" />
+                  Saved Drafts & Queued Posts
+                </h2>
+                <p className="text-[11px] text-white/50 mt-0.5">
+                  Resume editing, schedule for upcoming dates, or post directly.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <span className="px-2 py-0.5 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] text-[10px] font-bold border border-[#D4AF37]/30">
+                  {drafts.length} total
+                </span>
+                {scheduledDrafts.length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 text-[10px] font-bold border border-blue-500/30 flex items-center gap-1">
+                    <Clock className="w-2.5 h-2.5" />
+                    {scheduledDrafts.length} scheduled
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Filter Pills */}
+            <div className="flex items-center gap-1.5 pt-1">
+              <button
+                type="button"
+                onClick={() => setDraftFilter('all')}
+                className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${
+                  draftFilter === 'all'
+                    ? 'bg-white text-black'
+                    : 'bg-white/5 text-white/60 hover:text-white border border-white/10'
+                }`}
+              >
+                All ({drafts.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setDraftFilter('scheduled')}
+                className={`px-3 py-1 rounded-full text-xs font-bold transition-colors flex items-center gap-1 ${
+                  draftFilter === 'scheduled'
+                    ? 'bg-blue-500 text-white shadow-sm'
+                    : 'bg-white/5 text-blue-300 hover:text-white border border-white/10'
+                }`}
+              >
+                <Clock className="w-3 h-3" />
+                <span>Scheduled ({scheduledDrafts.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setDraftFilter('standard')}
+                className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${
+                  draftFilter === 'standard'
+                    ? 'bg-[#D4AF37] text-black font-black'
+                    : 'bg-white/5 text-white/60 hover:text-white border border-white/10'
+                }`}
+              >
+                Standard Drafts ({standardDrafts.length})
+              </button>
+            </div>
+          </div>
+
+          {/* Drafts List */}
+          {displayDrafts.length > 0 ? (
+            <div className="space-y-3">
+              {displayDrafts.map((draft) => {
+                const isScheduled = Boolean(draft.isScheduled && draft.scheduledAt);
+                const scheduledDateObj = draft.scheduledAt ? new Date(draft.scheduledAt) : null;
+                const isOverdue = scheduledDateObj ? scheduledDateObj.getTime() <= Date.now() : false;
+
+                const formattedScheduled = scheduledDateObj
+                  ? scheduledDateObj.toLocaleString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })
+                  : null;
+
+                const formattedUpdated = draft.updatedAt
+                  ? new Date(draft.updatedAt).toLocaleDateString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                    })
+                  : 'Recent';
+
+                return (
+                  <div
+                    key={draft.id}
+                    className="p-4 rounded-3xl bg-white/[0.03] hover:bg-white/[0.05] border border-white/10 hover:border-white/20 transition-all space-y-3 relative group"
+                  >
+                    {/* Header: Title / Status / Date */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-xs text-white">
+                          {draft.title || (draft.content ? draft.content.slice(0, 30) + '...' : 'Untitled Draft')}
+                        </span>
+
+                        {isScheduled ? (
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-black flex items-center gap-1 border ${
+                              isOverdue
+                                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                                : 'bg-blue-500/20 text-blue-300 border-blue-500/40'
+                            }`}
+                          >
+                            <Clock className="w-3 h-3" />
+                            <span>{isOverdue ? 'Ready to publish' : `Scheduled for ${formattedScheduled}`}</span>
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/5 text-white/50 border border-white/10 flex items-center gap-1">
+                            <FileText className="w-2.5 h-2.5" />
+                            <span>Draft</span>
+                          </span>
+                        )}
+                      </div>
+
+                      <span className="text-[10px] text-white/40 whitespace-nowrap">
+                        Saved {formattedUpdated}
+                      </span>
+                    </div>
+
+                    {/* Content Preview & Image Thumbnail */}
+                    <div className="flex items-start gap-3">
+                      {draft.imageUrl && (
+                        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden bg-black/60 border border-white/10 shrink-0">
+                          <img
+                            src={draft.imageUrl}
+                            alt="Draft attachment"
+                            referrerPolicy="no-referrer"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
+
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-white/80 line-clamp-3 leading-relaxed">
+                          {draft.content || <span className="italic text-white/40">No text content</span>}
+                        </p>
+
+                        {/* Tags */}
+                        {draft.tags && draft.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {draft.tags.map((t) => (
+                              <span
+                                key={t}
+                                className="text-[10px] font-semibold text-[#D4AF37] px-2 py-0.5 rounded bg-[#D4AF37]/10"
+                              >
+                                #{t}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Action Toolbar */}
+                    <div className="pt-2 border-t border-white/10 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            vibrateLight();
+                            if (onOpenResumeDraft) {
+                              onOpenResumeDraft(draft);
+                            }
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center gap-1.5 transition-colors border border-white/10"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-[#D4AF37]" />
+                          <span>Resume / Edit</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteDraft(draft.id, e)}
+                          className="p-1.5 rounded-xl bg-white/5 hover:bg-red-500/20 text-white/40 hover:text-red-400 transition-colors border border-white/10"
+                          title="Delete draft"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={(e) => handlePublishDraft(draft.id, e)}
+                        className="px-3.5 py-1.5 rounded-xl bg-[#D4AF37] hover:bg-[#c49f27] text-black text-xs font-black flex items-center gap-1.5 transition-all shadow-md shadow-[#D4AF37]/20 active:scale-95"
+                      >
+                        <Flame className="w-3.5 h-3.5 fill-current" />
+                        <span>Post Now</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="py-10 text-center space-y-3 bg-white/[0.02] border border-dashed border-white/10 rounded-3xl p-6">
+              <div className="w-12 h-12 rounded-2xl bg-white/5 mx-auto flex items-center justify-center text-white/40">
+                <FileText className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white">No saved drafts in this view</h3>
+                <p className="text-xs text-white/50 mt-1 max-w-xs mx-auto">
+                  {draftFilter === 'scheduled'
+                    ? 'You have no scheduled posts queued. You can schedule a post from the create post screen.'
+                    : 'Save drafts while preparing proofs for tomorrow or compose multiple posts in advance.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateLight();
+                  if (onOpenCreateDraft) {
+                    onOpenCreateDraft();
+                  } else if (onOpenResumeDraft) {
+                    onOpenResumeDraft({
+                      id: `draft_${Date.now()}`,
+                      title: '',
+                      content: '',
+                      tags: [],
+                      updatedAt: Date.now(),
+                      isScheduled: false,
+                    });
+                  }
+                }}
+                className="px-4 py-2 rounded-2xl bg-[#D4AF37] text-black font-black text-xs inline-flex items-center gap-1.5 shadow-lg shadow-[#D4AF37]/20 active:scale-95"
+              >
+                <Plus className="w-4 h-4 stroke-[3]" />
+                <span>Create New Draft</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Tab Content: COLLECTIONS TAB */}
       {profileTab === 'collections' && (

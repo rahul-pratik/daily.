@@ -25,8 +25,10 @@ import {
   ArrowRight,
   PlusCircle,
   FileText,
+  Calendar,
+  ChevronDown,
 } from 'lucide-react';
-import { User, Post, Community } from '../types';
+import { User, Post, Community, PostDraft } from '../types';
 import { getTodayDateString, DailyStorageService } from '../services/storage';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
 import { CollabCollageStudio } from './CollabCollageStudio';
@@ -38,6 +40,12 @@ interface CreatePostModalProps {
   posts?: Post[];
   communities?: Community[];
   initialCommunityId?: string;
+  initialDraftId?: string;
+  initialContent?: string;
+  initialImageUrl?: string;
+  initialTags?: string[];
+  initialScheduledAt?: string;
+  initialIsScheduled?: boolean;
   onSubmitPost: (payload: {
     content: string;
     imageUrl?: string;
@@ -48,9 +56,8 @@ interface CreatePostModalProps {
     isCollage?: boolean;
   }) => void;
   onViewMyPost?: (postId: string) => void;
-  initialContent?: string;
-  initialImageUrl?: string;
-  initialTags?: string[];
+  onDraftSaved?: (draft: PostDraft) => void;
+  onPostScheduled?: (draft: PostDraft) => void;
 }
 
 const PROOF_PHOTO_PRESETS = [
@@ -150,21 +157,39 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   currentUser,
   onClose,
   posts = [],
-  onSubmitPost,
-  onViewMyPost,
+  communities = [],
+  initialCommunityId,
+  initialDraftId,
   initialContent,
   initialImageUrl,
   initialTags,
+  initialScheduledAt,
+  initialIsScheduled,
+  onSubmitPost,
+  onViewMyPost,
+  onDraftSaved,
+  onPostScheduled,
 }) => {
+  const [currentDraftId, setCurrentDraftId] = useState<string | undefined>(initialDraftId);
   const [content, setContent] = useState('');
   const [imageUrl, setImageUrl] = useState<string>('');
   const [selectedTags, setSelectedTags] = useState<string[]>(['Building']);
   const [showPresets, setShowPresets] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
-  const [draftSavedToast, setDraftSavedToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isCollageGenerated, setIsCollageGenerated] = useState(false);
   const [isCollageStudioOpen, setIsCollageStudioOpen] = useState(false);
   const [allowDraftingAfterPost, setAllowDraftingAfterPost] = useState(false);
+
+  // Scheduling State
+  const [isScheduleMode, setIsScheduleMode] = useState<boolean>(initialIsScheduled || false);
+  const [scheduledDateTime, setScheduledDateTime] = useState<string>(() => {
+    if (initialScheduledAt) return initialScheduledAt;
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(9, 0, 0, 0);
+    return tomorrow.toISOString().slice(0, 16);
+  });
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const hasInitializedRef = useRef(false);
@@ -173,12 +198,46 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const hasPostedToday = DailyStorageService.hasUserPostedMainToday(currentUser.id);
   const todayPost = DailyStorageService.getTodayPostForUser(currentUser.id);
 
+  // Minimum selectable date-time for scheduling (right now)
+  const minDateTime = new Date().toISOString().slice(0, 16);
+
+  // Quick preset helper
+  const setPresetSchedule = (type: '1h' | '3h' | 'tomorrow_morning' | 'tomorrow_evening') => {
+    vibrateLight();
+    const now = new Date();
+    if (type === '1h') {
+      now.setHours(now.getHours() + 1);
+    } else if (type === '3h') {
+      now.setHours(now.getHours() + 3);
+    } else if (type === 'tomorrow_morning') {
+      now.setDate(now.getDate() + 1);
+      now.setHours(9, 0, 0, 0);
+    } else if (type === 'tomorrow_evening') {
+      now.setDate(now.getDate() + 1);
+      now.setHours(18, 0, 0, 0);
+    }
+    const iso = now.toISOString().slice(0, 16);
+    setScheduledDateTime(iso);
+    setIsScheduleMode(true);
+  };
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 2800);
+  };
+
   // Initialize form state once on open
   useEffect(() => {
     if (isOpen) {
       if (!hasInitializedRef.current) {
         hasInitializedRef.current = true;
         setAllowDraftingAfterPost(false);
+
+        if (initialDraftId) {
+          setCurrentDraftId(initialDraftId);
+        }
 
         if (initialContent !== undefined || initialImageUrl !== undefined) {
           setContent(initialContent || '');
@@ -188,50 +247,58 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
           } else {
             setSelectedTags(['Building']);
           }
+          if (initialScheduledAt) {
+            setScheduledDateTime(initialScheduledAt);
+            setIsScheduleMode(true);
+          } else if (initialIsScheduled) {
+            setIsScheduleMode(true);
+          } else {
+            setIsScheduleMode(false);
+          }
           setDraftRestored(false);
         } else {
-          // Check local draft
-          const savedDraft = DailyStorageService.getPostDraft(currentUser.id);
-          if (savedDraft && (savedDraft.content?.trim() || savedDraft.imageUrl?.trim())) {
-            setContent(savedDraft.content || '');
-            setImageUrl(savedDraft.imageUrl || '');
-            if (savedDraft.tags && savedDraft.tags.length > 0) {
-              setSelectedTags(savedDraft.tags);
+          // Check if there are saved drafts
+          const userDrafts = DailyStorageService.getAllDrafts(currentUser.id);
+          if (userDrafts.length > 0) {
+            const latestDraft = userDrafts[0];
+            setCurrentDraftId(latestDraft.id);
+            setContent(latestDraft.content || '');
+            setImageUrl(latestDraft.imageUrl || '');
+            if (latestDraft.tags && latestDraft.tags.length > 0) {
+              setSelectedTags(latestDraft.tags);
             } else {
               setSelectedTags(['Building']);
             }
+            if (latestDraft.scheduledAt) {
+              setScheduledDateTime(latestDraft.scheduledAt);
+              setIsScheduleMode(Boolean(latestDraft.isScheduled));
+            }
             setDraftRestored(true);
           } else {
+            setCurrentDraftId(undefined);
             setContent('');
             setImageUrl('');
             setSelectedTags(['Building']);
+            setIsScheduleMode(false);
             setDraftRestored(false);
           }
         }
       }
     } else {
       hasInitializedRef.current = false;
-      setDraftSavedToast(false);
+      setToastMessage(null);
       setIsCollageGenerated(false);
     }
-  }, [isOpen, currentUser.id, initialContent, initialImageUrl, initialTags]);
-
-  // Debounced auto-save draft to local storage so drafts persist continuously
-  useEffect(() => {
-    if (!isOpen || !hasInitializedRef.current) return;
-
-    const timer = setTimeout(() => {
-      if (content.trim() || imageUrl.trim()) {
-        DailyStorageService.savePostDraft(currentUser.id, {
-          content,
-          imageUrl,
-          tags: selectedTags,
-        });
-      }
-    }, 400);
-
-    return () => clearTimeout(timer);
-  }, [isOpen, content, imageUrl, selectedTags, currentUser.id]);
+  }, [
+    isOpen,
+    currentUser.id,
+    initialDraftId,
+    initialContent,
+    initialImageUrl,
+    initialTags,
+    initialScheduledAt,
+    initialIsScheduled,
+  ]);
 
   if (!isOpen) return null;
 
@@ -265,23 +332,89 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
 
   const handleDiscardDraft = () => {
     vibrateLight();
-    DailyStorageService.clearPostDraft(currentUser.id);
+    if (currentDraftId) {
+      DailyStorageService.deleteDraft(currentUser.id, currentDraftId);
+    }
+    setCurrentDraftId(undefined);
     setContent('');
     setImageUrl('');
     setSelectedTags(['Building']);
     setDraftRestored(false);
     setIsCollageGenerated(false);
+    setIsScheduleMode(false);
+    showToast('Draft cleared');
     if (textareaRef.current) {
       textareaRef.current.focus();
     }
   };
 
+  // Explicitly save current draft to user's saved drafts collection
+  const handleExplicitSaveDraft = () => {
+    if (!content.trim() && !imageUrl.trim()) {
+      showToast('Add some text or a photo to save draft');
+      return;
+    }
+    vibrateLight();
+    const { draft } = DailyStorageService.saveDraft(currentUser.id, {
+      id: currentDraftId,
+      content: content.trim(),
+      imageUrl: imageUrl.trim() || undefined,
+      tags: selectedTags,
+      scheduledAt: isScheduleMode ? scheduledDateTime : undefined,
+      isScheduled: isScheduleMode,
+      isCollage: isCollageGenerated,
+    });
+    setCurrentDraftId(draft.id);
+    if (onDraftSaved) {
+      onDraftSaved(draft);
+    }
+    showToast('Draft saved to Profile! ✓');
+  };
+
+  // Handle scheduling submission
+  const handleQueueScheduledPost = () => {
+    if (!content.trim()) {
+      showToast('Please add text content to schedule');
+      return;
+    }
+    vibrateStreakMilestone();
+    const { draft } = DailyStorageService.saveDraft(currentUser.id, {
+      id: currentDraftId,
+      content: content.trim(),
+      imageUrl: imageUrl.trim() || undefined,
+      tags: selectedTags,
+      scheduledAt: scheduledDateTime,
+      isScheduled: true,
+      isCollage: isCollageGenerated,
+    });
+
+    if (onPostScheduled) {
+      onPostScheduled(draft);
+    }
+
+    const formattedTime = new Date(scheduledDateTime).toLocaleString([], {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    showToast(`Post scheduled for ${formattedTime}! ✓`);
+    setTimeout(() => {
+      onClose();
+    }, 1200);
+  };
+
   const handleSafeClose = () => {
     if (content.trim() || imageUrl.trim()) {
-      DailyStorageService.savePostDraft(currentUser.id, {
-        content,
-        imageUrl,
+      DailyStorageService.saveDraft(currentUser.id, {
+        id: currentDraftId,
+        content: content.trim(),
+        imageUrl: imageUrl.trim() || undefined,
         tags: selectedTags,
+        scheduledAt: isScheduleMode ? scheduledDateTime : undefined,
+        isScheduled: isScheduleMode,
+        isCollage: isCollageGenerated,
       });
     }
     onClose();
@@ -310,6 +443,11 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     e.preventDefault();
     if (!content.trim()) return;
 
+    if (isScheduleMode) {
+      handleQueueScheduledPost();
+      return;
+    }
+
     if (hasPostedToday) {
       return;
     }
@@ -323,7 +461,10 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       isCollage: isCollageGenerated,
     });
 
-    DailyStorageService.clearPostDraft(currentUser.id);
+    if (currentDraftId) {
+      DailyStorageService.deleteDraft(currentUser.id, currentDraftId);
+    }
+
     setContent('');
     setImageUrl('');
     setSelectedTags(['Building']);
@@ -332,6 +473,14 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     setIsCollageGenerated(false);
     onClose();
   };
+
+  const formattedScheduledPreview = new Date(scheduledDateTime).toLocaleString([], {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 
   return (
     <>
@@ -628,6 +777,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               </div>
 
               {/* Tag / Category Selector */}
+              {/* Tag / Category Selector */}
               <div>
                 <label className="block text-[11px] font-bold text-white/70 uppercase tracking-wider mb-1.5">
                   Category Tag
@@ -664,35 +814,163 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="pt-2 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleDiscardDraft}
-                  className="px-4 py-3 rounded-2xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white font-bold text-xs transition-colors border border-white/10 flex items-center justify-center gap-1.5"
-                  title="Clear inputs"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Clear</span>
-                </button>
+              {/* ========================================== */}
+              {/* SCHEDULE POST SECTION */}
+              {/* ========================================== */}
+              <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Clock className={`w-4 h-4 ${isScheduleMode ? 'text-[#D4AF37]' : 'text-white/50'}`} />
+                    <div>
+                      <span className="text-xs font-bold text-white block">
+                        Schedule Post for Later
+                      </span>
+                      <span className="text-[10px] text-white/50 block">
+                        Queue post to automatically publish at a future time
+                      </span>
+                    </div>
+                  </div>
 
-                {hasPostedToday && allowDraftingAfterPost ? (
                   <button
                     type="button"
                     onClick={() => {
                       vibrateLight();
-                      DailyStorageService.savePostDraft(currentUser.id, {
-                        content,
-                        imageUrl,
-                        tags: selectedTags,
-                      });
-                      setDraftSavedToast(true);
-                      setTimeout(() => setDraftSavedToast(false), 2000);
+                      setIsScheduleMode(!isScheduleMode);
                     }}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      isScheduleMode ? 'bg-[#D4AF37]' : 'bg-white/20'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-black shadow ring-0 transition duration-200 ease-in-out ${
+                        isScheduleMode ? 'translate-x-5 bg-black' : 'translate-x-0 bg-white'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {isScheduleMode && (
+                  <div className="space-y-2.5 pt-2 border-t border-white/10 animate-in fade-in duration-200">
+                    {/* Quick Presets */}
+                    <div>
+                      <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider block mb-1.5">
+                        Quick Timing Presets:
+                      </span>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setPresetSchedule('1h')}
+                          className="py-1.5 px-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-semibold text-white/80 hover:text-white text-center transition-colors"
+                        >
+                          +1 Hour
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPresetSchedule('3h')}
+                          className="py-1.5 px-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-semibold text-white/80 hover:text-white text-center transition-colors"
+                        >
+                          +3 Hours
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPresetSchedule('tomorrow_morning')}
+                          className="py-1.5 px-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-semibold text-[#D4AF37] hover:bg-[#D4AF37]/10 text-center transition-colors"
+                        >
+                          Tomorrow 9 AM
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPresetSchedule('tomorrow_evening')}
+                          className="py-1.5 px-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-semibold text-blue-400 hover:bg-blue-500/10 text-center transition-colors"
+                        >
+                          Tomorrow 6 PM
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Datetime Local Picker */}
+                    <div>
+                      <label className="text-[10px] font-bold text-white/50 uppercase tracking-wider block mb-1 flex items-center justify-between">
+                        <span>Select Date & Time</span>
+                        <span className="text-[#D4AF37] font-normal normal-case">
+                          {formattedScheduledPreview}
+                        </span>
+                      </label>
+                      <input
+                        type="datetime-local"
+                        min={minDateTime}
+                        value={scheduledDateTime}
+                        onChange={(e) => setScheduledDateTime(e.target.value)}
+                        className="w-full bg-[#141414] border border-white/15 focus:border-[#D4AF37] rounded-xl px-3 py-2 text-xs text-white focus:outline-none transition-colors"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Toast Notification Banner */}
+              {toastMessage && (
+                <div className="p-2.5 rounded-xl bg-[#D4AF37]/15 border border-[#D4AF37]/30 text-xs font-bold text-[#D4AF37] flex items-center justify-between animate-in fade-in duration-200">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>{toastMessage}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setToastMessage(null)}
+                    className="text-white/60 hover:text-white text-[11px]"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleDiscardDraft}
+                    className="px-3.5 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white font-bold text-xs transition-colors border border-white/10 flex items-center justify-center gap-1.5 min-h-[42px]"
+                    title="Clear inputs"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Clear</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleExplicitSaveDraft}
+                    className="px-3.5 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 text-[#D4AF37] font-bold text-xs transition-colors border border-[#D4AF37]/30 flex items-center justify-center gap-1.5 min-h-[42px]"
+                    title="Save to your drafts collection"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Save Draft</span>
+                  </button>
+                </div>
+
+                {isScheduleMode ? (
+                  <button
+                    type="button"
+                    onClick={handleQueueScheduledPost}
+                    disabled={!content.trim()}
+                    className={`flex-1 py-3 px-4 rounded-2xl font-black text-xs transition-all shadow-lg flex items-center justify-center gap-2 min-h-[44px] ${
+                      content.trim()
+                        ? 'bg-[#D4AF37] hover:bg-[#c49f27] text-black shadow-[#D4AF37]/20 hover:scale-[1.01]'
+                        : 'bg-white/10 text-white/30 cursor-not-allowed'
+                    }`}
+                  >
+                    <Clock className="w-4 h-4 stroke-[2.5]" />
+                    <span>Queue Scheduled Post</span>
+                  </button>
+                ) : hasPostedToday && allowDraftingAfterPost ? (
+                  <button
+                    type="button"
+                    onClick={handleExplicitSaveDraft}
                     className="flex-1 py-3 px-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs transition-all shadow-lg flex items-center justify-center gap-2 min-h-[44px]"
                   >
                     <Save className="w-4 h-4" />
-                    <span>{draftSavedToast ? 'Draft Saved ✓' : 'Save Draft for Tomorrow'}</span>
+                    <span>Save Draft for Tomorrow</span>
                   </button>
                 ) : (
                   <button

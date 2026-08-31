@@ -11,6 +11,7 @@ const STORAGE_KEYS = {
   CHALLENGES: 'daily_app_challenges_v1',
   CHALLENGE_PROGRESS_POSTS: 'daily_app_challenge_progress_posts_v1',
   POST_DRAFT: 'daily_app_post_draft_v1',
+  DRAFTS: 'daily_app_post_drafts_v2',
   ONBOARDED: 'daily_app_onboarded_v1',
   SAVED_POSTS: 'daily_app_saved_posts_v1',
   REPORTED_POSTS: 'daily_app_reported_posts_v1',
@@ -644,39 +645,252 @@ export class DailyStorageService {
     });
   }
 
-  // Post Drafts (Local Storage per user)
-  static getPostDraft(userId: string): PostDraft | null {
+  // ==========================================
+  // MULTIPLE SAVED DRAFTS & SCHEDULING SYSTEM
+  // ==========================================
+  static getInitialDrafts(userId: string): PostDraft[] {
+    const tomorrow9am = new Date();
+    tomorrow9am.setDate(tomorrow9am.getDate() + 1);
+    tomorrow9am.setHours(9, 0, 0, 0);
+    const tomorrowIso = tomorrow9am.toISOString().slice(0, 16);
+
+    return [
+      {
+        id: `draft_${userId}_1`,
+        title: 'Morning 8km Run & Endurance Base',
+        content: 'Completed 8km morning aerobic run in 42 minutes. Maintained zone 3 steady pace. Compounding endurance before starting daily work!',
+        imageUrl: 'https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=1000&auto=format&fit=crop&q=80',
+        tags: ['Run', 'Fitness'],
+        updatedAt: Date.now() - 1000 * 60 * 60 * 3, // 3 hours ago
+        isScheduled: false,
+      },
+      {
+        id: `draft_${userId}_2`,
+        title: 'Full-Stack Architecture & Offline Queue Refactor',
+        content: 'Shipped high-performance drafts queue and local storage state persistence. Zero latency on cold boots and modular React components ready.',
+        imageUrl: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=1000&auto=format&fit=crop&q=80',
+        tags: ['Coding', 'Building'],
+        updatedAt: Date.now() - 1000 * 60 * 60 * 1, // 1 hour ago
+        isScheduled: true,
+        scheduledAt: tomorrowIso,
+      },
+      {
+        id: `draft_${userId}_3`,
+        title: 'Deep Reading: Systems & Mindset',
+        content: 'Read 30 pages of deep work principles. Key takeaway: schedule uninterrupted 90m blocks first thing in the morning.',
+        imageUrl: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=1000&auto=format&fit=crop&q=80',
+        tags: ['Reading', 'Mindset'],
+        updatedAt: Date.now() - 1000 * 60 * 60 * 12,
+        isScheduled: false,
+      },
+    ];
+  }
+
+  static getAllDrafts(userId: string): PostDraft[] {
     try {
-      const data = localStorage.getItem(`${STORAGE_KEYS.POST_DRAFT}_${userId}`);
-      if (!data) return null;
+      const data = localStorage.getItem(`${STORAGE_KEYS.DRAFTS}_${userId}`);
+      if (!data) {
+        // Check if legacy draft exists
+        const legacy = localStorage.getItem(`${STORAGE_KEYS.POST_DRAFT}_${userId}`);
+        if (legacy) {
+          try {
+            const parsedLegacy = JSON.parse(legacy);
+            if (parsedLegacy && (parsedLegacy.content || parsedLegacy.imageUrl)) {
+              const migratedDraft: PostDraft = {
+                id: `draft_${Date.now()}`,
+                content: parsedLegacy.content || '',
+                imageUrl: parsedLegacy.imageUrl,
+                tags: parsedLegacy.tags || ['Building'],
+                updatedAt: parsedLegacy.updatedAt || Date.now(),
+                isScheduled: false,
+              };
+              const initialWithLegacy = [migratedDraft, ...this.getInitialDrafts(userId)];
+              this.saveAllDrafts(userId, initialWithLegacy);
+              return initialWithLegacy;
+            }
+          } catch {
+            // ignore
+          }
+        }
+        const initial = this.getInitialDrafts(userId);
+        this.saveAllDrafts(userId, initial);
+        return initial;
+      }
       return JSON.parse(data);
     } catch {
-      return null;
+      return this.getInitialDrafts(userId);
     }
   }
 
-  static savePostDraft(
-    userId: string,
-    draft: { content: string; imageUrl?: string; tags: string[] }
-  ): void {
+  static saveAllDrafts(userId: string, drafts: PostDraft[]): void {
     try {
-      const payload: PostDraft = {
-        content: draft.content,
-        imageUrl: draft.imageUrl,
-        tags: draft.tags,
-        updatedAt: Date.now(),
-      };
-      localStorage.setItem(`${STORAGE_KEYS.POST_DRAFT}_${userId}`, JSON.stringify(payload));
+      localStorage.setItem(`${STORAGE_KEYS.DRAFTS}_${userId}`, JSON.stringify(drafts));
+      // Sync the most recent draft with legacy key for backward compatibility
+      if (drafts.length > 0) {
+        const topDraft = drafts[0];
+        localStorage.setItem(
+          `${STORAGE_KEYS.POST_DRAFT}_${userId}`,
+          JSON.stringify({
+            content: topDraft.content,
+            imageUrl: topDraft.imageUrl,
+            tags: topDraft.tags,
+            updatedAt: topDraft.updatedAt,
+          })
+        );
+      }
     } catch {
       // Ignore quota error if any
     }
   }
 
-  static clearPostDraft(userId: string): void {
+  static getDraftById(userId: string, draftId: string): PostDraft | null {
+    const drafts = this.getAllDrafts(userId);
+    return drafts.find((d) => d.id === draftId) || null;
+  }
+
+  static saveDraft(
+    userId: string,
+    draftData: {
+      id?: string;
+      title?: string;
+      content: string;
+      imageUrl?: string;
+      tags: string[];
+      scheduledAt?: string;
+      isScheduled?: boolean;
+      communityId?: string;
+      communityName?: string;
+      isCollage?: boolean;
+    }
+  ): { draft: PostDraft; drafts: PostDraft[] } {
+    const drafts = this.getAllDrafts(userId);
+    const now = Date.now();
+    const existingIndex = draftData.id ? drafts.findIndex((d) => d.id === draftData.id) : -1;
+
+    let savedItem: PostDraft;
+
+    if (existingIndex >= 0) {
+      // Update existing draft
+      savedItem = {
+        ...drafts[existingIndex],
+        title: draftData.title !== undefined ? draftData.title : drafts[existingIndex].title,
+        content: draftData.content,
+        imageUrl: draftData.imageUrl !== undefined ? draftData.imageUrl : drafts[existingIndex].imageUrl,
+        tags: draftData.tags && draftData.tags.length > 0 ? draftData.tags : drafts[existingIndex].tags,
+        updatedAt: now,
+        scheduledAt: draftData.scheduledAt !== undefined ? draftData.scheduledAt : drafts[existingIndex].scheduledAt,
+        isScheduled: draftData.isScheduled !== undefined ? draftData.isScheduled : drafts[existingIndex].isScheduled,
+        communityId: draftData.communityId !== undefined ? draftData.communityId : drafts[existingIndex].communityId,
+        communityName: draftData.communityName !== undefined ? draftData.communityName : drafts[existingIndex].communityName,
+        isCollage: draftData.isCollage !== undefined ? draftData.isCollage : drafts[existingIndex].isCollage,
+      };
+      drafts[existingIndex] = savedItem;
+    } else {
+      // Create new draft
+      savedItem = {
+        id: draftData.id || `draft_${now}_${Math.random().toString(36).substring(2, 7)}`,
+        title: draftData.title || undefined,
+        content: draftData.content,
+        imageUrl: draftData.imageUrl,
+        tags: draftData.tags && draftData.tags.length > 0 ? draftData.tags : ['Building'],
+        updatedAt: now,
+        scheduledAt: draftData.scheduledAt,
+        isScheduled: Boolean(draftData.isScheduled && draftData.scheduledAt),
+        communityId: draftData.communityId,
+        communityName: draftData.communityName,
+        isCollage: draftData.isCollage,
+      };
+      drafts.unshift(savedItem);
+    }
+
+    this.saveAllDrafts(userId, drafts);
+    return { draft: savedItem, drafts };
+  }
+
+  static deleteDraft(userId: string, draftId: string): PostDraft[] {
+    const drafts = this.getAllDrafts(userId);
+    const updated = drafts.filter((d) => d.id !== draftId);
+    this.saveAllDrafts(userId, updated);
+    if (updated.length === 0) {
+      localStorage.removeItem(`${STORAGE_KEYS.POST_DRAFT}_${userId}`);
+    }
+    return updated;
+  }
+
+  static clearAllDrafts(userId: string): void {
     try {
+      localStorage.removeItem(`${STORAGE_KEYS.DRAFTS}_${userId}`);
       localStorage.removeItem(`${STORAGE_KEYS.POST_DRAFT}_${userId}`);
     } catch {
-      // Ignore
+      // ignore
+    }
+  }
+
+  // Publish a draft directly to the main feed / community
+  static publishDraftNow(
+    userId: string,
+    draftId: string
+  ): {
+    success: boolean;
+    post?: Post;
+    updatedUser?: User;
+    error?: string;
+    remainingDrafts: PostDraft[];
+  } {
+    const draft = this.getDraftById(userId, draftId);
+    if (!draft) {
+      return {
+        success: false,
+        error: 'Draft not found',
+        remainingDrafts: this.getAllDrafts(userId),
+      };
+    }
+
+    const isMain = !draft.communityId || draft.communityId === 'main';
+    const result = this.createPost({
+      content: draft.content,
+      imageUrl: draft.imageUrl,
+      tags: draft.tags && draft.tags.length > 0 ? draft.tags : ['DailyProof'],
+      isMainPost: isMain,
+      communityId: draft.communityId,
+      communityName: draft.communityName,
+      isCollage: draft.isCollage,
+    });
+
+    if (result.error) {
+      return {
+        success: false,
+        error: result.error,
+        remainingDrafts: this.getAllDrafts(userId),
+      };
+    }
+
+    const remainingDrafts = this.deleteDraft(userId, draftId);
+    return {
+      success: true,
+      post: result.post,
+      updatedUser: result.updatedUser,
+      remainingDrafts,
+    };
+  }
+
+  // Legacy get/save/clear methods (maintained for seamless interop)
+  static getPostDraft(userId: string): PostDraft | null {
+    const drafts = this.getAllDrafts(userId);
+    return drafts.length > 0 ? drafts[0] : null;
+  }
+
+  static savePostDraft(
+    userId: string,
+    draft: { id?: string; content: string; imageUrl?: string; tags: string[]; scheduledAt?: string; isScheduled?: boolean }
+  ): void {
+    this.saveDraft(userId, draft);
+  }
+
+  static clearPostDraft(userId: string): void {
+    const drafts = this.getAllDrafts(userId);
+    if (drafts.length > 0) {
+      this.deleteDraft(userId, drafts[0].id);
     }
   }
 
