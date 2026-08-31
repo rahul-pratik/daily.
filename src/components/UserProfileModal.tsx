@@ -82,7 +82,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             >
               <Share2 className="w-4 h-4" />
               {copiedLink && (
-                <span className="absolute -top-7 right-0 text-[10px] font-bold bg-[#D4AF37] text-black px-2 py-0.5 rounded shadow whitespace-nowrap">
+                <span className="absolute -top-7 right-0 text-[10px] font-bold bg-blue-600 text-white px-2 py-0.5 rounded shadow whitespace-nowrap">
                   Link copied!
                 </span>
               )}
@@ -119,7 +119,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             <div className="flex-1">
               <div className="flex items-center gap-1.5">
                 <h2 className="text-base sm:text-lg font-black text-white">{user.name}</h2>
-                <CheckCircle2 className="w-4 h-4 text-[#D4AF37]" />
+                <CheckCircle2 className="w-4 h-4 text-blue-400" />
               </div>
               <p className="text-xs text-white/70 mt-1 leading-relaxed">{user.bio}</p>
             </div>
@@ -149,7 +149,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 className={`py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                   isFollowing
                     ? 'bg-white/10 text-white hover:bg-white/15 border border-white/10'
-                    : 'bg-white text-black hover:bg-white/90 shadow-md shadow-white/10'
+                    : 'bg-blue-600 text-white hover:bg-blue-500 shadow-md shadow-blue-500/20'
                 }`}
               >
                 {isFollowing ? (
@@ -176,7 +176,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     streak: user.currentStreak,
                   });
                 }}
-                className="py-2.5 rounded-2xl bg-[#D4AF37] hover:bg-[#D4AF37]/90 text-black font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-[#D4AF37]/20 transition-all"
+                className="py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20 transition-all"
               >
                 <MessageSquare className="w-4 h-4" />
                 <span>Direct Message</span>

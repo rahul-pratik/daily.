@@ -73,7 +73,7 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
         {/* Header */}
         <div className="p-4 border-b border-white/10 flex items-center justify-between bg-black/50">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37]">
+            <div className="w-9 h-9 rounded-2xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400">
               <FolderPlus className="w-4 h-4" />
             </div>
             <div>
@@ -115,7 +115,7 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
                 }}
                 placeholder="e.g. Running, Coding, Strength Training..."
                 maxLength={40}
-                className="flex-1 px-4 py-3 rounded-2xl bg-white/5 border border-white/10 text-white placeholder-white/30 text-sm font-semibold focus:outline-none focus:border-[#D4AF37] transition-colors"
+                className="flex-1 px-4 py-3 rounded-2xl bg-white/5 border border-white/10 text-white placeholder-white/30 text-sm font-semibold focus:outline-none focus:border-blue-500 transition-colors"
                 autoFocus
               />
             </div>
@@ -137,7 +137,7 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
                   }}
                   className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg transition-all shrink-0 border ${
                     selectedIcon === icon
-                      ? 'bg-[#D4AF37]/20 border-[#D4AF37] scale-105'
+                      ? 'bg-blue-500/20 border-blue-500 scale-105'
                       : 'bg-white/5 border-white/10 hover:border-white/20'
                   }`}
                 >
@@ -158,7 +158,7 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="e.g. Morning 5ks, marathon prep & pacing splits"
               maxLength={120}
-              className="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/10 text-white placeholder-white/30 text-xs font-medium focus:outline-none focus:border-[#D4AF37] transition-colors"
+              className="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/10 text-white placeholder-white/30 text-xs font-medium focus:outline-none focus:border-blue-500 transition-colors"
             />
           </div>
 
@@ -177,7 +177,7 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
                   }}
                   className={`relative aspect-video rounded-xl overflow-hidden cursor-pointer border transition-all ${
                     selectedCover === cover
-                      ? 'border-[#D4AF37] ring-2 ring-[#D4AF37]/50 scale-[1.02]'
+                      ? 'border-blue-500 ring-2 ring-blue-500/50 scale-[1.02]'
                       : 'border-white/10 hover:border-white/30 opacity-70 hover:opacity-100'
                   }`}
                 >
@@ -188,7 +188,7 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
                     className="w-full h-full object-cover"
                   />
                   {selectedCover === cover && (
-                    <div className="absolute inset-0 bg-[#D4AF37]/20 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-blue-600/30 flex items-center justify-center">
                       <Check className="w-5 h-5 text-white stroke-[3]" />
                     </div>
                   )}
@@ -215,7 +215,7 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
                       onClick={() => togglePostSelection(post.id)}
                       className={`relative aspect-square rounded-xl overflow-hidden cursor-pointer border transition-all ${
                         isSelected
-                          ? 'border-[#D4AF37] ring-2 ring-[#D4AF37]/50'
+                          ? 'border-blue-500 ring-2 ring-blue-500/50'
                           : 'border-white/10 hover:border-white/20 opacity-75 hover:opacity-100'
                       }`}
                     >
@@ -234,8 +234,8 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
                       )}
 
                       {isSelected && (
-                        <div className="absolute inset-0 bg-[#D4AF37]/40 flex items-center justify-center">
-                          <Check className="w-5 h-5 text-black stroke-[3]" />
+                        <div className="absolute inset-0 bg-blue-600/40 flex items-center justify-center">
+                          <Check className="w-5 h-5 text-white stroke-[3]" />
                         </div>
                       )}
                     </div>
@@ -249,7 +249,7 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
           <div className="pt-2">
             <button
               type="submit"
-              className="w-full py-3.5 rounded-2xl bg-[#D4AF37] text-black font-black text-xs uppercase tracking-wider hover:bg-[#c49f2f] transition-all shadow-lg shadow-[#D4AF37]/20 flex items-center justify-center gap-2 active:scale-95"
+              className="w-full py-3.5 rounded-2xl bg-blue-600 text-white font-bold text-xs uppercase tracking-wider hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 active:scale-95"
             >
               <FolderPlus className="w-4 h-4" />
               <span>Create Collection</span>

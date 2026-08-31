@@ -62,9 +62,9 @@ export const TopHeader: React.FC<{
           aria-label="Notifications"
           title="Notifications"
         >
-          <Bell className="w-4 h-4" />
+          <Bell className="w-4 h-4 text-white/90 hover:text-blue-400 transition-colors" />
           {unreadNotificationsCount > 0 && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#D4AF37] text-black font-black text-[9px] rounded-full flex items-center justify-center shadow-md animate-pulse">
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 text-white font-black text-[9px] rounded-full flex items-center justify-center shadow-md animate-pulse">
               {unreadNotificationsCount}
             </span>
           )}
@@ -77,9 +77,9 @@ export const TopHeader: React.FC<{
           aria-label="Direct Messages"
           title="Messages & Groups"
         >
-          <MessageSquare className="w-4 h-4" />
+          <MessageSquare className="w-4 h-4 text-white/90 hover:text-blue-400 transition-colors" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#D4AF37] text-black font-black text-[9px] rounded-full flex items-center justify-center animate-bounce shadow-md">
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 text-white font-black text-[9px] rounded-full flex items-center justify-center animate-bounce shadow-md">
               {unreadCount}
             </span>
           )}

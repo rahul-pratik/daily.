@@ -155,7 +155,7 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
         {/* Modal Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 bg-white/[0.03]">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37]">
+            <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400">
               <BarChart3 className="w-4 h-4" />
             </div>
             <div>
@@ -606,9 +606,9 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
                 onClose();
                 onSharePost(safePost);
               }}
-              className="flex-1 py-2.5 px-3 rounded-xl bg-[#D4AF37] hover:bg-[#D4AF37]/90 text-black text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-[#D4AF37]/20 min-h-[40px]"
+              className="flex-1 py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-blue-500/20 min-h-[40px]"
             >
-              <Share2 className="w-3.5 h-3.5 text-black" />
+              <Share2 className="w-3.5 h-3.5 text-white" />
               <span>Share to Groups</span>
             </button>
           )}

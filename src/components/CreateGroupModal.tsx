@@ -85,7 +85,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
         {/* Header */}
         <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/20 flex items-center justify-center text-[#D4AF37]">
+            <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
               <Lock className="w-4 h-4" />
             </div>
             <div>
@@ -106,8 +106,8 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
         </div>
 
         {/* Private Chat Notice */}
-        <div className="px-5 py-2.5 bg-[#D4AF37]/5 border-b border-[#D4AF37]/15 flex items-center gap-2 text-xs text-[#D4AF37]">
-          <Shield className="w-4 h-4 shrink-0" />
+        <div className="px-5 py-2.5 bg-blue-500/5 border-b border-blue-500/15 flex items-center gap-2 text-xs text-blue-300">
+          <Shield className="w-4 h-4 shrink-0 text-blue-400" />
           <span className="text-[11px] leading-tight">
             Groups are closed, invite-only chats inside DMs for you and your friends.
           </span>
@@ -124,7 +124,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Morning Grind Squad ☕ or Sprint Review Team 🚀"
               maxLength={40}
-              className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:border-[#D4AF37] outline-none transition-colors"
+              className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:border-blue-500 outline-none transition-colors"
             />
           </div>
 
@@ -137,7 +137,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="e.g. Daily check-ins, sprint planning & private sync"
               maxLength={120}
-              className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:border-[#D4AF37] outline-none transition-colors"
+              className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:border-blue-500 outline-none transition-colors"
             />
           </div>
 
@@ -158,7 +158,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
                   onClick={() => setCategory(cat)}
                   className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                     category === cat
-                      ? 'bg-[#D4AF37] text-black shadow-md shadow-[#D4AF37]/20'
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                       : 'bg-white/5 hover:bg-white/10 border border-white/5 text-white/60'
                   }`}
                 >
@@ -171,7 +171,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
           {/* Pinned Goal */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-white/80 flex items-center gap-1">
-              <Pin className="w-3.5 h-3.5 text-[#D4AF37]" />
+              <Pin className="w-3.5 h-3.5 text-blue-400" />
               <span>Pinned Chat Goal (Optional)</span>
             </label>
             <input
@@ -180,7 +180,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
               onChange={(e) => setPinnedTopic(e.target.value)}
               placeholder="e.g. Ship v1.0 together by Friday night!"
               maxLength={100}
-              className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:border-[#D4AF37] outline-none transition-colors"
+              className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:border-blue-500 outline-none transition-colors"
             />
           </div>
 
@@ -202,7 +202,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
                     onClick={() => toggleMember(friend.id)}
                     className={`flex items-center justify-between p-2 rounded-xl cursor-pointer transition-all ${
                       isSelected
-                        ? 'bg-[#D4AF37]/10 border border-[#D4AF37]/30'
+                        ? 'bg-blue-500/10 border border-blue-500/30'
                         : 'bg-white/5 hover:bg-white/10 border border-transparent'
                     }`}
                   >
@@ -218,7 +218,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
                           {friend.name}
                         </p>
                         <p className="text-[10px] text-white/40 truncate">
-                          @{friend.username} • {friend.currentStreak}d streak
+                          @{friend.username} • <span className="text-[#D4AF37]">🔥{friend.currentStreak}d</span>
                         </p>
                       </div>
                     </div>
@@ -226,11 +226,11 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
                     <div
                       className={`w-5 h-5 rounded-full flex items-center justify-center border transition-all ${
                         isSelected
-                          ? 'bg-[#D4AF37] border-[#D4AF37] text-black'
+                          ? 'bg-blue-600 border-blue-500 text-white'
                           : 'border-white/20 text-transparent'
                       }`}
                     >
-                      <Check className="w-3 h-3 stroke-[3]" />
+                      <Check className="w-3.5 h-3.5 stroke-[3]" />
                     </div>
                   </div>
                 );
@@ -253,7 +253,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
                   }}
                   className={`w-10 h-10 rounded-xl overflow-hidden border-2 transition-all shrink-0 ${
                     selectedAvatar === url && !customAvatarUrl
-                      ? 'border-[#D4AF37] scale-105 shadow-md shadow-[#D4AF37]/20'
+                      ? 'border-blue-500 scale-105 shadow-md shadow-blue-500/20'
                       : 'border-white/10 opacity-60 hover:opacity-100'
                   }`}
                 >
@@ -273,7 +273,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
             <button
               type="submit"
               disabled={!name.trim()}
-              className="w-full py-3.5 rounded-2xl bg-[#D4AF37] text-black font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-[#D4AF37]/90 active:scale-[0.98] transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-lg shadow-[#D4AF37]/20 min-h-[44px]"
+              className="w-full py-3.5 rounded-2xl bg-blue-600 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-blue-500 active:scale-[0.98] transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-lg shadow-blue-500/20 min-h-[44px]"
             >
               <Users className="w-4 h-4" />
               <span>Create Private Group</span>

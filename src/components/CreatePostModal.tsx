@@ -502,14 +502,14 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black uppercase tracking-wider text-white/80 flex items-center gap-1.5">
-                  <Camera className="w-4 h-4 text-[#D4AF37]" />
+                  <Camera className="w-4 h-4 text-blue-400" />
                   1. Proof Receipt (Photo)
                 </span>
                 {!imageUrl && (
                   <button
                     type="button"
                     onClick={() => setShowPresets(!showPresets)}
-                    className="text-xs text-[#D4AF37] hover:underline font-bold flex items-center gap-1"
+                    className="text-xs text-blue-400 hover:underline font-bold flex items-center gap-1"
                   >
                     <Sparkles className="w-3 h-3" />
                     {showPresets ? 'Hide presets' : 'Preset ideas'}
@@ -541,8 +541,8 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               ) : (
                 <div className="space-y-2">
                   <div className="grid grid-cols-2 gap-2">
-                    <label className="flex items-center justify-center gap-2 p-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#D4AF37]/40 rounded-2xl cursor-pointer transition-all text-xs font-bold text-white min-h-[44px]">
-                      <Upload className="w-4 h-4 text-[#D4AF37]" />
+                    <label className="flex items-center justify-center gap-2 p-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-blue-500/40 rounded-2xl cursor-pointer transition-all text-xs font-bold text-white min-h-[44px]">
+                      <Upload className="w-4 h-4 text-blue-400" />
                       <span>Upload Photo</span>
                       <input
                         type="file"
@@ -554,9 +554,9 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setShowPresets(!showPresets)}
-                      className="flex items-center justify-center gap-2 p-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#D4AF37]/40 rounded-2xl transition-all text-xs font-bold text-white min-h-[44px]"
+                      className="flex items-center justify-center gap-2 p-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-blue-500/40 rounded-2xl transition-all text-xs font-bold text-white min-h-[44px]"
                     >
-                      <Sparkles className="w-4 h-4 text-[#D4AF37]" />
+                      <Sparkles className="w-4 h-4 text-blue-400" />
                       <span>Proof Presets</span>
                     </button>
                   </div>
@@ -575,7 +575,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                             }
                             setShowPresets(false);
                           }}
-                          className="group relative rounded-xl overflow-hidden aspect-video border border-white/10 hover:border-[#D4AF37] transition-all text-left"
+                          className="group relative rounded-xl overflow-hidden aspect-video border border-white/10 hover:border-blue-500 transition-all text-left"
                         >
                           <img
                             src={preset.url}
@@ -603,7 +603,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                   htmlFor="reflection-textarea"
                   className="text-xs font-black uppercase tracking-wider text-white/80 flex items-center gap-1.5"
                 >
-                  <PenTool className="w-4 h-4 text-[#D4AF37]" />
+                  <PenTool className="w-4 h-4 text-blue-400" />
                   2. Add Reflection (Short Thought)
                 </label>
                 <div className="flex items-center gap-2">
@@ -631,7 +631,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                   placeholder="What did you actually accomplish today? What was hard? (e.g., 'Shipped database migration. Took 2 hours to fix edge cases.')"
                   rows={3}
                   maxLength={300}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 focus:border-[#D4AF37] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-all resize-none leading-relaxed focus:bg-white/[0.07]"
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 focus:border-blue-500 rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-all resize-none leading-relaxed focus:bg-white/[0.07]"
                 />
               </div>
 
@@ -639,7 +639,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-[10px] text-white/40 font-bold uppercase tracking-wider">
                   <span className="flex items-center gap-1">
-                    <Lightbulb className="w-3 h-3 text-[#D4AF37]" /> Quick Starters & Prompts ({primaryTag})
+                    <Lightbulb className="w-3 h-3 text-blue-400" /> Quick Starters & Prompts ({primaryTag})
                   </span>
                 </div>
 
@@ -650,9 +650,9 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                       key={starter}
                       type="button"
                       onClick={() => handleInsertStarter(starter)}
-                      className="text-[10px] px-2 py-0.5 rounded-lg bg-white/5 hover:bg-white/10 hover:border-[#D4AF37]/50 text-white/70 hover:text-white border border-white/5 transition-all flex items-center gap-1 active:scale-95"
+                      className="text-[10px] px-2 py-0.5 rounded-lg bg-white/5 hover:bg-white/10 hover:border-blue-500/50 text-white/70 hover:text-white border border-white/5 transition-all flex items-center gap-1 active:scale-95"
                     >
-                      <CornerDownLeft className="w-2.5 h-2.5 text-[#D4AF37]" />
+                      <CornerDownLeft className="w-2.5 h-2.5 text-blue-400" />
                       <span>{starter}</span>
                     </button>
                   ))}
@@ -665,9 +665,9 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                       key={idx}
                       type="button"
                       onClick={() => handleInsertPrompt(prompt)}
-                      className="text-[10px] p-2 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] text-white/70 hover:text-white border border-white/5 hover:border-[#D4AF37]/40 transition-all text-left line-clamp-2 leading-tight group flex items-start gap-1.5"
+                      className="text-[10px] p-2 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] text-white/70 hover:text-white border border-white/5 hover:border-blue-500/40 transition-all text-left line-clamp-2 leading-tight group flex items-start gap-1.5"
                     >
-                      <Sparkles className="w-3 h-3 text-[#D4AF37] shrink-0 mt-0.5 opacity-60 group-hover:opacity-100" />
+                      <Sparkles className="w-3 h-3 text-blue-400 shrink-0 mt-0.5 opacity-60 group-hover:opacity-100" />
                       <span>"{prompt}"</span>
                     </button>
                   ))}
@@ -679,7 +679,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
             <div className="space-y-1.5 pt-1">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black uppercase tracking-wider text-white/80 flex items-center gap-1.5">
-                  <Target className="w-4 h-4 text-[#D4AF37]" />
+                  <Target className="w-4 h-4 text-blue-400" />
                   3. Link Habit / Focus Area
                 </span>
                 <span className="text-[10px] text-white/40">Select 1-4 tags</span>
@@ -694,7 +694,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                       onClick={() => toggleTag(tag)}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border min-h-[34px] ${
                         isSelected
-                          ? 'bg-[#D4AF37] text-black border-[#D4AF37] shadow-sm scale-105 font-black'
+                          ? 'bg-blue-600 text-white border-blue-500 shadow-sm scale-105 font-bold'
                           : 'bg-white/5 text-white/60 border-white/10 hover:border-white/20 hover:text-white'
                       }`}
                     >
@@ -721,7 +721,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                   <button
                     type="button"
                     onClick={handleManualSaveDraft}
-                    className="text-[10px] font-bold text-[#D4AF37] hover:underline flex items-center gap-1"
+                    className="text-[10px] font-bold text-blue-400 hover:underline flex items-center gap-1"
                   >
                     <Save className="w-3 h-3" />
                     Save Draft

@@ -106,7 +106,7 @@ export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({
         {/* Header */}
         <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/20 flex items-center justify-center text-[#D4AF37]">
+            <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
               <Globe2 className="w-4 h-4" />
             </div>
             <div>
@@ -139,11 +139,11 @@ export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({
                 }}
                 className={`p-3 rounded-2xl border text-left transition-all ${
                   accessType === 'public'
-                    ? 'bg-[#D4AF37]/15 border-[#D4AF37] text-white shadow-md shadow-[#D4AF37]/10'
+                    ? 'bg-blue-500/15 border-blue-500 text-white shadow-md shadow-blue-500/10'
                     : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
                 }`}
               >
-                <div className="flex items-center gap-1.5 font-bold text-xs text-[#D4AF37] mb-1">
+                <div className="flex items-center gap-1.5 font-bold text-xs text-blue-400 mb-1">
                   <Globe2 className="w-3.5 h-3.5" />
                   <span>Public Community</span>
                 </div>
@@ -160,11 +160,11 @@ export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({
                 }}
                 className={`p-3 rounded-2xl border text-left transition-all ${
                   accessType === 'moderated'
-                    ? 'bg-[#D4AF37]/15 border-[#D4AF37] text-white shadow-md shadow-[#D4AF37]/10'
+                    ? 'bg-blue-500/15 border-blue-500 text-white shadow-md shadow-blue-500/10'
                     : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
                 }`}
               >
-                <div className="flex items-center gap-1.5 font-bold text-xs text-[#D4AF37] mb-1">
+                <div className="flex items-center gap-1.5 font-bold text-xs text-blue-400 mb-1">
                   <ShieldCheck className="w-3.5 h-3.5" />
                   <span>Moderated Community</span>
                 </div>
@@ -185,7 +185,7 @@ export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. 100 Days of Code 💻 or 5 AM Club 🌅"
               maxLength={40}
-              className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:border-[#D4AF37] outline-none transition-colors"
+              className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:border-blue-500 outline-none transition-colors"
             />
           </div>
 
@@ -198,7 +198,7 @@ export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="e.g. Daily accountability for engineers shipping side projects"
               maxLength={120}
-              className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:border-[#D4AF37] outline-none transition-colors"
+              className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:border-blue-500 outline-none transition-colors"
             />
           </div>
 
@@ -219,7 +219,7 @@ export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({
                   onClick={() => setCategory(cat)}
                   className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                     category === cat
-                      ? 'bg-[#D4AF37] text-black shadow-md shadow-[#D4AF37]/20'
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                       : 'bg-white/5 hover:bg-white/10 border border-white/5 text-white/60'
                   }`}
                 >
@@ -239,7 +239,7 @@ export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({
                   onClick={() => setSelectedPreset(idx)}
                   className={`p-2 rounded-2xl border cursor-pointer flex items-center gap-2 transition-all ${
                     selectedPreset === idx
-                      ? 'bg-[#D4AF37]/10 border-[#D4AF37]'
+                      ? 'bg-blue-500/10 border-blue-500'
                       : 'bg-white/5 border-white/5 hover:bg-white/10'
                   }`}
                 >
@@ -262,7 +262,7 @@ export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-white/80 block flex items-center justify-between">
               <span className="flex items-center gap-1">
-                <BookOpen className="w-3.5 h-3.5 text-[#D4AF37]" />
+                <BookOpen className="w-3.5 h-3.5 text-blue-400" />
                 <span>Community Guidelines & Rules</span>
               </span>
               <span className="text-[10px] text-white/40">One per line</span>
@@ -272,7 +272,7 @@ export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({
               value={rulesText}
               onChange={(e) => setRulesText(e.target.value)}
               placeholder="1. Post daily progress..."
-              className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:border-[#D4AF37] outline-none transition-colors resize-none leading-relaxed"
+              className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-white/30 focus:border-blue-500 outline-none transition-colors resize-none leading-relaxed"
             />
           </div>
 
@@ -282,7 +282,7 @@ export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({
               src={currentUser.avatar}
               alt={currentUser.name}
               referrerPolicy="no-referrer"
-              className="w-6 h-6 rounded-full object-cover border border-[#D4AF37]/40"
+              className="w-6 h-6 rounded-full object-cover border border-blue-500/40"
             />
             <p className="text-[11px] leading-tight">
               You (<strong className="text-white">@{currentUser.username}</strong>) will be listed as the Community Moderator with full permissions to grant access and manage rules.
@@ -294,7 +294,7 @@ export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({
             <button
               type="submit"
               disabled={!name.trim()}
-              className="w-full py-3.5 rounded-2xl bg-[#D4AF37] text-black font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-[#D4AF37]/90 active:scale-[0.98] transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-lg shadow-[#D4AF37]/20 min-h-[44px]"
+              className="w-full py-3.5 rounded-2xl bg-blue-600 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-blue-500 active:scale-[0.98] transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-lg shadow-blue-500/20 min-h-[44px]"
             >
               <Globe2 className="w-4 h-4" />
               <span>Launch Community</span>

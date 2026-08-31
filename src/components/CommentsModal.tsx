@@ -111,12 +111,12 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({
             value={commentText}
             onChange={(e) => setCommentText(e.target.value)}
             placeholder={`Add a comment as ${currentUser.username}...`}
-            className="flex-1 px-3 py-2 bg-white/5 border border-white/10 focus:border-[#D4AF37] rounded-xl text-xs text-white placeholder-white/30 outline-none transition-colors"
+            className="flex-1 px-3 py-2 bg-white/5 border border-white/10 focus:border-blue-500 rounded-xl text-xs text-white placeholder-white/30 outline-none transition-colors"
           />
           <button
             type="submit"
             disabled={!commentText.trim()}
-            className="p-2 bg-[#D4AF37] hover:bg-[#D4AF37]/90 disabled:opacity-30 text-black font-bold rounded-xl transition-all"
+            className="p-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-30 text-white font-bold rounded-xl transition-all shadow-md shadow-blue-500/20"
           >
             <Send className="w-4 h-4" />
           </button>

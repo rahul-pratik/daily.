@@ -127,15 +127,15 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
           </button>
 
           {/* Badge: Access Type */}
-          <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/15 text-[11px] font-bold text-[#D4AF37]">
+          <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/15 text-[11px] font-bold text-blue-300">
             {community.accessType === 'public' ? (
               <>
-                <Globe2 className="w-3.5 h-3.5" />
+                <Globe2 className="w-3.5 h-3.5 text-blue-400" />
                 <span>Public Community</span>
               </>
             ) : (
               <>
-                <ShieldCheck className="w-3.5 h-3.5" />
+                <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
                 <span>Moderated Community</span>
               </>
             )}
@@ -144,7 +144,7 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
           {/* Avatar and Title Area */}
           <div className="absolute bottom-3 left-4 right-4 flex items-end justify-between">
             <div className="flex items-end gap-3 min-w-0">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden border-2 border-[#D4AF37] shadow-xl bg-black shrink-0">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden border-2 border-blue-500 shadow-xl bg-black shrink-0">
                 <img
                   src={community.avatar}
                   alt={community.name}
@@ -157,10 +157,10 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
                   {community.name}
                 </h1>
                 <p className="text-xs text-white/60 truncate flex items-center gap-1.5">
-                  <span>#{community.category}</span>
+                  <span className="text-blue-400">#{community.category}</span>
                   <span>•</span>
-                  <span className="flex items-center gap-1 text-[#D4AF37]">
-                    <Users className="w-3 h-3" />
+                  <span className="flex items-center gap-1 text-white/80">
+                    <Users className="w-3 h-3 text-blue-400" />
                     {community.memberCount || community.memberIds?.length || 1} members
                   </span>
                 </p>
@@ -189,7 +189,7 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
                       vibrateLight();
                       onToggleJoin(community.id);
                     }}
-                    className="px-3 py-1.5 rounded-xl bg-[#D4AF37]/15 hover:bg-red-500/20 text-[#D4AF37] hover:text-red-400 border border-[#D4AF37]/30 hover:border-red-500/30 text-xs font-bold transition-all flex items-center gap-1.5"
+                    className="px-3 py-1.5 rounded-xl bg-blue-500/15 hover:bg-red-500/20 text-blue-400 hover:text-red-400 border border-blue-500/30 hover:border-red-500/30 text-xs font-bold transition-all flex items-center gap-1.5"
                   >
                     <Clock className="w-3.5 h-3.5" />
                     <span>Pending Review (Cancel)</span>
@@ -201,7 +201,7 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
                       vibrateStreakMilestone();
                       onToggleJoin(community.id);
                     }}
-                    className="px-3.5 py-1.5 rounded-xl bg-[#D4AF37] hover:bg-[#D4AF37]/90 text-black text-xs font-black transition-all shadow-md shadow-[#D4AF37]/20 flex items-center gap-1.5"
+                    className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black transition-all shadow-md shadow-blue-500/20 flex items-center gap-1.5"
                   >
                     <ShieldCheck className="w-3.5 h-3.5" />
                     <span>Request Access</span>
@@ -214,7 +214,7 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
                     vibrateStreakMilestone();
                     onToggleJoin(community.id);
                   }}
-                  className="px-4 py-1.5 rounded-xl bg-[#D4AF37] hover:bg-[#D4AF37]/90 text-black text-xs font-black transition-all shadow-md shadow-[#D4AF37]/20 flex items-center gap-1.5"
+                  className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black transition-all shadow-md shadow-blue-500/20 flex items-center gap-1.5"
                 >
                   <UserPlus className="w-3.5 h-3.5" />
                   <span>Join Free</span>
@@ -230,7 +230,7 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
             onClick={() => setActiveTab('overview')}
             className={`py-3 px-2 text-xs font-bold transition-all border-b-2 ${
               activeTab === 'overview'
-                ? 'border-[#D4AF37] text-white'
+                ? 'border-blue-500 text-white'
                 : 'border-transparent text-white/40 hover:text-white'
             }`}
           >
@@ -240,7 +240,7 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
             onClick={() => setActiveTab('members')}
             className={`py-3 px-2 text-xs font-bold transition-all border-b-2 ${
               activeTab === 'members'
-                ? 'border-[#D4AF37] text-white'
+                ? 'border-blue-500 text-white'
                 : 'border-transparent text-white/40 hover:text-white'
             }`}
           >
@@ -250,7 +250,7 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
             onClick={() => setActiveTab('activity')}
             className={`py-3 px-2 text-xs font-bold transition-all border-b-2 ${
               activeTab === 'activity'
-                ? 'border-[#D4AF37] text-white'
+                ? 'border-blue-500 text-white'
                 : 'border-transparent text-white/40 hover:text-white'
             }`}
           >
@@ -261,13 +261,13 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
               onClick={() => setActiveTab('moderation')}
               className={`py-3 px-2 text-xs font-bold transition-all border-b-2 flex items-center gap-1 ${
                 activeTab === 'moderation'
-                  ? 'border-[#D4AF37] text-[#D4AF37]'
-                  : 'border-transparent text-[#D4AF37]/60 hover:text-[#D4AF37]'
+                  ? 'border-blue-500 text-blue-400'
+                  : 'border-transparent text-white/40 hover:text-white'
               }`}
             >
               <span>Moderation</span>
               {pendingUsers.length > 0 && (
-                <span className="w-4 h-4 rounded-full bg-[#D4AF37] text-black text-[9px] font-black flex items-center justify-center">
+                <span className="w-4 h-4 rounded-full bg-blue-500 text-white text-[9px] font-black flex items-center justify-center">
                   {pendingUsers.length}
                 </span>
               )}
@@ -438,12 +438,12 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
                     value={quickMessage}
                     onChange={(e) => setQuickMessage(e.target.value)}
                     placeholder="Share an update or question in the community..."
-                    className="flex-1 px-3.5 py-2.5 bg-white/5 border border-white/10 focus:border-[#D4AF37] rounded-xl text-xs text-white placeholder-white/30 outline-none transition-colors"
+                    className="flex-1 px-3.5 py-2.5 bg-white/5 border border-white/10 focus:border-blue-500 rounded-xl text-xs text-white placeholder-white/30 outline-none transition-colors"
                   />
                   <button
                     type="submit"
                     disabled={!quickMessage.trim()}
-                    className="p-2.5 rounded-xl bg-[#D4AF37] hover:bg-[#D4AF37]/90 text-black transition-colors disabled:opacity-40"
+                    className="p-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-40"
                   >
                     <Send className="w-4 h-4" />
                   </button>
@@ -458,8 +458,8 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
 
           {activeTab === 'moderation' && isModerator && (
             <div className="space-y-4">
-              <div className="p-3 bg-[#D4AF37]/10 border border-[#D4AF37]/30 rounded-2xl text-xs text-[#D4AF37] flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 shrink-0" />
+              <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-2xl text-xs text-blue-300 flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 shrink-0 text-blue-400" />
                 <span>You are the moderator. Review and grant access to applicants below.</span>
               </div>
 
@@ -505,7 +505,7 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
                             onApproveMember(community.id, applicant.id);
                           }
                         }}
-                        className="px-3.5 py-1.5 rounded-xl bg-[#D4AF37] hover:bg-[#D4AF37]/90 text-black text-xs font-black transition-all shadow-md shadow-[#D4AF37]/20 flex items-center gap-1.5 shrink-0"
+                        className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black transition-all shadow-md shadow-blue-500/20 flex items-center gap-1.5 shrink-0"
                       >
                         <Check className="w-3.5 h-3.5 stroke-[3]" />
                         <span>Grant Access</span>

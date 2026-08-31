@@ -166,7 +166,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
         {/* Top Header */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/20 flex items-center justify-center text-[#D4AF37]">
+            <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
               <Compass className="w-4 h-4" />
             </div>
             <div>
@@ -178,7 +178,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
           {onCreateCommunity && (
             <button
               onClick={onCreateCommunity}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#D4AF37] hover:bg-[#D4AF37]/90 text-black text-xs font-black transition-all shadow-md shadow-[#D4AF37]/20"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black transition-all shadow-md shadow-blue-500/20"
             >
               <PlusCircle className="w-3.5 h-3.5" />
               <span>Create Community</span>
@@ -194,7 +194,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search communities, builders, habits, or tags..."
-            className="w-full pl-10 pr-9 py-2.5 bg-white/5 border border-white/10 focus:border-[#D4AF37] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-all"
+            className="w-full pl-10 pr-9 py-2.5 bg-white/5 border border-white/10 focus:border-blue-500 rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-all"
           />
           {searchQuery && (
             <button
@@ -252,11 +252,11 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
               onClick={() => setEntityFilter('communities')}
               className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                 entityFilter === 'communities'
-                  ? 'bg-white text-black shadow-sm'
+                  ? 'bg-blue-600 text-white shadow-sm'
                   : 'text-white/50 hover:text-white'
               }`}
             >
-              <Globe2 className="w-3 h-3 text-[#D4AF37]" />
+              <Globe2 className="w-3 h-3 text-blue-400" />
               <span>Communities ({filteredCommunities.length})</span>
             </button>
             <button
@@ -273,7 +273,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
           </div>
 
           {activeFilterTag && (
-            <span className="text-[11px] text-[#D4AF37] font-bold hidden sm:inline-block">
+            <span className="text-[11px] text-blue-400 font-bold hidden sm:inline-block">
               Tag: #{activeFilterTag}
             </span>
           )}
@@ -281,11 +281,11 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
 
         {/* Active Tag Filter Summary Banner */}
         {activeFilterTag && (
-          <div className="bg-[#D4AF37]/10 border border-[#D4AF37]/25 rounded-2xl p-3 flex items-center justify-between text-xs text-white">
+          <div className="bg-blue-500/10 border border-blue-500/25 rounded-2xl p-3 flex items-center justify-between text-xs text-white">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[#D4AF37] shrink-0" />
+              <Sparkles className="w-4 h-4 text-blue-400 shrink-0" />
               <span>
-                Filtering by <strong className="text-[#D4AF37]">#{activeFilterTag}</strong>: Found{' '}
+                Filtering by <strong className="text-blue-400">#{activeFilterTag}</strong>: Found{' '}
                 <strong>{filteredCommunities.length}</strong> communities and{' '}
                 <strong>{filteredUsers.length}</strong> creators
               </span>
@@ -307,13 +307,13 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-xs uppercase font-bold tracking-wider text-white/50 flex items-center gap-1.5">
-                  <Globe2 className="w-3.5 h-3.5 text-[#D4AF37]" />
+                  <Globe2 className="w-3.5 h-3.5 text-blue-400" />
                   Open Communities ({filteredCommunities.length})
                 </h2>
                 {entityFilter === 'all' && filteredCommunities.length > 2 && (
                   <button
                     onClick={() => setEntityFilter('communities')}
-                    className="text-[11px] text-[#D4AF37] hover:underline font-bold"
+                    className="text-[11px] text-blue-400 hover:underline font-bold"
                   >
                     View all {filteredCommunities.length}
                   </button>
@@ -329,7 +329,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                   return (
                     <div
                       key={comm.id}
-                      className="bg-white/5 border border-white/5 hover:border-white/15 rounded-[24px] overflow-hidden transition-all group"
+                      className="bg-white/5 border border-white/5 hover:border-blue-500/20 rounded-[24px] overflow-hidden transition-all group"
                     >
                       {/* Banner / Cover */}
                       <div
@@ -345,15 +345,15 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                         <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] via-black/40 to-transparent" />
 
                         {/* Badge: Access Model */}
-                        <div className="absolute top-2.5 left-3 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-[10px] font-bold text-[#D4AF37]">
+                        <div className="absolute top-2.5 left-3 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-[10px] font-bold text-blue-300">
                           {comm.accessType === 'public' ? (
                             <>
-                              <Globe2 className="w-3 h-3" />
+                              <Globe2 className="w-3 h-3 text-blue-400" />
                               <span>Public Community</span>
                             </>
                           ) : (
                             <>
-                              <ShieldCheck className="w-3 h-3" />
+                              <ShieldCheck className="w-3 h-3 text-blue-400" />
                               <span>Moderated (Request)</span>
                             </>
                           )}
@@ -372,7 +372,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                             onClick={() => onOpenCommunity && onOpenCommunity(comm)}
                             className="flex items-center gap-3 min-w-0 cursor-pointer"
                           >
-                            <div className="w-11 h-11 rounded-2xl overflow-hidden border border-[#D4AF37]/50 -mt-6 shadow-lg bg-black shrink-0">
+                            <div className="w-11 h-11 rounded-2xl overflow-hidden border border-blue-500/40 -mt-6 shadow-lg bg-black shrink-0">
                               <img
                                 src={comm.avatar}
                                 alt={comm.name}
@@ -381,7 +381,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                               />
                             </div>
                             <div className="min-w-0 pt-0.5">
-                              <h3 className="font-bold text-sm text-white truncate hover:text-[#D4AF37] transition-colors">
+                              <h3 className="font-bold text-sm text-white truncate hover:text-blue-400 transition-colors">
                                 {comm.name}
                               </h3>
                               <p className="text-[10px] text-white/40 truncate">
@@ -406,7 +406,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => onToggleJoinCommunity && onToggleJoinCommunity(comm.id)}
-                                  className="px-3 py-1 rounded-xl bg-[#D4AF37]/15 hover:bg-red-500/20 text-[#D4AF37] hover:text-red-400 border border-[#D4AF37]/30 text-xs font-bold transition-all flex items-center gap-1"
+                                  className="px-3 py-1 rounded-xl bg-blue-500/15 hover:bg-red-500/20 text-blue-400 hover:text-red-400 border border-blue-500/30 text-xs font-bold transition-all flex items-center gap-1"
                                 >
                                   <Clock className="w-3 h-3" />
                                   <span>Pending</span>
@@ -418,7 +418,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                                     vibrateLight();
                                     onToggleJoinCommunity && onToggleJoinCommunity(comm.id);
                                   }}
-                                  className="px-3 py-1 rounded-xl bg-[#D4AF37] hover:bg-[#D4AF37]/90 text-black text-xs font-black transition-all shadow-sm flex items-center gap-1"
+                                  className="px-3 py-1 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black transition-all shadow-sm flex items-center gap-1 shadow-blue-500/20"
                                 >
                                   <ShieldCheck className="w-3 h-3" />
                                   <span>Request Access</span>
@@ -431,7 +431,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                                   vibrateStreakMilestone();
                                   onToggleJoinCommunity && onToggleJoinCommunity(comm.id);
                                 }}
-                                className="px-3.5 py-1 rounded-xl bg-[#D4AF37] hover:bg-[#D4AF37]/90 text-black text-xs font-black transition-all shadow-sm flex items-center gap-1"
+                                className="px-3.5 py-1 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black transition-all shadow-sm flex items-center gap-1 shadow-blue-500/20"
                               >
                                 <span>Join Community</span>
                               </button>
@@ -446,7 +446,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                         {/* Footer Metadata */}
                         <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] text-white/40">
                           <div className="flex items-center gap-1.5 font-semibold">
-                            <Users className="w-3 h-3 text-[#D4AF37]" />
+                            <Users className="w-3 h-3 text-blue-400" />
                             <span>{comm.memberCount || comm.memberIds?.length || 1} members</span>
                             <span>•</span>
                             <span>{comm.accessType === 'public' ? 'Open Access' : 'Moderator Approval'}</span>
@@ -455,7 +455,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                           <button
                             type="button"
                             onClick={() => onOpenCommunity && onOpenCommunity(comm)}
-                            className="text-xs font-bold text-[#D4AF37] hover:underline flex items-center gap-0.5"
+                            className="text-xs font-bold text-blue-400 hover:underline flex items-center gap-0.5"
                           >
                             <span>Explore Hub</span>
                             <ArrowRight className="w-3 h-3" />
