@@ -1100,6 +1100,53 @@ export class DailyStorageService {
     return newMsg;
   }
 
+  // Challenge live discussion messages (strictly text-only, words only, no photos)
+  static getChallengeMessages(challengeId: string): Message[] {
+    const messages = this.getAllMessages();
+    const challengeMsgs = messages.filter((m) => m.challengeId === challengeId);
+    if (challengeMsgs.length > 0) return challengeMsgs;
+
+    // Default seeded conversation for challenge discussion if none exist yet
+    const seeded: Message[] = [
+      {
+        id: `cmsg_${challengeId}_1`,
+        conversationId: `conv_challenge_${challengeId}`,
+        senderId: 'user_1',
+        challengeId,
+        text: "Welcome to this challenge cohort everyone! Let's lock in and keep each other accountable every single day.",
+        timestamp: 'Yesterday at 9:15 AM',
+        isRead: true,
+      },
+      {
+        id: `cmsg_${challengeId}_2`,
+        conversationId: `conv_challenge_${challengeId}`,
+        senderId: 'user_2',
+        challengeId,
+        text: "Ready to stay disciplined! Remember to post your daily photo receipt before midnight.",
+        timestamp: 'Today at 8:00 AM',
+        isRead: true,
+      },
+    ];
+    return seeded;
+  }
+
+  static sendChallengeTextMessage(challengeId: string, text: string): Message {
+    const currentUser = this.getCurrentUser();
+    const newMsg: Message = {
+      id: `cmsg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      conversationId: `conv_challenge_${challengeId}`,
+      senderId: currentUser.id,
+      challengeId,
+      text: text.trim(),
+      timestamp: 'Just now',
+      isRead: true,
+    };
+
+    const messages = this.getAllMessages();
+    this.saveAllMessages([...messages, newMsg]);
+    return newMsg;
+  }
+
   // Share a Post to multiple friends and groups in one go
   static sharePostToRecipients(
     postOrParams:
@@ -2123,13 +2170,12 @@ export class DailyStorageService {
     const allMessages = this.getAllMessages();
     const allHabits = this.getPersonalHabits();
     const allChallengePosts = this.getAllChallengeProgressPosts();
+    const allCollections = currentUser.proofCollections || [];
 
     // Check if target user has a post for this date
-    // Note: post created at or postDate matching dateStr
+    const isTodayStr = dateStr === getTodayDateString();
     const userPostsOnDate = allPosts.filter((p) => {
       if (p.userId !== targetUserId) return false;
-      // If date is today
-      const isTodayStr = dateStr === getTodayDateString();
       if (isTodayStr && (p.createdAt === 'Just now' || p.createdAt.includes('m ago') || p.createdAt.includes('h ago') || p.createdAt.includes('11:'))) {
         return true;
       }
@@ -2138,13 +2184,18 @@ export class DailyStorageService {
 
     // Check for community posts on date
     const communityPostsOnDate = allPosts.filter((p) => {
-      const matchesDate = (p as any).postDate === dateStr || (dateStr === getTodayDateString() && (p.createdAt === 'Just now' || p.createdAt.includes('m ago') || p.createdAt.includes('h ago')));
+      const matchesDate = (p as any).postDate === dateStr || (isTodayStr && (p.createdAt === 'Just now' || p.createdAt.includes('m ago') || p.createdAt.includes('h ago')));
       return Boolean(p.communityId && matchesDate);
     });
 
     // Challenge posts on date
     const challengePostsOnDate = allChallengePosts.filter((cp) => {
-      return (cp.userId === targetUserId || cp.userId === 'user_me') && (cp.postDate === dateStr || (dateStr === getTodayDateString() && (cp.createdAt === 'Just now' || cp.createdAt.includes('m ago') || cp.createdAt.includes('h ago'))));
+      return (cp.userId === targetUserId || cp.userId === 'user_me') && (cp.postDate === dateStr || (isTodayStr && (cp.createdAt === 'Just now' || cp.createdAt.includes('m ago') || cp.createdAt.includes('h ago'))));
+    });
+
+    // Challenge chat messages on date
+    const challengeChatsOnDate = allMessages.filter((m) => {
+      return Boolean(m.challengeId && (m.senderId === targetUserId || isTodayStr));
     });
 
     // Contacts / Groups interacted with on date
@@ -2158,7 +2209,11 @@ export class DailyStorageService {
       time: string;
     }> = [];
 
+    const messagesOnDate: Message[] = [];
     allMessages.forEach((msg) => {
+      if (msg.senderId === targetUserId || msg.receiverId === targetUserId || msg.groupId) {
+        messagesOnDate.push(msg);
+      }
       if (msg.groupId) {
         const group = allGroups.find((g) => g.id === msg.groupId);
         if (group && !conversationsOnDate.some((c) => c.id === group.id)) {
@@ -2197,6 +2252,96 @@ export class DailyStorageService {
     const allNotes = this.getAllUserNotes();
     const userNote = allNotes.find((n) => n.userId === targetUserId);
 
+    // Saved posts / collections activity
+    const savedPosts = allPosts.filter((p) => (p as any).isSaved);
+
+    // Milestones pinned/achieved by user
+    const milestones = currentUser.disciplineMilestones || [];
+
+    // Chronological Timeline Builder for complete diary record
+    const timelineEvents: Array<{
+      id: string;
+      time: string;
+      category: 'proof' | 'habit' | 'challenge' | 'chat' | 'note' | 'collection';
+      title: string;
+      description?: string;
+      imageUrl?: string;
+      tags?: string[];
+      badge?: string;
+    }> = [];
+
+    // 1. Add Habit completions to timeline
+    completedHabits.forEach((habit, idx) => {
+      const habitStreak = habit.streak || habit.completedDates?.length || 1;
+      timelineEvents.push({
+        id: `tl_habit_${habit.id}_${idx}`,
+        time: idx % 2 === 0 ? '07:30 AM' : '08:45 AM',
+        category: 'habit',
+        title: `Completed Habit: ${habit.title}`,
+        description: `Maintained ${habitStreak}-day discipline streak for category #${habit.category}`,
+        badge: `${habitStreak}d Streak`,
+      });
+    });
+
+    // 2. Add User Note if present
+    if (userNote) {
+      timelineEvents.push({
+        id: `tl_note_${userNote.id}`,
+        time: '09:00 AM',
+        category: 'note',
+        title: `Shared 24h Note: "${userNote.text}"`,
+        description: userNote.musicTitle ? `Audio attached: ${userNote.musicTitle}` : 'Floating thought shared with friends in Direct Messages',
+        badge: 'DM Note',
+      });
+    }
+
+    // 3. Add User Proofs
+    userPostsOnDate.forEach((post, idx) => {
+      timelineEvents.push({
+        id: `tl_post_${post.id}`,
+        time: idx === 0 ? '10:15 AM' : '04:30 PM',
+        category: 'proof',
+        title: `Published Daily Proof: "${post.content.substring(0, 45)}${post.content.length > 45 ? '...' : ''}"`,
+        description: post.content,
+        imageUrl: post.imageUrl,
+        tags: post.tags,
+        badge: post.communityName ? `Community: ${post.communityName}` : 'Daily Proof',
+      });
+    });
+
+    // 4. Add Challenge Check-ins
+    challengePostsOnDate.forEach((cp) => {
+      timelineEvents.push({
+        id: `tl_cp_${cp.id}`,
+        time: '02:15 PM',
+        category: 'challenge',
+        title: `Logged Day ${cp.dayNumber} Photo Receipt in Challenge`,
+        description: cp.text || 'Mandatory photo proof checkpoint validated and logged to cohort progress.',
+        imageUrl: cp.imageUrl,
+        badge: `Day ${cp.dayNumber} Checkpoint`,
+      });
+    });
+
+    // 5. Add Community or Direct Chats
+    conversationsOnDate.forEach((conv, idx) => {
+      timelineEvents.push({
+        id: `tl_conv_${conv.id}_${idx}`,
+        time: idx === 0 ? '11:40 AM' : '06:20 PM',
+        category: 'chat',
+        title: conv.isGroup ? `Active in Group: ${conv.name}` : `Direct Message with @${conv.username || conv.name}`,
+        description: `Last exchange: "${conv.lastMessageText}"`,
+        badge: conv.isGroup ? 'Group Chat' : 'Direct Message',
+      });
+    });
+
+    // Calculate daily discipline score
+    const totalGoals = 5;
+    const completedScoreCount = (userPostsOnDate.length > 0 ? 2 : 0) +
+      (completedHabits.length > 0 ? 1 : 0) +
+      (challengePostsOnDate.length > 0 ? 1 : 0) +
+      (userNote ? 1 : 0);
+    const disciplineScore = Math.min(100, Math.round((completedScoreCount / totalGoals) * 100));
+
     // Format display date
     const parts = dateStr.split('-').map(Number);
     const dateObj = new Date(parts[0], (parts[1] || 1) - 1, parts[2] || 1);
@@ -2212,16 +2357,218 @@ export class DailyStorageService {
       dateStr,
       formattedDate,
       dayOfWeek,
-      isToday: dateStr === getTodayDateString(),
+      isToday: isTodayStr,
       mainPost: userPostsOnDate[0],
       userPosts: userPostsOnDate,
       communityPosts: communityPostsOnDate,
       challengePosts: challengePostsOnDate,
+      challengeChats: challengeChatsOnDate,
       conversations: conversationsOnDate,
+      messages: messagesOnDate,
       completedHabits,
       userNote,
-      totalActivityCount: userPostsOnDate.length + communityPostsOnDate.length + challengePostsOnDate.length + conversationsOnDate.length + completedHabits.length,
+      savedPosts,
+      collections: allCollections,
+      milestones,
+      timelineEvents,
+      disciplineScore,
+      totalActivityCount: userPostsOnDate.length +
+        communityPostsOnDate.length +
+        challengePostsOnDate.length +
+        conversationsOnDate.length +
+        completedHabits.length +
+        (userNote ? 1 : 0),
     };
   }
+
+  // --- DIARY BOOKMARKS & SEARCH HELPERS ---
+  private static readonly DIARY_BOOKMARKS_KEY = 'daily_diary_bookmarked_days';
+
+  static getBookmarkedDiaryDays(userId?: string): Array<{ dateStr: string; note?: string; formattedDate: string; createdAt: string }> {
+    const targetUserId = userId || this.getCurrentUser().id;
+    const raw = localStorage.getItem(`${this.DIARY_BOOKMARKS_KEY}_${targetUserId}`);
+    if (!raw) {
+      // Default sample bookmark for initial delight
+      const today = getTodayDateString();
+      const initial = [
+        {
+          dateStr: today,
+          note: 'Current Streak Milestone Record 🔥',
+          formattedDate: 'Today',
+          createdAt: new Date().toISOString(),
+        },
+      ];
+      localStorage.setItem(`${this.DIARY_BOOKMARKS_KEY}_${targetUserId}`, JSON.stringify(initial));
+      return initial;
+    }
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  }
+
+  static isDiaryDayBookmarked(dateStr: string, userId?: string): boolean {
+    const bookmarks = this.getBookmarkedDiaryDays(userId);
+    return bookmarks.some((b) => b.dateStr === dateStr);
+  }
+
+  static toggleBookmarkDiaryDay(
+    dateStr: string,
+    note?: string,
+    userId?: string
+  ): { isBookmarked: boolean; allBookmarks: Array<{ dateStr: string; note?: string; formattedDate: string; createdAt: string }> } {
+    const targetUserId = userId || this.getCurrentUser().id;
+    const bookmarks = this.getBookmarkedDiaryDays(targetUserId);
+    const existingIndex = bookmarks.findIndex((b) => b.dateStr === dateStr);
+
+    let updated: Array<{ dateStr: string; note?: string; formattedDate: string; createdAt: string }>;
+    let isBookmarked: boolean;
+
+    if (existingIndex >= 0) {
+      updated = bookmarks.filter((b) => b.dateStr !== dateStr);
+      isBookmarked = false;
+    } else {
+      const parts = dateStr.split('-').map(Number);
+      const dateObj = new Date(parts[0], (parts[1] || 1) - 1, parts[2] || 1);
+      const formattedDate = dateObj.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+      updated = [
+        {
+          dateStr,
+          note: note || 'Bookmarked Milestone Day',
+          formattedDate,
+          createdAt: new Date().toISOString(),
+        },
+        ...bookmarks,
+      ];
+      isBookmarked = true;
+    }
+
+    localStorage.setItem(`${this.DIARY_BOOKMARKS_KEY}_${targetUserId}`, JSON.stringify(updated));
+    return { isBookmarked, allBookmarks: updated };
+  }
+
+  static updateBookmarkNote(dateStr: string, newNote: string, userId?: string): void {
+    const targetUserId = userId || this.getCurrentUser().id;
+    const bookmarks = this.getBookmarkedDiaryDays(targetUserId);
+    const updated = bookmarks.map((b) => (b.dateStr === dateStr ? { ...b, note: newNote } : b));
+    localStorage.setItem(`${this.DIARY_BOOKMARKS_KEY}_${targetUserId}`, JSON.stringify(updated));
+  }
+
+  /**
+   * Search through past diary days (last 60 days) by keywords, tags, habits, or interaction types
+   */
+  static searchDiaryEntries(
+    query: string,
+    userId?: string,
+    filterType: 'all' | 'proofs' | 'habits' | 'community' | 'chats' | 'high_score' = 'all'
+  ) {
+    const targetUserId = userId || this.getCurrentUser().id;
+    const cleanQuery = query.trim().toLowerCase();
+    const today = new Date();
+    const results: Array<{
+      dateStr: string;
+      formattedDate: string;
+      dayOfWeek: string;
+      dayData: ReturnType<typeof DailyStorageService.getDayActivityData>;
+      matchedSnippets: string[];
+      matchCategory: 'proof' | 'habit' | 'community' | 'chat' | 'checkpoint' | 'score';
+    }> = [];
+
+    // Scan last 60 days
+    for (let i = 0; i < 60; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const dateStr = `${yyyy}-${mm}-${dd}`;
+
+      const dayData = this.getDayActivityData(dateStr, targetUserId);
+      const matchedSnippets: string[] = [];
+      let matchCategory: 'proof' | 'habit' | 'community' | 'chat' | 'checkpoint' | 'score' = 'proof';
+
+      // 1. Proof content matching
+      if (filterType === 'all' || filterType === 'proofs') {
+        dayData.userPosts.forEach((p) => {
+          if (!cleanQuery || p.content.toLowerCase().includes(cleanQuery) || p.tags?.some((t) => t.toLowerCase().includes(cleanQuery))) {
+            matchedSnippets.push(`Proof: "${p.content.substring(0, 70)}${p.content.length > 70 ? '...' : ''}"`);
+            matchCategory = 'proof';
+          }
+        });
+      }
+
+      // 2. Habits matching
+      if (filterType === 'all' || filterType === 'habits') {
+        dayData.completedHabits.forEach((h) => {
+          if (!cleanQuery || h.title.toLowerCase().includes(cleanQuery) || h.category.toLowerCase().includes(cleanQuery)) {
+            matchedSnippets.push(`Habit: ${h.icon || '✓'} ${h.title} (${h.category})`);
+            matchCategory = 'habit';
+          }
+        });
+      }
+
+      // 3. Community posts matching
+      if (filterType === 'all' || filterType === 'community') {
+        dayData.communityPosts.forEach((cp) => {
+          if (!cleanQuery || cp.content.toLowerCase().includes(cleanQuery) || cp.communityName?.toLowerCase().includes(cleanQuery)) {
+            matchedSnippets.push(`Community (${cp.communityName || 'Hub'}): "${cp.content.substring(0, 60)}..."`);
+            matchCategory = 'community';
+          }
+        });
+      }
+
+      // 4. Conversations matching
+      if (filterType === 'all' || filterType === 'chats') {
+        dayData.conversations.forEach((conv) => {
+          if (!cleanQuery || conv.name.toLowerCase().includes(cleanQuery) || conv.lastMessageText.toLowerCase().includes(cleanQuery)) {
+            matchedSnippets.push(`Chat with ${conv.name}: "${conv.lastMessageText.substring(0, 50)}..."`);
+            matchCategory = 'chat';
+          }
+        });
+      }
+
+      // 5. High Score Filter
+      if (filterType === 'high_score') {
+        if (dayData.disciplineScore >= 80) {
+          matchedSnippets.push(`High Discipline Score: ${dayData.disciplineScore}% with ${dayData.totalActivityCount} completed activities`);
+          matchCategory = 'score';
+        }
+      }
+
+      // If query is provided, only include if matchedSnippets is non-empty
+      if (cleanQuery) {
+        if (matchedSnippets.length > 0) {
+          results.push({
+            dateStr,
+            formattedDate: dayData.formattedDate,
+            dayOfWeek: dayData.dayOfWeek,
+            dayData,
+            matchedSnippets,
+            matchCategory,
+          });
+        }
+      } else {
+        // If query is empty but filterType is specified and matchedSnippets exist
+        if (filterType !== 'all' && matchedSnippets.length > 0) {
+          results.push({
+            dateStr,
+            formattedDate: dayData.formattedDate,
+            dayOfWeek: dayData.dayOfWeek,
+            dayData,
+            matchedSnippets,
+            matchCategory,
+          });
+        }
+      }
+    }
+
+    return results;
+  }
 }
+
 

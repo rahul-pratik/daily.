@@ -20,12 +20,13 @@ import {
   X,
   Layers,
   MessageSquare,
+  MessageCircle,
   ThumbsUp,
   Share2,
   Hourglass,
   Flag,
 } from 'lucide-react';
-import { User, Challenge, ChallengeProgressPost } from '../types';
+import { User, Challenge, ChallengeProgressPost, Message } from '../types';
 import { DailyStorageService, getTodayDateString } from '../services/storage';
 import { vibrateLight, vibrateSuccess, vibrateStreakMilestone } from '../services/haptics';
 
@@ -62,7 +63,10 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
   onChallengeUpdated,
 }) => {
   const [challenge, setChallenge] = useState<Challenge>(initialChallenge);
+  const [challengeTab, setChallengeTab] = useState<'proofs' | 'chat'>('proofs');
   const [progressPosts, setProgressPosts] = useState<ChallengeProgressPost[]>([]);
+  const [chatMessages, setChatMessages] = useState<Message[]>([]);
+  const [chatInputText, setChatInputText] = useState('');
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [postPhotoUrl, setPostPhotoUrl] = useState('');
   const [postReflection, setPostReflection] = useState('');
@@ -73,10 +77,12 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
   const [selectedPhotoPreview, setSelectedPhotoPreview] = useState<string | null>(null);
   const [selectedDayProof, setSelectedDayProof] = useState<ChallengeProgressPost | null>(null);
 
-  // Load progress posts
+  // Load progress posts and challenge chat messages
   useEffect(() => {
     const posts = DailyStorageService.getAllChallengeProgressPosts(challenge.id);
     setProgressPosts(posts);
+    const msgs = DailyStorageService.getChallengeMessages(challenge.id);
+    setChatMessages(msgs);
   }, [challenge.id]);
 
   const userProgress = DailyStorageService.getChallengeUserProgress(challenge.id, currentUser.id);
@@ -161,6 +167,16 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
     }
   };
 
+  const handleSendChatMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatInputText.trim()) return;
+
+    vibrateLight();
+    const newMsg = DailyStorageService.sendChallengeTextMessage(challenge.id, chatInputText.trim());
+    setChatMessages((prev) => [...prev, newMsg]);
+    setChatInputText('');
+  };
+
   const handleToggleCheer = (postId: string) => {
     vibrateLight();
     const updated = DailyStorageService.toggleCheerChallengePost(postId);
@@ -183,6 +199,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
   };
 
   const percentComplete = Math.min(100, Math.round((daysCompleted / totalDays) * 100));
+
 
   return (
     <div className="w-full min-h-screen bg-[#050505] text-white flex flex-col pb-24 animate-in fade-in duration-200">
@@ -432,102 +449,224 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
           </div>
         )}
 
-        {/* Cohort Progress Proofs Feed */}
-        <div className="space-y-3 pt-2">
-          <div className="flex items-center justify-between px-1">
-            <h2 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
-              <span>Cohort Member Proofs ({progressPosts.length})</span>
-            </h2>
-            <span className="text-[10px] text-white/40">Photo receipts mandatory</span>
-          </div>
+        {/* Challenge Section Switcher: Photo Proofs vs Text-Only Cohort Chat */}
+        <div className="flex items-center gap-1.5 bg-[#0F0F0F] p-1.5 rounded-2xl border border-white/10">
+          <button
+            onClick={() => {
+              vibrateLight();
+              setChallengeTab('proofs');
+            }}
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              challengeTab === 'proofs'
+                ? 'bg-[#D4AF37] text-black font-black shadow-md shadow-[#D4AF37]/20'
+                : 'text-white/60 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <Camera className="w-3.5 h-3.5" />
+            <span>Photo Proofs ({progressPosts.length})</span>
+          </button>
 
-          {progressPosts.length === 0 ? (
-            <div className="bg-[#0F0F0F] border border-white/10 rounded-2xl p-8 text-center space-y-2">
-              <Camera className="w-8 h-8 text-white/30 mx-auto" />
-              <p className="text-xs font-bold text-white/80">No progress proofs posted yet</p>
-              <p className="text-[11px] text-white/40">
-                Be the first to post your daily achievement photo!
-              </p>
+          <button
+            onClick={() => {
+              vibrateLight();
+              setChallengeTab('chat');
+            }}
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              challengeTab === 'chat'
+                ? 'bg-white text-black font-black shadow-md'
+                : 'text-white/60 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <MessageCircle className="w-3.5 h-3.5" />
+            <span>Cohort Chat ({chatMessages.length})</span>
+          </button>
+        </div>
+
+        {/* Tab 1: Cohort Progress Proofs Feed */}
+        {challengeTab === 'proofs' && (
+          <div className="space-y-3 pt-1">
+            <div className="flex items-center justify-between px-1">
+              <h2 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
+                <span>Cohort Member Proofs ({progressPosts.length})</span>
+              </h2>
+              <span className="text-[10px] text-white/40">Photo receipts mandatory</span>
             </div>
-          ) : (
-            progressPosts.map((post) => (
-              <div
-                key={post.id}
-                className="bg-[#0F0F0F] border border-white/15 rounded-3xl p-4 sm:p-5 shadow-xl space-y-3 relative"
-              >
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <img
-                      src={post.userAvatar}
-                      alt={post.userName}
-                      referrerPolicy="no-referrer"
-                      className="w-9 h-9 rounded-full object-cover border border-white/20"
-                    />
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-xs text-white">{post.userName}</span>
-                        <span className="text-[10px] text-white/40">@{post.userUsername}</span>
+
+            {progressPosts.length === 0 ? (
+              <div className="bg-[#0F0F0F] border border-white/10 rounded-2xl p-8 text-center space-y-2">
+                <Camera className="w-8 h-8 text-white/30 mx-auto" />
+                <p className="text-xs font-bold text-white/80">No progress proofs posted yet</p>
+                <p className="text-[11px] text-white/40">
+                  Be the first to post your daily achievement photo!
+                </p>
+              </div>
+            ) : (
+              progressPosts.map((post) => (
+                <div
+                  key={post.id}
+                  className="bg-[#0F0F0F] border border-white/15 rounded-3xl p-4 sm:p-5 shadow-xl space-y-3 relative"
+                >
+                  {/* Header */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <img
+                        src={post.userAvatar}
+                        alt={post.userName}
+                        referrerPolicy="no-referrer"
+                        className="w-9 h-9 rounded-full object-cover border border-white/20"
+                      />
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-xs text-white">{post.userName}</span>
+                          <span className="text-[10px] text-white/40">@{post.userUsername}</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-[10px] text-blue-400 font-bold">
+                          <Flame className="w-3 h-3 fill-blue-400" />
+                          <span>{post.userStreak}d Streak</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1 text-[10px] text-blue-400 font-bold">
-                        <Flame className="w-3 h-3 fill-blue-400" />
-                        <span>{post.userStreak}d Streak</span>
-                      </div>
+                    </div>
+
+                    {/* Day Badge */}
+                    <div className="px-2.5 py-1 rounded-full bg-[#D4AF37]/10 border border-[#D4AF37]/30 text-[#D4AF37] font-black text-[10px] uppercase tracking-wider">
+                      Day {post.dayNumber} of {totalDays}
                     </div>
                   </div>
 
-                  {/* Day Badge */}
-                  <div className="px-2.5 py-1 rounded-full bg-[#D4AF37]/10 border border-[#D4AF37]/30 text-[#D4AF37] font-black text-[10px] uppercase tracking-wider">
-                    Day {post.dayNumber} of {totalDays}
-                  </div>
-                </div>
-
-                {/* Mandatory Photo Achievement */}
-                <div
-                  className="rounded-2xl overflow-hidden border border-white/15 bg-black/60 aspect-video relative group cursor-pointer"
-                  onClick={() => setSelectedPhotoPreview(post.imageUrl)}
-                >
-                  <img
-                    src={post.imageUrl}
-                    alt={`Day ${post.dayNumber} progress`}
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                  <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-sm text-white text-[9px] font-bold flex items-center gap-1">
-                    <Camera className="w-3 h-3 text-[#D4AF37]" />
-                    <span>Receipt Photo</span>
-                  </div>
-                </div>
-
-                {/* Optional Reflection */}
-                {post.text && (
-                  <p className="text-xs text-white/90 leading-relaxed font-sans px-1">
-                    {post.text}
-                  </p>
-                )}
-
-                {/* Footer: Cheers & Time */}
-                <div className="flex items-center justify-between pt-2 border-t border-white/10 text-xs">
-                  <span className="text-[10px] text-white/40">{post.createdAt}</span>
-
-                  <button
-                    onClick={() => handleToggleCheer(post.id)}
-                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all min-h-[32px] ${
-                      post.cheeredByMe
-                        ? 'bg-[#D4AF37] text-black font-black shadow-md shadow-[#D4AF37]/25'
-                        : 'bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/10'
-                    }`}
+                  {/* Mandatory Photo Achievement */}
+                  <div
+                    className="rounded-2xl overflow-hidden border border-white/15 bg-black/60 aspect-video relative group cursor-pointer"
+                    onClick={() => setSelectedPhotoPreview(post.imageUrl)}
                   >
-                    <span>👏</span>
-                    <span>{post.cheersCount}</span>
-                    <span className="text-[10px] opacity-80">{post.cheeredByMe ? 'Cheered' : 'Cheer'}</span>
-                  </button>
+                    <img
+                      src={post.imageUrl}
+                      alt={`Day ${post.dayNumber} progress`}
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                    <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-sm text-white text-[9px] font-bold flex items-center gap-1">
+                      <Camera className="w-3 h-3 text-[#D4AF37]" />
+                      <span>Receipt Photo</span>
+                    </div>
+                  </div>
+
+                  {/* Optional Reflection */}
+                  {post.text && (
+                    <p className="text-xs text-white/90 leading-relaxed font-sans px-1">
+                      {post.text}
+                    </p>
+                  )}
+
+                  {/* Footer: Cheers & Time */}
+                  <div className="flex items-center justify-between pt-2 border-t border-white/10 text-xs">
+                    <span className="text-[10px] text-white/40">{post.createdAt}</span>
+
+                    <button
+                      onClick={() => handleToggleCheer(post.id)}
+                      className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all min-h-[32px] ${
+                        post.cheeredByMe
+                          ? 'bg-[#D4AF37] text-black font-black shadow-md shadow-[#D4AF37]/25'
+                          : 'bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/10'
+                      }`}
+                    >
+                      <span>👏</span>
+                      <span>{post.cheersCount}</span>
+                      <span className="text-[10px] opacity-80">{post.cheeredByMe ? 'Cheered' : 'Cheer'}</span>
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* Tab 2: Cohort Live Text-Only Chat (No photos allowed in chat) */}
+        {challengeTab === 'chat' && (
+          <div className="bg-[#0F0F0F] border border-white/15 rounded-3xl p-4 sm:p-5 shadow-2xl space-y-4">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center text-white">
+                  <MessageCircle className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-wider text-white">
+                    Cohort Discussion Room
+                  </h3>
+                  <p className="text-[10px] text-white/40">
+                    Text-only chat • Pure words & accountability (no images)
+                  </p>
                 </div>
               </div>
-            ))
-          )}
-        </div>
+
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                {challenge.participantsCount || 1} online
+              </span>
+            </div>
+
+            {/* Chat message feed */}
+            <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1 no-scrollbar min-h-[160px]">
+              {chatMessages.length === 0 ? (
+                <div className="py-8 text-center text-white/40 text-xs">
+                  No messages yet. Say hello and encourage your cohort!
+                </div>
+              ) : (
+                chatMessages.map((msg) => {
+                  const isMe = msg.senderId === currentUser.id;
+                  return (
+                    <div
+                      key={msg.id}
+                      className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} space-y-1`}
+                    >
+                      <div className="flex items-center gap-1.5 px-1">
+                        <span className="text-[10px] font-bold text-white/50">
+                          {isMe ? 'You' : msg.senderId === 'user_1' ? 'Elena Vance' : msg.senderId === 'user_2' ? 'Marcus Vance' : 'Cohort Member'}
+                        </span>
+                        <span className="text-[9px] text-white/30">{msg.timestamp}</span>
+                      </div>
+                      <div
+                        className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-xs leading-relaxed ${
+                          isMe
+                            ? 'bg-[#D4AF37] text-black font-medium rounded-tr-sm shadow-md'
+                            : 'bg-white/10 text-white rounded-tl-sm border border-white/10'
+                        }`}
+                      >
+                        {msg.text}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Text-Only Input Bar (No Photo Upload in this chat section) */}
+            {isJoined ? (
+              <form onSubmit={handleSendChatMessage} className="flex items-center gap-2 pt-2 border-t border-white/10">
+                <input
+                  type="text"
+                  value={chatInputText}
+                  onChange={(e) => setChatInputText(e.target.value)}
+                  placeholder="Send a text message to cohort members..."
+                  className="flex-1 px-4 py-2.5 bg-white/5 border border-white/15 focus:border-[#D4AF37] rounded-xl text-xs text-white placeholder-white/35 outline-none transition-colors"
+                />
+                <button
+                  type="submit"
+                  disabled={!chatInputText.trim()}
+                  className="p-2.5 rounded-xl bg-[#D4AF37] hover:bg-[#e0be48] text-black font-black transition-all disabled:opacity-40 shadow-md min-w-[40px] flex items-center justify-center"
+                  title="Send Text Message"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </form>
+            ) : (
+              <div className="p-3 bg-white/5 border border-white/10 rounded-2xl text-center text-xs text-white/50">
+                Join this challenge to participate in the text-only discussion room.
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
 
       {/* POST PROGRESS MODAL (Photo is MANDATORY) */}

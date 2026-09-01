@@ -216,6 +216,7 @@ export interface Message {
   senderId: string;
   receiverId?: string;
   groupId?: string;
+  challengeId?: string;
   text: string;
   imageUrl?: string;
   sharedPost?: SharedPostPreview;

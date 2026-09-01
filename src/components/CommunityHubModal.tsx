@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   X,
   Globe2,
@@ -17,6 +17,9 @@ import {
   LogOut,
   Flag,
   AlertCircle,
+  Camera,
+  Image as ImageIcon,
+  Upload,
 } from 'lucide-react';
 import { Community, User, Post, Message } from '../types';
 import { DailyStorageService } from '../services/storage';
@@ -36,6 +39,25 @@ interface CommunityHubModalProps {
   onReportViolation?: (communityName: string, ruleText: string) => void;
 }
 
+const COMMUNITY_PHOTO_PRESETS = [
+  {
+    label: 'Deep Work Setup',
+    url: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=1000&auto=format&fit=crop&q=80',
+  },
+  {
+    label: 'Workout & Training',
+    url: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1000&auto=format&fit=crop&q=80',
+  },
+  {
+    label: 'Outdoor Focus',
+    url: 'https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=1000&auto=format&fit=crop&q=80',
+  },
+  {
+    label: 'Book & Notes',
+    url: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=1000&auto=format&fit=crop&q=80',
+  },
+];
+
 export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
   community,
   currentUser,
@@ -51,12 +73,18 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'activity' | 'moderation'>('overview');
   const [quickMessage, setQuickMessage] = useState('');
+  const [attachedPhotoUrl, setAttachedPhotoUrl] = useState<string>('');
+  const [showPhotoPicker, setShowPhotoPicker] = useState(false);
+  const [previewPhotoModal, setPreviewPhotoModal] = useState<string | null>(null);
   const [reportedRuleIndex, setReportedRuleIndex] = useState<number | null>(null);
-  const [localComments, setLocalComments] = useState<{ id: string; user: User; text: string; time: string }[]>([
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [localComments, setLocalComments] = useState<{ id: string; user: User; text: string; imageUrl?: string; time: string }[]>([
     {
       id: 'c1',
       user: allUsers[0] || currentUser,
-      text: `Welcome everyone to the ${community.name} space! Post your daily receipts and stay locked in.`,
+      text: `Welcome everyone to the ${community.name} space! Post your daily receipts, ask questions, and share progress photos.`,
+      imageUrl: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=1000&auto=format&fit=crop&q=80',
       time: '2h ago',
     },
     {
@@ -66,6 +94,7 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
       time: '45m ago',
     },
   ]);
+
 
   if (!isOpen) return null;
 
@@ -107,20 +136,39 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
 
   const handlePostComment = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!quickMessage.trim()) return;
+    if (!quickMessage.trim() && !attachedPhotoUrl) return;
 
-    vibrateLight();
+    vibrateStreakMilestone();
     setLocalComments((prev) => [
       ...prev,
       {
         id: `c_${Date.now()}`,
         user: currentUser,
-        text: quickMessage.trim(),
+        text: quickMessage.trim() || 'Shared a progress photo in community discussion',
+        imageUrl: attachedPhotoUrl || undefined,
         time: 'Just now',
       },
     ]);
     setQuickMessage('');
+    setAttachedPhotoUrl('');
+    setShowPhotoPicker(false);
   };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          setAttachedPhotoUrl(reader.result);
+          setShowPhotoPicker(false);
+          vibrateLight();
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
@@ -456,11 +504,11 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
           {activeTab === 'activity' && (
             <div className="space-y-4">
               {/* Discussion messages */}
-              <div className="space-y-3">
+              <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1 no-scrollbar">
                 {localComments.map((comment) => (
                   <div
                     key={comment.id}
-                    className="p-3.5 bg-white/5 border border-white/10 rounded-2xl space-y-1.5 text-xs"
+                    className="p-3.5 bg-white/5 border border-white/10 rounded-2xl space-y-2 text-xs"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -475,25 +523,137 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
                       </div>
                       <span className="text-[10px] text-white/30">{comment.time}</span>
                     </div>
-                    <p className="text-white/80 pl-8 leading-relaxed">{comment.text}</p>
+
+                    <p className="text-white/90 pl-8 leading-relaxed">{comment.text}</p>
+
+                    {/* Attached Photo */}
+                    {comment.imageUrl && (
+                      <div className="pl-8 pt-1">
+                        <div
+                          className="rounded-xl overflow-hidden border border-white/15 max-h-48 max-w-sm bg-black/40 cursor-pointer relative group"
+                          onClick={() => setPreviewPhotoModal(comment.imageUrl || null)}
+                        >
+                          <img
+                            src={comment.imageUrl}
+                            alt="Community post attachment"
+                            referrerPolicy="no-referrer"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                          <div className="absolute bottom-1.5 right-1.5 px-2 py-0.5 rounded bg-black/70 backdrop-blur-sm text-[9px] text-white/80 font-bold">
+                            Tap to expand
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
 
+              {/* Attached Photo Preview before sending */}
+              {attachedPhotoUrl && (
+                <div className="relative inline-block rounded-xl overflow-hidden border border-[#D4AF37] max-h-28 bg-black/40">
+                  <img
+                    src={attachedPhotoUrl}
+                    alt="Ready to attach"
+                    referrerPolicy="no-referrer"
+                    className="h-28 w-auto object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setAttachedPhotoUrl('')}
+                    className="absolute top-1.5 right-1.5 p-1 rounded-full bg-black/80 text-white hover:text-red-400 transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              {/* Photo presets selector */}
+              {showPhotoPicker && (
+                <div className="p-3 bg-white/5 border border-white/10 rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-white/70">
+                    <span>Choose a sample photo or upload your own:</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowPhotoPicker(false)}
+                      className="text-white/40 hover:text-white"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {COMMUNITY_PHOTO_PRESETS.map((preset) => (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => {
+                          vibrateLight();
+                          setAttachedPhotoUrl(preset.url);
+                          setShowPhotoPicker(false);
+                        }}
+                        className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center gap-2 text-left text-xs transition-colors"
+                      >
+                        <img
+                          src={preset.url}
+                          alt={preset.label}
+                          referrerPolicy="no-referrer"
+                          className="w-8 h-8 rounded-lg object-cover"
+                        />
+                        <span className="truncate text-white/80 text-[11px]">{preset.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full py-2 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Upload from device</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Hidden file input */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                accept="image/*"
+                className="hidden"
+              />
+
               {/* Chat Input */}
               {isMember ? (
                 <form onSubmit={handlePostComment} className="flex items-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vibrateLight();
+                      setShowPhotoPicker(!showPhotoPicker);
+                    }}
+                    className={`p-2.5 rounded-xl border transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center ${
+                      attachedPhotoUrl
+                        ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
+                        : 'bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border-white/10'
+                    }`}
+                    title="Attach photo to discussion"
+                  >
+                    <Camera className="w-4 h-4" />
+                  </button>
+
                   <input
                     type="text"
                     value={quickMessage}
                     onChange={(e) => setQuickMessage(e.target.value)}
-                    placeholder="Share an update or question in the community..."
+                    placeholder={attachedPhotoUrl ? "Add a caption for your photo..." : "Share an update, photo, or question in the community..."}
                     className="flex-1 px-3.5 py-2.5 bg-white/5 border border-white/10 focus:border-blue-500 rounded-xl text-xs text-white placeholder-white/30 outline-none transition-colors"
                   />
+
                   <button
                     type="submit"
-                    disabled={!quickMessage.trim()}
-                    className="p-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-40"
+                    disabled={!quickMessage.trim() && !attachedPhotoUrl}
+                    className="p-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-40 min-h-[40px] min-w-[40px] flex items-center justify-center shadow-md shadow-blue-500/20"
                   >
                     <Send className="w-4 h-4" />
                   </button>
@@ -568,6 +728,30 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
           )}
         </div>
       </div>
+
+      {/* Lightbox Photo Preview Modal */}
+      {previewPhotoModal && (
+        <div
+          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setPreviewPhotoModal(null)}
+        >
+          <div className="relative max-w-2xl max-h-[85vh] rounded-2xl overflow-hidden shadow-2xl border border-white/20">
+            <img
+              src={previewPhotoModal}
+              alt="Expanded preview"
+              referrerPolicy="no-referrer"
+              className="w-full h-full object-contain"
+            />
+            <button
+              onClick={() => setPreviewPhotoModal(null)}
+              className="absolute top-3 right-3 p-2 rounded-full bg-black/70 text-white hover:bg-black transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
