@@ -27,11 +27,15 @@ import {
   Calendar,
   Layers,
   ChevronRight,
+  BookOpen,
+  TrendingUp,
 } from 'lucide-react';
 import { User, Post, ProofCollection, AVAILABLE_DISCIPLINE_MILESTONES, PostDraft } from '../types';
 import { PostCard } from './PostCard';
 import { EmptyStateIllustration } from './EmptyStateIllustration';
 import { DisciplineMilestonesModal } from './DisciplineMilestonesModal';
+import { ActivityTrendChart } from './ActivityTrendChart';
+import { DailyDiaryNotebook } from './DailyDiaryNotebook';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
 import { DailyStorageService } from '../services/storage';
 
@@ -58,6 +62,7 @@ interface ProfileScreenProps {
   onUpdateMilestones?: (milestoneIds: string[]) => void;
   onOpenResumeDraft?: (draft: PostDraft) => void;
   onOpenCreateDraft?: () => void;
+  onOpenCreatePost?: () => void;
   onPublishDraftDirectly?: (draftId: string) => void;
 }
 
@@ -73,7 +78,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onToggleSave,
   onReportPost,
   onToggleFollow = () => {},
-  onSendDM = () => {},
+  onSendDM = (_targetUser: { id: string; name: string; username: string; avatar: string; streak: number }) => {},
   onSharePost,
   onOpenInsights,
   onDeletePost,
@@ -84,15 +89,17 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onUpdateMilestones,
   onOpenResumeDraft,
   onOpenCreateDraft,
+  onOpenCreatePost,
   onPublishDraftDirectly,
 }) => {
-  const [profileTab, setProfileTab] = useState<'my_posts' | 'drafts' | 'collections' | 'saved'>('my_posts');
+  const [profileTab, setProfileTab] = useState<'my_posts' | 'diary' | 'drafts' | 'collections' | 'saved'>('my_posts');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
   const [isMilestonesModalOpen, setIsMilestonesModalOpen] = useState(false);
+  const [showActivityChart, setShowActivityChart] = useState(true);
 
   // Drafts & Scheduled Queue State
   const [drafts, setDrafts] = useState<PostDraft[]>(() => DailyStorageService.getAllDrafts(currentUser.id));
@@ -412,20 +419,43 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <span>Edit Profile</span>
           </button>
 
+          <button
+            onClick={() => {
+              vibrateLight();
+              setShowActivityChart(!showActivityChart);
+            }}
+            className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-colors min-h-[44px] active:scale-[0.99] ${
+              showActivityChart
+                ? 'bg-[#D4AF37]/20 border-[#D4AF37]/50 text-[#D4AF37]'
+                : 'bg-white/5 hover:bg-white/10 border-white/10 text-white/70 hover:text-white'
+            }`}
+            title="Toggle 30-Day Activity Trend Line Chart"
+          >
+            <TrendingUp className="w-3.5 h-3.5" />
+            <span>Trends</span>
+          </button>
+
           {userPosts.length > 0 && onOpenInsights && (
             <button
               onClick={() => onOpenInsights(userPosts[0])}
-              className="py-2.5 px-4 rounded-xl bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 border border-[#D4AF37]/30 text-xs font-bold text-[#D4AF37] flex items-center justify-center gap-1.5 transition-colors min-h-[44px] active:scale-[0.99]"
+              className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-white/80 hover:text-white flex items-center justify-center gap-1.5 transition-colors min-h-[44px] active:scale-[0.99]"
               title="View Engagement Analytics for your latest post"
             >
-              <BarChart3 className="w-3.5 h-3.5" />
+              <BarChart3 className="w-3.5 h-3.5 text-[#D4AF37]" />
               <span>Insights</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* Profile Navigation Tabs: My Proofs, Drafts, Collections, Saved */}
+      {/* 30-Day Activity Trend Chart Component */}
+      {showActivityChart && (
+        <ActivityTrendChart
+          user={currentUser}
+        />
+      )}
+
+      {/* Profile Navigation Tabs: My Proofs, Daily Diary, Drafts, Collections, Saved */}
       <div className="space-y-3 pt-2">
         <div className="flex items-center justify-between border-b border-white/5 pb-3">
           {/* Tab buttons */}
@@ -444,6 +474,22 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             >
               <Flame className="w-3.5 h-3.5 text-[#D4AF37]" />
               <span>Proofs ({userPosts.length})</span>
+            </button>
+
+            <button
+              onClick={() => {
+                vibrateLight();
+                setProfileTab('diary');
+                setSelectedCollectionId(null);
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                profileTab === 'diary'
+                  ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-amber-950 shadow-md font-black'
+                  : 'text-amber-200/70 hover:text-amber-200'
+              }`}
+            >
+              <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+              <span>Daily Diary</span>
             </button>
 
             <button
@@ -572,6 +618,32 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           >
             ✕
           </button>
+        </div>
+      )}
+
+      {/* Tab Content: DAILY DIARY NOTEBOOK TAB */}
+      {profileTab === 'diary' && (
+        <div className="space-y-4 animate-in fade-in">
+          <DailyDiaryNotebook
+            user={currentUser}
+            onOpenCreatePost={() => {
+              if (onOpenCreatePost) onOpenCreatePost();
+              else if (onOpenCreateDraft) onOpenCreateDraft();
+            }}
+            onOpenChatWithUser={(targetUserId) => {
+              const allUsers = DailyStorageService.getAllUsers();
+              const foundUser = allUsers.find((u) => u.id === targetUserId);
+              if (onSendDM) {
+                onSendDM({
+                  id: targetUserId,
+                  name: foundUser?.name || 'Friend',
+                  username: foundUser?.username || 'friend',
+                  avatar: foundUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
+                  streak: foundUser?.currentStreak || 1,
+                });
+              }
+            }}
+          />
         </div>
       )}
 

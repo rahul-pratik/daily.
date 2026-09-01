@@ -180,6 +180,9 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const [isCollageGenerated, setIsCollageGenerated] = useState(false);
   const [isCollageStudioOpen, setIsCollageStudioOpen] = useState(false);
   const [allowDraftingAfterPost, setAllowDraftingAfterPost] = useState(false);
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const [lastAutoSaveTime, setLastAutoSaveTime] = useState<number | null>(null);
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Scheduling State
   const [isScheduleMode, setIsScheduleMode] = useState<boolean>(initialIsScheduled || false);
@@ -298,6 +301,51 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     initialTags,
     initialScheduledAt,
     initialIsScheduled,
+  ]);
+
+  // Debounced auto-save as user types
+  useEffect(() => {
+    if (!isOpen || !hasInitializedRef.current) return;
+    const hasAnyContent = Boolean(content.trim() || imageUrl.trim());
+    if (!hasAnyContent) return;
+
+    setIsAutoSaving(true);
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+
+    autoSaveTimerRef.current = setTimeout(() => {
+      const { draft } = DailyStorageService.saveDraft(currentUser.id, {
+        id: currentDraftId,
+        content: content.trim(),
+        imageUrl: imageUrl.trim() || undefined,
+        tags: selectedTags,
+        scheduledAt: isScheduleMode ? scheduledDateTime : undefined,
+        isScheduled: isScheduleMode,
+        isCollage: isCollageGenerated,
+      });
+      if (!currentDraftId) {
+        setCurrentDraftId(draft.id);
+      }
+      setIsAutoSaving(false);
+      setLastAutoSaveTime(Date.now());
+    }, 600);
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, [
+    isOpen,
+    content,
+    imageUrl,
+    selectedTags,
+    isScheduleMode,
+    scheduledDateTime,
+    isCollageGenerated,
+    currentUser.id,
+    currentDraftId,
   ]);
 
   if (!isOpen) return null;
@@ -743,7 +791,20 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                     <PenTool className="w-3.5 h-3.5 text-[#D4AF37]" />
                     <span>Daily Reflection & Standard</span>
                   </label>
-                  <span className="text-[10px] text-white/40">{content.length} chars</span>
+                  <div className="flex items-center gap-2">
+                    {isAutoSaving ? (
+                      <span className="text-[10px] text-amber-400 font-mono flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                        Auto-saving...
+                      </span>
+                    ) : lastAutoSaveTime ? (
+                      <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
+                        <Check className="w-3 h-3" />
+                        Auto-saved
+                      </span>
+                    ) : null}
+                    <span className="text-[10px] text-white/40">{content.length} chars</span>
+                  </div>
                 </div>
 
                 <div className="relative">

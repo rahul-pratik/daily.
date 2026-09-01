@@ -100,6 +100,19 @@ export interface SharedPostPreview {
   tags?: string[];
 }
 
+export interface UserNote {
+  id: string;
+  userId: string;
+  userName: string;
+  userUsername: string;
+  userAvatar: string;
+  text: string; // Words only, no photos, no videos, max 60 chars
+  musicTitle?: string; // Optional song/audio title e.g. "Faasla • Madhur Sharma"
+  musicArtist?: string;
+  createdAt: number;
+  expiresAt?: number;
+}
+
 export interface PostDraft {
   id: string;
   title?: string;

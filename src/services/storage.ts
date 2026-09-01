@@ -1,5 +1,5 @@
-import { User, Post, Message, Comment, Group, SharedPostPreview, CommunityMemberRanking, PersonalHabit, Community, PostDraft, AppNotification, ProofCollection, Challenge, ChallengeProgressPost } from '../types';
-import { INITIAL_CURRENT_USER, SAMPLE_USERS, INITIAL_POSTS, INITIAL_MESSAGES, SAMPLE_GROUPS, INITIAL_PERSONAL_HABITS, INITIAL_COMMUNITIES, INITIAL_NOTIFICATIONS, getPastDate } from '../data/mockData';
+import { User, Post, Message, Comment, Group, SharedPostPreview, CommunityMemberRanking, PersonalHabit, Community, PostDraft, AppNotification, ProofCollection, Challenge, ChallengeProgressPost, UserNote } from '../types';
+import { INITIAL_CURRENT_USER, SAMPLE_USERS, INITIAL_POSTS, INITIAL_MESSAGES, SAMPLE_GROUPS, INITIAL_PERSONAL_HABITS, INITIAL_COMMUNITIES, INITIAL_NOTIFICATIONS, INITIAL_USER_NOTES, getPastDate } from '../data/mockData';
 
 const STORAGE_KEYS = {
   CURRENT_USER: 'daily_app_current_user_v1',
@@ -18,6 +18,7 @@ const STORAGE_KEYS = {
   HABITS: 'daily_app_personal_habits_v1',
   BLOCKED_USERS: 'daily_app_blocked_users_v1',
   NOTIFICATIONS: 'daily_app_notifications_v1',
+  USER_NOTES: 'daily_app_user_notes_v1',
 };
 
 // Current reference date (today in the app context)
@@ -2042,6 +2043,185 @@ export class DailyStorageService {
     });
     this.saveAllChallengeProgressPosts(updated);
     return updated;
+  }
+
+  // --- USER NOTES (DM SECTION - WORDS ONLY) ---
+  static getAllUserNotes(): UserNote[] {
+    const data = localStorage.getItem(STORAGE_KEYS.USER_NOTES);
+    if (!data) {
+      this.saveAllUserNotes(INITIAL_USER_NOTES);
+      return INITIAL_USER_NOTES;
+    }
+    try {
+      const parsed: UserNote[] = JSON.parse(data);
+      // Clean expired notes older than 24 hours
+      const now = Date.now();
+      const valid = parsed.filter((n) => !n.expiresAt || n.expiresAt > now);
+      return valid.length > 0 ? valid : INITIAL_USER_NOTES;
+    } catch {
+      this.saveAllUserNotes(INITIAL_USER_NOTES);
+      return INITIAL_USER_NOTES;
+    }
+  }
+
+  static saveAllUserNotes(notes: UserNote[]): void {
+    localStorage.setItem(STORAGE_KEYS.USER_NOTES, JSON.stringify(notes));
+  }
+
+  static getCurrentUserNote(): UserNote | undefined {
+    const currentUser = this.getCurrentUser();
+    const notes = this.getAllUserNotes();
+    return notes.find((n) => n.userId === currentUser.id);
+  }
+
+  static saveCurrentUserNote(text: string, musicTitle?: string, musicArtist?: string): UserNote {
+    const currentUser = this.getCurrentUser();
+    const trimmed = text.trim().slice(0, 60); // Strictly max 60 words/chars limit
+    const notes = this.getAllUserNotes();
+    const existingIndex = notes.findIndex((n) => n.userId === currentUser.id);
+
+    const newNote: UserNote = {
+      id: `note_${currentUser.id}_${Date.now()}`,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      userUsername: currentUser.username,
+      userAvatar: currentUser.avatar,
+      text: trimmed,
+      musicTitle: musicTitle?.trim() || undefined,
+      musicArtist: musicArtist?.trim() || undefined,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 1000 * 60 * 60 * 24, // 24h lifespan
+    };
+
+    let updated: UserNote[];
+    if (existingIndex >= 0) {
+      updated = [...notes];
+      updated[existingIndex] = newNote;
+    } else {
+      updated = [newNote, ...notes];
+    }
+
+    this.saveAllUserNotes(updated);
+    return newNote;
+  }
+
+  static deleteCurrentUserNote(): void {
+    const currentUser = this.getCurrentUser();
+    const notes = this.getAllUserNotes();
+    const updated = notes.filter((n) => n.userId !== currentUser.id);
+    this.saveAllUserNotes(updated);
+  }
+
+  // --- DAILY DIARY & NOTEBOOK AGGREGATION ---
+  static getDayActivityData(dateStr: string, userId?: string) {
+    const currentUser = this.getCurrentUser();
+    const targetUserId = userId || currentUser.id;
+    const allPosts = this.getAllPosts();
+    const allCommunities = this.getAllCommunities();
+    const allGroups = this.getAllGroups();
+    const allUsers = this.getAllUsers();
+    const allMessages = this.getAllMessages();
+    const allHabits = this.getPersonalHabits();
+    const allChallengePosts = this.getAllChallengeProgressPosts();
+
+    // Check if target user has a post for this date
+    // Note: post created at or postDate matching dateStr
+    const userPostsOnDate = allPosts.filter((p) => {
+      if (p.userId !== targetUserId) return false;
+      // If date is today
+      const isTodayStr = dateStr === getTodayDateString();
+      if (isTodayStr && (p.createdAt === 'Just now' || p.createdAt.includes('m ago') || p.createdAt.includes('h ago') || p.createdAt.includes('11:'))) {
+        return true;
+      }
+      return p.createdAt.includes(dateStr) || (p as any).postDate === dateStr;
+    });
+
+    // Check for community posts on date
+    const communityPostsOnDate = allPosts.filter((p) => {
+      const matchesDate = (p as any).postDate === dateStr || (dateStr === getTodayDateString() && (p.createdAt === 'Just now' || p.createdAt.includes('m ago') || p.createdAt.includes('h ago')));
+      return Boolean(p.communityId && matchesDate);
+    });
+
+    // Challenge posts on date
+    const challengePostsOnDate = allChallengePosts.filter((cp) => {
+      return (cp.userId === targetUserId || cp.userId === 'user_me') && (cp.postDate === dateStr || (dateStr === getTodayDateString() && (cp.createdAt === 'Just now' || cp.createdAt.includes('m ago') || cp.createdAt.includes('h ago'))));
+    });
+
+    // Contacts / Groups interacted with on date
+    const conversationsOnDate: Array<{
+      id: string;
+      name: string;
+      username?: string;
+      avatar: string;
+      isGroup: boolean;
+      lastMessageText: string;
+      time: string;
+    }> = [];
+
+    allMessages.forEach((msg) => {
+      if (msg.groupId) {
+        const group = allGroups.find((g) => g.id === msg.groupId);
+        if (group && !conversationsOnDate.some((c) => c.id === group.id)) {
+          conversationsOnDate.push({
+            id: group.id,
+            name: group.name,
+            avatar: group.avatar,
+            isGroup: true,
+            lastMessageText: msg.text,
+            time: msg.timestamp,
+          });
+        }
+      } else {
+        const otherUserId = msg.senderId === targetUserId ? msg.receiverId : msg.senderId;
+        if (otherUserId && !conversationsOnDate.some((c) => c.id === otherUserId)) {
+          const otherUser = allUsers.find((u) => u.id === otherUserId);
+          if (otherUser) {
+            conversationsOnDate.push({
+              id: otherUser.id,
+              name: otherUser.name,
+              username: otherUser.username,
+              avatar: otherUser.avatar,
+              isGroup: false,
+              lastMessageText: msg.text,
+              time: msg.timestamp,
+            });
+          }
+        }
+      }
+    });
+
+    // Habits completed on date
+    const completedHabits = allHabits.filter((h) => h.completedDates?.includes(dateStr));
+
+    // User note on date
+    const allNotes = this.getAllUserNotes();
+    const userNote = allNotes.find((n) => n.userId === targetUserId);
+
+    // Format display date
+    const parts = dateStr.split('-').map(Number);
+    const dateObj = new Date(parts[0], (parts[1] || 1) - 1, parts[2] || 1);
+    const dayOfWeek = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+    const formattedDate = dateObj.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    });
+
+    return {
+      dateStr,
+      formattedDate,
+      dayOfWeek,
+      isToday: dateStr === getTodayDateString(),
+      mainPost: userPostsOnDate[0],
+      userPosts: userPostsOnDate,
+      communityPosts: communityPostsOnDate,
+      challengePosts: challengePostsOnDate,
+      conversations: conversationsOnDate,
+      completedHabits,
+      userNote,
+      totalActivityCount: userPostsOnDate.length + communityPostsOnDate.length + challengePostsOnDate.length + conversationsOnDate.length + completedHabits.length,
+    };
   }
 }
 

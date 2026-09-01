@@ -659,6 +659,10 @@ export default function App() {
                 setActiveDraftToEdit(null);
                 setIsCreateOpen(true);
               }}
+              onOpenCreatePost={() => {
+                setActiveDraftToEdit(null);
+                setIsCreateOpen(true);
+              }}
               onPublishDraftDirectly={(draftId) => {
                 const res = DailyStorageService.publishDraftNow(currentUser.id, draftId);
                 if (res.success) {

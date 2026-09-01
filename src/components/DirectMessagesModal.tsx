@@ -24,6 +24,7 @@ import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
 import { DailyStorageService } from '../services/storage';
 import { handleHorizontalWheelScroll } from '../utils/scroll';
 import { EmptyStateIllustration } from './EmptyStateIllustration';
+import { DirectMessageNotesBar } from './DirectMessageNotesBar';
 
 interface DirectMessagesModalProps {
   isOpen: boolean;
@@ -341,6 +342,20 @@ export const DirectMessagesModal: React.FC<DirectMessagesModalProps> = ({
                 />
               </div>
             </div>
+
+            {/* Instagram-Style Notes Carousel (Words only) */}
+            <DirectMessageNotesBar
+              currentUser={currentUser}
+              allUsers={allUsers}
+              onOpenChatWithUser={(targetUserId, initialMsg) => {
+                setActiveUserId(targetUserId);
+                setActiveGroupId(null);
+                setGroupViewMode('chat');
+                if (initialMsg) {
+                  setInputText(initialMsg);
+                }
+              }}
+            />
 
             {/* Conversation List Stream */}
             <div className="flex-1 overflow-y-auto divide-y divide-white/5 p-1">
