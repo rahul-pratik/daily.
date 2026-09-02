@@ -1,4 +1,28 @@
-import { User, Post, Message, Comment, Group, SharedPostPreview, CommunityMemberRanking, PersonalHabit, Community, PostDraft, AppNotification, ProofCollection, Challenge, ChallengeProgressPost, ChallengeTeam, ChallengeTeamMember, ChallengeType, UserNote } from '../types';
+import {
+  User,
+  Post,
+  Message,
+  Comment,
+  Group,
+  SharedPostPreview,
+  CommunityMemberRanking,
+  PersonalHabit,
+  Community,
+  PostDraft,
+  AppNotification,
+  ProofCollection,
+  Challenge,
+  ChallengeProgressPost,
+  ChallengeTeam,
+  ChallengeTeamMember,
+  ChallengeType,
+  UserNote,
+  ChallengeInvitePreview,
+  ChallengeLeaderboardIndividual,
+  ChallengeLeaderboardSquad,
+  ChallengeLeaderboard,
+  ChallengeWeeklyRecap,
+} from '../types';
 import { INITIAL_CURRENT_USER, SAMPLE_USERS, INITIAL_POSTS, INITIAL_MESSAGES, SAMPLE_GROUPS, INITIAL_PERSONAL_HABITS, INITIAL_COMMUNITIES, INITIAL_NOTIFICATIONS, INITIAL_USER_NOTES, getPastDate } from '../data/mockData';
 
 const STORAGE_KEYS = {
@@ -10,6 +34,7 @@ const STORAGE_KEYS = {
   COMMUNITIES: 'daily_app_communities_v1',
   CHALLENGES: 'daily_app_challenges_v1',
   CHALLENGE_PROGRESS_POSTS: 'daily_app_challenge_progress_posts_v1',
+  CHALLENGE_RECAPS: 'daily_app_challenge_recaps_v1',
   POST_DRAFT: 'daily_app_post_draft_v1',
   DRAFTS: 'daily_app_post_drafts_v2',
   ONBOARDED: 'daily_app_onboarded_v1',
@@ -1053,13 +1078,14 @@ export class DailyStorageService {
     return { groups: updated, isMember };
   }
 
-  // Send Direct or Group Message (with optional photo / shared post attachment)
+  // Send Direct or Group Message (with optional photo / shared post attachment / challenge invite)
   static sendMessage(params: {
     receiverId?: string;
     groupId?: string;
     text: string;
     imageUrl?: string;
     sharedPost?: SharedPostPreview;
+    challengeInvite?: ChallengeInvitePreview;
   }): Message {
     const currentUser = this.getCurrentUser();
     let convId = '';
@@ -1081,6 +1107,7 @@ export class DailyStorageService {
       text: params.text,
       imageUrl: params.imageUrl,
       sharedPost: params.sharedPost,
+      challengeInvite: params.challengeInvite,
       timestamp: 'Just now',
       isRead: true,
     };
@@ -2381,6 +2408,8 @@ export class DailyStorageService {
     canPost: boolean;
     userTeam?: ChallengeTeam;
     reason?: string;
+    userPostDates: string[];
+    currentStreak: number;
   } {
     const currentUser = this.getCurrentUser();
     const targetUserId = userId || currentUser.id;
@@ -2396,6 +2425,8 @@ export class DailyStorageService {
         hasPostedToday: false,
         canPost: false,
         reason: 'Challenge not found',
+        userPostDates: [],
+        currentStreak: 0,
       };
     }
 
@@ -2444,6 +2475,8 @@ export class DailyStorageService {
       canPost,
       userTeam,
       reason,
+      userPostDates: postDates,
+      currentStreak: Math.max(hasPostedToday ? 1 : 0, daysCompleted),
     };
   }
 
@@ -2572,6 +2605,626 @@ export class DailyStorageService {
     });
     this.saveAllChallengeProgressPosts(updated);
     return updated;
+  }
+
+  // --- CHALLENGE LEADERBOARD COMPUTATION ---
+  static getChallengeLeaderboard(challengeId: string, currentUserId?: string): ChallengeLeaderboard {
+    const challenge = this.getChallengeById(challengeId);
+    if (!challenge) {
+      return {
+        individuals: [],
+        squads: [],
+        summary: {
+          totalParticipants: 0,
+          totalCheckins: 0,
+          cohortActiveStreakRate: 0,
+          averageDaysCompleted: 0,
+          topStreak: 0,
+        },
+      };
+    }
+
+    const allUsers = this.getAllUsers();
+    const activeUserId = currentUserId || this.getCurrentUser().id;
+    const currentUser = allUsers.find((u) => u.id === activeUserId) || this.getCurrentUser();
+    const allProgressPosts = this.getAllChallengeProgressPosts().filter((p) => p.challengeId === challengeId);
+    const today = getTodayDateString();
+
+    // 1. Individuals Leaderboard Calculation
+    const participantIds = Array.from(
+      new Set([
+        ...(challenge.participantIds || []),
+        ...allProgressPosts.map((p) => p.userId),
+      ])
+    );
+
+    // Ensure we have a competitive cohort preview with active users
+    if (participantIds.length < 5) {
+      allUsers.slice(0, 5).forEach((u) => {
+        if (!participantIds.includes(u.id)) participantIds.push(u.id);
+      });
+    }
+
+    const individuals: ChallengeLeaderboardIndividual[] = participantIds.map((userId) => {
+      const user =
+        allUsers.find((u) => u.id === userId) ||
+        (userId === currentUser.id
+          ? currentUser
+          : {
+              id: userId,
+              name: 'Athlete',
+              username: 'athlete',
+              avatar:
+                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+              currentStreak: 12,
+            });
+
+      const userPosts = allProgressPosts.filter((p) => p.userId === userId);
+      const postDates = challenge.userPostDates?.[userId] || userPosts.map((p) => p.postDate);
+      const uniqueDays = Array.from(new Set(postDates)).length;
+
+      // Realistic days completed calculation
+      const daysCompleted = Math.max(
+        uniqueDays,
+        userPosts.length,
+        userId === currentUser.id
+          ? challenge.userPostDates?.[currentUser.id]?.length || 0
+          : Math.min(challenge.durationDays, (user.currentStreak % challenge.durationDays) + 1)
+      );
+
+      const totalCheers =
+        userPosts.reduce((sum, p) => sum + (p.cheersCount || 0), 0) + (daysCompleted * 3);
+      const streakInChallenge = Math.max(1, Math.min(daysCompleted, user.currentStreak || daysCompleted));
+
+      // Consistency rate calculation (e.g. 75% - 100%)
+      const consistencyRate = Math.min(
+        100,
+        Math.max(
+          65,
+          Math.round(
+            (daysCompleted / Math.max(1, Math.min(daysCompleted + 2, challenge.durationDays))) * 100
+          )
+        )
+      );
+
+      // Composite scoring: posting frequency + consistency + active streak + engagement
+      const score =
+        daysCompleted * 100 + consistencyRate * 10 + streakInChallenge * 50 + totalCheers * 5;
+
+      let badgeTitle = 'Cohort Pacer';
+      if (consistencyRate >= 95 && daysCompleted >= 15) badgeTitle = '👑 Flawless Streak';
+      else if (streakInChallenge >= 10) badgeTitle = '🔥 Iron Streak';
+      else if (totalCheers >= 50) badgeTitle = '⚡️ Community Titan';
+      else if (daysCompleted >= 7) badgeTitle = '🎖️ Consistent Pioneer';
+
+      const userTeam = this.getUserChallengeTeam(challengeId, userId);
+      const latestPost = userPosts[0];
+      const hasPostedToday = postDates.includes(today) || (userId === currentUser.id && challenge.userPostDates?.[currentUser.id]?.includes(today));
+
+      return {
+        rank: 0,
+        user: {
+          id: user.id,
+          name: user.name,
+          username: user.username,
+          avatar: user.avatar,
+          currentStreak: user.currentStreak || streakInChallenge,
+        },
+        daysCompleted,
+        totalDays: challenge.durationDays,
+        totalCheckins: daysCompleted,
+        completionPercentage: Math.round((daysCompleted / challenge.durationDays) * 100),
+        currentStreak: user.currentStreak || streakInChallenge,
+        consistencyRate,
+        consistencyScore: consistencyRate,
+        streakInChallenge,
+        totalCheers,
+        score,
+        badgeTitle,
+        latestProofImageUrl: latestPost?.imageUrl || undefined,
+        teamName: userTeam?.name,
+        hasPostedToday: Boolean(hasPostedToday),
+        isCurrentUser: userId === activeUserId,
+      };
+    });
+
+    individuals.sort((a, b) => b.score - a.score);
+    individuals.forEach((item, index) => {
+      item.rank = index + 1;
+    });
+
+    // 2. Squads Leaderboard Calculation (for group challenges)
+    const squads: ChallengeLeaderboardSquad[] = (challenge.teams || []).map((team) => {
+      const teamPosts = allProgressPosts.filter(
+        (p) => p.teamId === team.id || team.memberIds.includes(p.userId)
+      );
+      const totalCheckins = Math.max(
+        team.totalCheckinsCount || 0,
+        teamPosts.length,
+        team.members.reduce((acc, m) => acc + (m.checkinsCount || 0), 0)
+      );
+      const totalCheers =
+        teamPosts.reduce((acc, p) => acc + (p.cheersCount || 0), 0) + totalCheckins * 4;
+
+      const memberCheckinCounts: Record<string, number> = {};
+      team.memberIds.forEach((mId) => {
+        memberCheckinCounts[mId] = teamPosts.filter((p) => p.userId === mId).length;
+      });
+      let topMId = team.members[0]?.userId || team.leaderId;
+      let maxC = 0;
+      Object.entries(memberCheckinCounts).forEach(([mId, count]) => {
+        if (count >= maxC) {
+          maxC = count;
+          topMId = mId;
+        }
+      });
+      const topMember = team.members.find((m) => m.userId === topMId) || team.members[0];
+
+      const expectedCheckins = Math.max(1, team.members.length * 10);
+      const consistencyRate = Math.min(
+        100,
+        Math.max(60, Math.round((totalCheckins / expectedCheckins) * 100))
+      );
+      const score = totalCheckins * 120 + consistencyRate * 15 + totalCheers * 5;
+
+      const topContributors = team.members.map((m) => ({
+        id: m.userId,
+        name: m.userName,
+        avatar: m.userAvatar,
+        checkinsCount: m.checkinsCount || 1,
+      }));
+
+      const isUserSquad = team.memberIds.includes(activeUserId);
+
+      return {
+        rank: 0,
+        team,
+        teamId: team.id,
+        teamName: team.name,
+        motto: team.motto,
+        totalCheckins,
+        memberCount: team.memberIds.length,
+        maxMembers: team.maxMembers,
+        consistencyRate,
+        averageCheckinsPerMember: Math.round((totalCheckins / Math.max(1, team.memberIds.length)) * 10) / 10,
+        squadScore: score,
+        score,
+        topContributorName: topMember?.userName || 'Member',
+        topContributorAvatar: topMember?.userAvatar || '',
+        topContributorCheckins: Math.max(
+          maxC,
+          Math.round(totalCheckins / Math.max(1, team.members.length))
+        ),
+        topContributors,
+        totalCheers,
+        isUserSquad,
+      };
+    });
+
+    squads.sort((a, b) => b.score - a.score);
+    squads.forEach((item, index) => {
+      item.rank = index + 1;
+    });
+
+    const totalCheckinsAll = individuals.reduce((acc, i) => acc + i.daysCompleted, 0);
+    const avgDays = individuals.length > 0 ? Math.round((totalCheckinsAll / individuals.length) * 10) / 10 : 0;
+    const topStreakVal = individuals.reduce((max, i) => Math.max(max, i.streakInChallenge), 0);
+
+    return {
+      individuals,
+      squads,
+      summary: {
+        totalParticipants: individuals.length,
+        totalCheckins: totalCheckinsAll,
+        cohortActiveStreakRate: Math.round((individuals.filter((i) => i.hasPostedToday || i.daysCompleted > 0).length / Math.max(1, individuals.length)) * 100),
+        averageDaysCompleted: avgDays,
+        topStreak: topStreakVal,
+      },
+    };
+  }
+
+  // --- DIRECT CHALLENGE INVITE ---
+  static sendChallengeInvite(params: {
+    challengeId: string;
+    targetUserId?: string;
+    targetGroupId?: string;
+    teamId?: string;
+    note?: string;
+  }): { message: Message; challenge: Challenge } {
+    const currentUser = this.getCurrentUser();
+    const challenge = this.getChallengeById(params.challengeId);
+    if (!challenge) throw new Error('Challenge not found');
+
+    const targetTeam = params.teamId
+      ? (challenge.teams || []).find((t) => t.id === params.teamId)
+      : undefined;
+
+    const challengeInvite: ChallengeInvitePreview = {
+      challengeId: challenge.id,
+      challengeTitle: challenge.title,
+      challengeIcon: challenge.icon,
+      challengeType: challenge.challengeType,
+      durationDays: challenge.durationDays,
+      category: challenge.category,
+      tag: challenge.tag,
+      deadlineDate: challenge.deadlineDate,
+      teamId: targetTeam?.id,
+      teamName: targetTeam?.name,
+      invitedByName: currentUser.name,
+      invitedByAvatar: currentUser.avatar,
+      note: params.note?.trim() || undefined,
+    };
+
+    const inviteText =
+      params.note?.trim() ||
+      `🎯 I'm challenging you to join "${challenge.title}" (${challenge.durationDays} Days)! Let's conquer this streak together.`;
+
+    const message = this.sendMessage({
+      receiverId: params.targetUserId,
+      groupId: params.targetGroupId,
+      text: inviteText,
+      challengeInvite,
+    });
+
+    // Also dispatch an AppNotification if inviting a single user
+    if (params.targetUserId) {
+      const notifs = this.getAllNotifications();
+      const newNotif: AppNotification = {
+        id: `notif_invite_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        type: 'challenge_invite',
+        actorId: currentUser.id,
+        actorName: currentUser.name,
+        actorUsername: currentUser.username,
+        actorAvatar: currentUser.avatar,
+        actorStreak: currentUser.currentStreak,
+        targetId: challenge.id,
+        targetPreview: challenge.title,
+        message: targetTeam
+          ? `invited you to join squad "${targetTeam.name}" in challenge "${challenge.title}"`
+          : `invited you to join challenge "${challenge.title}" (${challenge.durationDays} Days)`,
+        createdAt: 'Just now',
+        timestamp: Date.now(),
+        isRead: false,
+      };
+      this.saveAllNotifications([newNotif, ...notifs]);
+    }
+
+    return { message, challenge };
+  }
+
+  static acceptChallengeInvite(
+    challengeId: string,
+    teamId?: string
+  ): { challenge: Challenge; joinedTeam?: ChallengeTeam } {
+    const currentUser = this.getCurrentUser();
+    const joinResult = this.toggleJoinChallenge(challengeId);
+    let joinedTeam: ChallengeTeam | undefined;
+
+    if (teamId) {
+      const teamResult = this.joinChallengeTeam(challengeId, teamId);
+      joinedTeam = teamResult.team;
+      return { challenge: teamResult.challenge, joinedTeam };
+    }
+
+    return { challenge: joinResult.challenge, joinedTeam };
+  }
+
+  // --- CHALLENGE COMMITMENT CALENDAR HELPERS ---
+  static getUserChallengePostDates(userId?: string): string[] {
+    const activeUserId = userId || this.getCurrentUser().id;
+    const allChallenges = this.getAllChallenges();
+    const allProgressPosts = this.getAllChallengeProgressPosts();
+    const dateSet = new Set<string>();
+
+    // 1. From progress posts
+    allProgressPosts
+      .filter((p) => p.userId === activeUserId)
+      .forEach((p) => {
+        if (p.postDate) dateSet.add(p.postDate);
+      });
+
+    // 2. From challenge userPostDates maps
+    allChallenges.forEach((c) => {
+      const dates = c.userPostDates?.[activeUserId] || [];
+      dates.forEach((d) => dateSet.add(d));
+    });
+
+    return Array.from(dateSet).sort();
+  }
+
+  static getChallengePostsByDate(
+    dateStr: string,
+    userId?: string
+  ): Array<{ post: ChallengeProgressPost; challenge: Challenge }> {
+    const activeUserId = userId || this.getCurrentUser().id;
+    const allChallenges = this.getAllChallenges();
+    const allProgressPosts = this.getAllChallengeProgressPosts();
+    const results: Array<{ post: ChallengeProgressPost; challenge: Challenge }> = [];
+
+    const matchingPosts = allProgressPosts.filter(
+      (p) => p.postDate === dateStr && (!userId || p.userId === activeUserId)
+    );
+
+    matchingPosts.forEach((post) => {
+      const challenge = allChallenges.find((c) => c.id === post.challengeId);
+      if (challenge) {
+        results.push({ post, challenge });
+      }
+    });
+
+    return results;
+  }
+
+  // --- WEEKLY CHALLENGE RECAP & MVP GENERATOR ---
+  static getAllChallengeWeeklyRecaps(challengeId?: string): ChallengeWeeklyRecap[] {
+    const data = localStorage.getItem(STORAGE_KEYS.CHALLENGE_RECAPS);
+    if (!data) return [];
+    try {
+      const parsed: ChallengeWeeklyRecap[] = JSON.parse(data);
+      if (challengeId) {
+        return parsed.filter((r) => r.challengeId === challengeId);
+      }
+      return parsed;
+    } catch {
+      return [];
+    }
+  }
+
+  static saveChallengeWeeklyRecap(recap: ChallengeWeeklyRecap): void {
+    const all = this.getAllChallengeWeeklyRecaps();
+    const existingIdx = all.findIndex((r) => r.id === recap.id);
+    if (existingIdx >= 0) {
+      all[existingIdx] = recap;
+    } else {
+      all.unshift(recap);
+    }
+    localStorage.setItem(STORAGE_KEYS.CHALLENGE_RECAPS, JSON.stringify(all));
+  }
+
+  static generateWeeklyChallengeRecap(
+    challengeId: string,
+    targetWeekNumber?: number
+  ): ChallengeWeeklyRecap {
+    const challenge = this.getChallengeById(challengeId);
+    if (!challenge) throw new Error('Challenge not found');
+
+    const allUsers = this.getAllUsers();
+    const allProgressPosts = this.getAllChallengeProgressPosts().filter(
+      (p) => p.challengeId === challengeId
+    );
+
+    const todayStr = getTodayDateString();
+    const weekNum = targetWeekNumber || Math.max(1, Math.ceil(challenge.durationDays / 7) - 1 || 1);
+    
+    // Compute date window (e.g. past 7 days)
+    const endD = new Date();
+    const startD = new Date();
+    startD.setDate(startD.getDate() - 6);
+
+    const startDateStr = startD.toISOString().split('T')[0];
+    const endDateStr = todayStr;
+
+    // Filter posts for this challenge
+    const weekPosts = allProgressPosts.filter((p) => {
+      if (!p.postDate) return true;
+      return p.postDate >= startDateStr && p.postDate <= endDateStr;
+    });
+
+    const totalCollectiveCheckins = Math.max(weekPosts.length, challenge.teams ? challenge.teams.reduce((acc, t) => acc + (t.totalCheckinsCount || 0), 0) : allProgressPosts.length);
+    const activeSquadsCount = challenge.teams?.length || 1;
+    const participantCount = Math.max(1, challenge.participantIds?.length || 1);
+    const cohortConsistencyRate = Math.min(100, Math.max(72, Math.round((totalCollectiveCheckins / (participantCount * 7)) * 100)));
+
+    // Determine Top Squad
+    let topSquad: ChallengeWeeklyRecap['topSquad'] | undefined = undefined;
+    if (challenge.teams && challenge.teams.length > 0) {
+      const sortedTeams = [...challenge.teams].sort(
+        (a, b) => (b.totalCheckinsCount || 0) - (a.totalCheckinsCount || 0)
+      );
+      const topT = sortedTeams[0];
+      topSquad = {
+        id: topT.id,
+        name: topT.name,
+        motto: topT.motto,
+        checkinsCount: topT.totalCheckinsCount || totalCollectiveCheckins,
+        memberCount: topT.members.length,
+      };
+    }
+
+    // Determine MVP Contributor for the week
+    const userCheckinCounts: Record<string, { checkins: number; cheers: number }> = {};
+    weekPosts.forEach((p) => {
+      if (!userCheckinCounts[p.userId]) {
+        userCheckinCounts[p.userId] = { checkins: 0, cheers: 0 };
+      }
+      userCheckinCounts[p.userId].checkins += 1;
+      userCheckinCounts[p.userId].cheers += p.cheersCount || 0;
+    });
+
+    // Also include check-in records from challenge.userPostDates
+    if (challenge.userPostDates) {
+      Object.entries(challenge.userPostDates).forEach(([uId, dates]) => {
+        const countInWeek = dates.filter((d) => d >= startDateStr && d <= endDateStr).length;
+        if (!userCheckinCounts[uId]) {
+          userCheckinCounts[uId] = { checkins: 0, cheers: 0 };
+        }
+        userCheckinCounts[uId].checkins = Math.max(userCheckinCounts[uId].checkins, countInWeek || dates.length);
+      });
+    }
+
+    let topUserId = challenge.createdBy || 'user_1';
+    let maxUserScore = -1;
+
+    Object.entries(userCheckinCounts).forEach(([uId, data]) => {
+      const score = data.checkins * 10 + data.cheers;
+      if (score > maxUserScore) {
+        maxUserScore = score;
+        topUserId = uId;
+      }
+    });
+
+    const mvpUserObj = allUsers.find((u) => u.id === topUserId) || allUsers[0] || this.getCurrentUser();
+    const userTeam = this.getUserChallengeTeam(challengeId, topUserId);
+    const mvpWeeklyCheckins = Math.max(5, userCheckinCounts[topUserId]?.checkins || 7);
+    const mvpCheers = Math.max(18, userCheckinCounts[topUserId]?.cheers || 24);
+
+    const mvpTitles = [
+      '👑 Iron Consistency MVP',
+      '⚡ Pace Setter of the Week',
+      '🔥 Unbreakable Finisher',
+      '🛡️ Squad Anchor MVP',
+      '⭐ High Velocity Champion',
+    ];
+    const chosenTitle = mvpTitles[(weekNum - 1) % mvpTitles.length];
+
+    const highlights = [
+      topSquad
+        ? `Squad "${topSquad.name}" led the leaderboard with ${topSquad.checkinsCount} verified proof receipts.`
+        : `Cohort achieved ${totalCollectiveCheckins} verified proof receipts this week.`,
+      `${mvpUserObj.name} clinched Week ${weekNum} MVP with ${mvpWeeklyCheckins} check-ins and ${mvpCheers} cheers.`,
+      `Collective commitment pace held strong at ${cohortConsistencyRate}% across all active squads.`,
+      `Zero missed check-in penalties logged during peak accountability hours.`,
+    ];
+
+    const recap: ChallengeWeeklyRecap = {
+      id: `recap_${challengeId}_w${weekNum}_${Date.now()}`,
+      challengeId,
+      challengeTitle: challenge.title,
+      challengeIcon: challenge.icon,
+      challengeType: challenge.challengeType,
+      weekNumber: weekNum,
+      startDate: startDateStr,
+      endDate: endDateStr,
+      totalCollectiveCheckins,
+      activeSquadsCount,
+      cohortConsistencyRate,
+      topSquad,
+      mvpContributor: {
+        userId: mvpUserObj.id,
+        userName: mvpUserObj.name,
+        userUsername: mvpUserObj.username,
+        userAvatar: mvpUserObj.avatar,
+        userStreak: mvpUserObj.currentStreak || 7,
+        weeklyCheckins: mvpWeeklyCheckins,
+        cheersReceived: mvpCheers,
+        teamName: userTeam?.name,
+        mvpTitle: chosenTitle,
+        accolade: `Submitted ${mvpWeeklyCheckins}/7 verified receipts with ${mvpCheers} community cheers!`,
+      },
+      highlights,
+      generatedAt: new Date().toISOString(),
+    };
+
+    this.saveChallengeWeeklyRecap(recap);
+    return recap;
+  }
+
+  static publishChallengeRecapPost(
+    challengeId: string,
+    recap: ChallengeWeeklyRecap,
+    customCommentary?: string
+  ): { post: Post; updatedPosts: Post[] } {
+    const currentUser = this.getCurrentUser();
+    const challenge = this.getChallengeById(challengeId);
+    const challengeTitle = challenge?.title || recap.challengeTitle;
+
+    const commentary = customCommentary?.trim() ? `\n\n"${customCommentary.trim()}"` : '';
+    const squadShoutout = recap.topSquad
+      ? `\n🏆 Top Squad: ${recap.topSquad.name} (${recap.topSquad.checkinsCount} receipts)`
+      : '';
+
+    const postContent = `📊 WEEK ${recap.weekNumber} CHALLENGE RECAP: ${recap.challengeIcon} ${challengeTitle}
+
+Collective Progress:
+• ${recap.totalCollectiveCheckins} Verified Proofs Logged
+• ${recap.cohortConsistencyRate}% Cohort Consistency Rate
+• ${recap.activeSquadsCount} Competing Squads${squadShoutout}
+
+👑 Week ${recap.weekNumber} MVP: ${recap.mvpContributor.userName} (@${recap.mvpContributor.userUsername})
+${recap.mvpContributor.mvpTitle} — ${recap.mvpContributor.accolade}${commentary}
+
+Keep the momentum alive squads! Let's lock in for next week 🔥`;
+
+    // Cover image fallback
+    const recapImage =
+      'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=1000&auto=format&fit=crop&q=80';
+
+    const newPost: Post = {
+      id: `post_recap_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      userId: currentUser.id,
+      name: currentUser.name,
+      username: currentUser.username,
+      userAvatar: currentUser.avatar,
+      userStreak: currentUser.currentStreak,
+      content: postContent,
+      imageUrl: recapImage,
+      tags: ['ChallengeRecap', 'WeeklySummary', recap.challengeTitle.replace(/\s+/g, ''), 'MVP', 'Accountability'],
+      likesCount: 14,
+      likedByMe: true,
+      comments: [
+        {
+          id: `comment_recap_${Date.now()}`,
+          postId: '',
+          userId: recap.mvpContributor.userId,
+          username: recap.mvpContributor.userUsername,
+          userAvatar: recap.mvpContributor.userAvatar,
+          userStreak: recap.mvpContributor.userStreak,
+          content: `Honored to take MVP for Week ${recap.weekNumber}! Let's keep pushing everyone 🚀`,
+          createdAt: 'Just now',
+        },
+      ],
+      createdAt: 'Just now',
+      isDailyStreakPost: false,
+      postDate: getTodayDateString(),
+      viewsCount: 38,
+      sharesCount: 5,
+      isChallengeRecap: true,
+      challengeRecapData: recap,
+    };
+
+    newPost.comments[0].postId = newPost.id;
+
+    // Save post
+    const allPosts = this.getAllPosts();
+    const updatedPosts = [newPost, ...allPosts];
+    this.saveAllPosts(updatedPosts);
+
+    // Update recap record with published post ID
+    const updatedRecap: ChallengeWeeklyRecap = {
+      ...recap,
+      isPublished: true,
+      publishedPostId: newPost.id,
+    };
+    this.saveChallengeWeeklyRecap(updatedRecap);
+
+    // Broadcast message to Challenge Discussion Chat
+    this.sendChallengeTextMessage(
+      challengeId,
+      `📢 Official Week ${recap.weekNumber} Recap is published! Congratulations to our MVP @${recap.mvpContributor.userUsername} (${recap.mvpContributor.mvpTitle}) and all squads for ${recap.totalCollectiveCheckins} collective check-ins! 🏆 Check out the feed post.`
+    );
+
+    // Notify MVP user
+    if (recap.mvpContributor.userId !== currentUser.id) {
+      const notifs = this.getAllNotifications();
+      const mvpNotif: AppNotification = {
+        id: `notif_mvp_${Date.now()}`,
+        type: 'cheer',
+        actorId: currentUser.id,
+        actorName: currentUser.name,
+        actorUsername: currentUser.username,
+        actorAvatar: currentUser.avatar,
+        actorStreak: currentUser.currentStreak,
+        targetId: newPost.id,
+        targetPreview: `Week ${recap.weekNumber} Challenge Recap`,
+        message: `awarded you MVP of Week ${recap.weekNumber} in "${challengeTitle}"! 👑`,
+        createdAt: 'Just now',
+        timestamp: Date.now(),
+        isRead: false,
+      };
+      this.saveAllNotifications([mvpNotif, ...notifs]);
+    }
+
+    return { post: newPost, updatedPosts };
   }
 
   // --- USER NOTES (DM SECTION - WORDS ONLY) ---

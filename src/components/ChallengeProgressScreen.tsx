@@ -31,15 +31,19 @@ import {
   Plus,
   Target,
 } from 'lucide-react';
-import { User, Challenge, ChallengeProgressPost, Message, ChallengeTeam } from '../types';
+import { User, Challenge, ChallengeProgressPost, Message, ChallengeTeam, ChallengeWeeklyRecap } from '../types';
 import { DailyStorageService, getTodayDateString } from '../services/storage';
 import { vibrateLight, vibrateSuccess, vibrateStreakMilestone } from '../services/haptics';
+import { ChallengeLeaderboardView } from './ChallengeLeaderboardView';
+import { DirectChallengeInviteModal } from './DirectChallengeInviteModal';
+import { ChallengeWeeklyRecapModal } from './ChallengeWeeklyRecapModal';
 
 interface ChallengeProgressScreenProps {
   challenge: Challenge;
   currentUser: User;
   onBack: () => void;
   onChallengeUpdated: (updatedChallenge: Challenge) => void;
+  initialTab?: 'proofs' | 'leaderboard' | 'squads' | 'chat';
 }
 
 const SAMPLE_ACHIEVEMENTS = [
@@ -66,9 +70,12 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
   currentUser,
   onBack,
   onChallengeUpdated,
+  initialTab = 'proofs',
 }) => {
   const [challenge, setChallenge] = useState<Challenge>(initialChallenge);
-  const [challengeTab, setChallengeTab] = useState<'proofs' | 'squads' | 'chat'>('proofs');
+  const [challengeTab, setChallengeTab] = useState<'proofs' | 'leaderboard' | 'squads' | 'chat'>(initialTab);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [isRecapModalOpen, setIsRecapModalOpen] = useState(false);
   const [progressPosts, setProgressPosts] = useState<ChallengeProgressPost[]>([]);
   const [chatMessages, setChatMessages] = useState<Message[]>([]);
   const [chatInputText, setChatInputText] = useState('');
@@ -264,6 +271,35 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
         </button>
 
         <div className="flex items-center gap-2">
+          {/* Weekly Summary & MVP Button */}
+          <button
+            type="button"
+            onClick={() => {
+              vibrateLight();
+              setIsRecapModalOpen(true);
+            }}
+            className="text-[11px] font-bold text-amber-300 hover:text-amber-200 px-2.5 py-1 rounded-lg bg-gradient-to-r from-amber-500/20 to-amber-600/10 hover:from-amber-500/30 hover:to-amber-600/20 border border-amber-500/40 transition-all flex items-center gap-1 shadow-sm shadow-amber-500/10"
+            title="Generate Weekly Challenge Recap & MVP Spotlight"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden sm:inline">Weekly Recap</span>
+            <span className="sm:hidden">Recap</span>
+          </button>
+
+          {/* Direct Challenge Invite Action Button */}
+          <button
+            type="button"
+            onClick={() => {
+              vibrateLight();
+              setIsInviteModalOpen(true);
+            }}
+            className="text-[11px] font-bold text-amber-400 hover:text-amber-300 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-all flex items-center gap-1 shadow-sm shadow-amber-500/10"
+            title="Invite friends or squad members"
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            <span>Invite</span>
+          </button>
+
           {isJoined && (
             <button
               onClick={() => setShowLeaveConfirm(true)}
@@ -499,14 +535,14 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
           </div>
         )}
 
-        {/* Challenge Section Switcher: Photo Proofs vs Squads vs Text-Only Cohort Chat */}
-        <div className="flex items-center gap-1.5 bg-[#0F0F0F] p-1.5 rounded-2xl border border-white/10">
+        {/* Challenge Section Switcher: Photo Proofs vs Leaderboard vs Squads vs Text-Only Cohort Chat */}
+        <div className="flex items-center gap-1.5 bg-[#0F0F0F] p-1.5 rounded-2xl border border-white/10 flex-wrap">
           <button
             onClick={() => {
               vibrateLight();
               setChallengeTab('proofs');
             }}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+            className={`flex-1 min-w-[70px] py-2 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
               challengeTab === 'proofs'
                 ? 'bg-[#D4AF37] text-black font-black shadow-md shadow-[#D4AF37]/20'
                 : 'text-white/60 hover:text-white hover:bg-white/5'
@@ -516,13 +552,28 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
             <span>Proofs ({progressPosts.length})</span>
           </button>
 
+          <button
+            onClick={() => {
+              vibrateLight();
+              setChallengeTab('leaderboard');
+            }}
+            className={`flex-1 min-w-[70px] py-2 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              challengeTab === 'leaderboard'
+                ? 'bg-amber-400 text-black font-black shadow-md shadow-amber-400/20'
+                : 'text-white/60 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <Trophy className="w-3.5 h-3.5" />
+            <span>Leaderboard</span>
+          </button>
+
           {isGroupChallenge && (
             <button
               onClick={() => {
                 vibrateLight();
                 setChallengeTab('squads');
               }}
-              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              className={`flex-1 min-w-[70px] py-2 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                 challengeTab === 'squads'
                   ? 'bg-amber-400 text-black font-black shadow-md shadow-amber-400/20'
                   : 'text-white/60 hover:text-white hover:bg-white/5'
@@ -538,7 +589,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
               vibrateLight();
               setChallengeTab('chat');
             }}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+            className={`flex-1 min-w-[70px] py-2 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
               challengeTab === 'chat'
                 ? 'bg-white text-black font-black shadow-md'
                 : 'text-white/60 hover:text-white hover:bg-white/5'
@@ -724,10 +775,29 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-2 border-t border-white/10 text-xs">
-                  <span className="text-[10px] text-white/40">
-                    Posting progress automatically logs receipts for {mySquad.name}
-                  </span>
+                <div className="flex items-center justify-between pt-2 border-t border-white/10 text-xs flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        vibrateLight();
+                        setChallengeTab('chat');
+                      }}
+                      className="py-1.5 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm shadow-amber-500/10"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Go to Team Chat</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        vibrateLight();
+                        setIsRecapModalOpen(true);
+                      }}
+                      className="py-1.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 font-bold text-xs flex items-center gap-1.5 transition-all"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Weekly Recap</span>
+                    </button>
+                  </div>
                   <button
                     onClick={handleLeaveSquad}
                     className="text-xs font-bold text-red-400 hover:text-red-300 transition-colors"
@@ -845,6 +915,19 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                           </span>
                         </div>
 
+                        {isMember && (
+                          <button
+                            onClick={() => {
+                              vibrateLight();
+                              setChallengeTab('chat');
+                            }}
+                            className="py-1.5 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-xs transition-all flex items-center gap-1 border border-amber-500/30"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5 text-amber-400" />
+                            <span>Go to Team Chat</span>
+                          </button>
+                        )}
+
                         {!isMember && !mySquad && !isFull && (
                           <button
                             onClick={() => handleJoinSquad(team.id)}
@@ -955,7 +1038,28 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
           </div>
         )}
 
+        {/* Tab: Challenge Leaderboard */}
+        {challengeTab === 'leaderboard' && (
+          <div className="pt-1">
+            <ChallengeLeaderboardView
+              challenge={challenge}
+              currentUser={currentUser}
+              onOpenInvite={() => setIsInviteModalOpen(true)}
+            />
+          </div>
+        )}
+
       </div>
+
+      {/* DIRECT CHALLENGE INVITE MODAL */}
+      {isInviteModalOpen && (
+        <DirectChallengeInviteModal
+          isOpen={isInviteModalOpen}
+          onClose={() => setIsInviteModalOpen(false)}
+          currentUser={currentUser}
+          initialChallengeId={challenge.id}
+        />
+      )}
 
       {/* POST PROGRESS MODAL (Photo is MANDATORY) */}
       {isPostModalOpen && (
@@ -1345,6 +1449,24 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
             </form>
           </div>
         </div>
+      )}
+
+      {/* Challenge Weekly Recap & MVP Modal */}
+      {isRecapModalOpen && (
+        <ChallengeWeeklyRecapModal
+          isOpen={isRecapModalOpen}
+          onClose={() => setIsRecapModalOpen(false)}
+          challenge={challenge}
+          currentUser={currentUser}
+          onGoToTeamChat={() => {
+            setChallengeTab('chat');
+          }}
+          onRecapPublished={(publishedRecap) => {
+            // refresh messages
+            const msgs = DailyStorageService.getChallengeMessages(challenge.id);
+            setChatMessages(msgs);
+          }}
+        />
       )}
     </div>
   );

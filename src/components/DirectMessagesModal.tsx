@@ -25,6 +25,7 @@ import { DailyStorageService } from '../services/storage';
 import { handleHorizontalWheelScroll } from '../utils/scroll';
 import { EmptyStateIllustration } from './EmptyStateIllustration';
 import { DirectMessageNotesBar } from './DirectMessageNotesBar';
+import { DirectChallengeInviteModal } from './DirectChallengeInviteModal';
 
 interface DirectMessagesModalProps {
   isOpen: boolean;
@@ -50,6 +51,7 @@ interface DirectMessagesModalProps {
     avatar: string;
     streak: number;
   }) => void;
+  onOpenChallenge?: (challengeId: string) => void;
 }
 
 const PRESET_CHAT_PHOTOS = [
@@ -73,6 +75,7 @@ export const DirectMessagesModal: React.FC<DirectMessagesModalProps> = ({
   onOpenCreateGroup,
   onViewPost,
   onViewUser,
+  onOpenChallenge,
 }) => {
   const [activeUserId, setActiveUserId] = useState<string | null>(initialChatUserId || null);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(initialGroupId || null);
@@ -82,6 +85,7 @@ export const DirectMessagesModal: React.FC<DirectMessagesModalProps> = ({
   const [inputText, setInputText] = useState('');
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
   const [showPhotoPicker, setShowPhotoPicker] = useState(false);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -584,7 +588,20 @@ export const DirectMessagesModal: React.FC<DirectMessagesModalProps> = ({
                 ) : null}
               </div>
 
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
+                {/* Direct Challenge Invite Header Button */}
+                <button
+                  onClick={() => {
+                    vibrateLight();
+                    setIsInviteModalOpen(true);
+                  }}
+                  className="px-2.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 font-bold text-[11px] flex items-center gap-1.5 transition-all shadow-sm shadow-amber-500/10"
+                  title="Direct Challenge Invite"
+                >
+                  <Trophy className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span className="hidden sm:inline">Invite Challenge</span>
+                </button>
+
                 {activeGroup && (
                   <button
                     onClick={() => setShowPinnedInfo(!showPinnedInfo)}
@@ -921,6 +938,86 @@ export const DirectMessagesModal: React.FC<DirectMessagesModalProps> = ({
                           </div>
                         )}
 
+                        {/* Rich Challenge Invite Card inside message */}
+                        {msg.challengeInvite && (
+                          <div
+                            className={`p-3 rounded-2xl border transition-all ${
+                              isMe
+                                ? 'bg-amber-500/10 border-amber-500/30 text-black'
+                                : 'bg-gradient-to-br from-amber-500/15 to-black/60 border-amber-500/30 text-white'
+                            }`}
+                          >
+                            <div className="flex items-start gap-2.5 mb-2">
+                              <div className="w-10 h-10 rounded-xl bg-amber-400/20 border border-amber-400/40 flex items-center justify-center text-xl shrink-0">
+                                {msg.challengeInvite.challengeIcon || '🎯'}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-[9px] font-black uppercase tracking-wider text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/30">
+                                    {msg.challengeInvite.challengeType === 'group'
+                                      ? '👥 Squad Challenge'
+                                      : '🎯 Solo Challenge'}
+                                  </span>
+                                  <span
+                                    className={`text-[10px] ${
+                                      isMe ? 'text-black/60' : 'text-white/50'
+                                    }`}
+                                  >
+                                    {msg.challengeInvite.durationDays} Days
+                                  </span>
+                                </div>
+                                <h4
+                                  className={`text-xs font-black mt-0.5 ${
+                                    isMe ? 'text-black' : 'text-white'
+                                  }`}
+                                >
+                                  {msg.challengeInvite.challengeTitle}
+                                </h4>
+                                {msg.challengeInvite.teamName && (
+                                  <p className="text-[10px] font-bold text-amber-400 mt-0.5 flex items-center gap-1">
+                                    <Crown className="w-3 h-3" />
+                                    <span>Squad: {msg.challengeInvite.teamName}</span>
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            {msg.challengeInvite.note && (
+                              <div
+                                className={`p-2 rounded-xl mb-2.5 text-[11px] italic leading-relaxed ${
+                                  isMe
+                                    ? 'bg-black/5 text-black/80'
+                                    : 'bg-black/40 text-white/80'
+                                }`}
+                              >
+                                "{msg.challengeInvite.note}"
+                              </div>
+                            )}
+
+                            {/* Action button: Accept & Join */}
+                            <div className="flex items-center gap-2 pt-1 border-t border-white/10">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  vibrateStreakMilestone();
+                                  DailyStorageService.acceptChallengeInvite(
+                                    msg.challengeInvite!.challengeId,
+                                    msg.challengeInvite!.teamId
+                                  );
+                                  if (onOpenChallenge) {
+                                    onClose();
+                                    onOpenChallenge(msg.challengeInvite!.challengeId);
+                                  }
+                                }}
+                                className="flex-1 py-2 px-3 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-amber-400/20 transition-all"
+                              >
+                                <Trophy className="w-3.5 h-3.5 stroke-[2.5]" />
+                                <span>Accept & Open Challenge</span>
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
                         {/* Text Content */}
                         {msg.text && <p className="whitespace-pre-wrap">{msg.text}</p>}
 
@@ -1044,6 +1141,18 @@ export const DirectMessagesModal: React.FC<DirectMessagesModalProps> = ({
                 <ImageIcon className="w-4 h-4" />
               </button>
 
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateLight();
+                  setIsInviteModalOpen(true);
+                }}
+                className="p-2.5 rounded-xl border border-white/10 bg-white/5 text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/30 transition-colors"
+                title="Send Direct Challenge Invite"
+              >
+                <Trophy className="w-4 h-4 stroke-[2.5]" />
+              </button>
+
               <input
                 type="text"
                 value={inputText}
@@ -1069,6 +1178,21 @@ export const DirectMessagesModal: React.FC<DirectMessagesModalProps> = ({
             )}
           </div>
         )}
+
+        {/* Direct Challenge Invite Modal */}
+        <DirectChallengeInviteModal
+          isOpen={isInviteModalOpen}
+          onClose={() => setIsInviteModalOpen(false)}
+          currentUser={currentUser}
+          targetUser={activeUser ? {
+            id: activeUser.id,
+            name: activeUser.name,
+            username: activeUser.username,
+            avatar: activeUser.avatar,
+            streak: activeUser.currentStreak,
+          } : null}
+          targetGroup={activeGroup || null}
+        />
       </div>
     </div>
   );

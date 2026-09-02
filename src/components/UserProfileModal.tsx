@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { X, Flame, CheckCircle2, UserPlus, Check, MessageSquare, Share2, Grid, List, Sparkles, UserX, ShieldAlert, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { X, Flame, CheckCircle2, UserPlus, Check, MessageSquare, Share2, Grid, List, Sparkles, UserX, ShieldAlert, AlertTriangle, ShieldCheck, Trophy, Swords } from 'lucide-react';
 import { User, Post } from '../types';
-import { vibrateStreakMilestone } from '../services/haptics';
+import { vibrateStreakMilestone, vibrateLight } from '../services/haptics';
+import { DirectChallengeInviteModal } from './DirectChallengeInviteModal';
 
 interface UserProfileModalProps {
   user: User | null;
@@ -33,6 +34,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [copiedLink, setCopiedLink] = useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
   if (!isOpen || !user) return null;
 
@@ -141,45 +143,59 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             </div>
           )}
 
-          {/* Action buttons (Follow & Message & Block) */}
+          {/* Action buttons (Follow & Message & Direct Challenge Invite) */}
           {!isMe && !isBlocked && (
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              <button
-                onClick={() => onToggleFollow(user.id)}
-                className={`py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                  isFollowing
-                    ? 'bg-white/10 text-white hover:bg-white/15 border border-white/10'
-                    : 'bg-blue-600 text-white hover:bg-blue-500 shadow-md shadow-blue-500/20'
-                }`}
-              >
-                {isFollowing ? (
-                  <>
-                    <Check className="w-4 h-4 stroke-[3]" />
-                    <span>Following</span>
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="w-4 h-4" />
-                    <span>Follow</span>
-                  </>
-                )}
-              </button>
+            <div className="space-y-2 pt-1">
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => onToggleFollow(user.id)}
+                  className={`py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                    isFollowing
+                      ? 'bg-white/10 text-white hover:bg-white/15 border border-white/10'
+                      : 'bg-blue-600 text-white hover:bg-blue-500 shadow-md shadow-blue-500/20'
+                  }`}
+                >
+                  {isFollowing ? (
+                    <>
+                      <Check className="w-4 h-4 stroke-[3]" />
+                      <span>Following</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="w-4 h-4" />
+                      <span>Follow</span>
+                    </>
+                  )}
+                </button>
 
+                <button
+                  onClick={() => {
+                    onClose();
+                    onSendDM({
+                      id: user.id,
+                      name: user.name,
+                      username: user.username,
+                      avatar: user.avatar,
+                      streak: user.currentStreak,
+                    });
+                  }}
+                  className="py-2.5 rounded-2xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs flex items-center justify-center gap-1.5 border border-white/10 transition-all"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  <span>Direct Message</span>
+                </button>
+              </div>
+
+              {/* Direct Challenge Invite Action Button */}
               <button
                 onClick={() => {
-                  onClose();
-                  onSendDM({
-                    id: user.id,
-                    name: user.name,
-                    username: user.username,
-                    avatar: user.avatar,
-                    streak: user.currentStreak,
-                  });
+                  vibrateLight();
+                  setIsInviteModalOpen(true);
                 }}
-                className="py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20 transition-all"
+                className="w-full py-2.5 px-3 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 hover:scale-[1.01] transition-all"
               >
-                <MessageSquare className="w-4 h-4" />
-                <span>Direct Message</span>
+                <Trophy className="w-4 h-4 stroke-[2.5]" />
+                <span>Direct Challenge Invite</span>
               </button>
             </div>
           )}
@@ -437,6 +453,19 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             </div>
           </div>
         )}
+        {/* Direct Challenge Invite Modal */}
+        <DirectChallengeInviteModal
+          isOpen={isInviteModalOpen}
+          onClose={() => setIsInviteModalOpen(false)}
+          currentUser={currentUser}
+          targetUser={{
+            id: user.id,
+            name: user.name,
+            username: user.username,
+            avatar: user.avatar,
+            streak: user.currentStreak,
+          }}
+        />
       </div>
     </div>
   );

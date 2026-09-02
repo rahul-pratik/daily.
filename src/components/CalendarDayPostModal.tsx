@@ -66,13 +66,7 @@ export const CalendarDayPostModal: React.FC<CalendarDayPostModalProps> = ({
   });
 
   // Also check if any challenge progress posts exist for this date
-  const allChallengePosts = DailyStorageService.getAllChallengeProgressPosts();
-  const challengePostsOnDate = allChallengePosts.filter((cp) => {
-    if (cp.userId !== currentUser.id) return false;
-    if (cp.createdAt?.includes(selectedDate)) return true;
-    if (isToday && cp.createdAt?.includes('Today')) return true;
-    return false;
-  });
+  const challengeItemsOnDate = DailyStorageService.getChallengePostsByDate(selectedDate, currentUser.id);
 
   return (
     <div
@@ -227,19 +221,19 @@ export const CalendarDayPostModal: React.FC<CalendarDayPostModalProps> = ({
                 </div>
               ))}
             </div>
-          ) : challengePostsOnDate.length > 0 ? (
+          ) : challengeItemsOnDate.length > 0 ? (
             <div className="space-y-3">
               <p className="text-[11px] font-bold text-[#D4AF37] uppercase tracking-wider">
-                Challenge Progress Proof ({challengePostsOnDate.length}):
+                Challenge Progress Proof ({challengeItemsOnDate.length}):
               </p>
-              {challengePostsOnDate.map((cp) => (
+              {challengeItemsOnDate.map(({ post: cp, challenge }) => (
                 <div
                   key={cp.id}
                   className="bg-[#141414] border border-white/15 rounded-3xl p-4 space-y-3"
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-black text-[#D4AF37] uppercase bg-[#D4AF37]/10 px-2 py-0.5 rounded-full border border-[#D4AF37]/30">
-                      Day {cp.dayNumber} Progress
+                      {challenge.icon} {challenge.title} • Day {cp.dayNumber}
                     </span>
                     <span className="text-[10px] text-white/40">{cp.createdAt}</span>
                   </div>
@@ -257,7 +251,7 @@ export const CalendarDayPostModal: React.FC<CalendarDayPostModalProps> = ({
 
                   {cp.text && (
                     <p className="text-xs text-white/90 leading-relaxed font-sans">
-                      {cp.text}
+                      "{cp.text}"
                     </p>
                   )}
                 </div>

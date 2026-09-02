@@ -12,6 +12,7 @@ import {
   Sparkles,
   ArrowRight,
   Filter,
+  Trophy,
 } from 'lucide-react';
 import { AppNotification, NotificationType, User, Post } from '../types';
 import { vibrateLight } from '../services/haptics';
@@ -27,10 +28,11 @@ interface NotificationsModalProps {
   onViewPost?: (postId: string) => void;
   onViewUser?: (user: { id: string; name: string; username: string; avatar: string; streak: number }) => void;
   onOpenCommunity?: (communityId: string) => void;
+  onOpenChallenge?: (challengeId: string) => void;
   onToggleFollow?: (userId: string) => void;
 }
 
-type NotificationFilter = 'all' | 'unread' | 'like' | 'comment' | 'follow';
+type NotificationFilter = 'all' | 'unread' | 'like' | 'comment' | 'follow' | 'challenge';
 
 export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   isOpen,
@@ -43,6 +45,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   onViewPost,
   onViewUser,
   onOpenCommunity,
+  onOpenChallenge,
   onToggleFollow,
 }) => {
   const [activeFilter, setActiveFilter] = useState<NotificationFilter>('all');
@@ -56,6 +59,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
     if (activeFilter === 'like') return n.type === 'like';
     if (activeFilter === 'comment') return n.type === 'comment';
     if (activeFilter === 'follow') return n.type === 'follow';
+    if (activeFilter === 'challenge') return n.type === 'challenge_invite';
     return true;
   });
 
@@ -77,6 +81,12 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
         return (
           <div className="w-5 h-5 rounded-full bg-[#D4AF37]/20 border border-[#D4AF37]/40 flex items-center justify-center text-[#D4AF37]">
             <UserPlus className="w-3 h-3" />
+          </div>
+        );
+      case 'challenge_invite':
+        return (
+          <div className="w-5 h-5 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+            <Trophy className="w-3 h-3" />
           </div>
         );
       case 'community_request':
@@ -102,7 +112,10 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
       onMarkAsRead(n.id);
     }
 
-    if (n.targetId && onViewPost && (n.type === 'like' || n.type === 'comment')) {
+    if (n.targetId && onOpenChallenge && n.type === 'challenge_invite') {
+      onOpenChallenge(n.targetId);
+      onClose();
+    } else if (n.targetId && onViewPost && (n.type === 'like' || n.type === 'comment')) {
       onViewPost(n.targetId);
       onClose();
     } else if (n.targetId && onOpenCommunity && (n.type === 'community_approved' || n.type === 'community_request')) {

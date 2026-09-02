@@ -56,6 +56,43 @@ export interface Comment {
   createdAt: string;
 }
 
+export interface ChallengeWeeklyRecap {
+  id: string;
+  challengeId: string;
+  challengeTitle: string;
+  challengeIcon: string;
+  challengeType: ChallengeType;
+  weekNumber: number;
+  startDate: string; // e.g. "2026-08-27"
+  endDate: string; // e.g. "2026-09-02"
+  totalCollectiveCheckins: number;
+  activeSquadsCount: number;
+  cohortConsistencyRate: number; // percentage e.g. 92
+  topSquad?: {
+    id: string;
+    name: string;
+    motto?: string;
+    checkinsCount: number;
+    memberCount: number;
+  };
+  mvpContributor: {
+    userId: string;
+    userName: string;
+    userUsername: string;
+    userAvatar: string;
+    userStreak: number;
+    weeklyCheckins: number;
+    cheersReceived: number;
+    teamName?: string;
+    mvpTitle: string; // e.g. "👑 Iron Consistency MVP"
+    accolade: string; // e.g. "Submitted 7/7 verified photo proofs & earned 38 cheers!"
+  };
+  highlights: string[];
+  generatedAt: string;
+  isPublished?: boolean;
+  publishedPostId?: string;
+}
+
 export interface Post {
   id: string;
   userId: string;
@@ -79,6 +116,8 @@ export interface Post {
   isReported?: boolean;
   viewsCount?: number;
   sharesCount?: number;
+  isChallengeRecap?: boolean;
+  challengeRecapData?: ChallengeWeeklyRecap;
 }
 
 export type ReportReason =
@@ -247,6 +286,86 @@ export interface CommunityMemberRanking {
   badgeTitle: string;
 }
 
+export interface ChallengeInvitePreview {
+  challengeId: string;
+  challengeTitle: string;
+  challengeIcon: string;
+  challengeType: ChallengeType;
+  durationDays: number;
+  category: string;
+  tag: string;
+  deadlineDate: string;
+  teamId?: string;
+  teamName?: string;
+  invitedByName: string;
+  invitedByAvatar: string;
+  note?: string;
+}
+
+export interface ChallengeLeaderboardIndividual {
+  rank: number;
+  user: {
+    id: string;
+    name: string;
+    username: string;
+    avatar: string;
+    currentStreak: number;
+  };
+  daysCompleted: number;
+  totalDays: number;
+  totalCheckins: number;
+  completionPercentage: number;
+  currentStreak: number;
+  consistencyRate: number; // percentage (0 - 100)
+  consistencyScore: number;
+  streakInChallenge: number;
+  totalCheers: number;
+  score: number;
+  badgeTitle: string;
+  latestProofImageUrl?: string;
+  teamName?: string;
+  hasPostedToday: boolean;
+  isCurrentUser: boolean;
+}
+
+export interface ChallengeLeaderboardSquad {
+  rank: number;
+  team: ChallengeTeam;
+  teamId: string;
+  teamName: string;
+  motto?: string;
+  totalCheckins: number;
+  memberCount: number;
+  maxMembers: number;
+  consistencyRate: number; // percentage (0 - 100)
+  averageCheckinsPerMember: number;
+  squadScore: number;
+  score: number;
+  topContributorName: string;
+  topContributorAvatar: string;
+  topContributorCheckins: number;
+  topContributors: {
+    id: string;
+    name: string;
+    avatar: string;
+    checkinsCount: number;
+  }[];
+  totalCheers: number;
+  isUserSquad: boolean;
+}
+
+export interface ChallengeLeaderboard {
+  individuals: ChallengeLeaderboardIndividual[];
+  squads: ChallengeLeaderboardSquad[];
+  summary: {
+    totalParticipants: number;
+    totalCheckins: number;
+    cohortActiveStreakRate: number;
+    averageDaysCompleted: number;
+    topStreak: number;
+  };
+}
+
 export interface Message {
   id: string;
   conversationId: string;
@@ -257,6 +376,7 @@ export interface Message {
   text: string;
   imageUrl?: string;
   sharedPost?: SharedPostPreview;
+  challengeInvite?: ChallengeInvitePreview;
   timestamp: string;
   isRead: boolean;
 }
@@ -463,7 +583,9 @@ export type NotificationType =
   | 'follow'
   | 'community_request'
   | 'community_approved'
-  | 'streak_milestone';
+  | 'streak_milestone'
+  | 'cheer'
+  | 'challenge_invite';
 
 export interface AppNotification {
   id: string;

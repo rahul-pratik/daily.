@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, MessageCircle, Send, Bookmark, Flame, MoreHorizontal, Check, UserPlus, Share2, Eye, User as UserIcon, Flag, ShieldAlert, BarChart3, Trash2, AlertTriangle, X, FolderPlus } from 'lucide-react';
+import { Heart, MessageCircle, Send, Bookmark, Flame, MoreHorizontal, Check, UserPlus, Share2, Eye, User as UserIcon, Flag, ShieldAlert, BarChart3, Trash2, AlertTriangle, X, FolderPlus, Trophy, Sparkles, Award, Crown } from 'lucide-react';
 import { Post, User } from '../types';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
 import { handleHorizontalWheelScroll } from '../utils/scroll';
@@ -159,13 +159,20 @@ export const PostCard: React.FC<PostCardProps> = ({
               <span className="text-white/20 text-xs">•</span>
               <span className="text-white/40 text-[10px]">{post.createdAt}</span>
             </div>
-            {post.isDailyStreakPost && (
+            {post.isChallengeRecap ? (
+              <div className="flex items-center gap-1 mt-0.5">
+                <span className="text-[10px] text-amber-300 font-black bg-gradient-to-r from-amber-500/20 to-amber-600/10 px-2 py-0.5 rounded-full border border-amber-500/40 flex items-center gap-1 shadow-sm shadow-amber-500/10">
+                  <Sparkles className="w-2.5 h-2.5 text-amber-400" />
+                  <span>Weekly Recap & MVP</span>
+                </span>
+              </div>
+            ) : post.isDailyStreakPost ? (
               <div className="flex items-center gap-1 mt-0.5">
                 <span className="text-[10px] text-[#D4AF37] font-bold">
                   🔥 {post.userStreak} Day Streak
                 </span>
               </div>
-            )}
+            ) : null}
           </div>
         </div>
 
@@ -341,6 +348,54 @@ export const PostCard: React.FC<PostCardProps> = ({
 
       {/* Caption & Content */}
       <div className={isFocusMode ? "p-5 space-y-3" : "p-4 space-y-2"}>
+        {/* If Challenge Recap, render rich collective recap & MVP spotlight */}
+        {post.challengeRecapData && (
+          <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-500/10 via-[#D4AF37]/5 to-transparent border border-amber-500/30 space-y-2.5 mb-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-black uppercase text-amber-300 flex items-center gap-1.5">
+                <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                <span>{post.challengeRecapData.challengeTitle} • Week {post.challengeRecapData.weekNumber}</span>
+              </span>
+              <span className="text-[10px] font-bold text-amber-400/80 bg-amber-500/15 px-2 py-0.5 rounded-full border border-amber-500/30">
+                {post.challengeRecapData.totalCollectiveCheckins} Receipts
+              </span>
+            </div>
+
+            {post.challengeRecapData.mvpContributor && (
+              <div className="p-2.5 rounded-xl bg-black/40 border border-amber-500/20 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-8 h-8 rounded-full overflow-hidden border border-amber-400/60 shrink-0">
+                    <img
+                      src={post.challengeRecapData.mvpContributor.userAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'}
+                      alt={post.challengeRecapData.mvpContributor.userName}
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1">
+                      <Crown className="w-3 h-3 text-amber-400 fill-amber-400 shrink-0" />
+                      <span className="text-xs font-black text-white truncate">
+                        {post.challengeRecapData.mvpContributor.userName}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-amber-300/80 font-bold block">
+                      Weekly MVP Contributor
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-right shrink-0">
+                  <span className="text-xs font-black text-amber-300">
+                    {post.challengeRecapData.mvpContributor.weeklyCheckins}
+                  </span>
+                  <p className="text-[9px] text-white/40 uppercase font-bold">Receipts</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         <p className={isFocusMode ? "text-base sm:text-lg leading-relaxed text-white font-normal break-words py-1 tracking-wide" : "text-sm leading-relaxed text-white/80 break-words"}>
           {post.content}
         </p>
