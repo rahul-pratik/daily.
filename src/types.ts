@@ -165,6 +165,34 @@ export interface Community {
   lastActivity?: string;
 }
 
+export type ChallengeType = 'individual' | 'group';
+
+export interface ChallengeTeamMember {
+  userId: string;
+  userName: string;
+  userUsername?: string;
+  userAvatar: string;
+  userStreak?: number;
+  joinedAt: string;
+  role?: 'leader' | 'member';
+  checkinsCount?: number;
+}
+
+export interface ChallengeTeam {
+  id: string;
+  challengeId: string;
+  name: string;
+  motto?: string;
+  teamAvatar?: string;
+  leaderId: string;
+  leaderName: string;
+  maxMembers: number; // Configured team size e.g. 2, 3, 4, etc.
+  memberIds: string[];
+  members: ChallengeTeamMember[];
+  createdAt: string;
+  totalCheckinsCount?: number;
+}
+
 export interface ChallengeProgressPost {
   id: string;
   challengeId: string;
@@ -180,6 +208,11 @@ export interface ChallengeProgressPost {
   postDate: string; // YYYY-MM-DD
   cheersCount: number;
   cheeredByMe?: boolean;
+  // Group challenge properties
+  challengeType?: ChallengeType;
+  teamId?: string;
+  teamName?: string;
+  teamMembers?: Array<{ userId: string; userName: string; userAvatar: string }>;
 }
 
 export interface Challenge {
@@ -198,6 +231,10 @@ export interface Challenge {
   participantIds: string[];
   completedUserIds: string[]; // Users who completed all durationDays or finished
   userPostDates: Record<string, string[]>; // { [userId]: ["2026-08-25", ...] }
+  // Group / Individual Challenge configurations
+  challengeType: ChallengeType; // 'individual' | 'group'
+  teamSize?: number; // Number of members allowed per team (e.g. 2 for Duo, 3 for Trio, 4, 5, etc.)
+  teams?: ChallengeTeam[];
 }
 
 export interface CommunityMemberRanking {

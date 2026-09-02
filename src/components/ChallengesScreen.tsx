@@ -45,6 +45,8 @@ interface ChallengesScreenProps {
 
 const CATEGORY_CHIPS = [
   'All',
+  '👥 Group Squads',
+  '🎯 Solo',
   'Joined',
   '30 Days',
   '60 Days',
@@ -133,6 +135,10 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
     // Category / Tag / Filter chip
     if (selectedFilterChip === 'Joined') {
       return isJoined;
+    } else if (selectedFilterChip === '👥 Group Squads') {
+      return c.challengeType === 'group';
+    } else if (selectedFilterChip === '🎯 Solo') {
+      return c.challengeType === 'individual' || !c.challengeType;
     } else if (selectedFilterChip === '30 Days') {
       return c.durationDays === 30;
     } else if (selectedFilterChip === '60 Days') {
@@ -385,6 +391,8 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
             const isJoined = (challenge.participantIds || []).includes(currentUser.id);
             const userProgress = DailyStorageService.getChallengeUserProgress(challenge.id, currentUser.id);
             const percent = Math.min(100, Math.round((userProgress.daysCompleted / challenge.durationDays) * 100));
+            const isGroup = challenge.challengeType === 'group';
+            const userTeam = userProgress.userTeam;
 
             return (
               <div
@@ -402,7 +410,19 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
                       {challenge.icon}
                     </div>
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                      <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                        {isGroup ? (
+                          <span className="text-[10px] font-black text-amber-300 bg-amber-500/15 px-2 py-0.5 rounded-full border border-amber-500/30 flex items-center gap-1">
+                            <Users className="w-3 h-3 text-amber-300" />
+                            <span>Group Squad ({challenge.teamSize || 3}/team)</span>
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-black text-blue-400 bg-blue-500/15 px-2 py-0.5 rounded-full border border-blue-500/30 flex items-center gap-1">
+                            <Target className="w-3 h-3 text-blue-400" />
+                            <span>Solo Challenge</span>
+                          </span>
+                        )}
+
                         <span className="text-[10px] font-black text-[#D4AF37] uppercase tracking-wider bg-[#D4AF37]/10 px-2 py-0.5 rounded-full border border-[#D4AF37]/20">
                           #{challenge.tag || challenge.category}
                         </span>
@@ -422,6 +442,38 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
 
                   <ChevronRight className="w-5 h-5 text-white/30 group-hover:text-[#D4AF37] group-hover:translate-x-0.5 transition-all shrink-0 mt-1" />
                 </div>
+
+                {/* Group Challenge Squads Preview or Progress */}
+                {isGroup && challenge.teams && challenge.teams.length > 0 && (
+                  <div className="p-2.5 rounded-2xl bg-[#141414] border border-white/10 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="flex -space-x-1.5 overflow-hidden shrink-0">
+                        {challenge.teams.slice(0, 3).map((t, idx) => (
+                          <div
+                            key={t.id}
+                            className="w-6 h-6 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-[10px] font-bold text-[#D4AF37]"
+                          >
+                            {t.name.slice(0, 1)}
+                          </div>
+                        ))}
+                      </div>
+                      <span className="text-[11px] text-white/70 truncate">
+                        {challenge.teams.length} Squad{challenge.teams.length > 1 ? 's' : ''} competing •{' '}
+                        <strong className="text-white">
+                          {challenge.teams.reduce((acc, t) => acc + (t.totalCheckinsCount || 0), 0)} receipts
+                        </strong>
+                      </span>
+                    </div>
+
+                    {userTeam ? (
+                      <span className="text-[10px] font-bold text-[#D4AF37] bg-[#D4AF37]/10 px-2 py-0.5 rounded-lg border border-[#D4AF37]/25 shrink-0">
+                        My Squad: {userTeam.name}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-white/50 shrink-0">Join a Squad →</span>
+                    )}
+                  </div>
+                )}
 
                 {/* Progress bar if joined */}
                 {isJoined && (
@@ -448,7 +500,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
                     <span className="font-bold text-white">
                       {(challenge.participantsCount || 1).toLocaleString()}
                     </span>
-                    <span>members</span>
+                    <span>members {isGroup && `(${challenge.teams?.length || 0} squads)`}</span>
                   </div>
 
                   <div className="flex items-center gap-2">

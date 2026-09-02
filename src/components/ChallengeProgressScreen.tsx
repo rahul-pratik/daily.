@@ -25,8 +25,13 @@ import {
   Share2,
   Hourglass,
   Flag,
+  UserPlus,
+  Shield,
+  Crown,
+  Plus,
+  Target,
 } from 'lucide-react';
-import { User, Challenge, ChallengeProgressPost, Message } from '../types';
+import { User, Challenge, ChallengeProgressPost, Message, ChallengeTeam } from '../types';
 import { DailyStorageService, getTodayDateString } from '../services/storage';
 import { vibrateLight, vibrateSuccess, vibrateStreakMilestone } from '../services/haptics';
 
@@ -63,7 +68,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
   onChallengeUpdated,
 }) => {
   const [challenge, setChallenge] = useState<Challenge>(initialChallenge);
-  const [challengeTab, setChallengeTab] = useState<'proofs' | 'chat'>('proofs');
+  const [challengeTab, setChallengeTab] = useState<'proofs' | 'squads' | 'chat'>('proofs');
   const [progressPosts, setProgressPosts] = useState<ChallengeProgressPost[]>([]);
   const [chatMessages, setChatMessages] = useState<Message[]>([]);
   const [chatInputText, setChatInputText] = useState('');
@@ -77,6 +82,12 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
   const [selectedPhotoPreview, setSelectedPhotoPreview] = useState<string | null>(null);
   const [selectedDayProof, setSelectedDayProof] = useState<ChallengeProgressPost | null>(null);
 
+  // Squad / Team management states
+  const [isCreateSquadOpen, setIsCreateSquadOpen] = useState(false);
+  const [squadNameInput, setSquadNameInput] = useState('');
+  const [squadMottoInput, setSquadMottoInput] = useState('');
+  const [squadError, setSquadError] = useState<string | null>(null);
+
   // Load progress posts and challenge chat messages
   useEffect(() => {
     const posts = DailyStorageService.getAllChallengeProgressPosts(challenge.id);
@@ -88,6 +99,8 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
   const userProgress = DailyStorageService.getChallengeUserProgress(challenge.id, currentUser.id);
   const today = getTodayDateString();
   const isJoined = (challenge.participantIds || []).includes(currentUser.id);
+  const isGroupChallenge = challenge.challengeType === 'group';
+  const mySquad = userProgress.userTeam;
 
   // Calculate countdown days remaining
   const daysCompleted = userProgress.daysCompleted;
@@ -116,6 +129,43 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
     setChallenge(result.challenge);
     onChallengeUpdated(result.challenge);
     setShowLeaveConfirm(false);
+  };
+
+  // Squad Management actions
+  const handleCreateSquad = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!squadNameInput.trim()) {
+      setSquadError('Squad name is required');
+      return;
+    }
+
+    const result = DailyStorageService.createChallengeTeam(
+      challenge.id,
+      squadNameInput.trim(),
+      squadMottoInput.trim() || undefined
+    );
+
+    vibrateSuccess();
+    setChallenge(result.challenge);
+    onChallengeUpdated(result.challenge);
+    setSquadNameInput('');
+    setSquadMottoInput('');
+    setSquadError(null);
+    setIsCreateSquadOpen(false);
+  };
+
+  const handleJoinSquad = (teamId: string) => {
+    vibrateLight();
+    const result = DailyStorageService.joinChallengeTeam(challenge.id, teamId);
+    setChallenge(result.challenge);
+    onChallengeUpdated(result.challenge);
+  };
+
+  const handleLeaveSquad = () => {
+    vibrateLight();
+    const result = DailyStorageService.leaveChallengeTeam(challenge.id);
+    setChallenge(result.challenge);
+    onChallengeUpdated(result.challenge);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -449,7 +499,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
           </div>
         )}
 
-        {/* Challenge Section Switcher: Photo Proofs vs Text-Only Cohort Chat */}
+        {/* Challenge Section Switcher: Photo Proofs vs Squads vs Text-Only Cohort Chat */}
         <div className="flex items-center gap-1.5 bg-[#0F0F0F] p-1.5 rounded-2xl border border-white/10">
           <button
             onClick={() => {
@@ -463,8 +513,25 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
             }`}
           >
             <Camera className="w-3.5 h-3.5" />
-            <span>Photo Proofs ({progressPosts.length})</span>
+            <span>Proofs ({progressPosts.length})</span>
           </button>
+
+          {isGroupChallenge && (
+            <button
+              onClick={() => {
+                vibrateLight();
+                setChallengeTab('squads');
+              }}
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                challengeTab === 'squads'
+                  ? 'bg-amber-400 text-black font-black shadow-md shadow-amber-400/20'
+                  : 'text-white/60 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Squads ({challenge.teams?.length || 0})</span>
+            </button>
+          )}
 
           <button
             onClick={() => {
@@ -478,7 +545,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
             }`}
           >
             <MessageCircle className="w-3.5 h-3.5" />
-            <span>Cohort Chat ({chatMessages.length})</span>
+            <span>Chat ({chatMessages.length})</span>
           </button>
         </div>
 
@@ -488,7 +555,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
             <div className="flex items-center justify-between px-1">
               <h2 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
-                <span>Cohort Member Proofs ({progressPosts.length})</span>
+                <span>{isGroupChallenge ? 'Squad & Cohort Proofs' : 'Cohort Member Proofs'} ({progressPosts.length})</span>
               </h2>
               <span className="text-[10px] text-white/40">Photo receipts mandatory</span>
             </div>
@@ -521,9 +588,17 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                           <span className="font-bold text-xs text-white">{post.userName}</span>
                           <span className="text-[10px] text-white/40">@{post.userUsername}</span>
                         </div>
-                        <div className="flex items-center gap-1 text-[10px] text-blue-400 font-bold">
-                          <Flame className="w-3 h-3 fill-blue-400" />
-                          <span>{post.userStreak}d Streak</span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <div className="flex items-center gap-1 text-[10px] text-blue-400 font-bold">
+                            <Flame className="w-3 h-3 fill-blue-400" />
+                            <span>{post.userStreak}d Streak</span>
+                          </div>
+                          {post.teamName && (
+                            <span className="text-[10px] font-bold text-amber-300 bg-amber-500/15 px-2 py-0.2 rounded-md border border-amber-500/30 flex items-center gap-1">
+                              <Users className="w-2.5 h-2.5" />
+                              <span>{post.teamName}</span>
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -578,6 +653,219 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                 </div>
               ))
             )}
+          </div>
+        )}
+
+        {/* Tab 2: Squads & Teams Management (for Group Challenges) */}
+        {challengeTab === 'squads' && isGroupChallenge && (
+          <div className="space-y-4 pt-1">
+            {/* My Squad Card */}
+            {mySquad ? (
+              <div className="bg-[#0F0F0F] border border-amber-500/30 rounded-3xl p-5 shadow-2xl space-y-4 relative overflow-hidden bg-gradient-to-br from-amber-500/10 via-[#0F0F0F] to-[#0F0F0F]">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-[10px] font-black text-amber-300 uppercase tracking-wider flex items-center gap-1">
+                        <Crown className="w-3 h-3 text-amber-400" />
+                        <span>My Squad</span>
+                      </span>
+                      <span className="text-[10px] text-white/50">
+                        {mySquad.members.length}/{mySquad.maxMembers} Members
+                      </span>
+                    </div>
+                    <h3 className="text-base font-black text-white">{mySquad.name}</h3>
+                    {mySquad.motto && (
+                      <p className="text-xs text-white/70 italic">"{mySquad.motto}"</p>
+                    )}
+                  </div>
+
+                  <div className="text-right">
+                    <span className="text-lg font-black text-amber-400">{mySquad.totalCheckinsCount || 0}</span>
+                    <p className="text-[9px] uppercase font-bold text-white/40">Total Receipts</p>
+                  </div>
+                </div>
+
+                {/* Squad Members */}
+                <div className="space-y-2 pt-2 border-t border-white/10">
+                  <span className="text-[10px] font-black text-white/50 uppercase tracking-wider">
+                    Squad Teammates ({mySquad.members.length}/{mySquad.maxMembers})
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {mySquad.members.map((m) => (
+                      <div
+                        key={m.userId}
+                        className={`p-2.5 rounded-2xl border flex items-center gap-2.5 ${
+                          m.userId === currentUser.id
+                            ? 'bg-amber-500/10 border-amber-500/30'
+                            : 'bg-white/5 border-white/10'
+                        }`}
+                      >
+                        <img
+                          src={m.userAvatar}
+                          alt={m.userName}
+                          referrerPolicy="no-referrer"
+                          className="w-8 h-8 rounded-full object-cover border border-white/20"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs font-bold text-white truncate">
+                              {m.userName} {m.userId === currentUser.id && '(You)'}
+                            </span>
+                            {m.role === 'leader' && (
+                              <Crown className="w-3 h-3 text-amber-400 shrink-0" />
+                            )}
+                          </div>
+                          <span className="text-[10px] text-blue-400 font-bold">
+                            {m.checkinsCount || 0} receipts posted
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-white/10 text-xs">
+                  <span className="text-[10px] text-white/40">
+                    Posting progress automatically logs receipts for {mySquad.name}
+                  </span>
+                  <button
+                    onClick={handleLeaveSquad}
+                    className="text-xs font-bold text-red-400 hover:text-red-300 transition-colors"
+                  >
+                    Leave Squad
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-[#0F0F0F] border border-white/15 rounded-3xl p-5 shadow-xl space-y-3 text-center">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto">
+                  <Users className="w-6 h-6" />
+                </div>
+                <h3 className="text-sm font-black text-white">You're not in a squad yet</h3>
+                <p className="text-xs text-white/60 max-w-sm mx-auto leading-relaxed">
+                  Join an open squad below or create your own squad to conquer this {challenge.durationDays}-day challenge together!
+                </p>
+                <button
+                  onClick={() => {
+                    vibrateLight();
+                    setIsCreateSquadOpen(true);
+                  }}
+                  className="py-2.5 px-4 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-black text-xs transition-all shadow-md shadow-amber-400/20 inline-flex items-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Create a Squad (Max {challenge.teamSize || 3})</span>
+                </button>
+              </div>
+            )}
+
+            {/* Squads Leaderboard / Roster */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between px-1">
+                <h3 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
+                  <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                  <span>All Active Squads ({challenge.teams?.length || 0})</span>
+                </h3>
+                <button
+                  onClick={() => {
+                    vibrateLight();
+                    setIsCreateSquadOpen(true);
+                  }}
+                  className="text-xs font-bold text-amber-400 hover:underline flex items-center gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>New Squad</span>
+                </button>
+              </div>
+
+              {(!challenge.teams || challenge.teams.length === 0) ? (
+                <div className="p-6 rounded-2xl bg-[#0F0F0F] border border-white/10 text-center text-xs text-white/40">
+                  No squads created yet. Be the first squad leader!
+                </div>
+              ) : (
+                challenge.teams.map((team, idx) => {
+                  const isMember = team.members.some((m) => m.userId === currentUser.id);
+                  const isFull = team.members.length >= team.maxMembers;
+
+                  return (
+                    <div
+                      key={team.id}
+                      className={`bg-[#0F0F0F] border rounded-3xl p-4 shadow-xl space-y-3 transition-all ${
+                        isMember
+                          ? 'border-amber-500/40 bg-amber-500/[0.03]'
+                          : 'border-white/10 hover:border-white/20'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-300 font-black text-sm shrink-0">
+                            #{idx + 1}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="text-sm font-black text-white">{team.name}</h4>
+                              {isMember && (
+                                <span className="text-[10px] font-bold text-amber-400 bg-amber-500/20 px-2 py-0.2 rounded-full">
+                                  Your Squad
+                                </span>
+                              )}
+                            </div>
+                            {team.motto && (
+                              <p className="text-xs text-white/60 italic mt-0.5 line-clamp-1">
+                                "{team.motto}"
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <span className="text-sm font-black text-amber-400">
+                            {team.totalCheckinsCount || 0}
+                          </span>
+                          <p className="text-[9px] text-white/40 uppercase font-bold">Receipts</p>
+                        </div>
+                      </div>
+
+                      {/* Teammates List & Join Action */}
+                      <div className="flex items-center justify-between pt-2 border-t border-white/10 text-xs">
+                        <div className="flex items-center gap-2">
+                          <div className="flex -space-x-2 overflow-hidden">
+                            {team.members.map((m) => (
+                              <img
+                                key={m.userId}
+                                src={m.userAvatar}
+                                alt={m.userName}
+                                referrerPolicy="no-referrer"
+                                className="w-7 h-7 rounded-full object-cover border-2 border-[#0F0F0F]"
+                                title={`${m.userName} (${m.checkinsCount} receipts)`}
+                              />
+                            ))}
+                          </div>
+                          <span className="text-[11px] text-white/60">
+                            {team.members.length}/{team.maxMembers} members
+                          </span>
+                        </div>
+
+                        {!isMember && !mySquad && !isFull && (
+                          <button
+                            onClick={() => handleJoinSquad(team.id)}
+                            className="py-1.5 px-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-black text-xs transition-all flex items-center gap-1 shadow-sm"
+                          >
+                            <UserPlus className="w-3.5 h-3.5" />
+                            <span>Join Squad</span>
+                          </button>
+                        )}
+
+                        {!isMember && isFull && (
+                          <span className="text-[11px] font-bold text-white/30 px-2 py-1 rounded-lg bg-white/5">
+                            Squad Full
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         )}
 
@@ -963,6 +1251,98 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
               referrerPolicy="no-referrer"
               className="max-h-[85vh] w-auto max-w-full rounded-2xl object-contain border border-white/20"
             />
+          </div>
+        </div>
+      )}
+
+      {/* CREATE SQUAD MODAL */}
+      {isCreateSquadOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setIsCreateSquadOpen(false)}
+        >
+          <div
+            className="w-full max-w-md bg-[#0D0D0D] border border-amber-500/30 rounded-[32px] p-6 shadow-2xl text-white space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                  <Users className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white">Create Challenge Squad</h3>
+                  <p className="text-[10px] text-white/50">Capacity: Max {challenge.teamSize || 3} members per squad</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsCreateSquadOpen(false)}
+                className="p-1 rounded-full text-white/40 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {squadError && (
+              <div className="p-2.5 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-300 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                <span>{squadError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleCreateSquad} className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-bold text-white/70 uppercase tracking-wider mb-1">
+                  Squad Name *
+                </label>
+                <input
+                  type="text"
+                  value={squadNameInput}
+                  onChange={(e) => setSquadNameInput(e.target.value)}
+                  placeholder="e.g., Code Spartans, Dawn Runners, Iron Duo"
+                  maxLength={30}
+                  className="w-full bg-[#141414] border border-white/15 focus:border-amber-400 rounded-2xl p-3 text-xs text-white placeholder-white/30 focus:outline-none transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-white/70 uppercase tracking-wider mb-1">
+                  Squad Motto / Goal (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={squadMottoInput}
+                  onChange={(e) => setSquadMottoInput(e.target.value)}
+                  placeholder="e.g., No zero days. Ship daily."
+                  maxLength={60}
+                  className="w-full bg-[#141414] border border-white/15 focus:border-amber-400 rounded-2xl p-3 text-xs text-white placeholder-white/30 focus:outline-none transition-colors"
+                />
+              </div>
+
+              <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 flex items-start gap-2">
+                <Crown className="w-4 h-4 shrink-0 mt-0.5" />
+                <p className="leading-relaxed">
+                  You will become the <strong>Squad Leader</strong>. Other cohort members can join until your team reaches the limit of <strong>{challenge.teamSize || 3} members</strong>.
+                </p>
+              </div>
+
+              <div className="pt-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateSquadOpen(false)}
+                  className="flex-1 py-3 px-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white/70 font-bold text-xs border border-white/10"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!squadNameInput.trim()}
+                  className="flex-1 py-3 px-4 rounded-2xl bg-amber-400 hover:bg-amber-300 text-black font-black text-xs transition-all shadow-md shadow-amber-400/20 disabled:opacity-40"
+                >
+                  Create Squad
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

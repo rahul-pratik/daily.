@@ -1,4 +1,4 @@
-import { User, Post, Message, Comment, Group, SharedPostPreview, CommunityMemberRanking, PersonalHabit, Community, PostDraft, AppNotification, ProofCollection, Challenge, ChallengeProgressPost, UserNote } from '../types';
+import { User, Post, Message, Comment, Group, SharedPostPreview, CommunityMemberRanking, PersonalHabit, Community, PostDraft, AppNotification, ProofCollection, Challenge, ChallengeProgressPost, ChallengeTeam, ChallengeTeamMember, ChallengeType, UserNote } from '../types';
 import { INITIAL_CURRENT_USER, SAMPLE_USERS, INITIAL_POSTS, INITIAL_MESSAGES, SAMPLE_GROUPS, INITIAL_PERSONAL_HABITS, INITIAL_COMMUNITIES, INITIAL_NOTIFICATIONS, INITIAL_USER_NOTES, getPastDate } from '../data/mockData';
 
 const STORAGE_KEYS = {
@@ -1614,9 +1614,188 @@ export class DailyStorageService {
   static getInitialChallenges(): Challenge[] {
     return [
       {
+        id: 'challenge_duo_builder',
+        title: 'Startup Sprint: 30-Day Duo Builder',
+        description: 'Team up with an accountability partner (2 builders). Ship features and submit daily progress receipts together!',
+        icon: '🚀',
+        category: 'Coding',
+        tag: 'DuoSprint',
+        durationDays: 30,
+        deadlineDate: '2026-09-30',
+        createdBy: 'user_sarah',
+        createdByName: 'Sarah Chen',
+        createdAt: '2026-08-01',
+        participantsCount: 8420,
+        participantIds: ['user_me', 'user_marcus', 'user_sarah', 'user_david', 'user_aryan', 'user_priya'],
+        completedUserIds: [],
+        challengeType: 'group',
+        teamSize: 2,
+        teams: [
+          {
+            id: 'team_titans_duo',
+            challengeId: 'challenge_duo_builder',
+            name: 'Code Titans',
+            motto: 'Ship fast, break limits',
+            leaderId: 'user_me',
+            leaderName: 'Alex Rivera',
+            maxMembers: 2,
+            memberIds: ['user_me', 'user_marcus'],
+            members: [
+              {
+                userId: 'user_me',
+                userName: 'Alex Rivera',
+                userUsername: 'alexrivera',
+                userAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+                userStreak: 21,
+                joinedAt: '2026-08-01',
+                role: 'leader',
+              },
+              {
+                userId: 'user_marcus',
+                userName: 'Marcus Vance',
+                userUsername: 'marcus_fit',
+                userAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80',
+                userStreak: 27,
+                joinedAt: '2026-08-01',
+                role: 'member',
+              },
+            ],
+            createdAt: '2026-08-01',
+            totalCheckinsCount: 38,
+          },
+          {
+            id: 'team_nexus_duo',
+            challengeId: 'challenge_duo_builder',
+            name: 'Nexus Forge',
+            motto: 'Zero downtime builders',
+            leaderId: 'user_sarah',
+            leaderName: 'Sarah Chen',
+            maxMembers: 2,
+            memberIds: ['user_sarah', 'user_david'],
+            members: [
+              {
+                userId: 'user_sarah',
+                userName: 'Sarah Chen',
+                userUsername: 'sarahcodes',
+                userAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80',
+                userStreak: 21,
+                joinedAt: '2026-08-01',
+                role: 'leader',
+              },
+              {
+                userId: 'user_david',
+                userName: 'David Kim',
+                userUsername: 'davidk_dev',
+                userAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
+                userStreak: 19,
+                joinedAt: '2026-08-01',
+                role: 'member',
+              },
+            ],
+            createdAt: '2026-08-01',
+            totalCheckinsCount: 36,
+          },
+        ],
+        userPostDates: {
+          user_me: [
+            getPastDate(17), getPastDate(16), getPastDate(15), getPastDate(14),
+            getPastDate(13), getPastDate(12), getPastDate(11), getPastDate(10),
+            getPastDate(9), getPastDate(8), getPastDate(7), getPastDate(6),
+            getPastDate(5), getPastDate(4), getPastDate(3), getPastDate(2),
+            getPastDate(1)
+          ],
+          user_marcus: [
+            getPastDate(17), getPastDate(16), getPastDate(15), getPastDate(14),
+            getPastDate(13), getPastDate(12), getPastDate(11), getPastDate(10),
+            getPastDate(9), getPastDate(8), getPastDate(7), getPastDate(6),
+            getPastDate(5), getPastDate(4), getPastDate(3), getPastDate(2),
+            getPastDate(1)
+          ],
+          user_sarah: [
+            getPastDate(20), getPastDate(19), getPastDate(18), getPastDate(17),
+            getPastDate(16), getPastDate(15), getPastDate(14), getPastDate(13),
+            getPastDate(12), getPastDate(11), getPastDate(10), getPastDate(9),
+            getPastDate(8), getPastDate(7), getPastDate(6), getPastDate(5),
+            getPastDate(4), getPastDate(3), getPastDate(2), getPastDate(1),
+            getPastDate(0)
+          ],
+        },
+      },
+      {
+        id: 'challenge_trio_spartan',
+        title: 'Trio 21-Day Spartan Conditioning',
+        description: 'Group challenge for 3 individuals per squad. Daily calisthenics, cold plunge, or intense cardio. Complete accountability.',
+        icon: '⚔️',
+        category: 'Fitness',
+        tag: 'TrioSpartan',
+        durationDays: 21,
+        deadlineDate: '2026-09-25',
+        createdBy: 'user_marcus',
+        createdByName: 'Marcus Vance',
+        createdAt: '2026-08-05',
+        participantsCount: 5120,
+        participantIds: ['user_me', 'user_marcus', 'user_elena'],
+        completedUserIds: [],
+        challengeType: 'group',
+        teamSize: 3,
+        teams: [
+          {
+            id: 'team_iron_triad',
+            challengeId: 'challenge_trio_spartan',
+            name: 'Iron Triad',
+            motto: 'No weak links',
+            leaderId: 'user_marcus',
+            leaderName: 'Marcus Vance',
+            maxMembers: 3,
+            memberIds: ['user_marcus', 'user_me', 'user_elena'],
+            members: [
+              {
+                userId: 'user_marcus',
+                userName: 'Marcus Vance',
+                userUsername: 'marcus_fit',
+                userAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80',
+                userStreak: 27,
+                joinedAt: '2026-08-05',
+                role: 'leader',
+              },
+              {
+                userId: 'user_me',
+                userName: 'Alex Rivera',
+                userUsername: 'alexrivera',
+                userAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+                userStreak: 21,
+                joinedAt: '2026-08-05',
+                role: 'member',
+              },
+              {
+                userId: 'user_elena',
+                userName: 'Elena Rostova',
+                userUsername: 'elena_r',
+                userAvatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&auto=format&fit=crop&q=80',
+                userStreak: 12,
+                joinedAt: '2026-08-05',
+                role: 'member',
+              },
+            ],
+            createdAt: '2026-08-05',
+            totalCheckinsCount: 29,
+          },
+        ],
+        userPostDates: {
+          user_me: [
+            getPastDate(6), getPastDate(5), getPastDate(4), getPastDate(3),
+            getPastDate(2), getPastDate(1)
+          ],
+          user_marcus: [
+            getPastDate(6), getPastDate(5), getPastDate(4), getPastDate(3),
+            getPastDate(2), getPastDate(1)
+          ],
+        },
+      },
+      {
         id: 'challenge_build_30',
-        title: '30 Days of Building',
-        description: 'Build and ship real working software every single day for 30 consecutive days. Insert photo proof.',
+        title: '30 Days of Solo Building',
+        description: 'Build and ship real working software every single day for 30 consecutive days. Individual accountability.',
         icon: '💻',
         category: 'Coding',
         tag: 'Building',
@@ -1628,6 +1807,7 @@ export class DailyStorageService {
         participantsCount: 12438,
         participantIds: ['user_me', 'user_sarah', 'user_david', 'user_aryan', 'user_priya'],
         completedUserIds: [],
+        challengeType: 'individual',
         userPostDates: {
           user_me: [
             getPastDate(17), getPastDate(16), getPastDate(15), getPastDate(14),
@@ -1661,6 +1841,7 @@ export class DailyStorageService {
         participantsCount: 8920,
         participantIds: ['user_me', 'user_marcus', 'user_elena'],
         completedUserIds: [],
+        challengeType: 'individual',
         userPostDates: {
           user_me: [
             getPastDate(10), getPastDate(9), getPastDate(8), getPastDate(7),
@@ -1684,6 +1865,7 @@ export class DailyStorageService {
         participantsCount: 6410,
         participantIds: ['user_sarah', 'user_elena'],
         completedUserIds: [],
+        challengeType: 'individual',
         userPostDates: {},
       },
       {
@@ -1701,6 +1883,7 @@ export class DailyStorageService {
         participantsCount: 4230,
         participantIds: ['user_me', 'user_marcus', 'user_priya'],
         completedUserIds: [],
+        challengeType: 'individual',
         userPostDates: {
           user_me: [
             getPastDate(6), getPastDate(5), getPastDate(4), getPastDate(3),
@@ -1714,8 +1897,31 @@ export class DailyStorageService {
   static getInitialChallengeProgressPosts(): ChallengeProgressPost[] {
     return [
       {
+        id: 'cpost_group_1',
+        challengeId: 'challenge_duo_builder',
+        userId: 'user_marcus',
+        userName: 'Marcus Vance',
+        userUsername: 'marcus_fit',
+        userAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80',
+        userStreak: 27,
+        dayNumber: 18,
+        imageUrl: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=1000&auto=format&fit=crop&q=80',
+        text: 'Day 18 of Duo Sprint! @alexrivera knocked out the back-end while I hooked up WebSocket signals.',
+        createdAt: '1h ago',
+        postDate: getTodayDateString(),
+        cheersCount: 42,
+        cheeredByMe: true,
+        challengeType: 'group',
+        teamId: 'team_titans_duo',
+        teamName: 'Code Titans',
+        teamMembers: [
+          { userId: 'user_me', userName: 'Alex Rivera', userAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80' },
+          { userId: 'user_marcus', userName: 'Marcus Vance', userAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80' }
+        ],
+      },
+      {
         id: 'cpost_1',
-        challengeId: 'challenge_build_30',
+        challengeId: 'challenge_duo_builder',
         userId: 'user_sarah',
         userName: 'Sarah Chen',
         userUsername: 'sarahcodes',
@@ -1723,11 +1929,14 @@ export class DailyStorageService {
         userStreak: 21,
         dayNumber: 21,
         imageUrl: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=1000&auto=format&fit=crop&q=80',
-        text: 'Day 21 of 30! Built out token authentication, rate-limiting, and error toast alerts.',
+        text: 'Day 21 of Duo Sprint with @davidk_dev! Built out rate-limiting and error alerts.',
         createdAt: '2h ago',
         postDate: getTodayDateString(),
         cheersCount: 28,
         cheeredByMe: true,
+        challengeType: 'group',
+        teamId: 'team_nexus_duo',
+        teamName: 'Nexus Forge',
       },
       {
         id: 'cpost_2',
@@ -1743,6 +1952,7 @@ export class DailyStorageService {
         createdAt: '4h ago',
         postDate: getTodayDateString(),
         cheersCount: 14,
+        challengeType: 'individual',
       },
       {
         id: 'cpost_3',
@@ -1759,6 +1969,7 @@ export class DailyStorageService {
         postDate: getTodayDateString(),
         cheersCount: 35,
         cheeredByMe: true,
+        challengeType: 'individual',
       },
       {
         id: 'cpost_4',
@@ -1774,6 +1985,7 @@ export class DailyStorageService {
         createdAt: '5h ago',
         postDate: getTodayDateString(),
         cheersCount: 19,
+        challengeType: 'individual',
       },
     ];
   }
@@ -1836,16 +2048,54 @@ export class DailyStorageService {
     durationDays: number;
     deadlineDate: string;
     tag?: string;
+    challengeType?: ChallengeType;
+    teamSize?: number;
   }): Challenge {
     const currentUser = this.getCurrentUser();
     const today = getTodayDateString();
     const cleanTag = payload.tag?.trim() || payload.category || 'Challenge';
+    const type: ChallengeType = payload.challengeType || 'individual';
+    const teamSize = type === 'group' ? Math.max(2, payload.teamSize || 2) : undefined;
+
+    // If it is a group challenge, automatically create the creator's initial team
+    const initialTeams: ChallengeTeam[] = [];
+    if (type === 'group') {
+      const creatorTeam: ChallengeTeam = {
+        id: `team_${Date.now()}`,
+        challengeId: `challenge_${Date.now()}`,
+        name: `${currentUser.name.split(' ')[0]}'s Squad`,
+        motto: 'Leading the cohort to victory',
+        leaderId: currentUser.id,
+        leaderName: currentUser.name,
+        maxMembers: teamSize || 2,
+        memberIds: [currentUser.id],
+        members: [
+          {
+            userId: currentUser.id,
+            userName: currentUser.name,
+            userUsername: currentUser.username,
+            userAvatar: currentUser.avatar,
+            userStreak: currentUser.currentStreak,
+            joinedAt: today,
+            role: 'leader',
+          },
+        ],
+        createdAt: today,
+        totalCheckinsCount: 0,
+      };
+      initialTeams.push(creatorTeam);
+    }
+
+    const newChallengeId = `challenge_${Date.now()}`;
+    if (initialTeams.length > 0) {
+      initialTeams[0].challengeId = newChallengeId;
+    }
 
     const newChallenge: Challenge = {
-      id: `challenge_${Date.now()}`,
+      id: newChallengeId,
       title: payload.title.trim(),
       description: payload.description.trim(),
-      icon: payload.icon || '🔥',
+      icon: payload.icon || (type === 'group' ? '👥' : '🔥'),
       category: payload.category || 'Discipline',
       tag: cleanTag.replace(/^#/, ''),
       durationDays: Math.max(1, payload.durationDays || 30),
@@ -1856,6 +2106,9 @@ export class DailyStorageService {
       participantsCount: 1,
       participantIds: [currentUser.id],
       completedUserIds: [],
+      challengeType: type,
+      teamSize: teamSize,
+      teams: type === 'group' ? initialTeams : undefined,
       userPostDates: {
         [currentUser.id]: [],
       },
@@ -1884,16 +2137,32 @@ export class DailyStorageService {
           // Leave challenge
           joined = false;
           const nextParticipants = c.participantIds.filter((id) => id !== currentUser.id);
-          // If user had completed, keep them in completedUserIds so if they rejoin, they cannot post
           const nextCompleted = isMarkedCompleted
             ? Array.from(new Set([...(c.completedUserIds || []), currentUser.id]))
             : c.completedUserIds || [];
+
+          // Also remove user from any team in this challenge
+          const nextTeams = (c.teams || []).map((t) => {
+            if (t.memberIds.includes(currentUser.id)) {
+              const newMembers = t.members.filter((m) => m.userId !== currentUser.id);
+              const newMemberIds = t.memberIds.filter((id) => id !== currentUser.id);
+              return {
+                ...t,
+                members: newMembers,
+                memberIds: newMemberIds,
+                leaderId: t.leaderId === currentUser.id ? (newMembers[0]?.userId || '') : t.leaderId,
+                leaderName: t.leaderId === currentUser.id ? (newMembers[0]?.userName || '') : t.leaderName,
+              };
+            }
+            return t;
+          }).filter((t) => t.memberIds.length > 0); // Drop empty teams if deserted
 
           return {
             ...c,
             participantIds: nextParticipants,
             participantsCount: Math.max(0, nextParticipants.length),
             completedUserIds: nextCompleted,
+            teams: c.challengeType === 'group' ? nextTeams : c.teams,
           };
         } else {
           // Join challenge
@@ -1915,6 +2184,191 @@ export class DailyStorageService {
     return { challenge: targetChallenge, joined, isCompleted };
   }
 
+  // --- GROUP CHALLENGE TEAMS MANAGEMENT ---
+  static createChallengeTeam(
+    challengeId: string,
+    teamName: string,
+    motto?: string
+  ): { challenge: Challenge; team: ChallengeTeam } {
+    const currentUser = this.getCurrentUser();
+    const all = this.getAllChallenges();
+    const target = all.find((c) => c.id === challengeId);
+    if (!target) throw new Error('Challenge not found');
+
+    const maxMembers = target.teamSize || 2;
+    const newTeam: ChallengeTeam = {
+      id: `team_${Date.now()}`,
+      challengeId,
+      name: teamName.trim(),
+      motto: motto?.trim() || undefined,
+      leaderId: currentUser.id,
+      leaderName: currentUser.name,
+      maxMembers,
+      memberIds: [currentUser.id],
+      members: [
+        {
+          userId: currentUser.id,
+          userName: currentUser.name,
+          userUsername: currentUser.username,
+          userAvatar: currentUser.avatar,
+          userStreak: currentUser.currentStreak,
+          joinedAt: getTodayDateString(),
+          role: 'leader',
+        },
+      ],
+      createdAt: getTodayDateString(),
+      totalCheckinsCount: 0,
+    };
+
+    const updatedChallenges = all.map((c) => {
+      if (c.id === challengeId) {
+        // Remove user from any existing team in this challenge first
+        const existingTeams = (c.teams || []).map((t) => {
+          if (t.memberIds.includes(currentUser.id)) {
+            return {
+              ...t,
+              memberIds: t.memberIds.filter((id) => id !== currentUser.id),
+              members: t.members.filter((m) => m.userId !== currentUser.id),
+            };
+          }
+          return t;
+        }).filter((t) => t.memberIds.length > 0);
+
+        const nextParticipants = Array.from(new Set([...(c.participantIds || []), currentUser.id]));
+
+        return {
+          ...c,
+          participantIds: nextParticipants,
+          participantsCount: nextParticipants.length,
+          teams: [newTeam, ...existingTeams],
+        };
+      }
+      return c;
+    });
+
+    this.saveAllChallenges(updatedChallenges);
+    const updated = updatedChallenges.find((c) => c.id === challengeId)!;
+    return { challenge: updated, team: newTeam };
+  }
+
+  static joinChallengeTeam(
+    challengeId: string,
+    teamId: string
+  ): { challenge: Challenge; team?: ChallengeTeam; joined: boolean; error?: string } {
+    const currentUser = this.getCurrentUser();
+    const all = this.getAllChallenges();
+    const target = all.find((c) => c.id === challengeId);
+    if (!target) return { challenge: all[0], joined: false, error: 'Challenge not found' };
+
+    const targetTeam = (target.teams || []).find((t) => t.id === teamId);
+    if (!targetTeam) return { challenge: target, joined: false, error: 'Team not found' };
+
+    if (targetTeam.memberIds.length >= targetTeam.maxMembers && !targetTeam.memberIds.includes(currentUser.id)) {
+      return {
+        challenge: target,
+        joined: false,
+        error: `This team is full! Max ${targetTeam.maxMembers} members allowed.`,
+      };
+    }
+
+    let updatedTeam: ChallengeTeam | undefined;
+
+    const updatedChallenges = all.map((c) => {
+      if (c.id === challengeId) {
+        // Clean user from other teams
+        const cleanTeams = (c.teams || []).map((t) => {
+          if (t.id === teamId) {
+            if (t.memberIds.includes(currentUser.id)) {
+              updatedTeam = t;
+              return t;
+            }
+            const newMembers = [
+              ...t.members,
+              {
+                userId: currentUser.id,
+                userName: currentUser.name,
+                userUsername: currentUser.username,
+                userAvatar: currentUser.avatar,
+                userStreak: currentUser.currentStreak,
+                joinedAt: getTodayDateString(),
+                role: 'member' as const,
+              },
+            ];
+            const newMemberIds = [...t.memberIds, currentUser.id];
+            updatedTeam = {
+              ...t,
+              members: newMembers,
+              memberIds: newMemberIds,
+            };
+            return updatedTeam;
+          } else if (t.memberIds.includes(currentUser.id)) {
+            return {
+              ...t,
+              memberIds: t.memberIds.filter((id) => id !== currentUser.id),
+              members: t.members.filter((m) => m.userId !== currentUser.id),
+            };
+          }
+          return t;
+        }).filter((t) => t.memberIds.length > 0);
+
+        const nextParticipants = Array.from(new Set([...(c.participantIds || []), currentUser.id]));
+
+        return {
+          ...c,
+          participantIds: nextParticipants,
+          participantsCount: nextParticipants.length,
+          teams: cleanTeams,
+        };
+      }
+      return c;
+    });
+
+    this.saveAllChallenges(updatedChallenges);
+    const updated = updatedChallenges.find((c) => c.id === challengeId)!;
+    return { challenge: updated, team: updatedTeam, joined: true };
+  }
+
+  static leaveChallengeTeam(challengeId: string, teamId?: string): { challenge: Challenge } {
+    const currentUser = this.getCurrentUser();
+    const all = this.getAllChallenges();
+
+    const updatedChallenges = all.map((c) => {
+      if (c.id === challengeId) {
+        const nextTeams = (c.teams || []).map((t) => {
+          if (!teamId || t.id === teamId || t.memberIds.includes(currentUser.id)) {
+            const nextMembers = t.members.filter((m) => m.userId !== currentUser.id);
+            const nextMemberIds = t.memberIds.filter((id) => id !== currentUser.id);
+            return {
+              ...t,
+              members: nextMembers,
+              memberIds: nextMemberIds,
+              leaderId: t.leaderId === currentUser.id ? (nextMembers[0]?.userId || '') : t.leaderId,
+              leaderName: t.leaderId === currentUser.id ? (nextMembers[0]?.userName || '') : t.leaderName,
+            };
+          }
+          return t;
+        }).filter((t) => t.memberIds.length > 0);
+
+        return {
+          ...c,
+          teams: nextTeams,
+        };
+      }
+      return c;
+    });
+
+    this.saveAllChallenges(updatedChallenges);
+    const target = updatedChallenges.find((c) => c.id === challengeId)!;
+    return { challenge: target };
+  }
+
+  static getUserChallengeTeam(challengeId: string, userId?: string): ChallengeTeam | undefined {
+    const targetUserId = userId || this.getCurrentUser().id;
+    const challenge = this.getChallengeById(challengeId);
+    if (!challenge || !challenge.teams) return undefined;
+    return challenge.teams.find((t) => t.memberIds.includes(targetUserId));
+  }
+
   static getChallengeUserProgress(
     challengeId: string,
     userId?: string
@@ -1925,6 +2379,7 @@ export class DailyStorageService {
     isCompleted: boolean;
     hasPostedToday: boolean;
     canPost: boolean;
+    userTeam?: ChallengeTeam;
     reason?: string;
   } {
     const currentUser = this.getCurrentUser();
@@ -1948,6 +2403,7 @@ export class DailyStorageService {
     const postDates = challenge.userPostDates?.[targetUserId] || [];
     const daysCompleted = postDates.length;
     const hasPostedToday = postDates.includes(today);
+    const userTeam = this.getUserChallengeTeam(challengeId, targetUserId);
     
     // Check if challenge is expired by deadline
     const isDeadlinePassed = Boolean(challenge.deadlineDate && challenge.deadlineDate < today);
@@ -1963,6 +2419,9 @@ export class DailyStorageService {
     if (!isJoined) {
       canPost = false;
       reason = 'Join this challenge to track and submit your progress.';
+    } else if (challenge.challengeType === 'group' && !userTeam) {
+      canPost = false;
+      reason = 'Join or create a squad team in this group challenge to post team receipts.';
     } else if (isCompleted) {
       canPost = false;
       reason = `You have completed all ${challenge.durationDays} days of this challenge! Posting is now closed.`;
@@ -1983,6 +2442,7 @@ export class DailyStorageService {
       isCompleted,
       hasPostedToday,
       canPost,
+      userTeam,
       reason,
     };
   }
@@ -2021,6 +2481,8 @@ export class DailyStorageService {
       };
     }
 
+    const userTeam = progress.userTeam;
+
     const currentDates = targetChallenge.userPostDates?.[currentUser.id] || [];
     const nextDates = [...currentDates, today];
     const newDayNumber = nextDates.length;
@@ -2032,9 +2494,21 @@ export class DailyStorageService {
 
     const updatedChallenges = allChallenges.map((c) => {
       if (c.id === challengeId) {
+        // Update team checkin count if group challenge
+        const updatedTeams = c.teams?.map((t) => {
+          if (userTeam && t.id === userTeam.id) {
+            return {
+              ...t,
+              totalCheckinsCount: (t.totalCheckinsCount || 0) + 1,
+            };
+          }
+          return t;
+        });
+
         return {
           ...c,
           completedUserIds: nextCompletedUserIds,
+          teams: updatedTeams || c.teams,
           userPostDates: {
             ...(c.userPostDates || {}),
             [currentUser.id]: nextDates,
@@ -2061,6 +2535,14 @@ export class DailyStorageService {
       postDate: today,
       cheersCount: 0,
       cheeredByMe: false,
+      challengeType: targetChallenge.challengeType || 'individual',
+      teamId: userTeam?.id,
+      teamName: userTeam?.name,
+      teamMembers: userTeam?.members.map((m) => ({
+        userId: m.userId,
+        userName: m.userName,
+        userAvatar: m.userAvatar,
+      })),
     };
 
     const allPosts = this.getAllChallengeProgressPosts();
@@ -2309,16 +2791,19 @@ export class DailyStorageService {
       });
     });
 
-    // 4. Add Challenge Check-ins
+    // 4. Add Challenge Check-ins (Individual and Group Squad receipts)
     challengePostsOnDate.forEach((cp) => {
+      const isGroup = cp.challengeType === 'group' || Boolean(cp.teamName);
       timelineEvents.push({
         id: `tl_cp_${cp.id}`,
         time: '02:15 PM',
         category: 'challenge',
-        title: `Logged Day ${cp.dayNumber} Photo Receipt in Challenge`,
-        description: cp.text || 'Mandatory photo proof checkpoint validated and logged to cohort progress.',
+        title: isGroup
+          ? `👥 Squad Receipt Logged • ${cp.teamName || 'Team'} (Day ${cp.dayNumber})`
+          : `🎯 Day ${cp.dayNumber} Photo Receipt in Solo Challenge`,
+        description: cp.text || (isGroup ? `Submitted squad accountability checkpoint with team ${cp.teamName || ''}.` : 'Mandatory photo proof checkpoint validated and logged to cohort progress.'),
         imageUrl: cp.imageUrl,
-        badge: `Day ${cp.dayNumber} Checkpoint`,
+        badge: isGroup ? `👥 ${cp.teamName || 'Squad'} Checkpoint` : `Day ${cp.dayNumber} Checkpoint`,
       });
     });
 
@@ -2465,7 +2950,7 @@ export class DailyStorageService {
   static searchDiaryEntries(
     query: string,
     userId?: string,
-    filterType: 'all' | 'proofs' | 'habits' | 'community' | 'chats' | 'high_score' = 'all'
+    filterType: 'all' | 'proofs' | 'habits' | 'community' | 'chats' | 'high_score' | 'challenges' | 'group_challenges' = 'all'
   ) {
     const targetUserId = userId || this.getCurrentUser().id;
     const cleanQuery = query.trim().toLowerCase();
@@ -2476,7 +2961,7 @@ export class DailyStorageService {
       dayOfWeek: string;
       dayData: ReturnType<typeof DailyStorageService.getDayActivityData>;
       matchedSnippets: string[];
-      matchCategory: 'proof' | 'habit' | 'community' | 'chat' | 'checkpoint' | 'score';
+      matchCategory: 'proof' | 'habit' | 'community' | 'chat' | 'checkpoint' | 'score' | 'squad';
     }> = [];
 
     // Scan last 60 days
@@ -2490,7 +2975,7 @@ export class DailyStorageService {
 
       const dayData = this.getDayActivityData(dateStr, targetUserId);
       const matchedSnippets: string[] = [];
-      let matchCategory: 'proof' | 'habit' | 'community' | 'chat' | 'checkpoint' | 'score' = 'proof';
+      let matchCategory: 'proof' | 'habit' | 'community' | 'chat' | 'checkpoint' | 'score' | 'squad' = 'proof';
 
       // 1. Proof content matching
       if (filterType === 'all' || filterType === 'proofs') {
@@ -2532,7 +3017,25 @@ export class DailyStorageService {
         });
       }
 
-      // 5. High Score Filter
+      // 5. Challenge & Group Squad Posts matching
+      if (filterType === 'all' || filterType === 'challenges' || filterType === 'group_challenges') {
+        dayData.challengePosts.forEach((cp) => {
+          const isGroup = cp.challengeType === 'group' || Boolean(cp.teamName);
+          if (filterType === 'group_challenges' && !isGroup) return;
+
+          if (!cleanQuery || (cp.text && cp.text.toLowerCase().includes(cleanQuery)) || (cp.teamName && cp.teamName.toLowerCase().includes(cleanQuery))) {
+            if (isGroup) {
+              matchedSnippets.push(`👥 Squad Check-in [${cp.teamName || 'Squad'}]: Day ${cp.dayNumber} "${cp.text ? cp.text.substring(0, 60) : 'Photo Proof'}"`);
+              matchCategory = 'squad';
+            } else {
+              matchedSnippets.push(`🎯 Challenge Check-in: Day ${cp.dayNumber} "${cp.text ? cp.text.substring(0, 60) : 'Photo Proof'}"`);
+              matchCategory = 'checkpoint';
+            }
+          }
+        });
+      }
+
+      // 6. High Score Filter
       if (filterType === 'high_score') {
         if (dayData.disciplineScore >= 80) {
           matchedSnippets.push(`High Discipline Score: ${dayData.disciplineScore}% with ${dayData.totalActivityCount} completed activities`);

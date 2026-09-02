@@ -9,8 +9,12 @@ import {
   Clock,
   Check,
   Plus,
+  Users,
+  User as UserIcon,
+  Shield,
+  HelpCircle,
 } from 'lucide-react';
-import { User, Challenge } from '../types';
+import { User, Challenge, ChallengeType } from '../types';
 import { DailyStorageService, getTodayDateString } from '../services/storage';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
 
@@ -21,9 +25,17 @@ interface CreateChallengeModalProps {
   onChallengeCreated: (challenge: Challenge) => void;
 }
 
-const EMOJI_OPTIONS = ['💻', '🏋️‍♂️', '🏃‍♂️', '📚', '🌅', '🧘‍♂️', '🎨', '✍️', '🌱', '🎵', '⚡', '🔥'];
+const EMOJI_OPTIONS = ['🚀', '💻', '🏋️‍♂️', '🏃‍♂️', '⚔️', '📚', '🌅', '🧘‍♂️', '🎨', '✍️', '⚡', '🔥'];
 
 const DURATION_PRESETS = [7, 14, 21, 30, 60, 90, 100];
+
+const TEAM_SIZE_PRESETS = [
+  { size: 2, label: 'Duo (2 per team)', desc: '2 individuals accountability' },
+  { size: 3, label: 'Trio (3 per team)', desc: '3 individuals squad' },
+  { size: 4, label: 'Squad (4 members)', desc: '4-person tactical squad' },
+  { size: 5, label: 'Group (5 members)', desc: '5-person syndicate' },
+  { size: 6, label: 'Cohort (6 members)', desc: '6-person cohort' },
+];
 
 const CATEGORIES = [
   'Coding',
@@ -42,9 +54,11 @@ export const CreateChallengeModal: React.FC<CreateChallengeModalProps> = ({
   currentUser,
   onChallengeCreated,
 }) => {
+  const [challengeType, setChallengeType] = useState<ChallengeType>('group');
+  const [teamSize, setTeamSize] = useState<number>(3);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [icon, setIcon] = useState('🔥');
+  const [icon, setIcon] = useState('🚀');
   const [category, setCategory] = useState('Coding');
   const [durationDays, setDurationDays] = useState<number>(30);
   const [deadlineDate, setDeadlineDate] = useState(() => {
@@ -78,6 +92,8 @@ export const CreateChallengeModal: React.FC<CreateChallengeModalProps> = ({
       durationDays,
       deadlineDate,
       tag: tag.trim() || category,
+      challengeType,
+      teamSize: challengeType === 'group' ? teamSize : undefined,
     });
 
     onChallengeCreated(newChallenge);
@@ -91,7 +107,7 @@ export const CreateChallengeModal: React.FC<CreateChallengeModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md bg-[#0D0D0D] border border-white/15 rounded-[32px] p-5 sm:p-6 shadow-2xl relative text-white my-auto max-h-[92vh] flex flex-col animate-in zoom-in-95 duration-200"
+        className="w-full max-w-lg bg-[#0D0D0D] border border-white/15 rounded-[32px] p-5 sm:p-6 shadow-2xl relative text-white my-auto max-h-[92vh] flex flex-col animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -104,7 +120,7 @@ export const CreateChallengeModal: React.FC<CreateChallengeModalProps> = ({
               <h3 className="font-black text-sm text-white flex items-center gap-1.5">
                 Create Grounded Challenge
               </h3>
-              <p className="text-[10px] text-white/50">Set duration, standard & deadline</p>
+              <p className="text-[10px] text-white/50">Individual or Collaborative Group Squads</p>
             </div>
           </div>
 
@@ -119,6 +135,125 @@ export const CreateChallengeModal: React.FC<CreateChallengeModalProps> = ({
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto space-y-4 py-3.5 pr-1">
+          {/* Challenge Type Selector (Individual vs Group) */}
+          <div>
+            <label className="block text-[11px] font-bold text-white/70 uppercase tracking-wider mb-2">
+              Challenge Format
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {/* Individual Mode */}
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateLight();
+                  setChallengeType('individual');
+                }}
+                className={`p-3 rounded-2xl border text-left transition-all ${
+                  challengeType === 'individual'
+                    ? 'bg-[#D4AF37]/15 border-[#D4AF37] text-white shadow-md'
+                    : 'bg-white/5 hover:bg-white/10 border-white/10 text-white/70'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <div className={`p-1.5 rounded-lg ${challengeType === 'individual' ? 'bg-[#D4AF37] text-black' : 'bg-white/10 text-white'}`}>
+                    <UserIcon className="w-4 h-4" />
+                  </div>
+                  <span className="font-bold text-xs text-white">Individual Challenge</span>
+                </div>
+                <p className="text-[10px] text-white/50 leading-snug">
+                  Solo accountability. Each participant logs their own daily receipts.
+                </p>
+              </button>
+
+              {/* Group Squad Mode */}
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateLight();
+                  setChallengeType('group');
+                }}
+                className={`p-3 rounded-2xl border text-left transition-all ${
+                  challengeType === 'group'
+                    ? 'bg-[#D4AF37]/15 border-[#D4AF37] text-white shadow-md'
+                    : 'bg-white/5 hover:bg-white/10 border-white/10 text-white/70'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <div className={`p-1.5 rounded-lg ${challengeType === 'group' ? 'bg-[#D4AF37] text-black' : 'bg-white/10 text-white'}`}>
+                    <Users className="w-4 h-4" />
+                  </div>
+                  <span className="font-bold text-xs text-white">Group Challenge</span>
+                </div>
+                <p className="text-[10px] text-white/50 leading-snug">
+                  Teams of 2, 3, or more members. Form squads and post receipts together.
+                </p>
+              </button>
+            </div>
+          </div>
+
+          {/* Group Team Size Config (Only if Group Challenge) */}
+          {challengeType === 'group' && (
+            <div className="bg-[#171717] border border-[#D4AF37]/30 rounded-2xl p-3.5 space-y-3 animate-in fade-in duration-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-[#D4AF37]" />
+                  <span className="text-xs font-bold text-white">Team Size Limit</span>
+                </div>
+                <span className="text-xs font-mono font-black text-[#D4AF37] bg-[#D4AF37]/10 px-2.5 py-0.5 rounded-full border border-[#D4AF37]/30">
+                  {teamSize} Members / Squad
+                </span>
+              </div>
+
+              {/* Preset Chips */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                {TEAM_SIZE_PRESETS.map((preset) => (
+                  <button
+                    key={preset.size}
+                    type="button"
+                    onClick={() => {
+                      vibrateLight();
+                      setTeamSize(preset.size);
+                    }}
+                    className={`p-2 rounded-xl border text-left transition-all ${
+                      teamSize === preset.size
+                        ? 'bg-[#D4AF37] border-white text-black font-bold shadow-sm'
+                        : 'bg-white/5 hover:bg-white/10 border-white/10 text-white/80'
+                    }`}
+                  >
+                    <div className="text-[11px] font-black truncate">{preset.label}</div>
+                    <div className={`text-[9px] truncate ${teamSize === preset.size ? 'text-black/75' : 'text-white/40'}`}>
+                      {preset.desc}
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Custom Number Stepper */}
+              <div className="flex items-center justify-between pt-1 text-xs text-white/70">
+                <span className="text-[11px]">Fine-tune squad capacity:</span>
+                <div className="flex items-center gap-2 bg-[#0D0D0D] border border-white/15 rounded-xl px-2 py-1">
+                  <button
+                    type="button"
+                    onClick={() => setTeamSize((prev) => Math.max(2, prev - 1))}
+                    disabled={teamSize <= 2}
+                    className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold flex items-center justify-center disabled:opacity-30"
+                  >
+                    -
+                  </button>
+                  <span className="font-mono font-bold text-white px-1">{teamSize}</span>
+                  <button
+                    type="button"
+                    onClick={() => setTeamSize((prev) => Math.min(12, prev + 1))}
+                    disabled={teamSize >= 12}
+                    className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold flex items-center justify-center disabled:opacity-30"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Icon Selector */}
           <div>
             <label className="block text-[11px] font-bold text-white/70 uppercase tracking-wider mb-1.5">
@@ -154,7 +289,11 @@ export const CreateChallengeModal: React.FC<CreateChallengeModalProps> = ({
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. 30 Days of Rust & Backend, 60-Day Strength"
+              placeholder={
+                challengeType === 'group'
+                  ? 'e.g. Trio Spartan Conditioning, Startup Duo Sprint'
+                  : 'e.g. 30 Days of Rust & Backend, 60-Day Strength'
+              }
               className="w-full bg-[#141414] border border-white/15 focus:border-[#D4AF37] rounded-2xl p-3 text-xs text-white placeholder-white/30 focus:outline-none transition-colors"
               required
             />
@@ -236,7 +375,11 @@ export const CreateChallengeModal: React.FC<CreateChallengeModalProps> = ({
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="What must participants execute every single day? (e.g., Code for at least 45 minutes and insert photo proof receipt)."
+              placeholder={
+                challengeType === 'group'
+                  ? `What must each team member in the ${teamSize}-person squad execute daily? (e.g., Code for at least 45 minutes, insert photo proof receipt, and hold squadmates accountable).`
+                  : 'What must participants execute every single day? (e.g., Code for at least 45 minutes and insert photo proof receipt).'
+              }
               rows={3}
               className="w-full bg-[#141414] border border-white/15 focus:border-[#D4AF37] rounded-2xl p-3 text-xs text-white placeholder-white/30 focus:outline-none transition-colors resize-none leading-relaxed"
               required
@@ -255,7 +398,10 @@ export const CreateChallengeModal: React.FC<CreateChallengeModalProps> = ({
               }`}
             >
               <Trophy className="w-4 h-4 text-black" />
-              <span>Launch {durationDays}-Day Challenge</span>
+              <span>
+                Launch {challengeType === 'group' ? `Group Squad (${teamSize} members)` : 'Individual'}{' '}
+                {durationDays}-Day Challenge
+              </span>
             </button>
           </div>
         </form>
@@ -263,3 +409,4 @@ export const CreateChallengeModal: React.FC<CreateChallengeModalProps> = ({
     </div>
   );
 };
+
