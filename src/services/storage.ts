@@ -361,6 +361,7 @@ export class DailyStorageService {
   static createPost(payload: {
     content: string;
     imageUrl?: string;
+    imageUrls?: string[];
     tags: string[];
     isMainPost?: boolean;
     communityId?: string;
@@ -372,6 +373,10 @@ export class DailyStorageService {
     const yesterday = getYesterdayDateString();
 
     const isTargetingMain = payload.isMainPost ?? (!payload.communityId || payload.communityId === 'main');
+    const safeImageUrls = payload.imageUrls && payload.imageUrls.length > 0 
+      ? payload.imageUrls 
+      : (payload.imageUrl ? [payload.imageUrl] : undefined);
+    const primaryImageUrl = safeImageUrls ? safeImageUrls[0] : payload.imageUrl;
 
     if (isTargetingMain) {
       const alreadyPostedMainToday = this.hasUserPostedMainToday(currentUser.id);
@@ -422,7 +427,8 @@ export class DailyStorageService {
         userAvatar: updatedUser.avatar,
         userStreak: newCurrentStreak,
         content: payload.content,
-        imageUrl: payload.imageUrl,
+        imageUrl: primaryImageUrl,
+        imageUrls: safeImageUrls,
         tags: payload.tags,
         likesCount: 0,
         likedByMe: false,
@@ -463,7 +469,8 @@ export class DailyStorageService {
         userAvatar: currentUser.avatar,
         userStreak: currentUser.currentStreak,
         content: payload.content,
-        imageUrl: payload.imageUrl,
+        imageUrl: primaryImageUrl,
+        imageUrls: safeImageUrls,
         tags: payload.tags,
         likesCount: 0,
         likedByMe: false,
@@ -488,6 +495,45 @@ export class DailyStorageService {
         isNewStreakDay: false,
       };
     }
+  }
+
+  // Append infinite photos to today's daily post or any post without spamming the feed
+  static appendPhotosToTodayPost(userId: string, newImageUrls: string[]): { post?: Post; posts: Post[] } {
+    const posts = this.getAllPosts();
+    const today = getTodayDateString();
+    let updatedPost: Post | undefined;
+
+    const updated = posts.map((p) => {
+      if (
+        (p.userId === userId || p.userId === 'user_me') &&
+        (p.postDate === today || p.createdAt === 'Just now') &&
+        p.isDailyStreakPost
+      ) {
+        const existingUrls = p.imageUrls && p.imageUrls.length > 0
+          ? [...p.imageUrls]
+          : (p.imageUrl ? [p.imageUrl] : []);
+        
+        for (const url of newImageUrls) {
+          if (url && !existingUrls.includes(url)) {
+            existingUrls.push(url);
+          }
+        }
+
+        updatedPost = {
+          ...p,
+          imageUrl: existingUrls[0] || p.imageUrl,
+          imageUrls: existingUrls,
+        };
+        return updatedPost;
+      }
+      return p;
+    });
+
+    if (updatedPost) {
+      this.saveAllPosts(updated);
+    }
+
+    return { post: updatedPost, posts: updated };
   }
 
   // Delete a post and reset today's photo limit if it was today's post

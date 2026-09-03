@@ -106,6 +106,7 @@ export interface Post {
   userStreak: number;
   content: string;
   imageUrl?: string;
+  imageUrls?: string[]; // Multiple photos bundled in 1 post to prevent feed spam
   tags: string[];
   likesCount: number;
   likedByMe: boolean;
@@ -161,6 +162,7 @@ export interface PostDraft {
   title?: string;
   content: string;
   imageUrl?: string;
+  imageUrls?: string[];
   tags: string[];
   updatedAt: number;
   scheduledAt?: string; // ISO string e.g. "2026-09-01T09:00"

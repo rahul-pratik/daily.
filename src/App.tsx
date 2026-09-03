@@ -166,6 +166,7 @@ export default function App() {
   const handleCreatePost = (payload: {
     content: string;
     imageUrl?: string;
+    imageUrls?: string[];
     tags: string[];
     isMainPost?: boolean;
     communityId?: string;
@@ -176,7 +177,7 @@ export default function App() {
     if (result.error) {
       return;
     }
-    setPosts((prev) => [result.post, ...prev]);
+    setPosts(DailyStorageService.getAllPosts());
     setCurrentUser(result.updatedUser);
     setIsCreateOpen(false);
 
@@ -191,6 +192,13 @@ export default function App() {
         isNewStreakDay: result.isNewStreakDay,
       });
     }
+  };
+
+  // Append infinite photos to today's proof without feed spam
+  const handleAppendPhotosToTodayPost = (newImageUrls: string[]) => {
+    const { posts: updatedPosts } = DailyStorageService.appendPhotosToTodayPost(currentUser.id, newImageUrls);
+    setPosts(updatedPosts);
+    vibratePostSubmit();
   };
 
   // Update 3 discipline milestones
@@ -887,6 +895,7 @@ export default function App() {
           initialScheduledAt={activeDraftToEdit?.scheduledAt}
           initialIsScheduled={activeDraftToEdit?.isScheduled}
           onSubmitPost={handleCreatePost}
+          onAppendPhotosToTodayPost={handleAppendPhotosToTodayPost}
           onViewMyPost={handleViewPostFromId}
         />
 

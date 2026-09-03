@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, MessageCircle, Send, Bookmark, Flame, MoreHorizontal, Check, UserPlus, Share2, Eye, User as UserIcon, Flag, ShieldAlert, BarChart3, Trash2, AlertTriangle, X, FolderPlus, Trophy, Sparkles, Award, Crown } from 'lucide-react';
+import { Heart, MessageCircle, Send, Bookmark, Flame, MoreHorizontal, Check, UserPlus, Share2, Eye, User as UserIcon, Flag, ShieldAlert, BarChart3, Trash2, AlertTriangle, X, FolderPlus, Trophy, Sparkles, Award, Crown, ChevronLeft, ChevronRight, Camera } from 'lucide-react';
 import { Post, User } from '../types';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
 import { handleHorizontalWheelScroll } from '../utils/scroll';
@@ -48,6 +48,13 @@ export const PostCard: React.FC<PostCardProps> = ({
   const [lastTap, setLastTap] = useState<number>(0);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [currentPhotoIdx, setCurrentPhotoIdx] = useState(0);
+
+  // Photos attached to this post (handles single or infinite multi-photo carousel without feed spam)
+  const allPhotos: string[] = post.imageUrls && post.imageUrls.length > 0
+    ? post.imageUrls
+    : (post.imageUrl ? [post.imageUrl] : []);
+  const activePhoto = allPhotos[currentPhotoIdx] || allPhotos[0];
 
   const isSaved = isSavedProp !== undefined ? isSavedProp : localSaved;
   const isMyPost =
@@ -323,19 +330,78 @@ export const PostCard: React.FC<PostCardProps> = ({
         )}
       </header>
 
-      {/* Post Media (Image if present) with double-tap heart */}
-      {post.imageUrl ? (
+      {/* Post Media (Image carousel if present) with double-tap heart */}
+      {allPhotos.length > 0 ? (
         <div
           onClick={!isFocusMode ? handleDoubleTap : undefined}
-          className="relative w-full aspect-[4/3] sm:aspect-[16/10] bg-[#0A0A0A] overflow-hidden cursor-pointer select-none"
+          className="relative w-full aspect-[4/3] sm:aspect-[16/10] bg-[#0A0A0A] overflow-hidden cursor-pointer select-none group"
         >
           <img
-            src={post.imageUrl}
-            alt="Daily Post"
+            src={activePhoto}
+            alt={`Daily Proof Receipt ${currentPhotoIdx + 1}`}
             referrerPolicy="no-referrer"
             className="w-full h-full object-cover transition-transform duration-300 hover:scale-[1.01]"
             loading="lazy"
           />
+
+          {/* Multi-Photo Counter Badge & Spam-Free Indicator */}
+          {allPhotos.length > 1 && (
+            <div className="absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-white text-[11px] font-mono font-medium shadow-md">
+              <Camera className="w-3 h-3 text-[#2F6FED]" />
+              <span>
+                {currentPhotoIdx + 1} / {allPhotos.length}
+              </span>
+            </div>
+          )}
+
+          {/* Carousel Left / Right Navigation */}
+          {allPhotos.length > 1 && (
+            <>
+              {currentPhotoIdx > 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    vibrateLight();
+                    setCurrentPhotoIdx((prev) => Math.max(0, prev - 1));
+                  }}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/60 hover:bg-black/85 text-white backdrop-blur-md border border-white/20 transition-all opacity-80 hover:opacity-100 shadow-lg"
+                  aria-label="Previous photo"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+              )}
+
+              {currentPhotoIdx < allPhotos.length - 1 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    vibrateLight();
+                    setCurrentPhotoIdx((prev) => Math.min(allPhotos.length - 1, prev + 1));
+                  }}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/60 hover:bg-black/85 text-white backdrop-blur-md border border-white/20 transition-all opacity-80 hover:opacity-100 shadow-lg"
+                  aria-label="Next photo"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              )}
+
+              {/* Dot Indicators */}
+              <div className="absolute bottom-2.5 left-0 right-0 flex items-center justify-center gap-1.5 pointer-events-none">
+                {allPhotos.map((_, idx) => (
+                  <span
+                    key={idx}
+                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                      idx === currentPhotoIdx
+                        ? 'w-5 bg-[#2F6FED] shadow-sm'
+                        : 'w-1.5 bg-white/50 backdrop-blur-sm'
+                    }`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
 
           {/* Heart burst animation on double tap */}
           {!isFocusMode && showHeartBurst && (
