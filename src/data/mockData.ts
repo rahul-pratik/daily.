@@ -150,6 +150,9 @@ export const INITIAL_CURRENT_USER: User = {
     },
   ],
   isCurrentUser: true,
+  streakFreezes: 1,
+  streakFreezeActive: true,
+  challengeBadges: ['Early Bird', 'Consistency King'],
 };
 
 export const INITIAL_PERSONAL_HABITS: PersonalHabit[] = [

@@ -380,7 +380,7 @@ export const PostCard: React.FC<PostCardProps> = ({
                       </span>
                     </div>
                     <span className="text-[10px] text-amber-300/80 font-bold block">
-                      Weekly MVP Contributor
+                      {post.challengeRecapData.mvpContributor.mvpTitle || 'Weekly MVP Contributor'}
                     </span>
                   </div>
                 </div>

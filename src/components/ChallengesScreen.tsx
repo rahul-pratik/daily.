@@ -32,6 +32,8 @@ import { ChallengeProgressScreen } from './ChallengeProgressScreen';
 import { CalendarDayPostModal } from './CalendarDayPostModal';
 import { DirectChallengeInviteModal } from './DirectChallengeInviteModal';
 import { ChallengeCalendarOverlay } from './ChallengeCalendarOverlay';
+import { ChallengeStreakFreezeBadgesCard } from './ChallengeStreakFreezeBadgesCard';
+import { ChallengeDailyProofProgressBar } from './ChallengeDailyProofProgressBar';
 
 interface ChallengesScreenProps {
   currentUser: User;
@@ -46,6 +48,10 @@ interface ChallengesScreenProps {
   onSharePost?: (post: Post) => void;
   onOpenInsights?: (post: Post) => void;
   onDeletePost?: (postId: string) => void;
+  onOpenGroupChat?: (groupId: string) => void;
+  initialChallengeId?: string | null;
+  onClearInitialChallenge?: () => void;
+  onOpenNotifications?: () => void;
 }
 
 const CATEGORY_CHIPS = [
@@ -68,6 +74,17 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
   onOpenCreate,
   onToggleLike = () => {},
   onOpenComments = () => {},
+  savedPostIds = [],
+  reportedPostIds = [],
+  onToggleSave = () => {},
+  onReportPost = () => {},
+  onSharePost = () => {},
+  onOpenInsights = () => {},
+  onDeletePost = () => {},
+  onOpenGroupChat,
+  initialChallengeId,
+  onClearInitialChallenge,
+  onOpenNotifications,
 }) => {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -76,6 +93,14 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
   const [activeChallengeScreen, setActiveChallengeScreen] = useState<Challenge | null>(null);
   const [initialChallengeTab, setInitialChallengeTab] = useState<'proofs' | 'leaderboard' | 'squads' | 'chat'>('proofs');
   const [inviteChallenge, setInviteChallenge] = useState<Challenge | null>(null);
+
+  // Active group challenge for the collective proof progress bar
+  const activeGroupChallenge =
+    challenges.find((c) => {
+      const isJoined = (c.participantIds || []).includes(currentUser.id);
+      return isJoined && c.challengeType === 'group';
+    }) ||
+    challenges.find((c) => c.challengeType === 'group');
 
   // Streak Calendar & Stats Sub-View toggle
   const [showCalendarView, setShowCalendarView] = useState(false);
@@ -86,7 +111,17 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
   useEffect(() => {
     const loadedChallenges = DailyStorageService.getAllChallenges();
     setChallenges(loadedChallenges);
-  }, []);
+
+    if (initialChallengeId) {
+      const match = loadedChallenges.find((c) => c.id === initialChallengeId);
+      if (match) {
+        setActiveChallengeScreen(match);
+        if (onClearInitialChallenge) {
+          onClearInitialChallenge();
+        }
+      }
+    }
+  }, [initialChallengeId]);
 
   const today = getTodayDateString();
   const hasPostedToday = currentUser.lastPostedDate === today;
@@ -194,6 +229,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
         challenge={activeChallengeScreen}
         currentUser={currentUser}
         initialTab={initialChallengeTab}
+        onOpenGroupChat={onOpenGroupChat}
         onBack={() => {
           setActiveChallengeScreen(null);
           setInitialChallengeTab('proofs');
@@ -251,8 +287,11 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
           <div className="pt-3 border-t border-white/10 space-y-3 animate-in fade-in duration-200">
             <ChallengeCalendarOverlay
               currentUser={currentUser}
-              challenges={challenges}
-              onOpenChallenge={(ch) => {
+              allChallenges={challenges}
+              onSelectDate={(dateStr) => {
+                setSelectedCalendarDate(dateStr);
+              }}
+              onSelectChallenge={(ch) => {
                 setInitialChallengeTab('proofs');
                 setActiveChallengeScreen(ch);
               }}
@@ -260,6 +299,34 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
           </div>
         )}
       </div>
+
+      {/* Streak Freeze & Challenge Badges Showcase Card */}
+      <ChallengeStreakFreezeBadgesCard
+        currentUser={currentUser}
+        onOpenNotifications={onOpenNotifications}
+      />
+
+      {/* Visual Progress Bar: Group Members Daily Proof Accountability */}
+      {activeGroupChallenge && (
+        <ChallengeDailyProofProgressBar
+          challengeId={activeGroupChallenge.id}
+          onOpenChallenge={(id) => {
+            const target = challenges.find((c) => c.id === id);
+            if (target) {
+              setInitialChallengeTab('proofs');
+              setActiveChallengeScreen(target);
+            }
+          }}
+          onOpenSubmitProof={(id) => {
+            const target = challenges.find((c) => c.id === id);
+            if (target) {
+              setInitialChallengeTab('proofs');
+              setActiveChallengeScreen(target);
+            }
+          }}
+          onOpenGroupChat={onOpenGroupChat}
+        />
+      )}
 
       {/* SEARCH BAR FOR CHALLENGES */}
       <div className="space-y-3">
@@ -482,6 +549,16 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
                         <div className="flex items-center justify-between text-[10px] text-white/50">
                           <span>Your check-ins: {userProgress.daysCompleted}</span>
                           <span>{userTeam.members.length}/{challenge.teamSize || 3} members</span>
+                        </div>
+
+                        {/* Visual Progress Bar: Group Members Today Proof Submissions */}
+                        <div className="pt-2 border-t border-white/5">
+                          <ChallengeDailyProofProgressBar
+                            challengeId={challenge.id}
+                            teamId={userTeam.id}
+                            compact={true}
+                            onOpenChallenge={() => setActiveChallengeScreen(challenge)}
+                          />
                         </div>
                       </div>
                     )}

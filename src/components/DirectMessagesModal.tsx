@@ -402,15 +402,24 @@ export const DirectMessagesModal: React.FC<DirectMessagesModalProps> = ({
                             className="w-full h-full object-cover"
                           />
                         </div>
-                        <span className="absolute -bottom-1 -right-1 bg-black text-[#D4AF37] text-[8px] font-black px-1 rounded-md border border-[#D4AF37]/50">
-                          {group.category}
+                        <span className={`absolute -bottom-1 -right-1 text-[8px] font-black px-1.5 py-0.2 rounded-md border ${
+                          group.isChallengeSquad
+                            ? 'bg-amber-400 text-black border-amber-300 font-black'
+                            : 'bg-black text-[#D4AF37] border-[#D4AF37]/50'
+                        }`}>
+                          {group.isChallengeSquad ? '⚔️ Squad' : group.category}
                         </span>
                       </div>
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-0.5">
-                          <span className="font-bold text-xs text-white truncate">
+                          <span className="font-bold text-xs text-white truncate flex items-center gap-1">
                             {group.name}
+                            {group.isChallengeSquad && (
+                              <span className="text-[9px] text-amber-300 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                                Challenge
+                              </span>
+                            )}
                           </span>
                           <span className="text-[10px] text-white/40 whitespace-nowrap">
                             {lastMessage.timestamp}
@@ -624,6 +633,38 @@ export const DirectMessagesModal: React.FC<DirectMessagesModalProps> = ({
                 </button>
               </div>
             </div>
+
+            {/* Squad Group Banner if viewing a challenge squad chat */}
+            {activeGroup && activeGroup.isChallengeSquad && (
+              <div className="bg-amber-500/10 border-b border-amber-500/20 px-3.5 py-2.5 flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-6 h-6 rounded-lg bg-amber-400/20 border border-amber-400/40 flex items-center justify-center shrink-0">
+                    <span className="text-xs">⚔️</span>
+                  </div>
+                  <div className="min-w-0">
+                    <span className="font-bold text-amber-300 block truncate">
+                      Challenge Squad Chat
+                    </span>
+                    <span className="text-[10px] text-white/60 block truncate">
+                      Private discussion for this group challenge team. Keep accountability high!
+                    </span>
+                  </div>
+                </div>
+                {activeGroup.challengeId && onOpenChallenge && (
+                  <button
+                    onClick={() => {
+                      vibrateLight();
+                      onClose();
+                      onOpenChallenge(activeGroup.challengeId!);
+                    }}
+                    className="px-2.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-black text-xs shrink-0 flex items-center gap-1 shadow-sm transition-all"
+                  >
+                    <Trophy className="w-3.5 h-3.5" />
+                    <span>Challenge Hub ↗</span>
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* If in Community Group, show Chat vs Community Rankings Mode Switcher */}
             {activeGroup && (

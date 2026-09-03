@@ -72,7 +72,24 @@ export class DailyStorageService {
       return INITIAL_CURRENT_USER;
     }
     try {
-      return JSON.parse(data);
+      const user: User = JSON.parse(data);
+      let changed = false;
+      if (typeof user.streakFreezes !== 'number') {
+        user.streakFreezes = 1;
+        changed = true;
+      }
+      if (typeof user.streakFreezeActive !== 'boolean') {
+        user.streakFreezeActive = true;
+        changed = true;
+      }
+      if (!Array.isArray(user.challengeBadges)) {
+        user.challengeBadges = ['Early Bird', 'Consistency King'];
+        changed = true;
+      }
+      if (changed) {
+        this.saveCurrentUser(user);
+      }
+      return user;
     } catch {
       return INITIAL_CURRENT_USER;
     }
@@ -535,17 +552,76 @@ export class DailyStorageService {
   }
 
   // Groups
-  static getAllGroups(): Group[] {
+  static getAllRawGroups(): Group[] {
     const data = localStorage.getItem(STORAGE_KEYS.GROUPS);
     if (!data) {
       this.saveAllGroups(SAMPLE_GROUPS);
-      return SAMPLE_GROUPS;
+      return [...SAMPLE_GROUPS];
     }
     try {
       return JSON.parse(data);
     } catch {
-      return SAMPLE_GROUPS;
+      return [...SAMPLE_GROUPS];
     }
+  }
+
+  static getAllGroups(): Group[] {
+    const groups = this.getAllRawGroups();
+
+    // Dynamically ensure challenge squad groups are represented for any team the currentUser or friends belong to
+    try {
+      const challengesData = localStorage.getItem(STORAGE_KEYS.CHALLENGES);
+      if (challengesData) {
+        const challenges: Challenge[] = JSON.parse(challengesData);
+        let modified = false;
+
+        challenges.forEach((ch) => {
+          if (ch.challengeType === 'group' && ch.teams && ch.teams.length > 0) {
+            ch.teams.forEach((team) => {
+              const squadGroupId = `group_squad_${ch.id}_${team.id}`;
+              const exists = groups.some(
+                (g) => g.id === squadGroupId || (g.challengeId === ch.id && g.teamId === team.id)
+              );
+              if (!exists && team.memberIds && team.memberIds.length > 0) {
+                const squadGroup: Group = {
+                  id: squadGroupId,
+                  name: `${team.name} (${ch.icon} ${ch.title})`,
+                  description: `Private squad chat for "${team.name}" in "${ch.title}". Coordinate daily proof check-ins!`,
+                  avatar: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=400&auto=format&fit=crop&q=80',
+                  category: ch.category || 'Discipline',
+                  memberIds: Array.from(new Set([...team.memberIds])),
+                  memberCount: team.memberIds.length,
+                  lastActivity: 'Recently',
+                  createdBy: team.leaderId,
+                  createdAt: getTodayDateString(),
+                  isPrivateGroup: true,
+                  isChallengeGroup: true,
+                  isChallengeSquad: true,
+                  challengeId: ch.id,
+                  teamId: team.id,
+                  challengeTitle: ch.title,
+                  rules: [
+                    'Coordinate daily proof-of-work receipts',
+                    'Cheer each other toward cohort milestones',
+                  ],
+                  pinnedTopic: `⚔️ Squad "${team.name}" Mission: ${ch.durationDays} Days of Proof Receipts!`,
+                };
+                groups.push(squadGroup);
+                modified = true;
+              }
+            });
+          }
+        });
+
+        if (modified) {
+          this.saveAllGroups(groups);
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    return groups;
   }
 
   static saveAllGroups(groups: Group[]): void {
@@ -1172,6 +1248,292 @@ export class DailyStorageService {
     const messages = this.getAllMessages();
     this.saveAllMessages([...messages, newMsg]);
     return newMsg;
+  }
+
+  // --- CHALLENGE SQUAD CHAT MANAGEMENT ---
+  static ensureChallengeSquadGroup(challengeId: string, teamId: string): Group | null {
+    const challenge = this.getChallengeById(challengeId);
+    if (!challenge) return null;
+    const team = (challenge.teams || []).find((t) => t.id === teamId);
+    if (!team) return null;
+
+    const squadGroupId = `group_squad_${challengeId}_${teamId}`;
+    const allGroups = this.getAllRawGroups();
+    const existingIndex = allGroups.findIndex(
+      (g) => g.id === squadGroupId || (g.challengeId === challengeId && g.teamId === teamId)
+    );
+
+    const squadName = `${team.name} (${challenge.icon} ${challenge.title})`;
+    const squadDesc = `Private squad chat for "${team.name}" in "${challenge.title}". Coordinate daily proof check-ins and cheer your teammates!`;
+    const squadAvatar = 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=400&auto=format&fit=crop&q=80';
+
+    if (existingIndex >= 0) {
+      const existing = allGroups[existingIndex];
+      const updated: Group = {
+        ...existing,
+        name: squadName,
+        description: squadDesc,
+        memberIds: Array.from(new Set([...team.memberIds])),
+        memberCount: team.memberIds.length,
+        isChallengeGroup: true,
+        challengeId: challenge.id,
+        teamId: team.id,
+        challengeTitle: challenge.title,
+      };
+      allGroups[existingIndex] = updated;
+      this.saveAllGroups(allGroups);
+      return updated;
+    }
+
+    const newGroup: Group = {
+      id: squadGroupId,
+      name: squadName,
+      description: squadDesc,
+      avatar: squadAvatar,
+      category: challenge.category || 'Discipline',
+      memberIds: Array.from(new Set([...team.memberIds])),
+      memberCount: team.memberIds.length,
+      lastActivity: 'Just now',
+      createdBy: team.leaderId,
+      createdAt: getTodayDateString(),
+      isPrivateGroup: true,
+      isChallengeGroup: true,
+      isChallengeSquad: true,
+      challengeId: challenge.id,
+      teamId: team.id,
+      challengeTitle: challenge.title,
+      rules: [
+        'Coordinate daily achievement proof check-ins',
+        'Hold squad teammates accountable to zero missed days',
+        'Cheer each other to win the Weekly Recap MVP spotlight',
+      ],
+      pinnedTopic: `⚔️ Squad "${team.name}" • ${challenge.durationDays} Days of Proof Receipts!`,
+    };
+
+    allGroups.unshift(newGroup);
+    this.saveAllGroups(allGroups);
+
+    // Initial squad message
+    const messages = this.getAllMessages();
+    const existingSquadMsg = messages.find((m) => m.groupId === squadGroupId);
+    if (!existingSquadMsg) {
+      const welcomeMsg: Message = {
+        id: `msg_squad_init_${Date.now()}`,
+        conversationId: `conv_${squadGroupId}`,
+        senderId: team.leaderId,
+        groupId: squadGroupId,
+        text: `⚔️ Welcome to the ${team.name} Squad Chat for ${challenge.icon} ${challenge.title}! This is your private squad channel to coordinate check-ins and support each other. (The Cohort chat remains open for all challenge members).`,
+        timestamp: 'Just now',
+        isRead: true,
+      };
+      this.saveAllMessages([...messages, welcomeMsg]);
+    }
+
+    return newGroup;
+  }
+
+  static getChallengeSquadMessages(challengeId: string, teamId: string): Message[] {
+    const squadGroupId = `group_squad_${challengeId}_${teamId}`;
+    const messages = this.getAllMessages();
+    const squadMsgs = messages.filter((m) => m.groupId === squadGroupId);
+    if (squadMsgs.length > 0) return squadMsgs;
+
+    const challenge = this.getChallengeById(challengeId);
+    const team = challenge?.teams?.find((t) => t.id === teamId);
+    const welcome: Message = {
+      id: `cmsg_squad_${squadGroupId}_welcome`,
+      conversationId: `conv_${squadGroupId}`,
+      senderId: team?.leaderId || 'user_me',
+      groupId: squadGroupId,
+      text: `⚔️ Welcome to the ${team?.name || 'Squad'} Chat! This is your private squad space to coordinate daily check-ins and cheer each other on.`,
+      timestamp: 'Today at 8:30 AM',
+      isRead: true,
+    };
+    return [welcome];
+  }
+
+  static sendChallengeSquadTextMessage(challengeId: string, teamId: string, text: string): Message {
+    const squadGroupId = `group_squad_${challengeId}_${teamId}`;
+    const currentUser = this.getCurrentUser();
+    const newMsg: Message = {
+      id: `cmsg_squad_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      conversationId: `conv_${squadGroupId}`,
+      senderId: currentUser.id,
+      groupId: squadGroupId,
+      text: text.trim(),
+      timestamp: 'Just now',
+      isRead: true,
+    };
+
+    const messages = this.getAllMessages();
+    this.saveAllMessages([...messages, newMsg]);
+
+    // Update group last activity
+    const groups = this.getAllRawGroups();
+    const updated = groups.map((g) =>
+      g.id === squadGroupId ? { ...g, lastActivity: 'Just now' } : g
+    );
+    this.saveAllGroups(updated);
+
+    return newMsg;
+  }
+
+  // --- STREAK FREEZE & CHALLENGE BADGE SYSTEM ---
+  static getStreakFreezeStatus(): {
+    freezesAvailable: number;
+    isActive: boolean;
+    lastUsedDate?: string;
+    badges: string[];
+  } {
+    const user = this.getCurrentUser();
+    return {
+      freezesAvailable: user.streakFreezes ?? 1,
+      isActive: user.streakFreezeActive ?? true,
+      lastUsedDate: user.lastStreakFreezeUsedDate,
+      badges: user.challengeBadges || ['Early Bird', 'Consistency King'],
+    };
+  }
+
+  static toggleEquipStreakFreeze(): { user: User; isActive: boolean } {
+    const user = this.getCurrentUser();
+    const count = user.streakFreezes ?? 0;
+    if (count <= 0) {
+      return { user, isActive: false };
+    }
+    const nextState = !user.streakFreezeActive;
+    const updated: User = {
+      ...user,
+      streakFreezeActive: nextState,
+    };
+    this.saveCurrentUser(updated);
+    return { user: updated, isActive: nextState };
+  }
+
+  static claimChallengeStreakFreeze(challengeId: string, reason: string): { user: User; success: boolean } {
+    const user = this.getCurrentUser();
+    const currentCount = user.streakFreezes ?? 0;
+    const updated: User = {
+      ...user,
+      streakFreezes: currentCount + 1,
+      streakFreezeActive: true,
+    };
+    this.saveCurrentUser(updated);
+
+    // Send a celebratory notification
+    const notifs = this.getAllNotifications();
+    const notif: AppNotification = {
+      id: `notif_freeze_${Date.now()}`,
+      type: 'streak_freeze_earned',
+      actorId: user.id,
+      actorName: 'Daily Challenge System',
+      actorUsername: 'challenges',
+      actorAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80',
+      message: `❄️ You earned 1x Streak Freeze for: ${reason}! Your streak is shielded against missed days.`,
+      createdAt: 'Just now',
+      timestamp: Date.now(),
+      isRead: false,
+    };
+    this.saveAllNotifications([notif, ...notifs]);
+
+    return { user: updated, success: true };
+  }
+
+  static useStreakFreeze(reason?: string): {
+    user: User;
+    success: boolean;
+    notification?: AppNotification;
+    message: string;
+  } {
+    const user = this.getCurrentUser();
+    const count = user.streakFreezes ?? 0;
+    const today = getTodayDateString();
+
+    if (count <= 0) {
+      return {
+        user,
+        success: false,
+        message: 'No streak freezes available. Earn more by staying consistent in group challenges!',
+      };
+    }
+
+    if (user.lastStreakFreezeUsedDate === today) {
+      return {
+        user,
+        success: false,
+        message: 'A streak freeze is already protecting your streak for today!',
+      };
+    }
+
+    const updatedUser: User = {
+      ...user,
+      streakFreezes: Math.max(0, count - 1),
+      streakFreezeActive: true,
+      lastStreakFreezeUsedDate: today,
+    };
+    this.saveCurrentUser(updatedUser);
+
+    const notif: AppNotification = {
+      id: `notif_freeze_used_${Date.now()}`,
+      type: 'streak_freeze_used',
+      actorId: 'system',
+      actorName: 'Streak Protection',
+      actorUsername: 'streak_guardian',
+      actorAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80',
+      message: `❄️ Streak Freeze Activated: Your ${updatedUser.currentStreak}-day streak is protected for today! Take a breather and reset. Remember to return tomorrow to keep your streak going strong! 🔥`,
+      createdAt: 'Just now',
+      timestamp: Date.now(),
+      isRead: false,
+    };
+
+    const notifs = this.getAllNotifications();
+    this.saveAllNotifications([notif, ...notifs]);
+
+    // Dispatch global event so UI displays alert modal immediately
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('daily:streak-freeze-used', {
+          detail: { user: updatedUser, notification: notif },
+        })
+      );
+    }
+
+    return {
+      user: updatedUser,
+      success: true,
+      notification: notif,
+      message: `Your ${updatedUser.currentStreak}-day streak is protected for today! Return tomorrow to keep it going.`,
+    };
+  }
+
+  static awardChallengeBadge(badgeName: string): { user: User; awarded: boolean } {
+    const user = this.getCurrentUser();
+    const badges = user.challengeBadges || [];
+    if (badges.includes(badgeName)) {
+      return { user, awarded: false };
+    }
+    const updatedBadges = [...badges, badgeName];
+    const updated: User = {
+      ...user,
+      challengeBadges: updatedBadges,
+    };
+    this.saveCurrentUser(updated);
+
+    const notifs = this.getAllNotifications();
+    const notif: AppNotification = {
+      id: `notif_badge_${Date.now()}`,
+      type: 'challenge_badge',
+      actorId: user.id,
+      actorName: 'Daily Challenge System',
+      actorUsername: 'challenges',
+      actorAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80',
+      message: `🎖️ Challenge Badge Unlocked: "${badgeName}"! Displayed in your trophy collection.`,
+      createdAt: 'Just now',
+      timestamp: Date.now(),
+      isRead: false,
+    };
+    this.saveAllNotifications([notif, ...notifs]);
+
+    return { user: updated, awarded: true };
   }
 
   // Share a Post to multiple friends and groups in one go
@@ -2275,6 +2637,7 @@ export class DailyStorageService {
 
     this.saveAllChallenges(updatedChallenges);
     const updated = updatedChallenges.find((c) => c.id === challengeId)!;
+    this.ensureChallengeSquadGroup(challengeId, newTeam.id);
     return { challenge: updated, team: newTeam };
   }
 
@@ -2352,6 +2715,9 @@ export class DailyStorageService {
 
     this.saveAllChallenges(updatedChallenges);
     const updated = updatedChallenges.find((c) => c.id === challengeId)!;
+    if (updatedTeam) {
+      this.ensureChallengeSquadGroup(challengeId, updatedTeam.id);
+    }
     return { challenge: updated, team: updatedTeam, joined: true };
   }
 
@@ -2480,6 +2846,148 @@ export class DailyStorageService {
     };
   }
 
+  static getChallengeTodayProofStats(challengeId: string, teamId?: string): {
+    totalMembers: number;
+    submittedCount: number;
+    percentage: number;
+    submittedMembers: Array<{
+      userId: string;
+      userName: string;
+      userAvatar: string;
+      imageUrl?: string;
+      timeAgo?: string;
+    }>;
+    pendingMembers: Array<{
+      userId: string;
+      userName: string;
+      userAvatar: string;
+    }>;
+    hasCurrentUserSubmitted: boolean;
+    allSubmitted: boolean;
+    urgencyLevel: 'critical' | 'moderate' | 'complete';
+    teamName?: string;
+    challengeTitle: string;
+    challengeIcon: string;
+  } {
+    const challenge = this.getChallengeById(challengeId);
+    const currentUser = this.getCurrentUser();
+    const today = getTodayDateString();
+
+    if (!challenge) {
+      return {
+        totalMembers: 0,
+        submittedCount: 0,
+        percentage: 0,
+        submittedMembers: [],
+        pendingMembers: [],
+        hasCurrentUserSubmitted: false,
+        allSubmitted: false,
+        urgencyLevel: 'moderate',
+        challengeTitle: 'Challenge',
+        challengeIcon: '🏆',
+      };
+    }
+
+    const allProgressPosts = this.getAllChallengeProgressPosts(challengeId);
+    const postsToday = allProgressPosts.filter((p) => p.postDate === today);
+
+    // Determine target group/squad members
+    let squadMembers: Array<{ userId: string; userName: string; userAvatar: string }> = [];
+    let resolvedTeamName: string | undefined;
+
+    if (challenge.challengeType === 'group' && challenge.teams && challenge.teams.length > 0) {
+      const team = teamId
+        ? challenge.teams.find((t) => t.id === teamId)
+        : challenge.teams.find((t) => t.members.some((m) => m.userId === currentUser.id)) || challenge.teams[0];
+
+      if (team) {
+        resolvedTeamName = team.name;
+        squadMembers = team.members.map((m) => ({
+          userId: m.userId,
+          userName: m.userName,
+          userAvatar: m.userAvatar,
+        }));
+      }
+    }
+
+    // Fallback to participants if not a group or team has no members
+    if (squadMembers.length === 0) {
+      const allUsers = this.getAllUsers();
+      const userMap = new Map(allUsers.map((u) => [u.id, u]));
+      const participantIds = challenge.participantIds || [currentUser.id];
+      squadMembers = participantIds.map((id) => {
+        const u = userMap.get(id);
+        return {
+          userId: id,
+          userName: id === currentUser.id ? currentUser.name : (u?.name || 'Member'),
+          userAvatar: id === currentUser.id ? currentUser.avatar : (u?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80'),
+        };
+      });
+    }
+
+    const submittedMap = new Map<string, ChallengeProgressPost>();
+    postsToday.forEach((p) => {
+      submittedMap.set(p.userId, p);
+    });
+
+    const submittedMembers: Array<{
+      userId: string;
+      userName: string;
+      userAvatar: string;
+      imageUrl?: string;
+      timeAgo?: string;
+    }> = [];
+
+    const pendingMembers: Array<{
+      userId: string;
+      userName: string;
+      userAvatar: string;
+    }> = [];
+
+    squadMembers.forEach((member) => {
+      const post = submittedMap.get(member.userId);
+      if (post) {
+        submittedMembers.push({
+          userId: member.userId,
+          userName: member.userId === currentUser.id ? `${currentUser.name} (You)` : member.userName,
+          userAvatar: member.userAvatar,
+          imageUrl: post.imageUrl,
+          timeAgo: post.createdAt || 'Today',
+        });
+      } else {
+        pendingMembers.push({
+          userId: member.userId,
+          userName: member.userId === currentUser.id ? `${currentUser.name} (You)` : member.userName,
+          userAvatar: member.userAvatar,
+        });
+      }
+    });
+
+    const totalMembers = Math.max(1, squadMembers.length);
+    const submittedCount = submittedMembers.length;
+    const percentage = Math.min(100, Math.round((submittedCount / totalMembers) * 100));
+    const hasCurrentUserSubmitted = submittedMembers.some((m) => m.userId === currentUser.id);
+    const allSubmitted = submittedCount >= totalMembers;
+
+    const urgencyLevel: 'critical' | 'moderate' | 'complete' = allSubmitted
+      ? 'complete'
+      : (submittedCount === 0 || !hasCurrentUserSubmitted ? 'critical' : 'moderate');
+
+    return {
+      totalMembers,
+      submittedCount,
+      percentage,
+      submittedMembers,
+      pendingMembers,
+      hasCurrentUserSubmitted,
+      allSubmitted,
+      urgencyLevel,
+      teamName: resolvedTeamName,
+      challengeTitle: challenge.title,
+      challengeIcon: challenge.icon,
+    };
+  }
+
   static postChallengeProgress(
     challengeId: string,
     payload: { imageUrl: string; text?: string }
@@ -2582,6 +3090,40 @@ export class DailyStorageService {
     this.saveAllChallengeProgressPosts([newProgressPost, ...allPosts]);
 
     const updatedChallenge = updatedChallenges.find((c) => c.id === challengeId);
+
+    // If user is in a group challenge team, notify squad chat!
+    if (userTeam) {
+      try {
+        this.sendChallengeSquadTextMessage(
+          challengeId,
+          userTeam.id,
+          `🔥 @${currentUser.username} just logged Day ${newDayNumber} proof for our squad! Keep the streak alive! 🚀`
+        );
+      } catch {
+        // ignore
+      }
+    }
+
+    // --- AUTOMATIC BADGE & STREAK FREEZE REWARDS ---
+    try {
+      // 1. Early Bird: posting before 9:00 AM
+      const currentHour = new Date().getHours();
+      if (currentHour < 9) {
+        this.awardChallengeBadge('Early Bird');
+      }
+
+      // 2. Consistency King: 7-day milestone in a group challenge or total challenge check-ins
+      if (newDayNumber >= 7 || (targetChallenge.challengeType === 'group' && newDayNumber >= 7)) {
+        this.awardChallengeBadge('Consistency King');
+      }
+
+      // 3. Earn Streak Freeze: high engagement milestone at Day 5
+      if (newDayNumber === 5) {
+        this.claimChallengeStreakFreeze(challengeId, `5 Verified Check-ins in "${targetChallenge.title}"`);
+      }
+    } catch {
+      // ignore
+    }
 
     return {
       success: true,

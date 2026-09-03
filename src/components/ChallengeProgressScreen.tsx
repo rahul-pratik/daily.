@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   ChevronLeft,
+  ChevronRight,
   Flame,
   Calendar as CalendarIcon,
   CheckCircle2,
@@ -37,6 +38,7 @@ import { vibrateLight, vibrateSuccess, vibrateStreakMilestone } from '../service
 import { ChallengeLeaderboardView } from './ChallengeLeaderboardView';
 import { DirectChallengeInviteModal } from './DirectChallengeInviteModal';
 import { ChallengeWeeklyRecapModal } from './ChallengeWeeklyRecapModal';
+import { ChallengeDailyProofProgressBar } from './ChallengeDailyProofProgressBar';
 
 interface ChallengeProgressScreenProps {
   challenge: Challenge;
@@ -44,6 +46,7 @@ interface ChallengeProgressScreenProps {
   onBack: () => void;
   onChallengeUpdated: (updatedChallenge: Challenge) => void;
   initialTab?: 'proofs' | 'leaderboard' | 'squads' | 'chat';
+  onOpenGroupChat?: (groupId: string) => void;
 }
 
 const SAMPLE_ACHIEVEMENTS = [
@@ -71,13 +74,16 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
   onBack,
   onChallengeUpdated,
   initialTab = 'proofs',
+  onOpenGroupChat,
 }) => {
   const [challenge, setChallenge] = useState<Challenge>(initialChallenge);
   const [challengeTab, setChallengeTab] = useState<'proofs' | 'leaderboard' | 'squads' | 'chat'>(initialTab);
+  const [chatChannel, setChatChannel] = useState<'cohort' | 'squad'>('cohort');
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isRecapModalOpen, setIsRecapModalOpen] = useState(false);
   const [progressPosts, setProgressPosts] = useState<ChallengeProgressPost[]>([]);
   const [chatMessages, setChatMessages] = useState<Message[]>([]);
+  const [squadMessages, setSquadMessages] = useState<Message[]>([]);
   const [chatInputText, setChatInputText] = useState('');
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [postPhotoUrl, setPostPhotoUrl] = useState('');
@@ -95,19 +101,25 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
   const [squadMottoInput, setSquadMottoInput] = useState('');
   const [squadError, setSquadError] = useState<string | null>(null);
 
-  // Load progress posts and challenge chat messages
+  const userProgress = DailyStorageService.getChallengeUserProgress(challenge.id, currentUser.id);
+  const mySquad = userProgress.userTeam;
+
+  // Load progress posts, cohort chat messages, and squad chat messages
   useEffect(() => {
     const posts = DailyStorageService.getAllChallengeProgressPosts(challenge.id);
     setProgressPosts(posts);
     const msgs = DailyStorageService.getChallengeMessages(challenge.id);
     setChatMessages(msgs);
-  }, [challenge.id]);
 
-  const userProgress = DailyStorageService.getChallengeUserProgress(challenge.id, currentUser.id);
+    if (mySquad) {
+      DailyStorageService.ensureChallengeSquadGroup(challenge.id, mySquad.id);
+      const sMsgs = DailyStorageService.getChallengeSquadMessages(challenge.id, mySquad.id);
+      setSquadMessages(sMsgs);
+    }
+  }, [challenge.id, mySquad?.id]);
   const today = getTodayDateString();
   const isJoined = (challenge.participantIds || []).includes(currentUser.id);
   const isGroupChallenge = challenge.challengeType === 'group';
-  const mySquad = userProgress.userTeam;
 
   // Calculate countdown days remaining
   const daysCompleted = userProgress.daysCompleted;
@@ -229,8 +241,17 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
     if (!chatInputText.trim()) return;
 
     vibrateLight();
-    const newMsg = DailyStorageService.sendChallengeTextMessage(challenge.id, chatInputText.trim());
-    setChatMessages((prev) => [...prev, newMsg]);
+    if (chatChannel === 'squad' && mySquad) {
+      const newMsg = DailyStorageService.sendChallengeSquadTextMessage(
+        challenge.id,
+        mySquad.id,
+        chatInputText.trim()
+      );
+      setSquadMessages((prev) => [...prev, newMsg]);
+    } else {
+      const newMsg = DailyStorageService.sendChallengeTextMessage(challenge.id, chatInputText.trim());
+      setChatMessages((prev) => [...prev, newMsg]);
+    }
     setChatInputText('');
   };
 
@@ -370,6 +391,16 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
             )}
           </div>
         </div>
+
+        {/* VISUAL GROUP MEMBERS DAILY PROOF ACCOUNTABILITY PROGRESS BAR */}
+        {isJoined && (challenge.challengeType === 'group' || (challenge.teams && challenge.teams.length > 0)) && (
+          <ChallengeDailyProofProgressBar
+            challengeId={challenge.id}
+            teamId={mySquad?.id}
+            onOpenSubmitProof={() => setIsPostModalOpen(true)}
+            onOpenGroupChat={onOpenGroupChat}
+          />
+        )}
 
         {/* VISUAL 30-DAY DAY-BY-DAY PROGRESS TRACKER & COUNTDOWN */}
         {isJoined && (
@@ -916,16 +947,35 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                         </div>
 
                         {isMember && (
-                          <button
-                            onClick={() => {
-                              vibrateLight();
-                              setChallengeTab('chat');
-                            }}
-                            className="py-1.5 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-xs transition-all flex items-center gap-1 border border-amber-500/30"
-                          >
-                            <MessageCircle className="w-3.5 h-3.5 text-amber-400" />
-                            <span>Go to Team Chat</span>
-                          </button>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <button
+                              onClick={() => {
+                                vibrateLight();
+                                setChallengeTab('chat');
+                                setChatChannel('squad');
+                              }}
+                              className="py-1.5 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-xs transition-all flex items-center gap-1 border border-amber-500/30"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5 text-amber-400" />
+                              <span>Team Chat</span>
+                            </button>
+
+                            {onOpenGroupChat && (
+                              <button
+                                onClick={() => {
+                                  vibrateLight();
+                                  const squadGroupId = `group_squad_${challenge.id}_${team.id}`;
+                                  DailyStorageService.ensureChallengeSquadGroup(challenge.id, team.id);
+                                  onOpenGroupChat(squadGroupId);
+                                }}
+                                className="py-1.5 px-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white/90 hover:text-white font-bold text-xs transition-all flex items-center gap-1 border border-white/15"
+                                title="Open squad chat in DM section"
+                              >
+                                <span>Go to Group Chat in DMs</span>
+                                <ChevronRight className="w-3 h-3 text-white/50" />
+                              </button>
+                            )}
+                          </div>
                         )}
 
                         {!isMember && !mySquad && !isFull && (
@@ -952,7 +1002,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
           </div>
         )}
 
-        {/* Tab 2: Cohort Live Text-Only Chat (No photos allowed in chat) */}
+        {/* Tab 2: Live Text-Only Discussion (Cohort Chat + Squad Chat Channel Switcher) */}
         {challengeTab === 'chat' && (
           <div className="bg-[#0F0F0F] border border-white/15 rounded-3xl p-4 sm:p-5 shadow-2xl space-y-4">
             {/* Header */}
@@ -963,43 +1013,115 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                 </div>
                 <div>
                   <h3 className="text-xs font-black uppercase tracking-wider text-white">
-                    Cohort Discussion Room
+                    {chatChannel === 'squad' && mySquad
+                      ? `Squad Chat: ${mySquad.name}`
+                      : 'Cohort Discussion Room'}
                   </h3>
                   <p className="text-[10px] text-white/40">
-                    Text-only chat • Pure words & accountability (no images)
+                    {chatChannel === 'squad'
+                      ? 'Private squad discussion • Specific to your team'
+                      : 'Text-only chat • Pure words & accountability with all participants'}
                   </p>
                 </div>
               </div>
 
               <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                {challenge.participantsCount || 1} online
+                {chatChannel === 'squad' && mySquad
+                  ? `${mySquad.members.length} squad members`
+                  : `${challenge.participantsCount || 1} online`}
               </span>
             </div>
 
-            {/* Chat message feed */}
+            {/* Squad vs Cohort Channel Selector (when user belongs to a squad) */}
+            {mySquad && (
+              <div className="flex items-center justify-between gap-2 p-1.5 bg-white/5 border border-white/10 rounded-2xl">
+                <div className="flex items-center gap-1 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vibrateLight();
+                      setChatChannel('cohort');
+                    }}
+                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                      chatChannel === 'cohort'
+                        ? 'bg-white text-black shadow-sm'
+                        : 'text-white/60 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <span>🌐 Cohort (All Members)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vibrateLight();
+                      setChatChannel('squad');
+                    }}
+                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                      chatChannel === 'squad'
+                        ? 'bg-amber-400 text-black font-black shadow-sm'
+                        : 'text-white/60 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <span>⚔️ {mySquad.name} Squad</span>
+                  </button>
+                </div>
+
+                {onOpenGroupChat && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vibrateLight();
+                      const squadGroupId = `group_squad_${challenge.id}_${mySquad.id}`;
+                      DailyStorageService.ensureChallengeSquadGroup(challenge.id, mySquad.id);
+                      onOpenGroupChat(squadGroupId);
+                    }}
+                    className="py-1.5 px-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 font-bold text-[11px] border border-amber-500/30 flex items-center gap-1 transition-all shrink-0"
+                    title="Open this group chat in Direct Messages"
+                  >
+                    <MessageSquare className="w-3 h-3 text-amber-400" />
+                    <span className="hidden sm:inline">Go to Group Chat in DMs</span>
+                    <span className="sm:hidden">In DMs</span>
+                    <ChevronRight className="w-3 h-3 text-amber-400" />
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Chat message feed: displays squadMessages or chatMessages */}
             <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1 no-scrollbar min-h-[160px]">
-              {chatMessages.length === 0 ? (
+              {(chatChannel === 'squad' ? squadMessages : chatMessages).length === 0 ? (
                 <div className="py-8 text-center text-white/40 text-xs">
-                  No messages yet. Say hello and encourage your cohort!
+                  {chatChannel === 'squad'
+                    ? `No squad messages yet. Say hi to your team in "${mySquad?.name}"!`
+                    : 'No messages yet. Say hello and encourage your cohort!'}
                 </div>
               ) : (
-                chatMessages.map((msg) => {
+                (chatChannel === 'squad' ? squadMessages : chatMessages).map((msg) => {
                   const isMe = msg.senderId === currentUser.id;
+                  const senderName = isMe
+                    ? 'You'
+                    : msg.senderId === 'user_1'
+                    ? 'Elena Vance'
+                    : msg.senderId === 'user_2'
+                    ? 'Marcus Vance'
+                    : 'Teammate';
+
                   return (
                     <div
                       key={msg.id}
                       className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} space-y-1`}
                     >
                       <div className="flex items-center gap-1.5 px-1">
-                        <span className="text-[10px] font-bold text-white/50">
-                          {isMe ? 'You' : msg.senderId === 'user_1' ? 'Elena Vance' : msg.senderId === 'user_2' ? 'Marcus Vance' : 'Cohort Member'}
-                        </span>
+                        <span className="text-[10px] font-bold text-white/50">{senderName}</span>
                         <span className="text-[9px] text-white/30">{msg.timestamp}</span>
                       </div>
                       <div
                         className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-xs leading-relaxed ${
                           isMe
-                            ? 'bg-[#D4AF37] text-black font-medium rounded-tr-sm shadow-md'
+                            ? chatChannel === 'squad'
+                              ? 'bg-amber-400 text-black font-medium rounded-tr-sm shadow-md'
+                              : 'bg-[#D4AF37] text-black font-medium rounded-tr-sm shadow-md'
                             : 'bg-white/10 text-white rounded-tl-sm border border-white/10'
                         }`}
                       >
@@ -1018,7 +1140,11 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                   type="text"
                   value={chatInputText}
                   onChange={(e) => setChatInputText(e.target.value)}
-                  placeholder="Send a text message to cohort members..."
+                  placeholder={
+                    chatChannel === 'squad' && mySquad
+                      ? `Message ${mySquad.name} squad members...`
+                      : 'Send a text message to cohort members...'
+                  }
                   className="flex-1 px-4 py-2.5 bg-white/5 border border-white/15 focus:border-[#D4AF37] rounded-xl text-xs text-white placeholder-white/35 outline-none transition-colors"
                 />
                 <button

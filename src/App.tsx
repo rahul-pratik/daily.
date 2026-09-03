@@ -29,6 +29,7 @@ import { NotificationsModal } from './components/NotificationsModal';
 import { CreateCollectionModal } from './components/CreateCollectionModal';
 import { AddToCollectionModal } from './components/AddToCollectionModal';
 import { GlobalSearchModal } from './components/GlobalSearchModal';
+import { StreakFreezeAlertModal } from './components/StreakFreezeAlertModal';
 import { vibratePostSubmit, vibrateLight, vibrateStreakMilestone } from './services/haptics';
 
 export default function App() {
@@ -102,6 +103,22 @@ export default function App() {
     streakCount: currentUser.currentStreak,
     isNewStreakDay: false,
   });
+
+  // Streak freeze used notification alert modal state
+  const [isStreakFreezeAlertOpen, setIsStreakFreezeAlertOpen] = useState(false);
+
+  useEffect(() => {
+    const handleFreezeUsed = () => {
+      setCurrentUser(DailyStorageService.getCurrentUser());
+      setNotifications(DailyStorageService.getAllNotifications());
+      setIsStreakFreezeAlertOpen(true);
+    };
+
+    window.addEventListener('daily:streak-freeze-used', handleFreezeUsed);
+    return () => {
+      window.removeEventListener('daily:streak-freeze-used', handleFreezeUsed);
+    };
+  }, []);
 
   // Calculate unread counts
   const unreadMessagesCount = messages.filter(
@@ -553,6 +570,23 @@ export default function App() {
     setNotifications(DailyStorageService.getAllNotifications());
   };
 
+  // State for navigating directly to a challenge from DMs / Squad chats
+  const [selectedChallengeId, setSelectedChallengeId] = useState<string | null>(null);
+
+  const handleOpenChallenge = (challengeId: string) => {
+    setSelectedChallengeId(challengeId);
+    setCurrentTab('streak');
+    setIsDMsOpen(false);
+  };
+
+  const handleOpenDMWithGroup = (groupId: string) => {
+    setGroups(DailyStorageService.getAllGroups());
+    setMessages(DailyStorageService.getAllMessages());
+    setActiveGroupId(groupId);
+    setActiveChatUserId(null);
+    setIsDMsOpen(true);
+  };
+
   return (
     <div className="min-h-screen bg-[#050505] text-white flex justify-center font-sans antialiased selection:bg-[#D4AF37] selection:text-black">
       {/* Mobile-first centered frame container */}
@@ -561,6 +595,8 @@ export default function App() {
         <TopHeader
           currentUser={currentUser}
           onOpenDMs={() => {
+            setGroups(DailyStorageService.getAllGroups());
+            setMessages(DailyStorageService.getAllMessages());
             setActiveChatUserId(null);
             setActiveGroupId(null);
             setIsDMsOpen(true);
@@ -611,6 +647,10 @@ export default function App() {
               onSharePost={handleOpenShare}
               onOpenInsights={handleOpenInsights}
               onDeletePost={handleRequestDeletePost}
+              onOpenGroupChat={handleOpenDMWithGroup}
+              initialChallengeId={selectedChallengeId}
+              onClearInitialChallenge={() => setSelectedChallengeId(null)}
+              onOpenNotifications={() => setIsNotificationsOpen(true)}
             />
           )}
 
@@ -705,6 +745,7 @@ export default function App() {
           onMarkAsRead={handleMarkNotificationAsRead}
           onMarkAllAsRead={handleMarkAllNotificationsAsRead}
           onClearAll={handleClearAllNotifications}
+          onOpenStreakFreezeAlert={() => setIsStreakFreezeAlertOpen(true)}
         />
 
         {/* Create Proof Collection Modal */}
@@ -870,6 +911,7 @@ export default function App() {
           onOpenCreateGroup={() => setIsCreateGroupOpen(true)}
           onViewPost={handleViewPostFromId}
           onViewUser={handleViewSimplifiedUser}
+          onOpenChallenge={handleOpenChallenge}
         />
 
         {/* Edit Profile Modal */}
@@ -918,6 +960,22 @@ export default function App() {
             if (postPendingDelete) {
               executeDeletePost(postPendingDelete.id);
             }
+          }}
+        />
+
+        {/* Global Streak Freeze Used Notification Alert Modal */}
+        <StreakFreezeAlertModal
+          isOpen={isStreakFreezeAlertOpen}
+          onClose={() => setIsStreakFreezeAlertOpen(false)}
+          currentUser={currentUser}
+          streakCount={currentUser.currentStreak}
+          onOpenNotifications={() => {
+            setIsStreakFreezeAlertOpen(false);
+            setIsNotificationsOpen(true);
+          }}
+          onOpenChallenges={() => {
+            setIsStreakFreezeAlertOpen(false);
+            setCurrentTab('streak');
           }}
         />
       </div>

@@ -22,17 +22,24 @@ import { vibrateLight } from '../services/haptics';
 
 interface ChallengeCalendarOverlayProps {
   currentUser: User;
-  challenges: Challenge[];
-  onOpenChallenge: (challenge: Challenge, initialTab?: 'proofs' | 'leaderboard' | 'squads' | 'chat') => void;
+  challenges?: Challenge[];
+  allChallenges?: Challenge[];
+  onOpenChallenge?: (challenge: Challenge, initialTab?: 'proofs' | 'leaderboard' | 'squads' | 'chat') => void;
+  onSelectDate?: (dateStr: string) => void;
+  onSelectChallenge?: (challenge: Challenge) => void;
   onOpenCreate?: () => void;
 }
 
 export const ChallengeCalendarOverlay: React.FC<ChallengeCalendarOverlayProps> = ({
   currentUser,
   challenges,
+  allChallenges,
   onOpenChallenge,
+  onSelectDate,
+  onSelectChallenge,
   onOpenCreate,
 }) => {
+  const activeChallenges = challenges ?? allChallenges ?? [];
   const [currentYear, setCurrentYear] = useState(2026);
   const [currentMonth, setCurrentMonth] = useState(7); // 0-indexed, 7 = August (current in mock context)
   const [selectedChallengeId, setSelectedChallengeId] = useState<string>('all');
@@ -72,8 +79,16 @@ export const ChallengeCalendarOverlay: React.FC<ChallengeCalendarOverlayProps> =
   // Get all user challenge post dates
   const userChallengeDates = DailyStorageService.getUserChallengePostDates(currentUser.id);
 
+  const openChallenge = (challenge: Challenge, tab?: 'proofs' | 'leaderboard' | 'squads' | 'chat') => {
+    if (onOpenChallenge) {
+      onOpenChallenge(challenge, tab);
+      return;
+    }
+    onSelectChallenge?.(challenge);
+  };
+
   // Filter joined challenges
-  const joinedChallenges = challenges.filter((c) =>
+  const joinedChallenges = activeChallenges.filter((c) =>
     (c.participantIds || []).includes(currentUser.id)
   );
 
@@ -222,7 +237,7 @@ export const ChallengeCalendarOverlay: React.FC<ChallengeCalendarOverlayProps> =
             if (selectedChallengeId === 'all') {
               hasRecordInChallenge = userChallengeDates.includes(dStr);
             } else {
-              const target = challenges.find((c) => c.id === selectedChallengeId);
+              const target = activeChallenges.find((c) => c.id === selectedChallengeId);
               hasRecordInChallenge = Boolean(
                 target?.userPostDates?.[currentUser.id]?.includes(dStr)
               );
@@ -237,6 +252,9 @@ export const ChallengeCalendarOverlay: React.FC<ChallengeCalendarOverlayProps> =
                 key={dayNum}
                 onClick={() => {
                   vibrateLight();
+                  if (onSelectDate) {
+                    onSelectDate(dStr);
+                  }
                   setSelectedDate(isSelected ? null : dStr);
                 }}
                 className={`h-10 sm:h-12 rounded-xl text-xs font-bold flex flex-col items-center justify-between p-1 transition-all relative group cursor-pointer ${
@@ -383,14 +401,14 @@ export const ChallengeCalendarOverlay: React.FC<ChallengeCalendarOverlayProps> =
 
                   <div className="flex flex-col items-end gap-1 shrink-0">
                     <button
-                      onClick={() => onOpenChallenge(challenge, 'proofs')}
+                      onClick={() => openChallenge(challenge, 'proofs')}
                       className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold text-[10px] flex items-center gap-1"
                     >
                       <span>Hub</span>
                       <ArrowRight className="w-3 h-3" />
                     </button>
                     <button
-                      onClick={() => onOpenChallenge(challenge, 'chat')}
+                      onClick={() => openChallenge(challenge, 'chat')}
                       className="px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 font-bold text-[10px] flex items-center gap-1"
                     >
                       <MessageSquare className="w-3 h-3" />

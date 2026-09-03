@@ -31,6 +31,10 @@ export interface User {
   proofCollections?: ProofCollection[];
   disciplineMilestones?: string[]; // Array of up to 3 applied milestone IDs
   isCurrentUser?: boolean;
+  streakFreezes?: number; // Available streak freezes earned through challenges
+  streakFreezeActive?: boolean; // Whether active streak protection is equipped for next missed day
+  lastStreakFreezeUsedDate?: string; // Date streak freeze was last consumed
+  challengeBadges?: string[]; // Digital badge milestones earned in challenges
 }
 
 export interface PersonalHabit {
@@ -181,6 +185,11 @@ export interface Group {
   rules?: string[];
   pinnedTopic?: string;
   coverImage?: string;
+  challengeId?: string;
+  teamId?: string;
+  isChallengeGroup?: boolean;
+  isChallengeSquad?: boolean;
+  challengeTitle?: string;
 }
 
 export interface Community {
@@ -584,8 +593,11 @@ export type NotificationType =
   | 'community_request'
   | 'community_approved'
   | 'streak_milestone'
+  | 'challenge_invite'
   | 'cheer'
-  | 'challenge_invite';
+  | 'streak_freeze_earned'
+  | 'streak_freeze_used'
+  | 'challenge_badge';
 
 export interface AppNotification {
   id: string;
