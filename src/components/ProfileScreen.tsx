@@ -38,7 +38,7 @@ import { PostCard } from './PostCard';
 import { EmptyStateIllustration } from './EmptyStateIllustration';
 import { DisciplineMilestonesModal } from './DisciplineMilestonesModal';
 import { ActivityTrendChart } from './ActivityTrendChart';
-import { DailyDiaryNotebook } from './DailyDiaryNotebook';
+import { PersonProfileDossierScreen } from './PersonProfileDossierScreen';
 import { PostInsightsModal } from './PostInsightsModal';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
 import { DailyStorageService } from '../services/storage';
@@ -48,6 +48,7 @@ interface ProfileScreenProps {
   posts: Post[];
   savedPostIds?: string[];
   reportedPostIds?: string[];
+  initialTab?: 'dossier' | 'proofs' | 'collections' | 'milestones';
   onToggleLike: (postId: string) => void;
   onOpenComments: (post: Post) => void;
   onOpenEditProfile: () => void;
@@ -76,6 +77,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   posts,
   savedPostIds = [],
   reportedPostIds = [],
+  initialTab = 'proofs',
   onToggleLike,
   onOpenComments,
   onOpenEditProfile,
@@ -98,13 +100,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onPublishDraftDirectly,
   onOpenDossier,
 }) => {
-  // Main clean tabs: strictly Proofs, Collections, and Milestones
-  const [profileTab, setProfileTab] = useState<'proofs' | 'collections' | 'milestones'>('proofs');
+  // Main clean tabs: Dossier, Proofs, Collections, and Milestones
+  const [profileTab, setProfileTab] = useState<'dossier' | 'proofs' | 'collections' | 'milestones'>(initialTab);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
-  // Popup Hub Modal for Trends, Insights, Daily Diary, Drafts, and Saved
+  // Popup Hub Modal for Trends, Insights, Drafts, and Saved
   const [isQuickHubOpen, setIsQuickHubOpen] = useState(false);
-  const [activeHubView, setActiveHubView] = useState<'trends' | 'insights' | 'diary' | 'drafts' | 'saved' | null>(null);
+  const [activeHubView, setActiveHubView] = useState<'trends' | 'insights' | 'drafts' | 'saved' | null>(null);
 
   // Settings & share state
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
@@ -193,46 +195,37 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       id: 'trends' as const,
       title: 'Trends',
       subtitle: '30-Day Activity & Velocity Chart',
-      icon: <TrendingUp className="w-5 h-5 text-emerald-400" />,
+      icon: <TrendingUp className="w-5 h-5 text-[#2F6FED]" />,
       badge: '30-Day',
-      badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
-      gradient: 'from-emerald-950/40 to-black',
+      badgeColor: 'bg-[#2F6FED]/15 text-[#2F6FED] border-[#2F6FED]/30',
+      gradient: 'from-blue-950/40 to-black',
     },
     {
       id: 'insights' as const,
       title: 'Insights',
       subtitle: 'Engagement Analytics & Performance',
-      icon: <BarChart3 className="w-5 h-5 text-blue-400" />,
+      icon: <BarChart3 className="w-5 h-5 text-[#2F6FED]" />,
       badge: `${userPosts.reduce((acc, p) => acc + (p.likesCount || 0), 0)} likes`,
-      badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+      badgeColor: 'bg-[#2F6FED]/15 text-[#2F6FED] border-[#2F6FED]/30',
       gradient: 'from-blue-950/40 to-black',
-    },
-    {
-      id: 'diary' as const,
-      title: 'Daily Diary',
-      subtitle: 'Physical Notebook with 3D Page Turn',
-      icon: <BookOpen className="w-5 h-5 text-amber-400" />,
-      badge: 'Interactive',
-      badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
-      gradient: 'from-amber-950/40 to-black',
     },
     {
       id: 'drafts' as const,
       title: 'Drafts & Saved Posts',
       subtitle: 'Post Queue & Scheduled Drafts',
-      icon: <FileText className="w-5 h-5 text-[#D4AF37]" />,
+      icon: <FileText className="w-5 h-5 text-[#2F6FED]" />,
       badge: `${drafts.length} drafts`,
-      badgeColor: 'bg-[#D4AF37]/20 text-[#D4AF37] border-[#D4AF37]/30',
-      gradient: 'from-yellow-950/40 to-black',
+      badgeColor: 'bg-[#2F6FED]/15 text-[#2F6FED] border-[#2F6FED]/30',
+      gradient: 'from-blue-950/40 to-black',
     },
     {
       id: 'saved' as const,
       title: 'Saved Proofs',
       subtitle: 'Bookmarked Inspiration & Recipes',
-      icon: <Bookmark className="w-5 h-5 text-purple-400" />,
+      icon: <Bookmark className="w-5 h-5 text-white/80" />,
       badge: `${savedPosts.length} saved`,
-      badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
-      gradient: 'from-purple-950/40 to-black',
+      badgeColor: 'bg-white/10 text-white/80 border-white/20',
+      gradient: 'from-white/10 to-black',
     },
   ];
 
@@ -1159,51 +1152,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         />
       )}
 
-      {/* 3. DAILY DIARY NOTEBOOK MODAL */}
-      {activeHubView === 'diary' && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-xl bg-[#0A0A0A] border-t sm:border border-white/10 rounded-t-[32px] sm:rounded-[32px] overflow-hidden shadow-2xl text-white max-h-[94vh] flex flex-col">
-            <div className="p-4 border-b border-white/10 flex items-center justify-between bg-black/40">
-              <div className="flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-amber-400" />
-                <h3 className="text-xs font-black text-amber-200">Daily Diary • 3D Physical Notebook</h3>
-              </div>
-              <button
-                onClick={() => setActiveHubView(null)}
-                className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white/60 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="p-4 overflow-y-auto">
-              <DailyDiaryNotebook
-                user={currentUser}
-                onOpenCreatePost={() => {
-                  setActiveHubView(null);
-                  if (onOpenCreatePost) onOpenCreatePost();
-                  else if (onOpenCreateDraft) onOpenCreateDraft();
-                }}
-                onOpenChatWithUser={(targetUserId) => {
-                  setActiveHubView(null);
-                  const allUsers = DailyStorageService.getAllUsers();
-                  const foundUser = allUsers.find((u) => u.id === targetUserId);
-                  if (onSendDM) {
-                    onSendDM({
-                      id: targetUserId,
-                      name: foundUser?.name || 'Friend',
-                      username: foundUser?.username || 'friend',
-                      avatar: foundUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-                      streak: foundUser?.currentStreak || 1,
-                    });
-                  }
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 4. DRAFTS & SAVED POSTS MODAL */}
+      {/* 3. DRAFTS & SAVED POSTS MODAL */}
       {activeHubView === 'drafts' && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
           <div className="w-full max-w-lg bg-[#0A0A0A] border-t sm:border border-white/10 rounded-t-[32px] sm:rounded-[32px] overflow-hidden shadow-2xl text-white max-h-[92vh] flex flex-col">

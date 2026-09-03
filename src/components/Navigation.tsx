@@ -37,7 +37,7 @@ export const TopHeader: React.FC<{
       >
         <div className="flex items-center gap-1.5">
           <h1 className="text-xl font-black tracking-tighter text-white">
-            DAILY<span className="text-[#D4AF37]">.</span>
+            DAILY<span className="text-[#2F6FED]">.</span>
           </h1>
         </div>
         <p className="text-[9px] uppercase tracking-widest text-white/40 font-semibold leading-none mt-0.5">
@@ -51,7 +51,7 @@ export const TopHeader: React.FC<{
         <button
           onClick={() => onSelectTab('dossier')}
           className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-white/5 hover:bg-[#2F6FED]/15 border border-white/10 hover:border-[#2F6FED]/40 transition-colors text-xs font-semibold text-white hover:text-[#2F6FED] min-h-[40px] active:scale-95"
-          title="View Rahul's Person Dossier: Goals, Pillars & Timeline"
+          title="View Rahul's Person Dossier: Pillars & Timeline"
         >
           <span className="w-1.5 h-1.5 rounded-full bg-[#2F6FED]" />
           <span className="font-mono text-xs">Rahul</span>
@@ -60,48 +60,48 @@ export const TopHeader: React.FC<{
         {/* Global Search Button */}
         <button
           onClick={onOpenSearch}
-          className="p-2.5 rounded-full bg-white/5 hover:bg-[#3B82F6]/20 border border-white/10 hover:border-[#3B82F6]/40 text-white/80 hover:text-[#3B82F6] transition-all active:scale-95 min-h-[40px] min-w-[40px] flex items-center justify-center"
+          className="p-2.5 rounded-full bg-white/5 hover:bg-[#2F6FED]/20 border border-white/10 hover:border-[#2F6FED]/40 text-white/80 hover:text-[#2F6FED] transition-all active:scale-95 min-h-[40px] min-w-[40px] flex items-center justify-center"
           aria-label="Global Search"
           title="Search communities, users, tags..."
         >
           <Search className="w-4 h-4" />
         </button>
 
-        {/* Streak Pill (Electric Blue) */}
+        {/* Streak Pill */}
         <button
           onClick={() => onSelectTab('streak')}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 hover:border-[#3B82F6]/40 transition-colors text-xs font-bold text-[#3B82F6] min-h-[40px] active:scale-95"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 hover:border-[#2F6FED]/40 transition-colors text-xs font-bold text-[#2F6FED] min-h-[40px] active:scale-95"
           title="View your streak history"
         >
-          <Flame className="w-4 h-4 text-[#3B82F6] fill-[#3B82F6] animate-pulse shrink-0" />
+          <Flame className="w-4 h-4 text-[#2F6FED] fill-[#2F6FED] animate-pulse shrink-0" />
           <span className="whitespace-nowrap">{currentUser.currentStreak}d Streak</span>
         </button>
 
-        {/* Notifications Icon with Brand Golden/Blue Badge */}
+        {/* Notifications Icon with Signal Blue Badge */}
         <button
           onClick={onOpenNotifications}
           className="relative p-2.5 rounded-full bg-white/10 hover:bg-white/15 text-white transition-all active:scale-95 min-h-[40px] min-w-[40px] flex items-center justify-center"
           aria-label="Notifications"
           title="Notifications"
         >
-          <Bell className="w-4 h-4 text-white/90 hover:text-[#3B82F6] transition-colors" />
+          <Bell className="w-4 h-4 text-white/90 hover:text-[#2F6FED] transition-colors" />
           {unreadNotificationsCount > 0 && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#D4AF37] text-black font-black text-[9px] rounded-full flex items-center justify-center shadow-md animate-pulse">
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#2F6FED] text-white font-bold text-[9px] rounded-full flex items-center justify-center shadow-md animate-pulse">
               {unreadNotificationsCount}
             </span>
           )}
         </button>
 
-        {/* Direct Messages Icon with Golden Badge */}
+        {/* Direct Messages Icon with Signal Blue Badge */}
         <button
           onClick={onOpenDMs}
           className="relative p-2.5 rounded-full bg-white/10 hover:bg-white/15 text-white transition-all active:scale-95 min-h-[40px] min-w-[40px] flex items-center justify-center"
           aria-label="Direct Messages"
           title="Messages & Groups"
         >
-          <MessageSquare className="w-4 h-4 text-white/90 hover:text-[#3B82F6] transition-colors" />
+          <MessageSquare className="w-4 h-4 text-white/90 hover:text-[#2F6FED] transition-colors" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#D4AF37] text-black font-black text-[9px] rounded-full flex items-center justify-center animate-bounce shadow-md">
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#2F6FED] text-white font-bold text-[9px] rounded-full flex items-center justify-center animate-bounce shadow-md">
               {unreadCount}
             </span>
           )}
@@ -125,7 +125,7 @@ export const BottomNavigation: React.FC<NavigationProps> = ({
           onClick={() => onSelectTab('home')}
           className={`flex flex-col items-center justify-center min-w-[54px] min-h-[48px] p-1 transition-all active:scale-95 ${
             currentTab === 'home'
-              ? 'text-[#D4AF37]'
+              ? 'text-[#2F6FED]'
               : 'text-white/40 hover:text-white/80'
           }`}
           aria-label="Today Feed"
@@ -139,12 +139,12 @@ export const BottomNavigation: React.FC<NavigationProps> = ({
           onClick={() => onSelectTab('streak')}
           className={`flex flex-col items-center justify-center min-w-[54px] min-h-[48px] p-1 transition-all active:scale-95 ${
             currentTab === 'streak'
-              ? 'text-[#D4AF37]'
+              ? 'text-[#2F6FED]'
               : 'text-white/40 hover:text-white/80'
           }`}
           aria-label="Challenges and Accountability"
         >
-          <Flame className={`w-5 h-5 ${currentTab === 'streak' ? 'text-[#D4AF37] fill-[#D4AF37]' : 'stroke-2'}`} />
+          <Flame className={`w-5 h-5 ${currentTab === 'streak' ? 'text-[#2F6FED] fill-[#2F6FED]' : 'stroke-2'}`} />
           <span className="text-[9px] mt-1 font-bold uppercase tracking-tighter">Challenges</span>
         </button>
 
@@ -152,7 +152,7 @@ export const BottomNavigation: React.FC<NavigationProps> = ({
         <div className="relative -top-2 flex items-center justify-center">
           <button
             onClick={onOpenCreate}
-            className="w-12 h-12 min-w-[48px] min-h-[48px] bg-[#D4AF37] rounded-full flex items-center justify-center text-black shadow-lg shadow-[#D4AF37]/30 hover:scale-105 active:scale-95 transition-transform"
+            className="w-12 h-12 min-w-[48px] min-h-[48px] bg-[#2F6FED] hover:bg-[#2861d6] rounded-full flex items-center justify-center text-white shadow-lg shadow-[#2F6FED]/30 hover:scale-105 active:scale-95 transition-transform"
             aria-label="What did you do today?"
             title="What did you do today?"
           >
@@ -165,7 +165,7 @@ export const BottomNavigation: React.FC<NavigationProps> = ({
           onClick={() => onSelectTab('discover')}
           className={`flex flex-col items-center justify-center min-w-[54px] min-h-[48px] p-1 transition-all active:scale-95 ${
             currentTab === 'discover'
-              ? 'text-[#D4AF37]'
+              ? 'text-[#2F6FED]'
               : 'text-white/40 hover:text-white/80'
           }`}
           aria-label="Explore Proof & People"
@@ -179,7 +179,7 @@ export const BottomNavigation: React.FC<NavigationProps> = ({
           onClick={() => onSelectTab('profile')}
           className={`flex flex-col items-center justify-center min-w-[54px] min-h-[48px] p-1 transition-all active:scale-95 ${
             currentTab === 'profile'
-              ? 'text-[#D4AF37]'
+              ? 'text-[#2F6FED]'
               : 'text-white/40 hover:text-white/80'
           }`}
           aria-label="Your Profile & Proof Timeline"
@@ -191,7 +191,7 @@ export const BottomNavigation: React.FC<NavigationProps> = ({
                 alt={currentUser.name}
                 referrerPolicy="no-referrer"
                 className={`w-5 h-5 rounded-full object-cover border transition-all ${
-                  currentTab === 'profile' ? 'border-[#D4AF37] ring-2 ring-[#D4AF37]/50' : 'border-white/30'
+                  currentTab === 'profile' ? 'border-[#2F6FED] ring-2 ring-[#2F6FED]/50' : 'border-white/30'
                 }`}
               />
             ) : (

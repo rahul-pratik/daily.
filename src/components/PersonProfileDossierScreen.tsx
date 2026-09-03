@@ -13,7 +13,6 @@ import {
   Filter,
   Check,
   Zap,
-  Pencil,
 } from 'lucide-react';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
 
@@ -28,54 +27,6 @@ import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
  */
 
 export type FocusPillar = 'building' | 'fitness' | 'learning';
-
-export interface GoalItem {
-  id: string;
-  pillar: FocusPillar;
-  pillarLabel: string;
-  pillarIcon: string;
-  title: string;
-  metric: string;
-  progressPercent: number;
-  statusText: string;
-  description: string;
-}
-
-const DEFAULT_GOALS: GoalItem[] = [
-  {
-    id: 'goal_saas',
-    pillar: 'building',
-    pillarLabel: 'Building',
-    pillarIcon: '💻',
-    title: 'Build SaaS',
-    metric: '42 days',
-    progressPercent: 84,
-    statusText: 'In active sprint',
-    description: 'Ship MVP, acquire early beta users, and validate recurring subscriptions.',
-  },
-  {
-    id: 'goal_run',
-    pillar: 'fitness',
-    pillarLabel: 'Fitness',
-    pillarIcon: '🏋️',
-    title: 'Run 10K',
-    metric: '67% complete',
-    progressPercent: 67,
-    statusText: 'Phase 2 volume',
-    description: 'Progressive weekly distance increments targeting sub-55 min 10K race pace.',
-  },
-  {
-    id: 'goal_python',
-    pillar: 'learning',
-    pillarLabel: 'Learning',
-    pillarIcon: '🧠',
-    title: 'Learn Python',
-    metric: '31/50 lessons',
-    progressPercent: 62,
-    statusText: 'Async & APIs',
-    description: 'Master asynchronous loops, decorators, dataclasses, and backend tooling.',
-  },
-];
 
 export interface TimelineMilestone {
   id: string;
@@ -105,86 +56,11 @@ export const PersonProfileDossierScreen: React.FC<PersonProfileDossierScreenProp
   const [selectedMilestone, setSelectedMilestone] = useState<TimelineMilestone | null>(null);
   const [isAddMilestoneOpen, setIsAddMilestoneOpen] = useState(false);
 
-  // Goal edit modal state
-  const [editingGoal, setEditingGoal] = useState<GoalItem | null>(null);
-  const [editTitle, setEditTitle] = useState('');
-  const [editMetric, setEditMetric] = useState('');
-  const [editProgress, setEditProgress] = useState<number>(0);
-  const [editStatusText, setEditStatusText] = useState('');
-  const [editDescription, setEditDescription] = useState('');
-
   // New milestone form state
   const [newDayNum, setNewDayNum] = useState<string>('43');
   const [newPillar, setNewPillar] = useState<FocusPillar>('building');
   const [newTitle, setNewTitle] = useState<string>('');
   const [newNote, setNewNote] = useState<string>('');
-
-  // Initial goals with localStorage persistence so edits are preserved
-  const [goals, setGoals] = useState<GoalItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('rahul_dossier_goals');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
-      }
-    } catch (err) {
-      console.warn('Error reading saved dossier goals:', err);
-    }
-    return DEFAULT_GOALS;
-  });
-
-  const handleOpenEditGoal = (goal: GoalItem) => {
-    vibrateLight();
-    setEditingGoal(goal);
-    setEditTitle(goal.title);
-    setEditMetric(goal.metric);
-    setEditProgress(goal.progressPercent);
-    setEditStatusText(goal.statusText);
-    setEditDescription(goal.description);
-  };
-
-  const handleSaveGoal = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingGoal || !editTitle.trim()) return;
-    vibrateStreakMilestone();
-
-    const updatedGoals = goals.map((g) => {
-      if (g.id === editingGoal.id) {
-        return {
-          ...g,
-          title: editTitle.trim(),
-          metric: editMetric.trim() || g.metric,
-          progressPercent: Math.min(100, Math.max(0, Number(editProgress))),
-          statusText: editStatusText.trim() || g.statusText,
-          description: editDescription.trim() || g.description,
-        };
-      }
-      return g;
-    });
-
-    setGoals(updatedGoals);
-    try {
-      localStorage.setItem('rahul_dossier_goals', JSON.stringify(updatedGoals));
-    } catch (err) {
-      console.warn('Error persisting dossier goals:', err);
-    }
-    setEditingGoal(null);
-  };
-
-  const handleResetCurrentGoal = () => {
-    if (!editingGoal) return;
-    vibrateLight();
-    const defaultMatch = DEFAULT_GOALS.find((g) => g.id === editingGoal.id);
-    if (defaultMatch) {
-      setEditTitle(defaultMatch.title);
-      setEditMetric(defaultMatch.metric);
-      setEditProgress(defaultMatch.progressPercent);
-      setEditStatusText(defaultMatch.statusText);
-      setEditDescription(defaultMatch.description);
-    }
-  };
 
   // Initial timeline entries exactly as specified:
   // Day 42 — shipped landing page
@@ -356,12 +232,6 @@ export const PersonProfileDossierScreen: React.FC<PersonProfileDossierScreenProp
       isKeyMilestone: false,
     },
   ]);
-
-  // Filtered goals based on active pillar
-  const displayedGoals =
-    activePillar === 'all'
-      ? goals
-      : goals.filter((g) => g.pillar === activePillar);
 
   // Filtered timeline based on active pillar, sorted descending by dayNumber
   const displayedTimeline = (
@@ -665,111 +535,7 @@ export const PersonProfileDossierScreen: React.FC<PersonProfileDossierScreenProp
         </div>
 
         {/* ========================================================
-            CURRENT GOALS SECTION
-            Build SaaS → 42 days
-            Run 10K → 67% complete
-            Learn Python → 31/50 lessons
-            ======================================================== */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between text-xs px-1">
-            <h3 className="font-semibold text-black dark:text-white">
-              Current goals
-            </h3>
-            <span className="font-mono text-xs text-black/50 dark:text-white/50">
-              {displayedGoals.length} active
-            </span>
-          </div>
-
-          <div className="space-y-2.5">
-            {displayedGoals.map((goal) => (
-              <div
-                key={goal.id}
-                id={`goal-card-${goal.id}`}
-                onClick={() => handleOpenEditGoal(goal)}
-                className="bg-white dark:bg-black border border-black/10 dark:border-white/10 hover:border-[#2F6FED]/60 dark:hover:border-[#2F6FED]/60 rounded-2xl p-4 space-y-3 transition-all cursor-pointer group active:scale-[0.99] select-none relative"
-                role="button"
-                tabIndex={0}
-                aria-label={`Edit ${goal.title}`}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handleOpenEditGoal(goal);
-                  }
-                }}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-9 h-9 rounded-xl bg-black/[0.04] dark:bg-white/[0.06] flex items-center justify-center text-base shrink-0 group-hover:scale-105 transition-transform">
-                      {goal.pillarIcon}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] font-medium text-black/50 dark:text-white/50">
-                          {goal.pillarLabel}
-                        </span>
-                        <span className="text-[10px] font-mono font-medium text-[#2F6FED] bg-[#2F6FED]/10 px-2 py-0.2 rounded-full">
-                          {goal.statusText}
-                        </span>
-                      </div>
-                      <h4 className="text-sm font-semibold text-black dark:text-white truncate group-hover:text-[#2F6FED] transition-colors">
-                        {goal.title}
-                      </h4>
-                    </div>
-                  </div>
-
-                  {/* Goal Metric in Mono & Edit Pencil Icon */}
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <div className="font-mono text-xs font-semibold text-black dark:text-white bg-black/[0.03] dark:bg-white/[0.05] px-2.5 py-1 rounded-lg border border-black/5 dark:border-white/5">
-                      {goal.metric}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenEditGoal(goal);
-                      }}
-                      className="p-1 rounded-md text-black/40 dark:text-white/40 group-hover:text-[#2F6FED] hover:bg-[#2F6FED]/10 transition-colors"
-                      title="Edit goal details"
-                      aria-label={`Edit ${goal.title}`}
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Progress Bar (Matching ChallengeDailyProofProgressBar) */}
-                <div className="space-y-1.5">
-                  <div className="h-2 w-full bg-black/10 dark:bg-white/10 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-[#2F6FED] transition-all duration-700 ease-out"
-                      style={{ width: `${Math.max(6, goal.progressPercent)}%` }}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between text-[11px] text-black/50 dark:text-white/50">
-                    <span className="truncate max-w-[75%]">{goal.description}</span>
-                    <span className="font-mono text-[#2F6FED] font-medium shrink-0 ml-2">
-                      {goal.progressPercent}%
-                    </span>
-                  </div>
-                </div>
-
-                {/* Tap to edit interactive hint */}
-                <div className="flex items-center justify-between text-[10px] text-black/40 dark:text-white/40 pt-0.5 border-t border-black/5 dark:border-white/5 opacity-70 group-hover:opacity-100 transition-opacity">
-                  <span className="flex items-center gap-1 text-[#2F6FED]/80 group-hover:text-[#2F6FED]">
-                    <Pencil className="w-2.5 h-2.5" />
-                    <span>Tap to update title, metric, or progress</span>
-                  </span>
-                  <span className="font-mono text-[9px] text-[#2F6FED] uppercase tracking-wider">
-                    Edit
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* ========================================================
-            UNDERNEATH: PROGRESS TIMELINE
+            PROGRESS TIMELINE
             Day 42 — shipped landing page
             Day 35 — first 10 users
             Day 27 — fixed authentication
@@ -995,202 +761,6 @@ export const PersonProfileDossierScreen: React.FC<PersonProfileDossierScreenProp
                   className="py-2.5 px-4 rounded-xl bg-black/[0.03] dark:bg-white/[0.04] text-black/70 dark:text-white/70 font-medium text-xs hover:bg-black/[0.06] dark:hover:bg-white/[0.08]"
                 >
                   Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================
-          SMALL GOAL EDIT MODAL
-          Allows updating goal title, target value (metric), and current progress
-          ======================================================== */}
-      {editingGoal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-          <div
-            className="w-full max-w-md bg-white dark:bg-[#0A0A0A] border border-black/10 dark:border-white/10 rounded-2xl p-5 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="edit-goal-title"
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-black/5 dark:border-white/5 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-black/[0.04] dark:bg-white/[0.06] flex items-center justify-center text-base">
-                  {editingGoal.pillarIcon}
-                </div>
-                <div>
-                  <h3 id="edit-goal-title" className="text-sm font-semibold text-black dark:text-white flex items-center gap-1.5">
-                    <span>Edit Goal</span>
-                    <span className="text-[10px] font-mono text-[#2F6FED] bg-[#2F6FED]/10 px-2 py-0.5 rounded-full">
-                      {editingGoal.pillarLabel}
-                    </span>
-                  </h3>
-                  <p className="text-[11px] text-black/50 dark:text-white/50">
-                    Update title, target value, or current progress
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setEditingGoal(null)}
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white hover:bg-black/[0.05] dark:hover:bg-white/[0.05] transition-colors"
-                aria-label="Close modal"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Form */}
-            <form onSubmit={handleSaveGoal} className="space-y-3.5">
-              {/* Goal Title */}
-              <div>
-                <label className="text-xs font-medium text-black/70 dark:text-white/70 block mb-1">
-                  Goal Title
-                </label>
-                <input
-                  type="text"
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-black/[0.02] dark:bg-white/[0.03] border border-black/10 dark:border-white/10 text-xs font-medium text-black dark:text-white focus:outline-none focus:border-[#2F6FED]"
-                  placeholder="e.g. Build SaaS"
-                  required
-                />
-              </div>
-
-              {/* Target Value / Metric */}
-              <div>
-                <label className="text-xs font-medium text-black/70 dark:text-white/70 block mb-1">
-                  Target Value / Badge Metric
-                </label>
-                <input
-                  type="text"
-                  value={editMetric}
-                  onChange={(e) => setEditMetric(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-black/[0.02] dark:bg-white/[0.03] border border-black/10 dark:border-white/10 text-xs font-mono text-black dark:text-white focus:outline-none focus:border-[#2F6FED]"
-                  placeholder="e.g. 42 days, 67% complete, 31/50 lessons"
-                  required
-                />
-                <span className="text-[10px] text-black/40 dark:text-white/40 block mt-1">
-                  Shown in the metric badge beside the goal
-                </span>
-              </div>
-
-              {/* Current Progress (% Slider + Direct Input + Live Bar) */}
-              <div className="p-3 rounded-xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-black/70 dark:text-white/70">
-                    Current Progress
-                  </label>
-                  <div className="flex items-center gap-1.5 font-mono text-xs font-semibold text-[#2F6FED]">
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={editProgress}
-                      onChange={(e) => setEditProgress(Math.min(100, Math.max(0, Number(e.target.value))))}
-                      className="w-14 px-1.5 py-0.5 text-right rounded-lg bg-white dark:bg-black border border-black/10 dark:border-white/10 text-xs font-mono text-[#2F6FED] focus:outline-none focus:border-[#2F6FED]"
-                    />
-                    <span>%</span>
-                  </div>
-                </div>
-
-                {/* Range Slider */}
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={1}
-                  value={editProgress}
-                  onChange={(e) => setEditProgress(Number(e.target.value))}
-                  className="w-full accent-[#2F6FED] cursor-pointer"
-                />
-
-                {/* Live Progress Preview Bar */}
-                <div className="space-y-1">
-                  <div className="h-2 w-full bg-black/10 dark:bg-white/10 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-[#2F6FED] transition-all duration-300"
-                      style={{ width: `${Math.max(6, editProgress)}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Quick percentage increments */}
-                <div className="flex items-center justify-between gap-1.5 pt-1">
-                  {[25, 50, 75, 100].map((pct) => (
-                    <button
-                      key={pct}
-                      type="button"
-                      onClick={() => {
-                        vibrateLight();
-                        setEditProgress(pct);
-                      }}
-                      className={`flex-1 py-1 rounded-lg text-[10px] font-mono font-medium transition-colors ${
-                        editProgress === pct
-                          ? 'bg-[#2F6FED] text-white'
-                          : 'bg-black/[0.04] dark:bg-white/[0.06] text-black/60 dark:text-white/60 hover:bg-black/[0.08] dark:hover:bg-white/[0.1]'
-                      }`}
-                    >
-                      {pct}%
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Status Text */}
-              <div>
-                <label className="text-xs font-medium text-black/70 dark:text-white/70 block mb-1">
-                  Status Tag (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={editStatusText}
-                  onChange={(e) => setEditStatusText(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-black/[0.02] dark:bg-white/[0.03] border border-black/10 dark:border-white/10 text-xs text-black dark:text-white focus:outline-none focus:border-[#2F6FED]"
-                  placeholder="e.g. In active sprint, Phase 2 volume"
-                />
-              </div>
-
-              {/* Target Description */}
-              <div>
-                <label className="text-xs font-medium text-black/70 dark:text-white/70 block mb-1">
-                  Description / Milestone Target
-                </label>
-                <textarea
-                  value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
-                  rows={2}
-                  className="w-full px-3 py-2 rounded-xl bg-black/[0.02] dark:bg-white/[0.03] border border-black/10 dark:border-white/10 text-xs text-black dark:text-white focus:outline-none focus:border-[#2F6FED]"
-                  placeholder="Description of target deliverables or training..."
-                />
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2 pt-2 border-t border-black/5 dark:border-white/5">
-                <button
-                  type="button"
-                  onClick={handleResetCurrentGoal}
-                  className="px-3 py-2.5 rounded-xl bg-black/[0.03] dark:bg-white/[0.04] text-black/60 dark:text-white/60 font-medium text-xs hover:bg-black/[0.06] dark:hover:bg-white/[0.08] transition-colors"
-                  title="Reset to default values"
-                >
-                  Reset
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditingGoal(null)}
-                  className="px-3.5 py-2.5 rounded-xl bg-black/[0.03] dark:bg-white/[0.04] text-black/70 dark:text-white/70 font-medium text-xs hover:bg-black/[0.06] dark:hover:bg-white/[0.08] transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 px-4 rounded-xl bg-[#2F6FED] hover:bg-[#2861d6] text-white font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm"
-                >
-                  <Check className="w-3.5 h-3.5" />
-                  <span>Update Goal</span>
                 </button>
               </div>
             </form>
