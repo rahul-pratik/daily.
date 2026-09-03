@@ -73,6 +73,10 @@ export class DailyStorageService {
     }
     try {
       const user: User = JSON.parse(data);
+      if (!user || typeof user !== 'object') {
+        this.saveCurrentUser(INITIAL_CURRENT_USER);
+        return INITIAL_CURRENT_USER;
+      }
       let changed = false;
       if (typeof user.streakFreezes !== 'number') {
         user.streakFreezes = 1;
@@ -84,6 +88,30 @@ export class DailyStorageService {
       }
       if (!Array.isArray(user.challengeBadges)) {
         user.challengeBadges = ['Early Bird', 'Consistency King'];
+        changed = true;
+      }
+      if (!Array.isArray(user.followedUserIds)) {
+        user.followedUserIds = INITIAL_CURRENT_USER.followedUserIds || [];
+        changed = true;
+      }
+      if (!Array.isArray(user.activityDates)) {
+        user.activityDates = INITIAL_CURRENT_USER.activityDates || [];
+        changed = true;
+      }
+      if (!Array.isArray(user.interests)) {
+        user.interests = INITIAL_CURRENT_USER.interests || [];
+        changed = true;
+      }
+      if (!Array.isArray(user.habits)) {
+        user.habits = INITIAL_CURRENT_USER.habits || [];
+        changed = true;
+      }
+      if (!Array.isArray(user.disciplineMilestones)) {
+        user.disciplineMilestones = INITIAL_CURRENT_USER.disciplineMilestones || [];
+        changed = true;
+      }
+      if (!Array.isArray(user.proofCollections)) {
+        user.proofCollections = INITIAL_CURRENT_USER.proofCollections || [];
         changed = true;
       }
       if (changed) {
@@ -106,7 +134,12 @@ export class DailyStorageService {
       return SAMPLE_USERS;
     }
     try {
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      if (!Array.isArray(parsed)) {
+        this.saveAllUsers(SAMPLE_USERS);
+        return SAMPLE_USERS;
+      }
+      return parsed;
     } catch {
       return SAMPLE_USERS;
     }
@@ -134,6 +167,10 @@ export class DailyStorageService {
     }
     try {
       const parsed: Post[] = JSON.parse(data);
+      if (!Array.isArray(parsed)) {
+        this.saveAllPosts(INITIAL_POSTS);
+        return INITIAL_POSTS;
+      }
       return parsed.map((p) => this.ensurePostEngagement(p));
     } catch {
       return INITIAL_POSTS;
@@ -166,7 +203,12 @@ export class DailyStorageService {
       return INITIAL_MESSAGES;
     }
     try {
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      if (!Array.isArray(parsed)) {
+        this.saveAllMessages(INITIAL_MESSAGES);
+        return INITIAL_MESSAGES;
+      }
+      return parsed;
     } catch {
       return INITIAL_MESSAGES;
     }
@@ -511,7 +553,8 @@ export class DailyStorageService {
       return initial;
     }
     try {
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      return Array.isArray(parsed) ? parsed : ['post_1', 'post_3'];
     } catch {
       return ['post_1', 'post_3'];
     }
@@ -534,7 +577,8 @@ export class DailyStorageService {
     const data = localStorage.getItem(STORAGE_KEYS.REPORTED_POSTS);
     if (!data) return [];
     try {
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      return Array.isArray(parsed) ? parsed : [];
     } catch {
       return [];
     }
@@ -559,7 +603,8 @@ export class DailyStorageService {
       return [...SAMPLE_GROUPS];
     }
     try {
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      return Array.isArray(parsed) ? parsed : [...SAMPLE_GROUPS];
     } catch {
       return [...SAMPLE_GROUPS];
     }
@@ -572,7 +617,8 @@ export class DailyStorageService {
     try {
       const challengesData = localStorage.getItem(STORAGE_KEYS.CHALLENGES);
       if (challengesData) {
-        const challenges: Challenge[] = JSON.parse(challengesData);
+        const parsed = JSON.parse(challengesData);
+        const challenges: Challenge[] = Array.isArray(parsed) ? parsed : [];
         let modified = false;
 
         challenges.forEach((ch) => {
@@ -596,7 +642,6 @@ export class DailyStorageService {
                   createdAt: getTodayDateString(),
                   isPrivateGroup: true,
                   isChallengeGroup: true,
-                  isChallengeSquad: true,
                   challengeId: ch.id,
                   teamId: team.id,
                   challengeTitle: ch.title,
@@ -621,7 +666,10 @@ export class DailyStorageService {
       // ignore
     }
 
-    return groups;
+    return groups.map((g) => ({
+      ...g,
+      memberIds: Array.isArray(g.memberIds) ? g.memberIds : [],
+    }));
   }
 
   static saveAllGroups(groups: Group[]): void {
@@ -818,7 +866,13 @@ export class DailyStorageService {
         this.saveAllDrafts(userId, initial);
         return initial;
       }
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      if (!Array.isArray(parsed)) {
+        const initial = this.getInitialDrafts(userId);
+        this.saveAllDrafts(userId, initial);
+        return initial;
+      }
+      return parsed;
     } catch {
       return this.getInitialDrafts(userId);
     }
@@ -1004,7 +1058,8 @@ export class DailyStorageService {
       return INITIAL_COMMUNITIES;
     }
     try {
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      return Array.isArray(parsed) ? parsed : INITIAL_COMMUNITIES;
     } catch {
       return INITIAL_COMMUNITIES;
     }
@@ -1029,7 +1084,7 @@ export class DailyStorageService {
 
         if (isMember) {
           // Leave community
-          const nextMemberIds = comm.memberIds.filter((id) => id !== currentUser.id);
+          const nextMemberIds = (comm.memberIds || []).filter((id) => id !== currentUser.id);
           status = 'left';
           return {
             ...comm,
@@ -1298,7 +1353,6 @@ export class DailyStorageService {
       createdAt: getTodayDateString(),
       isPrivateGroup: true,
       isChallengeGroup: true,
-      isChallengeSquad: true,
       challengeId: challenge.id,
       teamId: team.id,
       challengeTitle: challenge.title,
@@ -1634,7 +1688,8 @@ export class DailyStorageService {
       return initial;
     }
     try {
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      return Array.isArray(parsed) ? parsed : [];
     } catch {
       return [];
     }
@@ -1685,7 +1740,8 @@ export class DailyStorageService {
       return INITIAL_PERSONAL_HABITS;
     }
     try {
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      return Array.isArray(parsed) ? parsed : INITIAL_PERSONAL_HABITS;
     } catch {
       return INITIAL_PERSONAL_HABITS;
     }
@@ -1796,7 +1852,8 @@ export class DailyStorageService {
       return INITIAL_NOTIFICATIONS;
     }
     try {
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      return Array.isArray(parsed) ? parsed : INITIAL_NOTIFICATIONS;
     } catch {
       return INITIAL_NOTIFICATIONS;
     }
@@ -2525,16 +2582,18 @@ export class DailyStorageService {
         if (isMember) {
           // Leave challenge
           joined = false;
-          const nextParticipants = c.participantIds.filter((id) => id !== currentUser.id);
+          const nextParticipants = (c.participantIds || []).filter((id) => id !== currentUser.id);
           const nextCompleted = isMarkedCompleted
             ? Array.from(new Set([...(c.completedUserIds || []), currentUser.id]))
             : c.completedUserIds || [];
 
           // Also remove user from any team in this challenge
           const nextTeams = (c.teams || []).map((t) => {
-            if (t.memberIds.includes(currentUser.id)) {
-              const newMembers = t.members.filter((m) => m.userId !== currentUser.id);
-              const newMemberIds = t.memberIds.filter((id) => id !== currentUser.id);
+            const memberIds = t.memberIds || [];
+            const members = t.members || [];
+            if (memberIds.includes(currentUser.id)) {
+              const newMembers = members.filter((m) => m.userId !== currentUser.id);
+              const newMemberIds = memberIds.filter((id) => id !== currentUser.id);
               return {
                 ...t,
                 members: newMembers,
@@ -2544,7 +2603,7 @@ export class DailyStorageService {
               };
             }
             return t;
-          }).filter((t) => t.memberIds.length > 0); // Drop empty teams if deserted
+          }).filter((t) => (t.memberIds || []).length > 0); // Drop empty teams if deserted
 
           return {
             ...c,
@@ -2613,15 +2672,17 @@ export class DailyStorageService {
       if (c.id === challengeId) {
         // Remove user from any existing team in this challenge first
         const existingTeams = (c.teams || []).map((t) => {
-          if (t.memberIds.includes(currentUser.id)) {
+          const memberIds = t.memberIds || [];
+          const members = t.members || [];
+          if (memberIds.includes(currentUser.id)) {
             return {
               ...t,
-              memberIds: t.memberIds.filter((id) => id !== currentUser.id),
-              members: t.members.filter((m) => m.userId !== currentUser.id),
+              memberIds: memberIds.filter((id) => id !== currentUser.id),
+              members: members.filter((m) => m.userId !== currentUser.id),
             };
           }
           return t;
-        }).filter((t) => t.memberIds.length > 0);
+        }).filter((t) => (t.memberIds || []).length > 0);
 
         const nextParticipants = Array.from(new Set([...(c.participantIds || []), currentUser.id]));
 
@@ -2653,7 +2714,8 @@ export class DailyStorageService {
     const targetTeam = (target.teams || []).find((t) => t.id === teamId);
     if (!targetTeam) return { challenge: target, joined: false, error: 'Team not found' };
 
-    if (targetTeam.memberIds.length >= targetTeam.maxMembers && !targetTeam.memberIds.includes(currentUser.id)) {
+    const targetMemberIds = targetTeam.memberIds || [];
+    if (targetMemberIds.length >= targetTeam.maxMembers && !targetMemberIds.includes(currentUser.id)) {
       return {
         challenge: target,
         joined: false,
@@ -2667,13 +2729,15 @@ export class DailyStorageService {
       if (c.id === challengeId) {
         // Clean user from other teams
         const cleanTeams = (c.teams || []).map((t) => {
+          const memberIds = t.memberIds || [];
+          const members = t.members || [];
           if (t.id === teamId) {
-            if (t.memberIds.includes(currentUser.id)) {
+            if (memberIds.includes(currentUser.id)) {
               updatedTeam = t;
               return t;
             }
             const newMembers = [
-              ...t.members,
+              ...members,
               {
                 userId: currentUser.id,
                 userName: currentUser.name,
@@ -2684,22 +2748,22 @@ export class DailyStorageService {
                 role: 'member' as const,
               },
             ];
-            const newMemberIds = [...t.memberIds, currentUser.id];
+            const newMemberIds = [...memberIds, currentUser.id];
             updatedTeam = {
               ...t,
               members: newMembers,
               memberIds: newMemberIds,
             };
             return updatedTeam;
-          } else if (t.memberIds.includes(currentUser.id)) {
+          } else if (memberIds.includes(currentUser.id)) {
             return {
               ...t,
-              memberIds: t.memberIds.filter((id) => id !== currentUser.id),
-              members: t.members.filter((m) => m.userId !== currentUser.id),
+              memberIds: memberIds.filter((id) => id !== currentUser.id),
+              members: members.filter((m) => m.userId !== currentUser.id),
             };
           }
           return t;
-        }).filter((t) => t.memberIds.length > 0);
+        }).filter((t) => (t.memberIds || []).length > 0);
 
         const nextParticipants = Array.from(new Set([...(c.participantIds || []), currentUser.id]));
 
@@ -2728,9 +2792,11 @@ export class DailyStorageService {
     const updatedChallenges = all.map((c) => {
       if (c.id === challengeId) {
         const nextTeams = (c.teams || []).map((t) => {
-          if (!teamId || t.id === teamId || t.memberIds.includes(currentUser.id)) {
-            const nextMembers = t.members.filter((m) => m.userId !== currentUser.id);
-            const nextMemberIds = t.memberIds.filter((id) => id !== currentUser.id);
+          const memberIds = t.memberIds || [];
+          const members = t.members || [];
+          if (!teamId || t.id === teamId || memberIds.includes(currentUser.id)) {
+            const nextMembers = members.filter((m) => m.userId !== currentUser.id);
+            const nextMemberIds = memberIds.filter((id) => id !== currentUser.id);
             return {
               ...t,
               members: nextMembers,
@@ -2740,7 +2806,7 @@ export class DailyStorageService {
             };
           }
           return t;
-        }).filter((t) => t.memberIds.length > 0);
+        }).filter((t) => (t.memberIds || []).length > 0);
 
         return {
           ...c,
@@ -2759,7 +2825,7 @@ export class DailyStorageService {
     const targetUserId = userId || this.getCurrentUser().id;
     const challenge = this.getChallengeById(challengeId);
     if (!challenge || !challenge.teams) return undefined;
-    return challenge.teams.find((t) => t.memberIds.includes(targetUserId));
+    return challenge.teams.find((t) => (t.memberIds || []).includes(targetUserId));
   }
 
   static getChallengeUserProgress(
@@ -2888,31 +2954,46 @@ export class DailyStorageService {
       };
     }
 
-    const allProgressPosts = this.getAllChallengeProgressPosts(challengeId);
+    const allProgressPosts = this.getAllChallengeProgressPosts(challengeId) || [];
     const postsToday = allProgressPosts.filter((p) => p.postDate === today);
 
     // Determine target group/squad members
     let squadMembers: Array<{ userId: string; userName: string; userAvatar: string }> = [];
     let resolvedTeamName: string | undefined;
 
-    if (challenge.challengeType === 'group' && challenge.teams && challenge.teams.length > 0) {
+    if (challenge.challengeType === 'group' && Array.isArray(challenge.teams) && challenge.teams.length > 0) {
       const team = teamId
         ? challenge.teams.find((t) => t.id === teamId)
-        : challenge.teams.find((t) => t.members.some((m) => m.userId === currentUser.id)) || challenge.teams[0];
+        : challenge.teams.find((t) => Array.isArray(t.members) && t.members.some((m) => m.userId === currentUser.id)) ||
+          challenge.teams.find((t) => Array.isArray(t.memberIds) && t.memberIds.includes(currentUser.id)) ||
+          challenge.teams[0];
 
       if (team) {
         resolvedTeamName = team.name;
-        squadMembers = team.members.map((m) => ({
-          userId: m.userId,
-          userName: m.userName,
-          userAvatar: m.userAvatar,
-        }));
+        if (Array.isArray(team.members) && team.members.length > 0) {
+          squadMembers = team.members.map((m) => ({
+            userId: m.userId,
+            userName: m.userName,
+            userAvatar: m.userAvatar,
+          }));
+        } else if (Array.isArray(team.memberIds) && team.memberIds.length > 0) {
+          const allUsers = this.getAllUsers() || [];
+          const userMap = new Map(allUsers.map((u) => [u.id, u]));
+          squadMembers = team.memberIds.map((id) => {
+            const u = userMap.get(id);
+            return {
+              userId: id,
+              userName: id === currentUser.id ? currentUser.name : (u?.name || 'Member'),
+              userAvatar: id === currentUser.id ? currentUser.avatar : (u?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80'),
+            };
+          });
+        }
       }
     }
 
     // Fallback to participants if not a group or team has no members
     if (squadMembers.length === 0) {
-      const allUsers = this.getAllUsers();
+      const allUsers = this.getAllUsers() || [];
       const userMap = new Map(allUsers.map((u) => [u.id, u]));
       const participantIds = challenge.participantIds || [currentUser.id];
       squadMembers = participantIds.map((id) => {
@@ -3277,22 +3358,24 @@ export class DailyStorageService {
 
     // 2. Squads Leaderboard Calculation (for group challenges)
     const squads: ChallengeLeaderboardSquad[] = (challenge.teams || []).map((team) => {
+      const memberIds = team.memberIds || [];
+      const members = team.members || [];
       const teamPosts = allProgressPosts.filter(
-        (p) => p.teamId === team.id || team.memberIds.includes(p.userId)
+        (p) => p.teamId === team.id || memberIds.includes(p.userId)
       );
       const totalCheckins = Math.max(
         team.totalCheckinsCount || 0,
         teamPosts.length,
-        team.members.reduce((acc, m) => acc + (m.checkinsCount || 0), 0)
+        members.reduce((acc, m) => acc + (m.checkinsCount || 0), 0)
       );
       const totalCheers =
         teamPosts.reduce((acc, p) => acc + (p.cheersCount || 0), 0) + totalCheckins * 4;
 
       const memberCheckinCounts: Record<string, number> = {};
-      team.memberIds.forEach((mId) => {
+      memberIds.forEach((mId) => {
         memberCheckinCounts[mId] = teamPosts.filter((p) => p.userId === mId).length;
       });
-      let topMId = team.members[0]?.userId || team.leaderId;
+      let topMId = members[0]?.userId || team.leaderId;
       let maxC = 0;
       Object.entries(memberCheckinCounts).forEach(([mId, count]) => {
         if (count >= maxC) {
@@ -3300,23 +3383,23 @@ export class DailyStorageService {
           topMId = mId;
         }
       });
-      const topMember = team.members.find((m) => m.userId === topMId) || team.members[0];
+      const topMember = members.find((m) => m.userId === topMId) || members[0];
 
-      const expectedCheckins = Math.max(1, team.members.length * 10);
+      const expectedCheckins = Math.max(1, members.length * 10);
       const consistencyRate = Math.min(
         100,
         Math.max(60, Math.round((totalCheckins / expectedCheckins) * 100))
       );
       const score = totalCheckins * 120 + consistencyRate * 15 + totalCheers * 5;
 
-      const topContributors = team.members.map((m) => ({
+      const topContributors = members.map((m) => ({
         id: m.userId,
         name: m.userName,
         avatar: m.userAvatar,
         checkinsCount: m.checkinsCount || 1,
       }));
 
-      const isUserSquad = team.memberIds.includes(activeUserId);
+      const isUserSquad = memberIds.includes(activeUserId);
 
       return {
         rank: 0,
@@ -3325,17 +3408,17 @@ export class DailyStorageService {
         teamName: team.name,
         motto: team.motto,
         totalCheckins,
-        memberCount: team.memberIds.length,
+        memberCount: memberIds.length,
         maxMembers: team.maxMembers,
         consistencyRate,
-        averageCheckinsPerMember: Math.round((totalCheckins / Math.max(1, team.memberIds.length)) * 10) / 10,
+        averageCheckinsPerMember: Math.round((totalCheckins / Math.max(1, memberIds.length)) * 10) / 10,
         squadScore: score,
         score,
         topContributorName: topMember?.userName || 'Member',
         topContributorAvatar: topMember?.userAvatar || '',
         topContributorCheckins: Math.max(
           maxC,
-          Math.round(totalCheckins / Math.max(1, team.members.length))
+          Math.round(totalCheckins / Math.max(1, members.length))
         ),
         topContributors,
         totalCheers,
@@ -3840,13 +3923,13 @@ Keep the momentum alive squads! Let's lock in for next week 🔥`;
   static getDayActivityData(dateStr: string, userId?: string) {
     const currentUser = this.getCurrentUser();
     const targetUserId = userId || currentUser.id;
-    const allPosts = this.getAllPosts();
-    const allCommunities = this.getAllCommunities();
-    const allGroups = this.getAllGroups();
-    const allUsers = this.getAllUsers();
-    const allMessages = this.getAllMessages();
-    const allHabits = this.getPersonalHabits();
-    const allChallengePosts = this.getAllChallengeProgressPosts();
+    const allPosts = this.getAllPosts() || [];
+    const allCommunities = this.getAllCommunities() || [];
+    const allGroups = this.getAllGroups() || [];
+    const allUsers = this.getAllUsers() || [];
+    const allMessages = this.getAllMessages() || [];
+    const allHabits = this.getPersonalHabits() || [];
+    const allChallengePosts = this.getAllChallengeProgressPosts() || [];
     const allCollections = currentUser.proofCollections || [];
 
     // Check if target user has a post for this date

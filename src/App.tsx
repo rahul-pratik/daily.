@@ -11,6 +11,7 @@ import { HomeFeed } from './components/HomeFeed';
 import { ChallengesScreen } from './components/ChallengesScreen';
 import { DiscoverScreen } from './components/DiscoverScreen';
 import { ProfileScreen } from './components/ProfileScreen';
+import { PersonProfileDossierScreen } from './components/PersonProfileDossierScreen';
 import { CreatePostModal } from './components/CreatePostModal';
 import { StreakCelebrationModal } from './components/StreakCelebrationModal';
 import { CommentsModal } from './components/CommentsModal';
@@ -717,6 +718,14 @@ export default function App() {
                   }
                 }
               }}
+              onOpenDossier={() => setCurrentTab('dossier')}
+            />
+          )}
+
+          {currentTab === 'dossier' && (
+            <PersonProfileDossierScreen
+              onBack={() => setCurrentTab('profile')}
+              onOpenCreatePost={() => setIsCreateOpen(true)}
             />
           )}
         </main>
@@ -848,6 +857,10 @@ export default function App() {
           onSendDM={handleStartDMWithUser}
           onToggleLike={handleToggleLike}
           onOpenComments={(post) => setCommentsPost(post)}
+          onOpenDossier={() => {
+            setActiveProfileUser(null);
+            setCurrentTab('dossier');
+          }}
         />
 
         {/* Onboarding modal if not onboarded */}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Flame, CheckCircle2, UserPlus, Check, MessageSquare, Share2, Grid, List, Sparkles, UserX, ShieldAlert, AlertTriangle, ShieldCheck, Trophy, Swords } from 'lucide-react';
+import { X, Flame, CheckCircle2, UserPlus, Check, MessageSquare, Share2, Grid, List, Sparkles, UserX, ShieldAlert, AlertTriangle, ShieldCheck, Trophy, Swords, ChevronRight } from 'lucide-react';
 import { User, Post } from '../types';
 import { vibrateStreakMilestone, vibrateLight } from '../services/haptics';
 import { DirectChallengeInviteModal } from './DirectChallengeInviteModal';
@@ -16,6 +16,7 @@ interface UserProfileModalProps {
   onOpenComments: (post: Post) => void;
   onToggleBlock?: (userId: string) => void;
   isBlocked?: boolean;
+  onOpenDossier?: () => void;
 }
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
@@ -30,6 +31,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onOpenComments,
   onToggleBlock,
   isBlocked: isBlockedProp,
+  onOpenDossier,
 }) => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [copiedLink, setCopiedLink] = useState(false);
@@ -41,7 +43,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const isMe = user.id === currentUser.id || user.id === 'user_me';
   const isFollowing = currentUser.followedUserIds?.includes(user.id) || false;
   const isBlocked = isBlockedProp !== undefined ? isBlockedProp : (currentUser.blockedUserIds?.includes(user.id) || false);
-  const userPosts = posts.filter((p) => p.userId === user.id);
+  const userPosts = (posts || []).filter((p) => p.userId === user.id);
 
   const handleShare = () => {
     navigator.clipboard?.writeText(window.location.href);
@@ -197,6 +199,24 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 <Trophy className="w-4 h-4 stroke-[2.5]" />
                 <span>Direct Challenge Invite</span>
               </button>
+
+              {/* Person Dossier Button */}
+              {onOpenDossier && (
+                <button
+                  onClick={() => {
+                    vibrateLight();
+                    onClose();
+                    onOpenDossier();
+                  }}
+                  className="w-full py-2.5 px-3 rounded-2xl bg-[#2F6FED]/10 hover:bg-[#2F6FED]/15 border border-[#2F6FED]/30 text-white text-xs font-semibold flex items-center justify-between transition-all group"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#2F6FED]" />
+                    <span>View Person Dossier (Pillars & Timeline)</span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-[#2F6FED] group-hover:translate-x-0.5 transition-transform" />
+                </button>
+              )}
             </div>
           )}
 

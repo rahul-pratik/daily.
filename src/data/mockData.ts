@@ -215,6 +215,24 @@ export const INITIAL_PERSONAL_HABITS: PersonalHabit[] = [
 
 export const SAMPLE_USERS: User[] = [
   {
+    id: 'user_rahul',
+    name: 'Rahul',
+    username: 'rahul',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+    bio: 'Building SaaS, running 10K & learning Python. Showing up daily.',
+    interests: ['Building', 'Fitness', 'Learning', 'Coding', 'Startups'],
+    habits: ['Build SaaS', 'Run 10K', 'Learn Python'],
+    currentStreak: 42,
+    longestStreak: 42,
+    totalPosts: 42,
+    activityDates: Array.from({ length: 42 }, (_, i) => getPastDate(i)),
+    followersCount: 840,
+    followingCount: 120,
+    followedUserIds: ['user_me', 'user_sarah'],
+    lastPostedDate: getPastDate(0),
+    joinedDate: '2026-06-15',
+  },
+  {
     id: 'user_sarah',
     name: 'Sarah Chen',
     username: 'sarahcodes',

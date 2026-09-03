@@ -114,16 +114,16 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
   const isModerator = community.moderatorId === currentUser.id;
 
   // Members list
-  const memberUsers = allUsers.filter((u) => (community.memberIds || []).includes(u.id));
+  const memberUsers = (allUsers || []).filter((u) => (community.memberIds || []).includes(u.id));
   if (isMember && !memberUsers.some((u) => u.id === currentUser.id)) {
     memberUsers.unshift(currentUser);
   }
 
   // Pending applicants
-  const pendingUsers = allUsers.filter((u) => (community.pendingRequestUserIds || []).includes(u.id));
+  const pendingUsers = (allUsers || []).filter((u) => (community.pendingRequestUserIds || []).includes(u.id));
 
   // Related posts (by direct community tag, ID, or category)
-  const categoryPosts = posts.filter(
+  const categoryPosts = (posts || []).filter(
     (p) =>
       p.communityId === community.id ||
       p.tags?.some(

@@ -403,11 +403,11 @@ export const DirectMessagesModal: React.FC<DirectMessagesModalProps> = ({
                           />
                         </div>
                         <span className={`absolute -bottom-1 -right-1 text-[8px] font-black px-1.5 py-0.2 rounded-md border ${
-                          group.isChallengeSquad
+                          group.isChallengeGroup
                             ? 'bg-amber-400 text-black border-amber-300 font-black'
                             : 'bg-black text-[#D4AF37] border-[#D4AF37]/50'
                         }`}>
-                          {group.isChallengeSquad ? '⚔️ Squad' : group.category}
+                          {group.isChallengeGroup ? '⚔️ Squad' : group.category}
                         </span>
                       </div>
 
@@ -415,7 +415,7 @@ export const DirectMessagesModal: React.FC<DirectMessagesModalProps> = ({
                         <div className="flex items-center justify-between mb-0.5">
                           <span className="font-bold text-xs text-white truncate flex items-center gap-1">
                             {group.name}
-                            {group.isChallengeSquad && (
+                            {group.isChallengeGroup && (
                               <span className="text-[9px] text-amber-300 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
                                 Challenge
                               </span>
@@ -635,7 +635,7 @@ export const DirectMessagesModal: React.FC<DirectMessagesModalProps> = ({
             </div>
 
             {/* Squad Group Banner if viewing a challenge squad chat */}
-            {activeGroup && activeGroup.isChallengeSquad && (
+            {activeGroup && activeGroup.isChallengeGroup && (
               <div className="bg-amber-500/10 border-b border-amber-500/20 px-3.5 py-2.5 flex items-center justify-between gap-3 text-xs">
                 <div className="flex items-center gap-2 min-w-0">
                   <div className="w-6 h-6 rounded-lg bg-amber-400/20 border border-amber-400/40 flex items-center justify-center shrink-0">

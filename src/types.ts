@@ -188,7 +188,6 @@ export interface Group {
   challengeId?: string;
   teamId?: string;
   isChallengeGroup?: boolean;
-  isChallengeSquad?: boolean;
   challengeTitle?: string;
 }
 
@@ -584,7 +583,7 @@ export const AVAILABLE_HABITS = [
   'Early Rise',
 ] as const;
 
-export type NavigationTab = 'home' | 'streak' | 'create' | 'discover' | 'profile';
+export type NavigationTab = 'home' | 'streak' | 'create' | 'discover' | 'profile' | 'dossier';
 
 export type NotificationType =
   | 'like'

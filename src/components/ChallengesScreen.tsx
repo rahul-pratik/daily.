@@ -287,14 +287,12 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
           <div className="pt-3 border-t border-white/10 space-y-3 animate-in fade-in duration-200">
             <ChallengeCalendarOverlay
               currentUser={currentUser}
-              allChallenges={challenges}
-              onSelectDate={(dateStr) => {
-                setSelectedCalendarDate(dateStr);
-              }}
-              onSelectChallenge={(ch) => {
+              challenges={challenges}
+              onOpenChallenge={(ch) => {
                 setInitialChallengeTab('proofs');
                 setActiveChallengeScreen(ch);
               }}
+              onOpenCreate={onOpenCreate}
             />
           </div>
         )}

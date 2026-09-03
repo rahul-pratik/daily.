@@ -68,6 +68,7 @@ interface ProfileScreenProps {
   onOpenCreateDraft?: () => void;
   onOpenCreatePost?: () => void;
   onPublishDraftDirectly?: (draftId: string) => void;
+  onOpenDossier?: () => void;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
@@ -95,6 +96,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onOpenCreateDraft,
   onOpenCreatePost,
   onPublishDraftDirectly,
+  onOpenDossier,
 }) => {
   // Main clean tabs: strictly Proofs, Collections, and Milestones
   const [profileTab, setProfileTab] = useState<'proofs' | 'collections' | 'milestones'>('proofs');
@@ -434,6 +436,33 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <span>Trends, Diary & More</span>
           </button>
         </div>
+
+        {/* Person Dossier Quick Launch Banner */}
+        {onOpenDossier && (
+          <div className="mt-3 pt-3 border-t border-white/5">
+            <button
+              onClick={() => {
+                vibrateLight();
+                onOpenDossier();
+              }}
+              className="w-full py-2.5 px-3.5 rounded-2xl bg-[#2F6FED]/10 hover:bg-[#2F6FED]/15 border border-[#2F6FED]/30 text-white flex items-center justify-between transition-all group min-h-[44px] text-left active:scale-[0.99]"
+            >
+              <div className="flex items-center gap-2.5">
+                <span className="w-2 h-2 rounded-full bg-[#2F6FED]" />
+                <div>
+                  <div className="text-xs font-semibold text-white group-hover:text-[#2F6FED] transition-colors flex items-center gap-1.5">
+                    <span>Rahul's Person Dossier</span>
+                    <span className="text-[10px] font-mono text-[#2F6FED] bg-[#2F6FED]/10 px-1.5 py-0.5 rounded-full">Active</span>
+                  </div>
+                  <div className="text-[10px] text-white/50 font-mono">
+                    Goals, Pillars (Building/Fitness/Learning) & Timeline
+                  </div>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-[#2F6FED] group-hover:translate-x-0.5 transition-transform" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Clean Profile Navigation Tabs: STRICTLY 3 TABS (Proofs, Collections, Milestones) */}
