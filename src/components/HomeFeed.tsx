@@ -2,24 +2,15 @@ import React, { useState } from 'react';
 import {
   Flame,
   Sparkles,
-  Filter,
   Users,
-  RefreshCw,
-  BookOpen,
-  Eye,
-  Check,
   Search,
   X,
   Compass,
   PlusCircle,
-  Hash,
-  Layers,
 } from 'lucide-react';
 import { Post, User } from '../types';
 import { PostCard } from './PostCard';
-import { getTodayDateString } from '../services/storage';
 import { PullToRefresh } from './PullToRefresh';
-import { StreakCalendarCard } from './StreakCalendarCard';
 import { EmptyStateIllustration } from './EmptyStateIllustration';
 import { handleHorizontalWheelScroll } from '../utils/scroll';
 import { vibrateLight } from '../services/haptics';
@@ -70,10 +61,6 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
   const [feedFilter, setFeedFilter] = useState<FeedCategoryFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTag, setActiveTag] = useState<string | null>(null);
-  const [isFocusMode, setIsFocusMode] = useState<boolean>(false);
-  const [selectedDateFilter, setSelectedDateFilter] = useState<string | null>(null);
-
-  const today = getTodayDateString();
 
   // Filter out blocked users & reported posts
   const unblockedPosts = posts.filter(
@@ -100,7 +87,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
     return true;
   });
 
-  // Apply Search, Tag, and Date Filters
+  // Apply Search and Tag Filters
   const filteredPosts = categoryFilteredPosts.filter((post) => {
     // Search query filter
     if (searchQuery.trim()) {
@@ -116,13 +103,6 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
 
     // Active tag filter
     if (activeTag && (!post.tags || !post.tags.includes(activeTag))) {
-      return false;
-    }
-
-    // Date filter
-    if (selectedDateFilter) {
-      if (post.postDate && post.postDate === selectedDateFilter) return true;
-      if (selectedDateFilter === today && post.createdAt?.includes('Today')) return true;
       return false;
     }
 
@@ -143,11 +123,6 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
     }
   };
 
-  const toggleFocusMode = () => {
-    vibrateLight();
-    setIsFocusMode(!isFocusMode);
-  };
-
   return (
     <PullToRefresh
       onRefresh={handleFeedRefresh}
@@ -157,17 +132,6 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
       completedText="Feed updated • Just now"
     >
       <div className="w-full pb-24 pt-2 px-3 sm:px-4 max-w-lg mx-auto space-y-3">
-        {/* Streak Calendar on Home Screen */}
-        {!isFocusMode && (
-          <StreakCalendarCard
-            currentUser={currentUser}
-            posts={posts}
-            onOpenCreate={onOpenCreate}
-            selectedDateFilter={selectedDateFilter}
-            onSelectDateFilter={setSelectedDateFilter}
-          />
-        )}
-
         {/* Global Search Bar */}
         <div className="relative">
           <div className="relative flex items-center">
@@ -191,100 +155,67 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
           </div>
         </div>
 
-        {/* Focus Reading Mode Active Bar */}
-        {isFocusMode && (
-          <div className="p-3.5 rounded-2xl bg-[#141414] border border-[#2F6FED]/40 flex items-center justify-between shadow-lg shadow-black/60 sticky top-2 z-20 backdrop-blur-md">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-xl bg-[#2F6FED]/10 border border-[#2F6FED]/30 flex items-center justify-center text-[#2F6FED]">
-                <BookOpen className="w-4 h-4" />
-              </div>
-              <div>
-                <span className="font-bold text-xs text-white flex items-center gap-1.5">
-                  Focus Reading Mode
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                </span>
-                <p className="text-[10px] text-white/50">Clean, distraction-free post text</p>
-              </div>
-            </div>
+        {/* Primary Filter Tabs: 'All' | 'Following' | 'Interests' */}
+        <div className="flex items-center justify-between gap-2 border-b border-white/5 pb-2.5">
+          <div className="flex items-center gap-1 bg-white/5 p-1 rounded-2xl border border-white/5">
             <button
-              onClick={toggleFocusMode}
-              className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs transition-colors border border-white/10"
+              onClick={() => {
+                vibrateLight();
+                setFeedFilter('all');
+                setActiveTag(null);
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                feedFilter === 'all'
+                  ? 'bg-[#2F6FED] text-white font-black shadow-md shadow-[#2F6FED]/20'
+                  : 'text-white/60 hover:text-white'
+              }`}
             >
-              Exit Focus
+              All
+            </button>
+
+            <button
+              onClick={() => {
+                vibrateLight();
+                setFeedFilter('following');
+                setActiveTag(null);
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
+                feedFilter === 'following'
+                  ? 'bg-[#2F6FED] text-white font-black shadow-md shadow-[#2F6FED]/20'
+                  : 'text-white/60 hover:text-white'
+              }`}
+            >
+              <Users className="w-3 h-3" />
+              <span>Following</span>
+            </button>
+
+            <button
+              onClick={() => {
+                vibrateLight();
+                setFeedFilter('interests');
+                setActiveTag(null);
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
+                feedFilter === 'interests'
+                  ? 'bg-[#2F6FED] text-white font-black shadow-md shadow-[#2F6FED]/20'
+                  : 'text-white/60 hover:text-white'
+              }`}
+            >
+              <Sparkles className="w-3 h-3" />
+              <span>Interests</span>
             </button>
           </div>
-        )}
 
-        {/* Primary Filter Tabs: 'All' | 'Following' | 'Interests' */}
-        {!isFocusMode && (
-          <div className="flex items-center justify-between gap-2 border-b border-white/5 pb-2.5">
-            <div className="flex items-center gap-1 bg-white/5 p-1 rounded-2xl border border-white/5">
-              <button
-                onClick={() => {
-                  vibrateLight();
-                  setFeedFilter('all');
-                  setActiveTag(null);
-                }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  feedFilter === 'all'
-                    ? 'bg-[#2F6FED] text-white font-black shadow-md shadow-[#2F6FED]/20'
-                    : 'text-white/60 hover:text-white'
-                }`}
-              >
-                All
-              </button>
-
-              <button
-                onClick={() => {
-                  vibrateLight();
-                  setFeedFilter('following');
-                  setActiveTag(null);
-                }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
-                  feedFilter === 'following'
-                    ? 'bg-[#2F6FED] text-white font-black shadow-md shadow-[#2F6FED]/20'
-                    : 'text-white/60 hover:text-white'
-                }`}
-              >
-                <Users className="w-3 h-3" />
-                <span>Following</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  vibrateLight();
-                  setFeedFilter('interests');
-                  setActiveTag(null);
-                }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
-                  feedFilter === 'interests'
-                    ? 'bg-[#2F6FED] text-white font-black shadow-md shadow-[#2F6FED]/20'
-                    : 'text-white/60 hover:text-white'
-                }`}
-              >
-                <Sparkles className="w-3 h-3" />
-                <span>Interests</span>
-              </button>
-            </div>
-
-            {/* Right controls: Focus mode toggle + Result count */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={toggleFocusMode}
-                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-all border border-white/10 min-h-[36px] min-w-[36px] flex items-center justify-center"
-                title="Toggle Focus Reading Mode"
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-              </button>
-              <span className="text-[10px] uppercase tracking-widest text-white/40 font-semibold whitespace-nowrap">
-                {filteredPosts.length} {filteredPosts.length === 1 ? 'proof' : 'proofs'}
-              </span>
-            </div>
+          {/* Right controls: Result count */}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] uppercase tracking-widest text-white/40 font-semibold whitespace-nowrap">
+              {filteredPosts.length} {filteredPosts.length === 1 ? 'proof' : 'proofs'}
+            </span>
           </div>
-        )}
+        </div>
 
         {/* Tag filter pills (Horizontally Scrollable) */}
-        {!isFocusMode && availableTags.length > 0 && (
+        {availableTags.length > 0 && (
           <div
             onWheel={handleHorizontalWheelScroll}
             className="w-full flex items-center gap-1.5 overflow-x-auto whitespace-nowrap flex-nowrap pb-1 no-scrollbar touch-pan-x overscroll-x-contain py-1"
@@ -344,7 +275,6 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                 onSharePost={onSharePost}
                 onOpenInsights={onOpenInsights}
                 onDeletePost={onDeletePost}
-                isFocusMode={isFocusMode}
                 onOpenAddToCollection={onOpenAddToCollection}
               />
             ))}

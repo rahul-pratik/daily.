@@ -20,7 +20,6 @@ interface PostCardProps {
   onSharePost?: (post: Post) => void;
   onOpenInsights?: (post: Post) => void;
   onDeletePost?: (postId: string) => void;
-  isFocusMode?: boolean;
   onOpenAddToCollection?: (post: Post) => void;
 }
 
@@ -40,7 +39,6 @@ export const PostCard: React.FC<PostCardProps> = ({
   onSharePost,
   onOpenInsights,
   onDeletePost,
-  isFocusMode = false,
   onOpenAddToCollection,
 }) => {
   const [showHeartBurst, setShowHeartBurst] = useState(false);
@@ -184,8 +182,7 @@ export const PostCard: React.FC<PostCardProps> = ({
         </div>
 
         {/* Follow Button & Options */}
-        {!isFocusMode && (
-          <div className="flex items-center gap-1.5 relative">
+        <div className="flex items-center gap-1.5 relative">
             {isMyPost && onOpenInsights && (
               <button
                 onClick={() => onOpenInsights(post)}
@@ -327,13 +324,12 @@ export const PostCard: React.FC<PostCardProps> = ({
               )}
             </div>
           </div>
-        )}
       </header>
 
       {/* Post Media (Image carousel if present) with double-tap heart */}
       {allPhotos.length > 0 ? (
         <div
-          onClick={!isFocusMode ? handleDoubleTap : undefined}
+          onClick={handleDoubleTap}
           className="relative w-full aspect-[4/3] sm:aspect-[16/10] bg-[#0A0A0A] overflow-hidden cursor-pointer select-none group"
         >
           <img
@@ -404,7 +400,7 @@ export const PostCard: React.FC<PostCardProps> = ({
           )}
 
           {/* Heart burst animation on double tap */}
-          {!isFocusMode && showHeartBurst && (
+          {showHeartBurst && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none animate-ping">
               <Heart className="w-24 h-24 text-red-500 fill-red-500 drop-shadow-2xl opacity-90" />
             </div>
@@ -413,7 +409,7 @@ export const PostCard: React.FC<PostCardProps> = ({
       ) : null}
 
       {/* Caption & Content */}
-      <div className={isFocusMode ? "p-5 space-y-3" : "p-4 space-y-2"}>
+      <div className="p-4 space-y-2">
         {/* If Challenge Recap, render rich collective recap & MVP spotlight */}
         {post.challengeRecapData && (
           <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-500/10 via-[#2F6FED]/5 to-transparent border border-amber-500/30 space-y-2.5 mb-2">
@@ -462,7 +458,7 @@ export const PostCard: React.FC<PostCardProps> = ({
           </div>
         )}
 
-        <p className={isFocusMode ? "text-base sm:text-lg leading-relaxed text-white font-normal break-words py-1 tracking-wide" : "text-sm leading-relaxed text-white/80 break-words"}>
+        <p className="text-sm leading-relaxed text-white/80 break-words">
           {post.content}
         </p>
 
@@ -484,9 +480,8 @@ export const PostCard: React.FC<PostCardProps> = ({
           </div>
         )}
 
-        {/* Action Bar (Hidden in Focus Reading mode) */}
-        {!isFocusMode && (
-          <div className="pt-2 flex items-center justify-between text-white/40">
+        {/* Action Bar */}
+        <div className="pt-2 flex items-center justify-between text-white/40">
             <div className="flex items-center gap-3 sm:gap-4">
               {/* Like Button */}
               <button
@@ -573,7 +568,6 @@ export const PostCard: React.FC<PostCardProps> = ({
               </button>
             </div>
           </div>
-        )}
       </div>
 
       {/* Delete Confirmation Modal */}

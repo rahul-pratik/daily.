@@ -45,18 +45,8 @@ export const TopHeader: React.FC<{
         </p>
       </button>
 
-      {/* Right controls: Rahul Dossier + Global Search + Streak Counter pill + Notification Bell + DM button */}
+      {/* Right controls: Global Search + Notifications + DMs */}
       <div className="flex items-center gap-1.5 sm:gap-2">
-        {/* Rahul's Person Dossier Button */}
-        <button
-          onClick={() => onSelectTab('dossier')}
-          className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-white/5 hover:bg-[#2F6FED]/15 border border-white/10 hover:border-[#2F6FED]/40 transition-colors text-xs font-semibold text-white hover:text-[#2F6FED] min-h-[40px] active:scale-95"
-          title="View Rahul's Person Dossier: Pillars & Timeline"
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-[#2F6FED]" />
-          <span className="font-mono text-xs">Rahul</span>
-        </button>
-
         {/* Global Search Button */}
         <button
           onClick={onOpenSearch}
@@ -65,16 +55,6 @@ export const TopHeader: React.FC<{
           title="Search communities, users, tags..."
         >
           <Search className="w-4 h-4" />
-        </button>
-
-        {/* Streak Pill */}
-        <button
-          onClick={() => onSelectTab('streak')}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 hover:border-[#2F6FED]/40 transition-colors text-xs font-bold text-[#2F6FED] min-h-[40px] active:scale-95"
-          title="View your streak history"
-        >
-          <Flame className="w-4 h-4 text-[#2F6FED] fill-[#2F6FED] animate-pulse shrink-0" />
-          <span className="whitespace-nowrap">{currentUser.currentStreak}d Streak</span>
         </button>
 
         {/* Notifications Icon with Signal Blue Badge */}
