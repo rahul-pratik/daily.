@@ -18,7 +18,6 @@ import {
   Trash2,
   Plus,
   Check,
-  Award,
   ShieldCheck,
   FileText,
   Clock,
@@ -27,19 +26,17 @@ import {
   Layers,
   ChevronRight,
   BookOpen,
-  TrendingUp,
   X,
   Eye,
   Activity,
   Zap,
 } from 'lucide-react';
-import { User, Post, ProofCollection, AVAILABLE_DISCIPLINE_MILESTONES, PostDraft } from '../types';
+import { User, Post, ProofCollection, PostDraft } from '../types';
 import { PostCard } from './PostCard';
 import { EmptyStateIllustration } from './EmptyStateIllustration';
-import { DisciplineMilestonesModal } from './DisciplineMilestonesModal';
-import { ActivityTrendChart } from './ActivityTrendChart';
 import { PersonProfileDossierScreen } from './PersonProfileDossierScreen';
 import { PostInsightsModal } from './PostInsightsModal';
+import { StreakFreezeCard } from './StreakFreezeCard';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
 import { DailyStorageService } from '../services/storage';
 
@@ -48,7 +45,7 @@ interface ProfileScreenProps {
   posts: Post[];
   savedPostIds?: string[];
   reportedPostIds?: string[];
-  initialTab?: 'dossier' | 'proofs' | 'collections' | 'milestones';
+  initialTab?: 'dossier' | 'proofs' | 'collections';
   onToggleLike: (postId: string) => void;
   onOpenComments: (post: Post) => void;
   onOpenEditProfile: () => void;
@@ -64,12 +61,13 @@ interface ProfileScreenProps {
   onDeleteCollection?: (collectionId: string) => void;
   onRemovePostFromCollection?: (collectionId: string, postId: string) => void;
   onOpenAddToCollection?: (post: Post) => void;
-  onUpdateMilestones?: (milestoneIds: string[]) => void;
   onOpenResumeDraft?: (draft: PostDraft) => void;
   onOpenCreateDraft?: () => void;
   onOpenCreatePost?: () => void;
   onPublishDraftDirectly?: (draftId: string) => void;
   onOpenDossier?: () => void;
+  onUserUpdated?: (user: User) => void;
+  onOpenNotifications?: () => void;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
@@ -93,27 +91,29 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onDeleteCollection = (_collectionId: string) => {},
   onRemovePostFromCollection = (_collectionId: string, _postId: string) => {},
   onOpenAddToCollection,
-  onUpdateMilestones,
   onOpenResumeDraft,
   onOpenCreateDraft,
   onOpenCreatePost,
   onPublishDraftDirectly,
   onOpenDossier,
+  onUserUpdated,
+  onOpenNotifications,
 }) => {
-  // Main clean tabs: Dossier, Proofs, Collections, and Milestones
-  const [profileTab, setProfileTab] = useState<'dossier' | 'proofs' | 'collections' | 'milestones'>(initialTab);
+  // Main clean tabs: Dossier, Proofs, Collections
+  const [profileTab, setProfileTab] = useState<'dossier' | 'proofs' | 'collections'>(
+    initialTab === 'milestones' as any ? 'proofs' : initialTab
+  );
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
-  // Popup Hub Modal for Trends, Insights, Drafts, and Saved
+  // Popup Hub Modal for Insights, Drafts, and Saved
   const [isQuickHubOpen, setIsQuickHubOpen] = useState(false);
-  const [activeHubView, setActiveHubView] = useState<'trends' | 'insights' | 'drafts' | 'saved' | null>(null);
+  const [activeHubView, setActiveHubView] = useState<'insights' | 'drafts' | 'saved' | null>(null);
 
   // Settings & share state
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
-  const [isMilestonesModalOpen, setIsMilestonesModalOpen] = useState(false);
 
   // Drafts & Scheduled Queue State
   const [drafts, setDrafts] = useState<PostDraft[]>(() => DailyStorageService.getAllDrafts(currentUser.id));
@@ -192,15 +192,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   // Quick Hub Options Configuration
   const hubOptions = [
     {
-      id: 'trends' as const,
-      title: 'Trends',
-      subtitle: '30-Day Activity & Velocity Chart',
-      icon: <TrendingUp className="w-5 h-5 text-[#2F6FED]" />,
-      badge: '30-Day',
-      badgeColor: 'bg-[#2F6FED]/15 text-[#2F6FED] border-[#2F6FED]/30',
-      gradient: 'from-blue-950/40 to-black',
-    },
-    {
       id: 'insights' as const,
       title: 'Insights',
       subtitle: 'Engagement Analytics & Performance',
@@ -246,7 +237,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 setIsQuickHubOpen(true);
               }}
               className="px-3 py-1.5 rounded-full bg-[#2F6FED]/15 hover:bg-[#2F6FED]/25 border border-[#2F6FED]/40 text-[#2F6FED] text-xs font-black transition-all flex items-center gap-1.5 shadow-sm shadow-[#2F6FED]/10 active:scale-95"
-              title="Open Trends, Insights, Drafts & Saved"
+              title="Open Insights, Analytics & Saved"
             >
               <Sparkles className="w-3.5 h-3.5 fill-[#2F6FED]" />
               <span>Hub & Tools</span>
@@ -426,7 +417,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             className="py-2.5 px-3 rounded-xl bg-[#2F6FED]/10 hover:bg-[#2F6FED]/20 border border-[#2F6FED]/30 text-[#2F6FED] text-xs font-black flex items-center justify-center gap-2 transition-all min-h-[44px] shadow-sm shadow-[#2F6FED]/10 active:scale-[0.99]"
           >
             <Sparkles className="w-3.5 h-3.5 fill-[#2F6FED]" />
-            <span>Trends, Analytics & Saved</span>
+            <span>Analytics & Saved</span>
           </button>
         </div>
 
@@ -461,6 +452,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Streak Freeze Shield (Shifted from Challenges Tab to Profile Tab) */}
+      <StreakFreezeCard
+        currentUser={currentUser}
+        onUserUpdated={onUserUpdated}
+        onOpenNotifications={onOpenNotifications}
+      />
 
       {/* Clean Profile Navigation Tabs */}
       <div className="space-y-3 pt-2">
@@ -514,22 +512,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               <Folder className="w-3.5 h-3.5" />
               <span>Collections ({collections.length})</span>
             </button>
-
-            <button
-              onClick={() => {
-                vibrateLight();
-                setProfileTab('milestones');
-                setSelectedCollectionId(null);
-              }}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
-                profileTab === 'milestones'
-                  ? 'bg-[#2F6FED] text-white shadow-sm font-bold'
-                  : 'text-white/60 hover:text-white'
-              }`}
-            >
-              <Award className="w-3.5 h-3.5 text-[#2F6FED]" />
-              <span>Milestones ({currentUser.disciplineMilestones?.length || 0}/3)</span>
-            </button>
           </div>
 
           {/* Grid vs List View Selector (when viewing Proofs) or New Collection Button */}
@@ -566,17 +548,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             >
               <Plus className="w-3.5 h-3.5 stroke-[3]" />
               <span>New Box</span>
-            </button>
-          ) : profileTab === 'milestones' ? (
-            <button
-              onClick={() => {
-                vibrateLight();
-                setIsMilestonesModalOpen(true);
-              }}
-              className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs flex items-center gap-1 border border-white/10 active:scale-95 whitespace-nowrap shrink-0 min-h-[36px]"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-[#2F6FED]" />
-              <span>Equip</span>
             </button>
           ) : null}
         </div>
@@ -949,124 +920,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         </div>
       )}
 
-      {/* TAB 3: MILESTONES TAB */}
-      {profileTab === 'milestones' && (
-        <div className="space-y-4 animate-in fade-in">
-          {/* Discipline Milestones Showcase */}
-          <div className="p-5 rounded-3xl bg-white/[0.03] border border-white/10 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-xs font-black uppercase tracking-wider text-[#2F6FED] flex items-center gap-1.5">
-                  <Award className="w-4 h-4" />
-                  Equipped Milestones ({currentUser.disciplineMilestones?.length || 0}/3)
-                </span>
-                <p className="text-[11px] text-white/50 mt-0.5">
-                  Your discipline badges displayed on your profile card.
-                </p>
-              </div>
 
-              <button
-                onClick={() => {
-                  vibrateLight();
-                  setIsMilestonesModalOpen(true);
-                }}
-                className="px-3 py-1.5 rounded-xl bg-[#2F6FED] text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-[#2F6FED]/20 active:scale-95"
-              >
-                <Sparkles className="w-3.5 h-3.5 fill-black" />
-                <span>Equip Slots</span>
-              </button>
-            </div>
 
-            {/* 3 Slots */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              {[0, 1, 2].map((slotIdx) => {
-                const activeId = currentUser.disciplineMilestones?.[slotIdx];
-                const milestone = AVAILABLE_DISCIPLINE_MILESTONES.find((m) => m.id === activeId);
-
-                if (milestone) {
-                  return (
-                    <div
-                      key={slotIdx}
-                      onClick={() => {
-                        vibrateLight();
-                        setIsMilestonesModalOpen(true);
-                      }}
-                      className="p-3.5 rounded-2xl bg-[#2F6FED]/10 border border-[#2F6FED]/30 hover:border-[#2F6FED] text-left cursor-pointer transition-all shadow-sm relative group"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-2xl">{milestone.icon}</span>
-                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-black/60 text-[#2F6FED] border border-[#2F6FED]/20">
-                          {milestone.category}
-                        </span>
-                      </div>
-                      <p className="font-black text-xs text-white truncate mt-2">{milestone.title}</p>
-                      <p className="text-[10px] text-white/60 line-clamp-2 mt-0.5">{milestone.description}</p>
-                      <div className="mt-2 pt-2 border-t border-white/5 flex items-center justify-between text-[9px] text-[#2F6FED]">
-                        <span>Slot #{slotIdx + 1}</span>
-                        <span className="font-bold">Active</span>
-                      </div>
-                    </div>
-                  );
-                }
-
-                return (
-                  <button
-                    key={slotIdx}
-                    onClick={() => {
-                      vibrateLight();
-                      setIsMilestonesModalOpen(true);
-                    }}
-                    className="p-4 rounded-2xl bg-white/[0.02] hover:bg-white/[0.06] border border-dashed border-white/15 text-center flex flex-col items-center justify-center min-h-[110px] transition-all cursor-pointer group"
-                  >
-                    <Plus className="w-5 h-5 text-white/30 group-hover:text-[#2F6FED] transition-colors" />
-                    <span className="text-[11px] font-bold text-white/40 group-hover:text-white mt-1.5">
-                      Empty Slot {slotIdx + 1}
-                    </span>
-                    <span className="text-[9px] text-white/30 mt-0.5">Tap to select badge</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* All Available Categories & Discipline Levels */}
-          <div className="p-4 rounded-3xl bg-white/[0.02] border border-white/5 space-y-3">
-            <h3 className="text-xs font-bold text-white/80 uppercase tracking-wider">
-              Discipline Categories & Badges ({AVAILABLE_DISCIPLINE_MILESTONES.length} Total)
-            </h3>
-            <div className="grid grid-cols-2 gap-2">
-              {AVAILABLE_DISCIPLINE_MILESTONES.slice(0, 6).map((m) => {
-                const isEquipped = (currentUser.disciplineMilestones || []).includes(m.id);
-                return (
-                  <div
-                    key={m.id}
-                    onClick={() => {
-                      vibrateLight();
-                      setIsMilestonesModalOpen(true);
-                    }}
-                    className={`p-2.5 rounded-2xl border transition-all cursor-pointer flex items-center gap-2.5 ${
-                      isEquipped
-                        ? 'bg-[#2F6FED]/15 border-[#2F6FED]/40 text-white'
-                        : 'bg-white/5 border-white/5 text-white/70 hover:bg-white/10'
-                    }`}
-                  >
-                    <span className="text-xl shrink-0">{m.icon}</span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold truncate text-white">{m.title}</p>
-                      <span className="text-[9px] text-white/40 uppercase">{m.category}</span>
-                    </div>
-                    {isEquipped && (
-                      <Check className="w-3.5 h-3.5 text-[#2F6FED] stroke-[3] shrink-0" />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* POP-UP OPTIONS MENU MODAL: Trends, Insights, Daily Diary, Drafts, and Saved */}
+      {/* POP-UP OPTIONS MENU MODAL: Insights, Drafts, and Saved */}
       {isQuickHubOpen && (
         <div
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
@@ -1084,7 +940,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 </div>
                 <div>
                   <h2 className="text-sm font-black text-white">Profile Tools & Quick Hub</h2>
-                  <p className="text-[11px] text-white/50">Explore trends, insights & drafts</p>
+                  <p className="text-[11px] text-white/50">Explore insights, analytics & drafts</p>
                 </div>
               </div>
 
@@ -1097,7 +953,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               </button>
             </div>
 
-            {/* 5 Prominent Option Cards */}
+            {/* Prominent Option Cards */}
             <div className="space-y-2.5">
               {hubOptions.map((opt) => (
                 <button
@@ -1145,29 +1001,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       )}
 
       {/* DEDICATED FULL SUBVIEW MODALS TRIGGERED FROM POP-UP HUB */}
-
-      {/* 1. TRENDS MODAL */}
-      {activeHubView === 'trends' && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-lg bg-[#0A0A0A] border-t sm:border border-white/10 rounded-t-[32px] sm:rounded-[32px] overflow-hidden shadow-2xl text-white max-h-[92vh] flex flex-col">
-            <div className="p-4 border-b border-white/10 flex items-center justify-between bg-black/40">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-emerald-400" />
-                <h3 className="text-xs font-black text-white">30-Day Activity Trends & Velocity</h3>
-              </div>
-              <button
-                onClick={() => setActiveHubView(null)}
-                className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white/60 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="p-4 overflow-y-auto space-y-4">
-              <ActivityTrendChart user={currentUser} />
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* 2. INSIGHTS MODAL */}
       {activeHubView === 'insights' && (
@@ -1384,17 +1217,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         </div>
       )}
 
-      {/* Discipline Milestones Modal */}
-      <DisciplineMilestonesModal
-        isOpen={isMilestonesModalOpen}
-        onClose={() => setIsMilestonesModalOpen(false)}
-        selectedMilestoneIds={currentUser.disciplineMilestones || []}
-        onSaveMilestones={(milestoneIds) => {
-          if (onUpdateMilestones) {
-            onUpdateMilestones(milestoneIds);
-          }
-        }}
-      />
     </div>
   );
 };

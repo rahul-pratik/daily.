@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   Flame,
-  Calendar as CalendarIcon,
   CheckCircle2,
   Clock,
   Users,
@@ -9,7 +8,6 @@ import {
   PlusCircle,
   Sparkles,
   Award,
-  ChevronLeft,
   Check,
   Zap,
   MessageSquare,
@@ -29,10 +27,7 @@ import { DailyStorageService, getTodayDateString } from '../services/storage';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
 import { CreateChallengeModal } from './CreateChallengeModal';
 import { ChallengeProgressScreen } from './ChallengeProgressScreen';
-import { CalendarDayPostModal } from './CalendarDayPostModal';
 import { DirectChallengeInviteModal } from './DirectChallengeInviteModal';
-import { ChallengeCalendarOverlay } from './ChallengeCalendarOverlay';
-import { ChallengeStreakFreezeBadgesCard } from './ChallengeStreakFreezeBadgesCard';
 import { ChallengeDailyProofProgressBar } from './ChallengeDailyProofProgressBar';
 
 interface ChallengesScreenProps {
@@ -102,11 +97,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
     }) ||
     challenges.find((c) => c.challengeType === 'group');
 
-  // Streak Calendar & Stats Sub-View toggle
-  const [showCalendarView, setShowCalendarView] = useState(false);
-  const [currentYear, setCurrentYear] = useState(2026);
-  const [currentMonth, setCurrentMonth] = useState(7); // 0-indexed, 7 = August
-  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null);
+
 
   useEffect(() => {
     const loadedChallenges = DailyStorageService.getAllChallenges();
@@ -125,38 +116,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
 
   const today = getTodayDateString();
   const hasPostedToday = currentUser.lastPostedDate === today;
-  const userChallengeDates = DailyStorageService.getUserChallengePostDates(currentUser.id);
 
-  // Calendar Calculation
-  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  const firstDayOfWeek = new Date(currentYear, currentMonth, 1).getDay();
-  const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
-
-  const prevMonth = () => {
-    if (currentMonth === 0) {
-      setCurrentMonth(11);
-      setCurrentYear(currentYear - 1);
-    } else {
-      setCurrentMonth(currentMonth - 1);
-    }
-  };
-
-  const nextMonth = () => {
-    if (currentMonth === 11) {
-      setCurrentMonth(0);
-      setCurrentYear(currentYear + 1);
-    } else {
-      setCurrentMonth(currentMonth + 1);
-    }
-  };
-
-  const handleCalendarDayClick = (dateStr: string) => {
-    vibrateLight();
-    setSelectedCalendarDate(dateStr);
-  };
 
   // Filter Challenges
   const filteredChallenges = challenges.filter((c) => {
@@ -242,66 +202,28 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
 
   return (
     <div className="w-full pb-24 pt-2 px-3 sm:px-4 max-w-lg mx-auto space-y-4 text-white">
-      {/* Hero Streak & Challenges Bar (Swapped: Streak is Blue, Actions are Golden) */}
-      <div className="bg-[#0F0F0F] border border-white/15 rounded-3xl p-5 shadow-2xl space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* Blue Streak Flame */}
-            <div className="w-12 h-12 rounded-2xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-400 shadow-lg shadow-blue-500/10">
-              <Flame className="w-6 h-6 fill-blue-400 text-blue-400" />
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <h2 className="text-xl font-black text-white">{currentUser.currentStreak} Day Streak</h2>
-                <span className="text-[10px] text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full font-bold border border-blue-500/20">
-                  Electric Blue
-                </span>
-              </div>
-              <p className="text-xs text-white/50">
-                {hasPostedToday
-                  ? 'Daily proof verified for today! 🔥'
-                  : 'Post proof today to maintain your streak'}
-              </p>
-            </div>
+      {/* Hero Streak & Challenges Bar */}
+      <div className="bg-[#0F0F0F] border border-white/15 rounded-3xl p-5 shadow-2xl">
+        <div className="flex items-center gap-3">
+          {/* Blue Streak Flame */}
+          <div className="w-12 h-12 rounded-2xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-400 shadow-lg shadow-blue-500/10">
+            <Flame className="w-6 h-6 fill-blue-400 text-blue-400" />
           </div>
-
-          <button
-            onClick={() => {
-              vibrateLight();
-              setShowCalendarView(!showCalendarView);
-            }}
-            className={`p-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all ${
-              showCalendarView
-                ? 'bg-[#2F6FED] text-white border-[#2F6FED] shadow-md shadow-[#2F6FED]/20'
-                : 'bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border-white/10'
-            }`}
-            title="Toggle Calendar & Commitment History Overlay"
-          >
-            <CalendarIcon className={`w-4 h-4 ${showCalendarView ? 'text-black' : 'text-[#2F6FED]'}`} />
-            <span>{showCalendarView ? 'Hide' : 'History'}</span>
-          </button>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <h2 className="text-xl font-black text-white">{currentUser.currentStreak} Day Streak</h2>
+              <span className="text-[10px] text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full font-bold border border-blue-500/20">
+                Electric Blue
+              </span>
+            </div>
+            <p className="text-xs text-white/50">
+              {hasPostedToday
+                ? 'Daily proof verified for today! 🔥'
+                : 'Post proof today to maintain your streak'}
+            </p>
+          </div>
         </div>
-
-        {/* Monthly Calendar View Overlay with Challenge Post Indicators */}
-        {showCalendarView && (
-          <div className="pt-3 border-t border-white/10 space-y-3 animate-in fade-in duration-200">
-            <ChallengeCalendarOverlay
-              currentUser={currentUser}
-              challenges={challenges}
-              onOpenChallenge={(ch) => {
-                setInitialChallengeTab('proofs');
-                setActiveChallengeScreen(ch);
-              }}
-            />
-          </div>
-        )}
       </div>
-
-      {/* Streak Freeze & Challenge Badges Showcase Card */}
-      <ChallengeStreakFreezeBadgesCard
-        currentUser={currentUser}
-        onOpenNotifications={onOpenNotifications}
-      />
 
       {/* Visual Progress Bar: Group Members Daily Proof Accountability */}
       {activeGroupChallenge && (
@@ -685,19 +607,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
         />
       )}
 
-      {/* MONTHLY CALENDAR DAY POST INSPECTION MODAL */}
-      {selectedCalendarDate && (
-        <CalendarDayPostModal
-          isOpen={Boolean(selectedCalendarDate)}
-          onClose={() => setSelectedCalendarDate(null)}
-          selectedDate={selectedCalendarDate}
-          currentUser={currentUser}
-          allPosts={posts}
-          onOpenCreate={onOpenCreate}
-          onToggleLike={onToggleLike}
-          onOpenComments={onOpenComments}
-        />
-      )}
+
     </div>
   );
 };

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { X, Flame, Check, Upload, Save, Award, Sparkles } from 'lucide-react';
-import { User, AVAILABLE_INTERESTS, AVAILABLE_HABITS, AVAILABLE_DISCIPLINE_MILESTONES } from '../types';
+import { X, Flame, Check, Upload, Save } from 'lucide-react';
+import { User, AVAILABLE_INTERESTS, AVAILABLE_HABITS } from '../types';
 import { vibrateLight } from '../services/haptics';
 
 interface EditProfileModalProps {
@@ -31,9 +31,6 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   const [bio, setBio] = useState(currentUser.bio);
   const [interests, setInterests] = useState<string[]>(currentUser.interests || []);
   const [habits, setHabits] = useState<string[]>(currentUser.habits || []);
-  const [disciplineMilestones, setDisciplineMilestones] = useState<string[]>(
-    currentUser.disciplineMilestones || ['dawn_riser', 'deep_work', 'code_ship']
-  );
 
   if (!isOpen) return null;
 
@@ -52,19 +49,6 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       setHabits(habits.filter((h) => h !== item));
     } else {
       setHabits([...habits, item]);
-    }
-  };
-
-  const toggleMilestone = (id: string) => {
-    vibrateLight();
-    if (disciplineMilestones.includes(id)) {
-      setDisciplineMilestones(disciplineMilestones.filter((m) => m !== id));
-    } else {
-      if (disciplineMilestones.length >= 3) {
-        setDisciplineMilestones([...disciplineMilestones.slice(1), id]);
-      } else {
-        setDisciplineMilestones([...disciplineMilestones, id]);
-      }
     }
   };
 
@@ -90,7 +74,6 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       bio: bio.trim(),
       interests,
       habits,
-      disciplineMilestones: disciplineMilestones.slice(0, 3),
     });
     onClose();
   };
@@ -101,8 +84,8 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-white/5">
           <div>
-            <h2 className="font-black text-base text-white">Edit Profile & Disciplines</h2>
-            <p className="text-[11px] text-white/50">Personal details, 3 milestones & focus interests</p>
+            <h2 className="font-black text-base text-white">Edit Profile</h2>
+            <p className="text-[11px] text-white/50">Personal details & focus interests</p>
           </div>
           <button
             onClick={onClose}
@@ -181,41 +164,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             />
           </div>
 
-          {/* 3 DISCIPLINE MILESTONES (NEW) */}
-          <div className="p-3 rounded-2xl bg-[#2F6FED]/5 border border-[#2F6FED]/20 space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-black uppercase tracking-wider text-[#2F6FED] flex items-center gap-1.5">
-                <Award className="w-3.5 h-3.5" />
-                3 Discipline Milestones ({disciplineMilestones.length}/3)
-              </label>
-              <span className="text-[10px] text-white/50">Showcased on profile</span>
-            </div>
 
-            <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto no-scrollbar p-1">
-              {AVAILABLE_DISCIPLINE_MILESTONES.map((milestone) => {
-                const isSelected = disciplineMilestones.includes(milestone.id);
-                return (
-                  <button
-                    key={milestone.id}
-                    type="button"
-                    onClick={() => toggleMilestone(milestone.id)}
-                    className={`p-2 rounded-xl text-left border transition-all flex items-center gap-2 ${
-                      isSelected
-                        ? 'bg-[#2F6FED]/20 border-[#2F6FED] text-white shadow-sm'
-                        : 'bg-white/[0.03] border-white/10 text-white/60 hover:text-white'
-                    }`}
-                  >
-                    <span className="text-base">{milestone.icon}</span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[11px] font-bold truncate">{milestone.title}</p>
-                      <p className="text-[9px] text-[#2F6FED] truncate">{milestone.category}</p>
-                    </div>
-                    {isSelected && <Check className="w-3 h-3 text-[#2F6FED] stroke-[3]" />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
 
           {/* Expanded Interests (30+ interests including gardening, singing, dancing, storytelling) */}
           <div>

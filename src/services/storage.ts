@@ -86,10 +86,6 @@ export class DailyStorageService {
         user.streakFreezeActive = true;
         changed = true;
       }
-      if (!Array.isArray(user.challengeBadges)) {
-        user.challengeBadges = ['Early Bird', 'Consistency King'];
-        changed = true;
-      }
       if (!Array.isArray(user.followedUserIds)) {
         user.followedUserIds = INITIAL_CURRENT_USER.followedUserIds || [];
         changed = true;
@@ -104,10 +100,6 @@ export class DailyStorageService {
       }
       if (!Array.isArray(user.habits)) {
         user.habits = INITIAL_CURRENT_USER.habits || [];
-        changed = true;
-      }
-      if (!Array.isArray(user.disciplineMilestones)) {
-        user.disciplineMilestones = INITIAL_CURRENT_USER.disciplineMilestones || [];
         changed = true;
       }
       if (!Array.isArray(user.proofCollections)) {
@@ -345,16 +337,8 @@ export class DailyStorageService {
     return posts.filter((p) => p.userId === targetId && (p.postDate === today || p.createdAt === 'Just now'));
   }
 
-  // Update 3 discipline milestones
-  static updateDisciplineMilestones(milestoneIds: string[]): User {
-    const currentUser = this.getCurrentUser();
-    const safeMilestones = milestoneIds.slice(0, 3);
-    const updatedUser = {
-      ...currentUser,
-      disciplineMilestones: safeMilestones,
-    };
-    this.saveCurrentUser(updatedUser);
-    return updatedUser;
+  static updateDisciplineMilestones(_milestoneIds: string[]): User {
+    return this.getCurrentUser();
   }
 
   // Create New Post: Main Daily Post (Limit 1 per day) OR Community Post (Unlimited)
@@ -1478,19 +1462,17 @@ export class DailyStorageService {
     return newMsg;
   }
 
-  // --- STREAK FREEZE & CHALLENGE BADGE SYSTEM ---
+  // --- STREAK FREEZE SYSTEM ---
   static getStreakFreezeStatus(): {
     freezesAvailable: number;
     isActive: boolean;
     lastUsedDate?: string;
-    badges: string[];
   } {
     const user = this.getCurrentUser();
     return {
       freezesAvailable: user.streakFreezes ?? 1,
       isActive: user.streakFreezeActive ?? true,
       lastUsedDate: user.lastStreakFreezeUsedDate,
-      badges: user.challengeBadges || ['Early Bird', 'Consistency King'],
     };
   }
 
@@ -1605,35 +1587,8 @@ export class DailyStorageService {
     };
   }
 
-  static awardChallengeBadge(badgeName: string): { user: User; awarded: boolean } {
-    const user = this.getCurrentUser();
-    const badges = user.challengeBadges || [];
-    if (badges.includes(badgeName)) {
-      return { user, awarded: false };
-    }
-    const updatedBadges = [...badges, badgeName];
-    const updated: User = {
-      ...user,
-      challengeBadges: updatedBadges,
-    };
-    this.saveCurrentUser(updated);
-
-    const notifs = this.getAllNotifications();
-    const notif: AppNotification = {
-      id: `notif_badge_${Date.now()}`,
-      type: 'challenge_badge',
-      actorId: user.id,
-      actorName: 'Daily Challenge System',
-      actorUsername: 'challenges',
-      actorAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80',
-      message: `🎖️ Challenge Badge Unlocked: "${badgeName}"! Displayed in your trophy collection.`,
-      createdAt: 'Just now',
-      timestamp: Date.now(),
-      isRead: false,
-    };
-    this.saveAllNotifications([notif, ...notifs]);
-
-    return { user: updated, awarded: true };
+  static awardChallengeBadge(_badgeName: string): { user: User; awarded: boolean } {
+    return { user: this.getCurrentUser(), awarded: false };
   }
 
   // Share a Post to multiple friends and groups in one go
@@ -3231,20 +3186,9 @@ export class DailyStorageService {
       }
     }
 
-    // --- AUTOMATIC BADGE & STREAK FREEZE REWARDS ---
+    // --- AUTOMATIC STREAK FREEZE REWARDS ---
     try {
-      // 1. Early Bird: posting before 9:00 AM
-      const currentHour = new Date().getHours();
-      if (currentHour < 9) {
-        this.awardChallengeBadge('Early Bird');
-      }
-
-      // 2. Consistency King: 7-day milestone in a group challenge or total challenge check-ins
-      if (newDayNumber >= 7 || (targetChallenge.challengeType === 'group' && newDayNumber >= 7)) {
-        this.awardChallengeBadge('Consistency King');
-      }
-
-      // 3. Earn Streak Freeze: high engagement milestone at Day 5
+      // Earn Streak Freeze: high engagement milestone at Day 5
       if (newDayNumber === 5) {
         this.claimChallengeStreakFreeze(challengeId, `5 Verified Check-ins in "${targetChallenge.title}"`);
       }
@@ -4061,9 +4005,6 @@ Keep the momentum alive squads! Let's lock in for next week 🔥`;
     // Saved posts / collections activity
     const savedPosts = allPosts.filter((p) => (p as any).isSaved);
 
-    // Milestones pinned/achieved by user
-    const milestones = currentUser.disciplineMilestones || [];
-
     // Chronological Timeline Builder for complete diary record
     const timelineEvents: Array<{
       id: string;
@@ -4178,7 +4119,7 @@ Keep the momentum alive squads! Let's lock in for next week 🔥`;
       userNote,
       savedPosts,
       collections: allCollections,
-      milestones,
+      milestones: [] as string[],
       timelineEvents,
       disciplineScore,
       totalActivityCount: userPostsOnDate.length +

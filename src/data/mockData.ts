@@ -92,7 +92,6 @@ export const INITIAL_CURRENT_USER: User = {
   bio: 'Building apps daily 🚀 | Morning runner & coffee enthusiast ☕️',
   interests: ['Coding', 'AI & Tech', 'Startups', 'Fitness & Gym', 'Design & UI/UX'],
   habits: ['Gym', 'Build Projects', 'Run', 'Read'],
-  disciplineMilestones: ['dawn_riser', 'deep_work', 'code_ship'],
   currentStreak: 7,
   longestStreak: 18,
   totalPosts: 24,
@@ -152,7 +151,6 @@ export const INITIAL_CURRENT_USER: User = {
   isCurrentUser: true,
   streakFreezes: 1,
   streakFreezeActive: true,
-  challengeBadges: ['Early Bird', 'Consistency King'],
 };
 
 export const INITIAL_PERSONAL_HABITS: PersonalHabit[] = [

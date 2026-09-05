@@ -201,12 +201,6 @@ export default function App() {
     vibratePostSubmit();
   };
 
-  // Update 3 discipline milestones
-  const handleUpdateMilestones = (milestoneIds: string[]) => {
-    const updated = DailyStorageService.updateDisciplineMilestones(milestoneIds);
-    setCurrentUser(updated);
-  };
-
   // Send Message (Direct 1:1 or Group Chat)
   const handleSendMessage = (params: {
     receiverId?: string;
@@ -699,7 +693,6 @@ export default function App() {
               onDeleteCollection={handleDeleteCollection}
               onRemovePostFromCollection={handleRemovePostFromCollection}
               onOpenAddToCollection={(post) => setSelectedPostForCollection(post)}
-              onUpdateMilestones={handleUpdateMilestones}
               onOpenResumeDraft={(draft) => {
                 setActiveDraftToEdit(draft);
                 setIsCreateOpen(true);
@@ -727,6 +720,8 @@ export default function App() {
                 }
               }}
               onOpenDossier={() => setCurrentTab('dossier')}
+              onUserUpdated={(u) => setCurrentUser(u)}
+              onOpenNotifications={() => setIsNotificationsOpen(true)}
             />
           )}
 

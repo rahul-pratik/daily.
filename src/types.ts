@@ -29,12 +29,10 @@ export interface User {
   savedPostIds?: string[];
   blockedUserIds?: string[];
   proofCollections?: ProofCollection[];
-  disciplineMilestones?: string[]; // Array of up to 3 applied milestone IDs
   isCurrentUser?: boolean;
   streakFreezes?: number; // Available streak freezes earned through challenges
   streakFreezeActive?: boolean; // Whether active streak protection is equipped for next missed day
   lastStreakFreezeUsedDate?: string; // Date streak freeze was last consumed
-  challengeBadges?: string[]; // Digital badge milestones earned in challenges
 }
 
 export interface PersonalHabit {
@@ -434,145 +432,6 @@ export const AVAILABLE_INTERESTS = [
   'Philosophy & Stoicism',
   'Book Club',
 ] as const;
-
-export interface DisciplineMilestone {
-  id: string;
-  title: string;
-  category: 'Focus' | 'Physical' | 'Creative' | 'Mindset' | 'Craft';
-  icon: string;
-  badgeColor: string;
-  headline: string;
-  description: string;
-}
-
-export const AVAILABLE_DISCIPLINE_MILESTONES: DisciplineMilestone[] = [
-  {
-    id: 'dawn_riser',
-    title: 'Dawn Riser',
-    category: 'Focus',
-    icon: '🌅',
-    badgeColor: '#2F6FED',
-    headline: '5:00 AM Dawn Protocol',
-    description: 'Relentless morning execution before the rest of the world wakes up.',
-  },
-  {
-    id: 'deep_work',
-    title: 'Deep Work Titan',
-    category: 'Focus',
-    icon: '⚡',
-    badgeColor: '#3B82F6',
-    headline: '4+ Hours Distraction-Free Flow',
-    description: 'Submerging completely into hard, uninterrupted problem solving.',
-  },
-  {
-    id: 'iron_will',
-    title: 'Iron Will',
-    category: 'Mindset',
-    icon: '🛡️',
-    badgeColor: '#10B981',
-    headline: '30-Day Zero Excuses Chain',
-    description: 'Never skipping a day, regardless of weather, mood, or schedule.',
-  },
-  {
-    id: 'code_ship',
-    title: 'Code & Ship Titan',
-    category: 'Craft',
-    icon: '💻',
-    badgeColor: '#8B5CF6',
-    headline: 'Daily Public Builds & Commits',
-    description: 'Shipping working software, algorithms, and real features every single day.',
-  },
-  {
-    id: 'physical_grit',
-    title: 'Iron Resilience',
-    category: 'Physical',
-    icon: '🏋️‍♂️',
-    badgeColor: '#EF4444',
-    headline: 'Daily Heavy Conditioning',
-    description: 'Forging physical discipline through resistance, strength, and form.',
-  },
-  {
-    id: 'endurance_runner',
-    title: 'Endurance Athlete',
-    category: 'Physical',
-    icon: '🏃‍♂️',
-    badgeColor: '#F59E0B',
-    headline: 'Daily Outdoor Distance & Pacing',
-    description: 'Pounding the pavement mile after mile with unbroken stamina.',
-  },
-  {
-    id: 'storyteller_scribe',
-    title: 'Master Storyteller',
-    category: 'Creative',
-    icon: '📖',
-    badgeColor: '#EC4899',
-    headline: 'Daily Narrative & Prose Craft',
-    description: 'Writing, journaling, and weaving compelling prose every day.',
-  },
-  {
-    id: 'mindful_stoic',
-    title: 'Mindful Stoic',
-    category: 'Mindset',
-    icon: '🧘‍♂️',
-    badgeColor: '#06B6D4',
-    headline: 'Daily Stillness & Breath Control',
-    description: 'Calm under pressure, daily meditation, and emotional mastery.',
-  },
-  {
-    id: 'botanical_grower',
-    title: 'Green Cultivator',
-    category: 'Craft',
-    icon: '🌿',
-    badgeColor: '#22C55E',
-    headline: 'Daily Plant & Garden Mastery',
-    description: 'Nurturing growth with patience, soil care, and daily botanical dedication.',
-  },
-  {
-    id: 'vocal_harmony',
-    title: 'Vocal Virtuoso',
-    category: 'Creative',
-    icon: '🎤',
-    badgeColor: '#A855F7',
-    headline: 'Daily Singing & Vocal Training',
-    description: 'Refining pitch, breath, dynamic range, and acoustic expression.',
-  },
-  {
-    id: 'rhythmic_mover',
-    title: 'Rhythmic Mover',
-    category: 'Physical',
-    icon: '💃',
-    badgeColor: '#F43F5E',
-    headline: 'Daily Dance & Coordination Flow',
-    description: 'Expressing discipline through movement, choreo, and rhythmic flow.',
-  },
-  {
-    id: 'grandmaster_tactics',
-    title: 'Grandmaster Tactics',
-    category: 'Focus',
-    icon: '♟️',
-    badgeColor: '#6366F1',
-    headline: 'Daily Chess Strategy & Calculation',
-    description: 'Sharpening tactical calculation, foresight, and strategic depth.',
-  },
-  {
-    id: 'lifelong_scholar',
-    title: 'Lifelong Scholar',
-    category: 'Mindset',
-    icon: '📚',
-    badgeColor: '#14B8A6',
-    headline: '1 Chapter & Note Taken Daily',
-    description: 'Expanding mental models through deliberate reading and synthesis.',
-  },
-  {
-    id: 'culinary_craft',
-    title: 'Culinary Craftsman',
-    category: 'Craft',
-    icon: '🍳',
-    badgeColor: '#FB923C',
-    headline: 'Daily Whole-Food Creation',
-    description: 'Crafting nourishing, deliberate cuisine with precision and care.',
-  },
-];
 
 export const AVAILABLE_HABITS = [
   'Gym',
