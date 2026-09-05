@@ -272,12 +272,12 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
             }}
             className={`p-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all ${
               showCalendarView
-                ? 'bg-[#D4AF37] text-black border-[#D4AF37] shadow-md shadow-[#D4AF37]/20'
+                ? 'bg-[#2F6FED] text-white border-[#2F6FED] shadow-md shadow-[#2F6FED]/20'
                 : 'bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border-white/10'
             }`}
             title="Toggle Calendar & Commitment History Overlay"
           >
-            <CalendarIcon className={`w-4 h-4 ${showCalendarView ? 'text-black' : 'text-[#D4AF37]'}`} />
+            <CalendarIcon className={`w-4 h-4 ${showCalendarView ? 'text-black' : 'text-[#2F6FED]'}`} />
             <span>{showCalendarView ? 'Hide' : 'History'}</span>
           </button>
         </div>
@@ -292,7 +292,6 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
                 setInitialChallengeTab('proofs');
                 setActiveChallengeScreen(ch);
               }}
-              onOpenCreate={onOpenCreate}
             />
           </div>
         )}
@@ -330,7 +329,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
       <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-2">
-            <Trophy className="w-4 h-4 text-[#D4AF37]" />
+            <Trophy className="w-4 h-4 text-[#2F6FED]" />
             <h2 className="text-sm font-black text-white">Grounded Challenges</h2>
           </div>
 
@@ -339,7 +338,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
               vibrateLight();
               setIsCreateChallengeOpen(true);
             }}
-            className="px-3.5 py-1.5 rounded-xl bg-[#D4AF37] hover:bg-[#e5c158] text-black font-black text-xs transition-all shadow-md shadow-[#D4AF37]/20 flex items-center gap-1.5 min-h-[34px]"
+            className="px-3.5 py-1.5 rounded-xl bg-[#2F6FED] hover:bg-[#e5c158] text-black font-black text-xs transition-all shadow-md shadow-[#2F6FED]/20 flex items-center gap-1.5 min-h-[34px]"
           >
             <PlusCircle className="w-3.5 h-3.5" />
             <span>New Challenge</span>
@@ -354,7 +353,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search challenges by title, goal, or #tag..."
-            className="w-full bg-[#111111] border border-white/15 focus:border-[#D4AF37] rounded-2xl pl-10 pr-9 py-2.5 text-xs text-white placeholder-white/30 focus:outline-none transition-colors"
+            className="w-full bg-[#111111] border border-white/15 focus:border-[#2F6FED] rounded-2xl pl-10 pr-9 py-2.5 text-xs text-white placeholder-white/30 focus:outline-none transition-colors"
           />
           {searchQuery && (
             <button
@@ -379,7 +378,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
                 }}
                 className={`px-3 py-1 rounded-full text-xs font-bold transition-all shrink-0 min-h-[30px] ${
                   isSelected
-                    ? 'bg-[#D4AF37] text-black font-black shadow-md shadow-[#D4AF37]/25'
+                    ? 'bg-[#2F6FED] text-white font-black shadow-md shadow-[#2F6FED]/25'
                     : 'bg-white/5 text-white/60 hover:text-white hover:bg-white/10 border border-white/10'
                 }`}
               >
@@ -405,7 +404,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
             </div>
             <button
               onClick={() => setIsCreateChallengeOpen(true)}
-              className="py-2 px-4 rounded-xl bg-[#D4AF37] text-black font-black text-xs inline-flex items-center gap-1.5 shadow-md shadow-[#D4AF37]/20"
+              className="py-2 px-4 rounded-xl bg-[#2F6FED] text-white font-black text-xs inline-flex items-center gap-1.5 shadow-md shadow-[#2F6FED]/20"
             >
               <PlusCircle className="w-3.5 h-3.5" />
               <span>Create First Challenge</span>
@@ -433,12 +432,12 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
                   vibrateLight();
                   setActiveChallengeScreen(challenge);
                 }}
-                className="bg-[#0F0F0F] hover:bg-[#141414] border border-white/15 hover:border-[#D4AF37]/50 rounded-3xl p-4 sm:p-5 shadow-xl transition-all cursor-pointer group space-y-3.5"
+                className="bg-[#0F0F0F] hover:bg-[#141414] border border-white/15 hover:border-[#2F6FED]/50 rounded-3xl p-4 sm:p-5 shadow-xl transition-all cursor-pointer group space-y-3.5"
               >
                 {/* Header */}
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3 min-w-0">
-                    <div className="w-12 h-12 rounded-2xl bg-[#D4AF37]/10 border border-[#D4AF37]/20 flex items-center justify-center text-2xl shrink-0 group-hover:scale-105 transition-transform">
+                    <div className="w-12 h-12 rounded-2xl bg-[#2F6FED]/10 border border-[#2F6FED]/20 flex items-center justify-center text-2xl shrink-0 group-hover:scale-105 transition-transform">
                       {challenge.icon}
                     </div>
                     <div className="min-w-0">
@@ -455,7 +454,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
                           </span>
                         )}
 
-                        <span className="text-[10px] font-black text-[#D4AF37] uppercase tracking-wider bg-[#D4AF37]/10 px-2 py-0.5 rounded-full border border-[#D4AF37]/20">
+                        <span className="text-[10px] font-black text-[#2F6FED] uppercase tracking-wider bg-[#2F6FED]/10 px-2 py-0.5 rounded-full border border-[#2F6FED]/20">
                           #{challenge.tag || challenge.category}
                         </span>
                         <span className="text-[10px] text-white/40 flex items-center gap-1">
@@ -463,7 +462,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
                           Ends {challenge.deadlineDate}
                         </span>
                       </div>
-                      <h3 className="font-black text-sm text-white group-hover:text-[#D4AF37] transition-colors leading-tight">
+                      <h3 className="font-black text-sm text-white group-hover:text-[#2F6FED] transition-colors leading-tight">
                         {challenge.title}
                       </h3>
                       <p className="text-xs text-white/60 line-clamp-2 mt-1 leading-relaxed">
@@ -472,7 +471,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
                     </div>
                   </div>
 
-                  <ChevronRight className="w-5 h-5 text-white/30 group-hover:text-[#D4AF37] group-hover:translate-x-0.5 transition-all shrink-0 mt-1" />
+                  <ChevronRight className="w-5 h-5 text-white/30 group-hover:text-[#2F6FED] group-hover:translate-x-0.5 transition-all shrink-0 mt-1" />
                 </div>
 
                 {/* VISUAL PROGRESS BARS FOR JOINED INDIVIDUAL & GROUP CHALLENGES */}
@@ -487,7 +486,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
                             ({daysRemaining} {daysRemaining === 1 ? 'day' : 'days'} left)
                           </span>
                         </span>
-                        <span className="text-[#D4AF37] font-black font-mono">
+                        <span className="text-[#2F6FED] font-black font-mono">
                           Day {userProgress.daysCompleted} of {challenge.durationDays}{' '}
                           <span className="text-white/50 text-[10px]">({percent}%)</span>
                         </span>
@@ -496,7 +495,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
                       {/* Main Animated Progress Bar */}
                       <div className="h-2.5 w-full bg-white/10 rounded-full overflow-hidden p-0.5 flex items-center">
                         <div
-                          className="h-full bg-gradient-to-r from-amber-500 via-[#D4AF37] to-emerald-400 rounded-full transition-all duration-500 shadow-sm shadow-[#D4AF37]/40"
+                          className="h-full bg-gradient-to-r from-amber-500 via-[#2F6FED] to-emerald-400 rounded-full transition-all duration-500 shadow-sm shadow-[#2F6FED]/40"
                           style={{ width: `${Math.max(4, percent)}%` }}
                         />
                       </div>
@@ -566,13 +565,13 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
                   <div className="p-2.5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1.5">
                     <div className="flex items-center justify-between text-[10px] text-white/60">
                       <span className="flex items-center gap-1">
-                        <TrendingUp className="w-3 h-3 text-[#D4AF37]" />
+                        <TrendingUp className="w-3 h-3 text-[#2F6FED]" />
                         <span>Cohort Completion Momentum</span>
                       </span>
-                      <span className="text-[#D4AF37] font-bold">85% Active Pace</span>
+                      <span className="text-[#2F6FED] font-bold">85% Active Pace</span>
                     </div>
                     <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-[#D4AF37]/50 to-[#D4AF37] rounded-full w-2/3" />
+                      <div className="h-full bg-gradient-to-r from-[#2F6FED]/50 to-[#2F6FED] rounded-full w-2/3" />
                     </div>
                   </div>
                 )}
@@ -585,7 +584,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
                         {challenge.teams.slice(0, 3).map((t) => (
                           <div
                             key={t.id}
-                            className="w-6 h-6 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-[10px] font-bold text-[#D4AF37]"
+                            className="w-6 h-6 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-[10px] font-bold text-[#2F6FED]"
                           >
                             {t.name.slice(0, 1)}
                           </div>
@@ -598,14 +597,14 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
                         </strong>
                       </span>
                     </div>
-                    <span className="text-[10px] text-[#D4AF37] shrink-0 font-bold">Join a Squad →</span>
+                    <span className="text-[10px] text-[#2F6FED] shrink-0 font-bold">Join a Squad →</span>
                   </div>
                 )}
 
                 {/* Footer: Participants + Direct Challenge Invite + Join/Hub button */}
                 <div className="flex items-center justify-between pt-2 border-t border-white/10 text-xs">
                   <div className="flex items-center gap-1.5 text-white/50">
-                    <Users className="w-3.5 h-3.5 text-[#D4AF37]" />
+                    <Users className="w-3.5 h-3.5 text-[#2F6FED]" />
                     <span className="font-bold text-white">
                       {(challenge.participantsCount || 1).toLocaleString()}
                     </span>
@@ -648,12 +647,12 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
                       <button
                         type="button"
                         onClick={(e) => handleToggleJoin(e, challenge.id)}
-                        className="px-3.5 py-1.5 rounded-xl bg-[#D4AF37] hover:bg-[#e5c158] text-black font-black text-xs transition-all shadow-md shadow-[#D4AF37]/20"
+                        className="px-3.5 py-1.5 rounded-xl bg-[#2F6FED] hover:bg-[#e5c158] text-black font-black text-xs transition-all shadow-md shadow-[#2F6FED]/20"
                       >
                         Join
                       </button>
                     ) : (
-                      <span className="text-xs font-bold text-[#D4AF37] flex items-center gap-1 group-hover:underline">
+                      <span className="text-xs font-bold text-[#2F6FED] flex items-center gap-1 group-hover:underline">
                         <span>Progress Hub</span>
                         <ArrowRight className="w-3.5 h-3.5" />
                       </span>

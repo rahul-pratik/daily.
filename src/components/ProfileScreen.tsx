@@ -245,10 +245,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 vibrateLight();
                 setIsQuickHubOpen(true);
               }}
-              className="px-3 py-1.5 rounded-full bg-[#D4AF37]/15 hover:bg-[#D4AF37]/25 border border-[#D4AF37]/40 text-[#D4AF37] text-xs font-black transition-all flex items-center gap-1.5 shadow-sm shadow-[#D4AF37]/10 active:scale-95"
-              title="Open Trends, Insights, Daily Diary, Drafts & Saved"
+              className="px-3 py-1.5 rounded-full bg-[#2F6FED]/15 hover:bg-[#2F6FED]/25 border border-[#2F6FED]/40 text-[#2F6FED] text-xs font-black transition-all flex items-center gap-1.5 shadow-sm shadow-[#2F6FED]/10 active:scale-95"
+              title="Open Trends, Insights, Drafts & Saved"
             >
-              <Sparkles className="w-3.5 h-3.5 fill-[#D4AF37]" />
+              <Sparkles className="w-3.5 h-3.5 fill-[#2F6FED]" />
               <span>Hub & Tools</span>
             </button>
 
@@ -259,7 +259,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             >
               <Share2 className="w-3.5 h-3.5" />
               {copiedLink && (
-                <span className="absolute -top-7 right-0 text-[10px] font-bold bg-[#D4AF37] text-black px-2 py-0.5 rounded shadow whitespace-nowrap">
+                <span className="absolute -top-7 right-0 text-[10px] font-bold bg-[#2F6FED] text-white px-2 py-0.5 rounded shadow whitespace-nowrap">
                   Link copied!
                 </span>
               )}
@@ -281,7 +281,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                     }}
                     className="w-full text-left px-3 py-2 text-xs text-white/80 hover:bg-white/5 rounded-xl flex items-center gap-2"
                   >
-                    <Edit3 className="w-3.5 h-3.5 text-[#D4AF37]" />
+                    <Edit3 className="w-3.5 h-3.5 text-[#2F6FED]" />
                     Edit Profile
                   </button>
                   <button
@@ -343,8 +343,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 className="w-full h-full object-cover"
               />
             </div>
-            <div className="absolute -bottom-1 -right-1 bg-black text-[#D4AF37] text-[10px] font-black px-2 py-0.5 rounded-full border border-[#D4AF37]/50 flex items-center gap-1 shadow-md">
-              <Flame className="w-3 h-3 fill-[#D4AF37]" />
+            <div className="absolute -bottom-1 -right-1 bg-black text-[#2F6FED] text-[10px] font-black px-2 py-0.5 rounded-full border border-[#2F6FED]/50 flex items-center gap-1 shadow-md">
+              <Flame className="w-3 h-3 fill-[#2F6FED]" />
               <span>{currentUser.currentStreak}d</span>
             </div>
           </div>
@@ -352,7 +352,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <div className="flex-1">
             <h1 className="text-lg font-black text-white flex items-center gap-1.5">
               {currentUser.name}
-              <CheckCircle2 className="w-4 h-4 text-[#D4AF37]" />
+              <CheckCircle2 className="w-4 h-4 text-[#2F6FED]" />
             </h1>
             <p className="text-xs text-white/70 mt-1 leading-relaxed">{currentUser.bio}</p>
           </div>
@@ -361,11 +361,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         {/* Stats Row */}
         <div className="grid grid-cols-4 gap-2 mt-5 pt-4 border-t border-white/5 text-center">
           <div>
-            <span className="text-base font-black text-[#D4AF37] block">
+            <span className="text-base font-black text-[#2F6FED] block">
               {currentUser.currentStreak}d
             </span>
             <span className="text-[10px] uppercase tracking-wider text-white/40 font-semibold flex items-center justify-center gap-0.5">
-              <Flame className="w-2.5 h-2.5 text-[#D4AF37] fill-[#D4AF37]" /> Streak
+              <Flame className="w-2.5 h-2.5 text-[#2F6FED] fill-[#2F6FED]" /> Streak
             </span>
           </div>
 
@@ -414,7 +414,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             onClick={onOpenEditProfile}
             className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-white flex items-center justify-center gap-2 transition-colors min-h-[44px] active:scale-[0.99]"
           >
-            <Edit3 className="w-3.5 h-3.5 text-[#D4AF37]" />
+            <Edit3 className="w-3.5 h-3.5 text-[#2F6FED]" />
             <span>Edit Profile</span>
           </button>
 
@@ -423,10 +423,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               vibrateLight();
               setIsQuickHubOpen(true);
             }}
-            className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#D4AF37]/20 to-[#D4AF37]/10 hover:from-[#D4AF37]/30 hover:to-[#D4AF37]/20 border border-[#D4AF37]/40 text-[#D4AF37] text-xs font-black flex items-center justify-center gap-2 transition-all min-h-[44px] shadow-sm shadow-[#D4AF37]/10 active:scale-[0.99]"
+            className="py-2.5 px-3 rounded-xl bg-[#2F6FED]/10 hover:bg-[#2F6FED]/20 border border-[#2F6FED]/30 text-[#2F6FED] text-xs font-black flex items-center justify-center gap-2 transition-all min-h-[44px] shadow-sm shadow-[#2F6FED]/10 active:scale-[0.99]"
           >
-            <Sparkles className="w-3.5 h-3.5 fill-[#D4AF37]" />
-            <span>Trends, Diary & More</span>
+            <Sparkles className="w-3.5 h-3.5 fill-[#2F6FED]" />
+            <span>Trends, Analytics & Saved</span>
           </button>
         </div>
 
@@ -632,7 +632,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                       />
                     ) : (
                       <div className="w-full h-full p-2.5 flex flex-col justify-between bg-white/[0.03]">
-                        <span className="text-[10px] text-[#D4AF37] font-bold">🔥 Proof</span>
+                        <span className="text-[10px] text-[#2F6FED] font-bold">🔥 Proof</span>
                         <p className="text-[10px] text-white/70 line-clamp-4 leading-tight">
                           {post.content}
                         </p>
@@ -653,7 +653,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                             vibrateLight();
                             onOpenAddToCollection(post);
                           }}
-                          className="text-[9px] px-2 py-0.5 rounded-full bg-white/10 hover:bg-[#D4AF37] hover:text-black border border-white/20 transition-colors flex items-center gap-1 mt-1"
+                          className="text-[9px] px-2 py-0.5 rounded-full bg-white/10 hover:bg-[#2F6FED] hover:text-white border border-white/20 transition-colors flex items-center gap-1 mt-1"
                         >
                           <FolderPlus className="w-3 h-3" /> Add to Box
                         </button>
@@ -726,7 +726,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 <div className="p-4 sm:p-5 relative -mt-8 flex flex-col justify-between">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-14 h-14 rounded-2xl bg-[#111111] border-2 border-[#D4AF37] shadow-xl flex items-center justify-center text-2xl shrink-0">
+                      <div className="w-14 h-14 rounded-2xl bg-[#111111] border-2 border-[#2F6FED] shadow-xl flex items-center justify-center text-2xl shrink-0">
                         {selectedCollection.icon || '📁'}
                       </div>
                       <div>
@@ -734,7 +734,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                           <h2 className="text-base sm:text-lg font-black text-white">
                             {selectedCollection.name}
                           </h2>
-                          <span className="px-2 py-0.5 rounded-full bg-[#D4AF37]/20 border border-[#D4AF37]/40 text-[#D4AF37] font-bold text-[10px]">
+                          <span className="px-2 py-0.5 rounded-full bg-[#2F6FED]/20 border border-[#2F6FED]/40 text-[#2F6FED] font-bold text-[10px]">
                             {selectedCollection.postIds.length} proofs
                           </span>
                         </div>
@@ -800,7 +800,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                           />
                         ) : (
                           <div className="w-full h-full p-2.5 flex flex-col justify-between bg-white/[0.03]">
-                            <span className="text-[10px] text-[#D4AF37] font-bold">🔥 Proof</span>
+                            <span className="text-[10px] text-[#2F6FED] font-bold">🔥 Proof</span>
                             <p className="text-[10px] text-white/70 line-clamp-4 leading-tight">
                               {post.content}
                             </p>
@@ -871,9 +871,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                     vibrateLight();
                     onOpenCreateCollection();
                   }}
-                  className="p-5 rounded-3xl border-2 border-dashed border-white/15 hover:border-[#D4AF37]/60 bg-white/[0.02] hover:bg-white/[0.05] transition-all cursor-pointer flex flex-col items-center justify-center text-center gap-2 min-h-[140px] group"
+                  className="p-5 rounded-3xl border-2 border-dashed border-white/15 hover:border-[#2F6FED]/60 bg-white/[0.02] hover:bg-white/[0.05] transition-all cursor-pointer flex flex-col items-center justify-center text-center gap-2 min-h-[140px] group"
                 >
-                  <div className="w-10 h-10 rounded-2xl bg-[#D4AF37]/10 group-hover:bg-[#D4AF37] group-hover:text-black text-[#D4AF37] border border-[#D4AF37]/30 flex items-center justify-center transition-colors">
+                  <div className="w-10 h-10 rounded-2xl bg-[#2F6FED]/10 group-hover:bg-[#2F6FED] group-hover:text-white text-[#2F6FED] border border-[#2F6FED]/30 flex items-center justify-center transition-colors">
                     <Plus className="w-5 h-5 stroke-[2.5]" />
                   </div>
                   <div>
@@ -892,7 +892,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                         vibrateLight();
                         setSelectedCollectionId(col.id);
                       }}
-                      className="relative rounded-3xl overflow-hidden border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] hover:border-[#D4AF37]/40 transition-all cursor-pointer shadow-lg group flex flex-col justify-between"
+                      className="relative rounded-3xl overflow-hidden border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] hover:border-[#2F6FED]/40 transition-all cursor-pointer shadow-lg group flex flex-col justify-between"
                     >
                       {/* Cover image banner */}
                       <div className="h-24 w-full relative overflow-hidden bg-black/40">
@@ -904,7 +904,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                           />
                         ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-[#D4AF37]/20 to-black/80" />
+                          <div className="w-full h-full bg-gradient-to-br from-[#2F6FED]/20 to-black/80" />
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
                         
@@ -915,11 +915,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
                       {/* Info body */}
                       <div className="p-4 pt-2 flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-xl shrink-0 -mt-6 bg-[#111111] shadow-lg border-[#D4AF37]/30">
+                        <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-xl shrink-0 -mt-6 bg-[#111111] shadow-lg border-[#2F6FED]/30">
                           {col.icon || '📁'}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <h4 className="font-black text-sm text-white truncate group-hover:text-[#D4AF37] transition-colors">
+                          <h4 className="font-black text-sm text-white truncate group-hover:text-[#2F6FED] transition-colors">
                             {col.name}
                           </h4>
                           <p className="text-[10px] text-white/50 line-clamp-1">
@@ -956,7 +956,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <div className="p-5 rounded-3xl bg-white/[0.03] border border-white/10 space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-xs font-black uppercase tracking-wider text-[#D4AF37] flex items-center gap-1.5">
+                <span className="text-xs font-black uppercase tracking-wider text-[#2F6FED] flex items-center gap-1.5">
                   <Award className="w-4 h-4" />
                   Equipped Milestones ({currentUser.disciplineMilestones?.length || 0}/3)
                 </span>
@@ -970,7 +970,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   vibrateLight();
                   setIsMilestonesModalOpen(true);
                 }}
-                className="px-3 py-1.5 rounded-xl bg-[#D4AF37] text-black font-black text-xs flex items-center gap-1.5 shadow-md shadow-[#D4AF37]/20 active:scale-95"
+                className="px-3 py-1.5 rounded-xl bg-[#2F6FED] text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-[#2F6FED]/20 active:scale-95"
               >
                 <Sparkles className="w-3.5 h-3.5 fill-black" />
                 <span>Equip Slots</span>
@@ -991,17 +991,17 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                         vibrateLight();
                         setIsMilestonesModalOpen(true);
                       }}
-                      className="p-3.5 rounded-2xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 hover:border-[#D4AF37] text-left cursor-pointer transition-all shadow-sm relative group"
+                      className="p-3.5 rounded-2xl bg-[#2F6FED]/10 border border-[#2F6FED]/30 hover:border-[#2F6FED] text-left cursor-pointer transition-all shadow-sm relative group"
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-2xl">{milestone.icon}</span>
-                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-black/60 text-[#D4AF37] border border-[#D4AF37]/20">
+                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-black/60 text-[#2F6FED] border border-[#2F6FED]/20">
                           {milestone.category}
                         </span>
                       </div>
                       <p className="font-black text-xs text-white truncate mt-2">{milestone.title}</p>
                       <p className="text-[10px] text-white/60 line-clamp-2 mt-0.5">{milestone.description}</p>
-                      <div className="mt-2 pt-2 border-t border-white/5 flex items-center justify-between text-[9px] text-[#D4AF37]">
+                      <div className="mt-2 pt-2 border-t border-white/5 flex items-center justify-between text-[9px] text-[#2F6FED]">
                         <span>Slot #{slotIdx + 1}</span>
                         <span className="font-bold">Active</span>
                       </div>
@@ -1018,7 +1018,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                     }}
                     className="p-4 rounded-2xl bg-white/[0.02] hover:bg-white/[0.06] border border-dashed border-white/15 text-center flex flex-col items-center justify-center min-h-[110px] transition-all cursor-pointer group"
                   >
-                    <Plus className="w-5 h-5 text-white/30 group-hover:text-[#D4AF37] transition-colors" />
+                    <Plus className="w-5 h-5 text-white/30 group-hover:text-[#2F6FED] transition-colors" />
                     <span className="text-[11px] font-bold text-white/40 group-hover:text-white mt-1.5">
                       Empty Slot {slotIdx + 1}
                     </span>
@@ -1046,7 +1046,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                     }}
                     className={`p-2.5 rounded-2xl border transition-all cursor-pointer flex items-center gap-2.5 ${
                       isEquipped
-                        ? 'bg-[#D4AF37]/15 border-[#D4AF37]/40 text-white'
+                        ? 'bg-[#2F6FED]/15 border-[#2F6FED]/40 text-white'
                         : 'bg-white/5 border-white/5 text-white/70 hover:bg-white/10'
                     }`}
                   >
@@ -1056,7 +1056,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                       <span className="text-[9px] text-white/40 uppercase">{m.category}</span>
                     </div>
                     {isEquipped && (
-                      <Check className="w-3.5 h-3.5 text-[#D4AF37] stroke-[3] shrink-0" />
+                      <Check className="w-3.5 h-3.5 text-[#2F6FED] stroke-[3] shrink-0" />
                     )}
                   </div>
                 );
@@ -1079,12 +1079,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             {/* Header */}
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-[#D4AF37]/20 border border-[#D4AF37]/40 flex items-center justify-center text-[#D4AF37]">
-                  <Sparkles className="w-4 h-4 fill-[#D4AF37]" />
+                <div className="w-8 h-8 rounded-xl bg-[#2F6FED]/20 border border-[#2F6FED]/40 flex items-center justify-center text-[#2F6FED]">
+                  <Sparkles className="w-4 h-4 fill-[#2F6FED]" />
                 </div>
                 <div>
                   <h2 className="text-sm font-black text-white">Profile Tools & Quick Hub</h2>
-                  <p className="text-[11px] text-white/50">Explore trends, physical diary, insights & drafts</p>
+                  <p className="text-[11px] text-white/50">Explore trends, insights & drafts</p>
                 </div>
               </div>
 
@@ -1116,7 +1116,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-black text-white group-hover:text-[#D4AF37] transition-colors">
+                        <span className="text-xs font-black text-white group-hover:text-[#2F6FED] transition-colors">
                           {opt.title}
                         </span>
                         <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${opt.badgeColor}`}>
@@ -1185,7 +1185,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <div className="w-full max-w-lg bg-[#0A0A0A] border-t sm:border border-white/10 rounded-t-[32px] sm:rounded-[32px] overflow-hidden shadow-2xl text-white max-h-[92vh] flex flex-col">
             <div className="p-4 border-b border-white/10 flex items-center justify-between bg-black/40">
               <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-[#D4AF37]" />
+                <FileText className="w-4 h-4 text-[#2F6FED]" />
                 <h3 className="text-xs font-black text-white">Drafts Queue & Scheduled Posts ({drafts.length})</h3>
               </div>
               <button
@@ -1227,7 +1227,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   onClick={() => setDraftFilter('standard')}
                   className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${
                     draftFilter === 'standard'
-                      ? 'bg-[#D4AF37] text-black font-black'
+                      ? 'bg-[#2F6FED] text-white font-black'
                       : 'bg-white/5 text-white/60 hover:text-white border border-white/10'
                   }`}
                 >
@@ -1289,7 +1289,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                             }}
                             className="px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold flex items-center gap-1"
                           >
-                            <Edit3 className="w-3 h-3 text-[#D4AF37]" />
+                            <Edit3 className="w-3 h-3 text-[#2F6FED]" />
                             <span>Edit</span>
                           </button>
                           <button
@@ -1302,7 +1302,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
                         <button
                           onClick={(e) => handlePublishDraft(draft.id, e)}
-                          className="px-3 py-1 rounded-xl bg-[#D4AF37] hover:bg-[#c49f27] text-black text-xs font-black flex items-center gap-1 shadow-sm"
+                          className="px-3 py-1 rounded-xl bg-[#2F6FED] hover:bg-[#2861d6] text-white text-xs font-black flex items-center gap-1 shadow-sm"
                         >
                           <Flame className="w-3 h-3 fill-black" />
                           <span>Post Now</span>
@@ -1360,7 +1360,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                         />
                       ) : (
                         <div className="w-full h-full p-2 flex flex-col justify-between bg-white/[0.03]">
-                          <span className="text-[9px] text-[#D4AF37] font-bold">🔥 Saved</span>
+                          <span className="text-[9px] text-[#2F6FED] font-bold">🔥 Saved</span>
                           <p className="text-[9px] text-white/70 line-clamp-3">{post.content}</p>
                         </div>
                       )}

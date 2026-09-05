@@ -81,7 +81,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
         );
       case 'follow':
         return (
-          <div className="w-5 h-5 rounded-full bg-[#D4AF37]/20 border border-[#D4AF37]/40 flex items-center justify-center text-[#D4AF37]">
+          <div className="w-5 h-5 rounded-full bg-[#2F6FED]/20 border border-[#2F6FED]/40 flex items-center justify-center text-[#2F6FED]">
             <UserPlus className="w-3 h-3" />
           </div>
         );
@@ -119,8 +119,8 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
       case 'streak_milestone':
       default:
         return (
-          <div className="w-5 h-5 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-[#D4AF37]">
-            <Flame className="w-3 h-3 fill-[#D4AF37]" />
+          <div className="w-5 h-5 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-[#2F6FED]">
+            <Flame className="w-3 h-3 fill-[#2F6FED]" />
           </div>
         );
     }
@@ -165,14 +165,14 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
         {/* Header */}
         <div className="p-4 border-b border-white/10 flex items-center justify-between bg-black/50">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37]">
+            <div className="w-9 h-9 rounded-2xl bg-[#2F6FED]/10 border border-[#2F6FED]/30 flex items-center justify-center text-[#2F6FED]">
               <Bell className="w-4 h-4" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-black text-white">Notifications</h2>
                 {unreadCount > 0 && (
-                  <span className="px-2 py-0.5 rounded-full bg-[#D4AF37] text-black font-black text-[10px]">
+                  <span className="px-2 py-0.5 rounded-full bg-[#2F6FED] text-white font-black text-[10px]">
                     {unreadCount} new
                   </span>
                 )}
@@ -193,7 +193,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                     className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors text-xs font-bold flex items-center gap-1 min-h-[38px]"
                     title="Mark all as read"
                   >
-                    <CheckCheck className="w-4 h-4 text-[#D4AF37]" />
+                    <CheckCheck className="w-4 h-4 text-[#2F6FED]" />
                   </button>
                 )}
                 <button
@@ -235,7 +235,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
               }}
               className={`px-3 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-all border ${
                 activeFilter === tab.id
-                  ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
+                  ? 'bg-[#2F6FED] text-white border-[#2F6FED]'
                   : 'bg-white/5 text-white/60 border-white/10 hover:text-white hover:border-white/20'
               }`}
             >
@@ -259,7 +259,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                   className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 relative group ${
                     n.isRead
                       ? 'bg-white/[0.02] border-white/5 hover:bg-white/5 hover:border-white/15'
-                      : 'bg-white/[0.06] border-[#D4AF37]/30 hover:border-[#D4AF37]/50 shadow-md shadow-black/40'
+                      : 'bg-white/[0.06] border-[#2F6FED]/30 hover:border-[#2F6FED]/50 shadow-md shadow-black/40'
                   }`}
                 >
                   {/* Actor Avatar with badge */}
@@ -279,7 +279,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-baseline justify-between gap-2">
                       <p className="text-xs text-white leading-snug">
-                        <span className="font-bold text-white group-hover:text-[#D4AF37] transition-colors mr-1">
+                        <span className="font-bold text-white group-hover:text-[#2F6FED] transition-colors mr-1">
                           {n.actorName}
                         </span>
                         <span className="text-white/80">{n.message}</span>
@@ -308,7 +308,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                           className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
                             isFollowingActor
                               ? 'bg-white/10 text-white/80 border border-white/10'
-                              : 'bg-[#D4AF37] text-black shadow-md shadow-[#D4AF37]/20'
+                              : 'bg-[#2F6FED] text-white shadow-md shadow-[#2F6FED]/20'
                           }`}
                         >
                           {isFollowingActor ? 'Following' : 'Follow Back'}
@@ -331,7 +331,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
 
                   {/* Unread indicator dot */}
                   {!n.isRead && (
-                    <span className="w-2 h-2 rounded-full bg-[#D4AF37] absolute top-3.5 right-3 shadow-sm shadow-[#D4AF37]" />
+                    <span className="w-2 h-2 rounded-full bg-[#2F6FED] absolute top-3.5 right-3 shadow-sm shadow-[#2F6FED]" />
                   )}
                 </div>
               );

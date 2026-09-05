@@ -84,13 +84,13 @@ export const StreakCalendarCard: React.FC<StreakCalendarCardProps> = ({
   };
 
   return (
-    <div className="mb-4 rounded-[28px] bg-gradient-to-br from-[#181308] via-[#101010] to-[#0A0A0A] border border-[#D4AF37]/35 shadow-xl shadow-black/60 overflow-hidden transition-all duration-300">
+    <div className="mb-4 rounded-[28px] bg-gradient-to-br from-[#181308] via-[#101010] to-[#0A0A0A] border border-[#2F6FED]/35 shadow-xl shadow-black/60 overflow-hidden transition-all duration-300">
       {/* Top Banner Header */}
       <div className="p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-[#D4AF37]/15 border border-[#D4AF37]/30 flex items-center justify-center shrink-0 shadow-inner">
-              <Flame className="w-6 h-6 text-[#D4AF37] fill-[#D4AF37] animate-pulse" />
+            <div className="w-11 h-11 rounded-2xl bg-[#2F6FED]/15 border border-[#2F6FED]/30 flex items-center justify-center shrink-0 shadow-inner">
+              <Flame className="w-6 h-6 text-[#2F6FED] fill-[#2F6FED] animate-pulse" />
             </div>
             <div>
               <h3 className="text-lg sm:text-xl font-black text-white tracking-tight">
@@ -108,7 +108,7 @@ export const StreakCalendarCard: React.FC<StreakCalendarCardProps> = ({
             {!hasPostedToday ? (
               <button
                 onClick={onOpenCreate}
-                className="px-3.5 py-2 rounded-xl bg-[#D4AF37] hover:bg-[#E5B842] text-black font-black text-xs shrink-0 active:scale-95 transition-all shadow-md shadow-[#D4AF37]/20 flex items-center gap-1.5 min-h-[38px]"
+                className="px-3.5 py-2 rounded-xl bg-[#2F6FED] hover:bg-[#E5B842] text-black font-black text-xs shrink-0 active:scale-95 transition-all shadow-md shadow-[#2F6FED]/20 flex items-center gap-1.5 min-h-[38px]"
               >
                 <PlusCircle className="w-3.5 h-3.5 stroke-[2.5]" />
                 <span>Post Proof</span>
@@ -133,11 +133,11 @@ export const StreakCalendarCard: React.FC<StreakCalendarCardProps> = ({
                   onClick={() => handleDayClick(day.dateStr)}
                   className={`flex-1 py-2 px-1 rounded-2xl flex flex-col items-center gap-1 transition-all relative border min-h-[56px] ${
                     isSelected
-                      ? 'bg-white/20 border-[#D4AF37] shadow-md ring-1 ring-[#D4AF37]'
+                      ? 'bg-white/20 border-[#2F6FED] shadow-md ring-1 ring-[#2F6FED]'
                       : day.isToday
-                      ? 'bg-[#D4AF37]/15 border-[#D4AF37]/50'
+                      ? 'bg-[#2F6FED]/15 border-[#2F6FED]/50'
                       : day.hasActivity
-                      ? 'bg-white/5 border-white/10 hover:border-[#D4AF37]/40'
+                      ? 'bg-white/5 border-white/10 hover:border-[#2F6FED]/40'
                       : 'bg-white/[0.02] border-white/5 opacity-60 hover:opacity-100'
                   }`}
                   title={`${day.dateStr}: ${day.hasActivity ? 'Proof logged' : 'No proof'}`}
@@ -145,11 +145,11 @@ export const StreakCalendarCard: React.FC<StreakCalendarCardProps> = ({
                   <span className="text-[10px] font-bold text-white/40 uppercase">
                     {day.dayName}
                   </span>
-                  <span className={`text-xs font-black ${day.isToday ? 'text-[#D4AF37]' : 'text-white'}`}>
+                  <span className={`text-xs font-black ${day.isToday ? 'text-[#2F6FED]' : 'text-white'}`}>
                     {day.dayNumber}
                   </span>
                   {day.hasActivity ? (
-                    <Flame className="w-3 h-3 text-[#D4AF37] fill-[#D4AF37] shrink-0" />
+                    <Flame className="w-3 h-3 text-[#2F6FED] fill-[#2F6FED] shrink-0" />
                   ) : (
                     <div className="w-1.5 h-1.5 rounded-full bg-white/20 my-0.5" />
                   )}
@@ -166,9 +166,9 @@ export const StreakCalendarCard: React.FC<StreakCalendarCardProps> = ({
               vibrateLight();
               setIsExpanded(!isExpanded);
             }}
-            className="flex items-center gap-1.5 text-white/60 hover:text-[#D4AF37] font-semibold transition-colors py-1 px-1.5 rounded-lg"
+            className="flex items-center gap-1.5 text-white/60 hover:text-[#2F6FED] font-semibold transition-colors py-1 px-1.5 rounded-lg"
           >
-            <CalendarIcon className="w-3.5 h-3.5 text-[#D4AF37]" />
+            <CalendarIcon className="w-3.5 h-3.5 text-[#2F6FED]" />
             <span>{isExpanded ? 'Hide Monthly Heatmap' : 'View Monthly Calendar'}</span>
             {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
@@ -176,7 +176,7 @@ export const StreakCalendarCard: React.FC<StreakCalendarCardProps> = ({
           {selectedDateFilter && (
             <button
               onClick={() => onSelectDateFilter && onSelectDateFilter(null)}
-              className="text-[11px] text-[#D4AF37] hover:underline font-bold"
+              className="text-[11px] text-[#2F6FED] hover:underline font-bold"
             >
               Clear Filter ({selectedDateFilter}) ✕
             </button>
@@ -193,7 +193,7 @@ export const StreakCalendarCard: React.FC<StreakCalendarCardProps> = ({
         <div className="p-4 sm:p-5 bg-black/40 border-t border-white/10 space-y-3 animate-in fade-in">
           <div className="flex items-center justify-between pb-2 border-b border-white/5">
             <div className="flex items-center gap-2">
-              <CalendarIcon className="w-4 h-4 text-[#D4AF37]" />
+              <CalendarIcon className="w-4 h-4 text-[#2F6FED]" />
               <h4 className="text-xs sm:text-sm font-bold text-white">
                 {monthNames[currentMonth]} {currentYear}
               </h4>
@@ -245,15 +245,15 @@ export const StreakCalendarCard: React.FC<StreakCalendarCardProps> = ({
                   onClick={() => handleDayClick(dateStr)}
                   className={`h-8 sm:h-9 rounded-xl flex flex-col items-center justify-center relative transition-all active:scale-95 border ${
                     isSelected
-                      ? 'ring-2 ring-[#D4AF37] border-[#D4AF37] bg-white/20'
+                      ? 'ring-2 ring-[#2F6FED] border-[#2F6FED] bg-white/20'
                       : hasActivity
-                      ? 'bg-[#D4AF37]/20 border-[#D4AF37]/40 text-white font-bold'
+                      ? 'bg-[#2F6FED]/20 border-[#2F6FED]/40 text-white font-bold'
                       : 'bg-white/[0.02] border-white/5 text-white/30 hover:text-white hover:bg-white/5'
                   }`}
                 >
                   <span className="text-[11px]">{dayNum}</span>
                   {hasActivity && (
-                    <Flame className="w-2.5 h-2.5 text-[#D4AF37] fill-[#D4AF37] absolute bottom-0.5" />
+                    <Flame className="w-2.5 h-2.5 text-[#2F6FED] fill-[#2F6FED] absolute bottom-0.5" />
                   )}
                 </button>
               );
@@ -262,7 +262,7 @@ export const StreakCalendarCard: React.FC<StreakCalendarCardProps> = ({
 
           <div className="pt-2 flex items-center justify-between text-[10px] text-white/40">
             <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded bg-[#D4AF37]/30 border border-[#D4AF37]/50 inline-block" />
+              <span className="w-2.5 h-2.5 rounded bg-[#2F6FED]/30 border border-[#2F6FED]/50 inline-block" />
               Proof verified
             </span>
             <span>Tap any date to filter feed receipts</span>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   X,
   Trophy,
@@ -54,15 +54,24 @@ export const DirectChallengeInviteModal: React.FC<DirectChallengeInviteModalProp
 }) => {
   const [allChallenges] = useState<Challenge[]>(() => DailyStorageService.getAllChallenges());
   const [selectedChallengeId, setSelectedChallengeId] = useState<string>(() => {
+    if (initialChallengeId && allChallenges.some((challenge) => challenge.id === initialChallengeId)) {
+      return initialChallengeId;
+    }
     // Default to first joined challenge or first challenge
     const joined = allChallenges.find((c) => (c.participantIds || []).includes(currentUser.id));
-    return initialChallengeId || joined?.id || allChallenges[0]?.id || '';
+    return joined?.id || allChallenges[0]?.id || '';
   });
   const [selectedTeamId, setSelectedTeamId] = useState<string | undefined>();
   const [noteText, setNoteText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [sentSuccess, setSentSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialChallengeId && allChallenges.some((challenge) => challenge.id === initialChallengeId)) {
+      setSelectedChallengeId(initialChallengeId);
+    }
+  }, [initialChallengeId, allChallenges]);
 
   if (!isOpen) return null;
 

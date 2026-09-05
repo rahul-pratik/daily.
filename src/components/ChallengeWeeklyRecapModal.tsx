@@ -95,9 +95,9 @@ ${customCommentary ? `\n"${customCommentary}"` : ''}`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-[#0A0A0A] border border-[#D4AF37]/30 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[92vh] text-white">
+      <div className="bg-[#0A0A0A] border border-[#2F6FED]/30 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[92vh] text-white">
         {/* Header with Gold Ribbon */}
-        <div className="relative p-5 bg-gradient-to-b from-[#D4AF37]/20 via-[#D4AF37]/5 to-transparent border-b border-white/10 flex items-start justify-between">
+        <div className="relative p-5 bg-gradient-to-b from-[#2F6FED]/20 via-[#2F6FED]/5 to-transparent border-b border-white/10 flex items-start justify-between">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-2xl shadow-lg shadow-amber-500/10">
               🏆
@@ -355,7 +355,7 @@ ${customCommentary ? `\n"${customCommentary}"` : ''}`;
               className={`px-4 py-2 rounded-xl font-black text-xs flex items-center gap-1.5 transition-all shadow-md ${
                 isPublished
                   ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                  : 'bg-gradient-to-r from-amber-400 to-[#D4AF37] hover:from-amber-300 hover:to-amber-400 text-black shadow-amber-500/20 active:scale-95'
+                  : 'bg-gradient-to-r from-amber-400 to-[#2F6FED] hover:from-amber-300 hover:to-amber-400 text-black shadow-amber-500/20 active:scale-95'
               }`}
             >
               {isPublished ? (

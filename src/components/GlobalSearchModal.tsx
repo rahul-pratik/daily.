@@ -208,7 +208,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
             <div className="space-y-4">
               {/* Popular Tags */}
               <div className="space-y-2">
-                <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-[#D4AF37]">
+                <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-[#2F6FED]">
                   <TrendingUp className="w-3.5 h-3.5" />
                   <span>Popular Daily Tags</span>
                 </div>
@@ -223,7 +223,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                       }}
                       className="px-3 py-1.5 rounded-2xl bg-white/5 hover:bg-blue-600/20 border border-white/10 hover:border-blue-500/40 text-xs font-bold text-white transition-all flex items-center gap-1.5 group"
                     >
-                      <Hash className="w-3 h-3 text-[#D4AF37]" />
+                      <Hash className="w-3 h-3 text-[#2F6FED]" />
                       <span>{t.tag}</span>
                       <span className="text-[10px] text-white/40 group-hover:text-white/70">
                         ({t.count})
@@ -314,7 +314,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                           <span className="text-xs font-bold text-white truncate">{post.name}</span>
                           <span className="text-[10px] text-white/40 truncate">@{post.username}</span>
                         </div>
-                        <span className="text-[10px] text-[#D4AF37] font-bold shrink-0">
+                        <span className="text-[10px] text-[#2F6FED] font-bold shrink-0">
                           {post.userStreak}d streak
                         </span>
                       </div>
@@ -396,7 +396,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
           {/* Users Results */}
           {(activeTab === 'all' || activeTab === 'users') && filteredUsers.length > 0 && (
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-wider text-[#D4AF37]">
+              <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-wider text-[#2F6FED]">
                 <span className="flex items-center gap-1.5">
                   <Users className="w-3.5 h-3.5" />
                   People ({filteredUsers.length})
@@ -411,7 +411,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                       onSelectUser(user);
                       onClose();
                     }}
-                    className="p-3 rounded-2xl bg-white/[0.03] hover:bg-[#D4AF37]/10 border border-white/10 hover:border-[#D4AF37]/40 transition-all cursor-pointer flex items-center gap-3 group"
+                    className="p-3 rounded-2xl bg-white/[0.03] hover:bg-[#2F6FED]/10 border border-white/10 hover:border-[#2F6FED]/40 transition-all cursor-pointer flex items-center gap-3 group"
                   >
                     <img
                       src={user.avatar}
@@ -421,11 +421,11 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
-                        <h4 className="text-xs font-black text-white truncate group-hover:text-[#D4AF37] transition-colors">
+                        <h4 className="text-xs font-black text-white truncate group-hover:text-[#2F6FED] transition-colors">
                           {user.name}
                         </h4>
-                        <span className="text-[10px] font-bold text-[#D4AF37] flex items-center gap-0.5">
-                          <Flame className="w-2.5 h-2.5 fill-[#D4AF37]" />
+                        <span className="text-[10px] font-bold text-[#2F6FED] flex items-center gap-0.5">
+                          <Flame className="w-2.5 h-2.5 fill-[#2F6FED]" />
                           {user.currentStreak}d
                         </span>
                       </div>

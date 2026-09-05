@@ -403,7 +403,7 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
                   {(community.tags || []).map((t) => (
                     <span
                       key={t}
-                      className="text-[10px] px-2 py-0.5 rounded-lg bg-white/5 text-[#D4AF37] border border-white/5 font-semibold"
+                      className="text-[10px] px-2 py-0.5 rounded-lg bg-white/5 text-[#2F6FED] border border-white/5 font-semibold"
                     >
                       #{t}
                     </span>
@@ -483,7 +483,7 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs font-bold text-white truncate">{member.name}</span>
                         {member.id === community.moderatorId && (
-                          <span className="px-1.5 py-0.5 rounded bg-[#D4AF37]/20 text-[#D4AF37] text-[8px] font-black">
+                          <span className="px-1.5 py-0.5 rounded bg-[#2F6FED]/20 text-[#2F6FED] text-[8px] font-black">
                             MOD
                           </span>
                         )}
@@ -492,8 +492,8 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-[#D4AF37] bg-[#D4AF37]/10 px-2.5 py-1 rounded-full border border-[#D4AF37]/20">
-                    <Flame className="w-3.5 h-3.5 fill-[#D4AF37]" />
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-[#2F6FED] bg-[#2F6FED]/10 px-2.5 py-1 rounded-full border border-[#2F6FED]/20">
+                    <Flame className="w-3.5 h-3.5 fill-[#2F6FED]" />
                     <span>{member.currentStreak}d</span>
                   </div>
                 </div>
@@ -551,7 +551,7 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
 
               {/* Attached Photo Preview before sending */}
               {attachedPhotoUrl && (
-                <div className="relative inline-block rounded-xl overflow-hidden border border-[#D4AF37] max-h-28 bg-black/40">
+                <div className="relative inline-block rounded-xl overflow-hidden border border-[#2F6FED] max-h-28 bg-black/40">
                   <img
                     src={attachedPhotoUrl}
                     alt="Ready to attach"
@@ -634,7 +634,7 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
                     }}
                     className={`p-2.5 rounded-xl border transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center ${
                       attachedPhotoUrl
-                        ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
+                        ? 'bg-[#2F6FED] text-white border-[#2F6FED]'
                         : 'bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border-white/10'
                     }`}
                     title="Attach photo to discussion"

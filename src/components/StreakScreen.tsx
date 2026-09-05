@@ -140,7 +140,7 @@ export const StreakScreen: React.FC<StreakScreenProps> = ({
         {!hasPostedToday && (
           <button
             onClick={onOpenCreate}
-            className="mt-4 px-6 py-3 rounded-2xl bg-[#D4AF37] text-black font-black text-xs inline-flex items-center gap-2 hover:bg-[#E5B842] active:scale-95 transition-all shadow-lg shadow-[#D4AF37]/25"
+            className="mt-4 px-6 py-3 rounded-2xl bg-[#2F6FED] text-white font-black text-xs inline-flex items-center gap-2 hover:bg-[#E5B842] active:scale-95 transition-all shadow-lg shadow-[#2F6FED]/25"
           >
             <PlusCircle className="w-4 h-4" />
             <span>Post Today’s Update</span>
@@ -180,7 +180,7 @@ export const StreakScreen: React.FC<StreakScreenProps> = ({
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center text-white">
-              <CalendarIcon className="w-4 h-4 text-[#D4AF37]" />
+              <CalendarIcon className="w-4 h-4 text-[#2F6FED]" />
             </div>
             <h2 className="font-bold text-sm text-white">Monthly Activity & Posts</h2>
           </div>
@@ -243,7 +243,7 @@ export const StreakScreen: React.FC<StreakScreenProps> = ({
                   isActive
                     ? 'bg-blue-600 text-white font-black shadow-md shadow-blue-500/25 hover:scale-105'
                     : 'bg-white/5 text-white/40 hover:bg-white/10 hover:text-white'
-                } ${isToday ? 'ring-2 ring-[#D4AF37]' : ''} ${
+                } ${isToday ? 'ring-2 ring-[#2F6FED]' : ''} ${
                   isSelected ? 'ring-2 ring-white scale-105 z-10' : ''
                 }`}
                 aria-label={`View entry for ${dateStr}`}
@@ -304,7 +304,7 @@ export const StreakScreen: React.FC<StreakScreenProps> = ({
             {/* Content posted on this day */}
             {postsOnSelectedDate.length > 0 ? (
               <div className="space-y-3 pt-1">
-                <span className="text-[11px] font-bold text-[#D4AF37] block uppercase tracking-wider">
+                <span className="text-[11px] font-bold text-[#2F6FED] block uppercase tracking-wider">
                   What was posted on this day:
                 </span>
                 {postsOnSelectedDate.map((post) => (
@@ -344,7 +344,7 @@ export const StreakScreen: React.FC<StreakScreenProps> = ({
                 {selectedDate === today && (
                   <button
                     onClick={onOpenCreate}
-                    className="px-4 py-2 rounded-xl bg-[#D4AF37] text-black font-black text-xs inline-flex items-center gap-1.5 shadow-md shadow-[#D4AF37]/20"
+                    className="px-4 py-2 rounded-xl bg-[#2F6FED] text-white font-black text-xs inline-flex items-center gap-1.5 shadow-md shadow-[#2F6FED]/20"
                   >
                     <PlusCircle className="w-3.5 h-3.5" />
                     <span>Post Check-in for Today</span>

@@ -30,13 +30,13 @@ export const EmptyStateIllustration: React.FC<EmptyStateIllustrationProps> = ({
         return (
           <div className="relative w-24 h-24 mx-auto mb-4 flex items-center justify-center">
             {/* Ambient golden glow circle */}
-            <div className="absolute inset-0 rounded-full bg-[#D4AF37]/10 blur-xl animate-pulse" />
+            <div className="absolute inset-0 rounded-full bg-[#2F6FED]/10 blur-xl animate-pulse" />
             <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-br from-white/10 to-white/[0.02] border border-white/15 p-4 flex flex-col items-center justify-center shadow-2xl">
-              <div className="w-10 h-10 rounded-2xl bg-[#D4AF37]/15 border border-[#D4AF37]/40 flex items-center justify-center text-[#D4AF37]">
-                <Flame className="w-5 h-5 fill-[#D4AF37]" />
+              <div className="w-10 h-10 rounded-2xl bg-[#2F6FED]/15 border border-[#2F6FED]/40 flex items-center justify-center text-[#2F6FED]">
+                <Flame className="w-5 h-5 fill-[#2F6FED]" />
               </div>
               <div className="flex gap-1 mt-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[#2F6FED]" />
                 <span className="w-1.5 h-1.5 rounded-full bg-white/40" />
                 <span className="w-1.5 h-1.5 rounded-full bg-white/20" />
               </div>
@@ -47,9 +47,9 @@ export const EmptyStateIllustration: React.FC<EmptyStateIllustrationProps> = ({
       case 'interests':
         return (
           <div className="relative w-24 h-24 mx-auto mb-4 flex items-center justify-center">
-            <div className="absolute inset-0 rounded-full bg-[#D4AF37]/10 blur-xl" />
+            <div className="absolute inset-0 rounded-full bg-[#2F6FED]/10 blur-xl" />
             <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-br from-white/10 to-white/[0.02] border border-white/15 p-4 flex flex-col items-center justify-center shadow-2xl">
-              <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/40 flex items-center justify-center text-[#D4AF37]">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/40 flex items-center justify-center text-[#2F6FED]">
                 <Sparkles className="w-5 h-5" />
               </div>
               <span className="text-[9px] font-bold text-white/50 mt-1 uppercase tracking-wider">Interests</span>
@@ -60,13 +60,13 @@ export const EmptyStateIllustration: React.FC<EmptyStateIllustrationProps> = ({
       case 'messages':
         return (
           <div className="relative w-24 h-24 mx-auto mb-4 flex items-center justify-center">
-            <div className="absolute inset-0 rounded-full bg-[#D4AF37]/10 blur-xl animate-pulse" />
+            <div className="absolute inset-0 rounded-full bg-[#2F6FED]/10 blur-xl animate-pulse" />
             <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-br from-white/10 to-white/[0.02] border border-white/15 p-4 flex flex-col items-center justify-center shadow-2xl">
-              <div className="w-10 h-10 rounded-2xl bg-[#D4AF37]/15 border border-[#D4AF37]/40 flex items-center justify-center text-[#D4AF37]">
+              <div className="w-10 h-10 rounded-2xl bg-[#2F6FED]/15 border border-[#2F6FED]/40 flex items-center justify-center text-[#2F6FED]">
                 <MessageSquare className="w-5 h-5" />
               </div>
               <div className="flex items-center gap-1 mt-2">
-                <span className="w-2 h-1 rounded-full bg-[#D4AF37]" />
+                <span className="w-2 h-1 rounded-full bg-[#2F6FED]" />
                 <span className="w-3 h-1 rounded-full bg-white/40" />
               </div>
             </div>
@@ -87,9 +87,9 @@ export const EmptyStateIllustration: React.FC<EmptyStateIllustrationProps> = ({
       case 'collections':
         return (
           <div className="relative w-24 h-24 mx-auto mb-4 flex items-center justify-center">
-            <div className="absolute inset-0 rounded-full bg-[#D4AF37]/10 blur-xl" />
+            <div className="absolute inset-0 rounded-full bg-[#2F6FED]/10 blur-xl" />
             <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-br from-white/10 to-white/[0.02] border border-white/15 p-4 flex flex-col items-center justify-center shadow-2xl">
-              <div className="w-10 h-10 rounded-2xl bg-[#D4AF37]/15 border border-[#D4AF37]/40 flex items-center justify-center text-[#D4AF37] text-lg">
+              <div className="w-10 h-10 rounded-2xl bg-[#2F6FED]/15 border border-[#2F6FED]/40 flex items-center justify-center text-[#2F6FED] text-lg">
                 📁
               </div>
               <span className="text-[9px] font-bold text-white/50 mt-1 uppercase tracking-wider">Proof Box</span>
@@ -125,7 +125,7 @@ export const EmptyStateIllustration: React.FC<EmptyStateIllustrationProps> = ({
           {primaryAction && (
             <button
               onClick={primaryAction.onClick}
-              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#D4AF37] text-black font-black text-xs hover:bg-[#c49f2f] transition-all shadow-lg shadow-[#D4AF37]/20 flex items-center justify-center gap-2 active:scale-95 min-h-[42px]"
+              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#2F6FED] text-white font-black text-xs hover:bg-[#c49f2f] transition-all shadow-lg shadow-[#2F6FED]/20 flex items-center justify-center gap-2 active:scale-95 min-h-[42px]"
             >
               {primaryAction.icon}
               <span>{primaryAction.label}</span>

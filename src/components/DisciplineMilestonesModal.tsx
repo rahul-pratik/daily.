@@ -60,7 +60,7 @@ export const DisciplineMilestonesModal: React.FC<DisciplineMilestonesModalProps>
         {/* Header */}
         <div className="flex items-center justify-between pb-3.5 border-b border-white/10">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-[#D4AF37]/15 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37] shadow-inner">
+            <div className="w-10 h-10 rounded-2xl bg-[#2F6FED]/15 border border-[#2F6FED]/30 flex items-center justify-center text-[#2F6FED] shadow-inner">
               <Award className="w-5 h-5" />
             </div>
             <div>
@@ -88,7 +88,7 @@ export const DisciplineMilestonesModal: React.FC<DisciplineMilestonesModalProps>
             <span className="font-bold text-white/70 uppercase tracking-wider text-[10px]">
               Profile Showcase Slots ({selectedIds.length}/3 Applied)
             </span>
-            <span className="text-[10px] text-[#D4AF37] font-semibold">
+            <span className="text-[10px] text-[#2F6FED] font-semibold">
               {selectedIds.length === 3 ? '✓ 3 Slots Full' : `Select ${3 - selectedIds.length} more`}
             </span>
           </div>
@@ -103,16 +103,16 @@ export const DisciplineMilestonesModal: React.FC<DisciplineMilestonesModalProps>
                   <div
                     key={slotIdx}
                     onClick={() => toggleMilestone(milestone.id)}
-                    className="p-2 rounded-2xl bg-[#D4AF37]/10 border border-[#D4AF37]/40 text-left relative group cursor-pointer hover:border-red-400/50 transition-all"
+                    className="p-2 rounded-2xl bg-[#2F6FED]/10 border border-[#2F6FED]/40 text-left relative group cursor-pointer hover:border-red-400/50 transition-all"
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-lg">{milestone.icon}</span>
-                      <span className="text-[9px] font-black text-[#D4AF37] bg-black/50 px-1.5 py-0.5 rounded">
+                      <span className="text-[9px] font-black text-[#2F6FED] bg-black/50 px-1.5 py-0.5 rounded">
                         #{slotIdx + 1}
                       </span>
                     </div>
                     <p className="font-black text-xs text-white truncate mt-1">{milestone.title}</p>
-                    <p className="text-[9px] text-[#D4AF37] truncate">{milestone.category}</p>
+                    <p className="text-[9px] text-[#2F6FED] truncate">{milestone.category}</p>
                   </div>
                 );
               }
@@ -163,7 +163,7 @@ export const DisciplineMilestonesModal: React.FC<DisciplineMilestonesModalProps>
                 onClick={() => toggleMilestone(milestone.id)}
                 className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 relative ${
                   isSelected
-                    ? 'bg-gradient-to-r from-[#D4AF37]/15 to-transparent border-[#D4AF37] shadow-md shadow-[#D4AF37]/10'
+                    ? 'bg-gradient-to-r from-[#2F6FED]/15 to-transparent border-[#2F6FED] shadow-md shadow-[#2F6FED]/10'
                     : 'bg-white/[0.03] border-white/10 hover:bg-white/[0.07] hover:border-white/20'
                 }`}
               >
@@ -178,7 +178,7 @@ export const DisciplineMilestonesModal: React.FC<DisciplineMilestonesModalProps>
                       {milestone.category}
                     </span>
                   </div>
-                  <p className="text-[11px] font-semibold text-[#D4AF37] mt-0.5">
+                  <p className="text-[11px] font-semibold text-[#2F6FED] mt-0.5">
                     {milestone.headline}
                   </p>
                   <p className="text-[10px] text-white/50 leading-relaxed mt-0.5">
@@ -189,7 +189,7 @@ export const DisciplineMilestonesModal: React.FC<DisciplineMilestonesModalProps>
                 {/* Selected Check Indicator */}
                 <div className="absolute top-3.5 right-3.5">
                   {isSelected ? (
-                    <div className="w-6 h-6 rounded-full bg-[#D4AF37] text-black font-black text-xs flex items-center justify-center shadow-md">
+                    <div className="w-6 h-6 rounded-full bg-[#2F6FED] text-white font-black text-xs flex items-center justify-center shadow-md">
                       {selectionIndex + 1}
                     </div>
                   ) : (

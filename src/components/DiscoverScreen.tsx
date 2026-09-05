@@ -223,7 +223,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                   }}
                   className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border ${
                     isSelected
-                      ? 'bg-[#D4AF37] text-black border-[#D4AF37] shadow-md shadow-[#D4AF37]/20 scale-105'
+                      ? 'bg-[#2F6FED] text-white border-[#2F6FED] shadow-md shadow-[#2F6FED]/20 scale-105'
                       : 'bg-white/5 text-white/70 border-white/10 hover:border-white/20 hover:text-white'
                   }`}
                 >
@@ -267,7 +267,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                   : 'text-white/50 hover:text-white'
               }`}
             >
-              <Users className="w-3 h-3 text-[#D4AF37]" />
+              <Users className="w-3 h-3 text-[#2F6FED]" />
               <span>Creators ({filteredUsers.length})</span>
             </button>
           </div>
@@ -474,13 +474,13 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-xs uppercase font-bold tracking-wider text-white/50 flex items-center gap-1.5">
-                  <Users className="w-3.5 h-3.5 text-[#D4AF37]" />
+                  <Users className="w-3.5 h-3.5 text-[#2F6FED]" />
                   Matching Creators ({sortedUsers.length})
                 </h2>
                 {entityFilter === 'all' && sortedUsers.length > 3 && (
                   <button
                     onClick={() => setEntityFilter('people')}
-                    className="text-[11px] text-[#D4AF37] hover:underline font-bold"
+                    className="text-[11px] text-[#2F6FED] hover:underline font-bold"
                   >
                     View all {sortedUsers.length}
                   </button>
@@ -529,8 +529,8 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                               <p className="text-[10px] text-white/40 truncate">@{user.username}</p>
                             </div>
 
-                            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#D4AF37]/15 border border-[#D4AF37]/30 text-[#D4AF37] text-[10px] font-bold">
-                              <Flame className="w-3 h-3 fill-[#D4AF37]" />
+                            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#2F6FED]/15 border border-[#2F6FED]/30 text-[#2F6FED] text-[10px] font-bold">
+                              <Flame className="w-3 h-3 fill-[#2F6FED]" />
                               <span>{user.currentStreak}d</span>
                             </div>
                           </div>
@@ -547,7 +547,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                               {commonInterests.slice(0, 2).map((i) => (
                                 <span
                                   key={i}
-                                  className="text-[9px] px-2 py-0.5 rounded-lg bg-[#D4AF37]/10 text-[#D4AF37] border border-[#D4AF37]/20 font-semibold"
+                                  className="text-[9px] px-2 py-0.5 rounded-lg bg-[#2F6FED]/10 text-[#2F6FED] border border-[#2F6FED]/20 font-semibold"
                                 >
                                   #{i}
                                 </span>

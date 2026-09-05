@@ -218,7 +218,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
                           {friend.name}
                         </p>
                         <p className="text-[10px] text-white/40 truncate">
-                          @{friend.username} • <span className="text-[#D4AF37]">🔥{friend.currentStreak}d</span>
+                          @{friend.username} • <span className="text-[#2F6FED]">🔥{friend.currentStreak}d</span>
                         </p>
                       </div>
                     </div>

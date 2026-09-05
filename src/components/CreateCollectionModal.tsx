@@ -228,7 +228,7 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
                         />
                       ) : (
                         <div className="w-full h-full p-2 bg-white/5 flex flex-col justify-between text-[9px] text-white/70">
-                          <span className="text-[#D4AF37] font-bold">🔥</span>
+                          <span className="text-[#2F6FED] font-bold">🔥</span>
                           <span className="line-clamp-2">{post.content}</span>
                         </div>
                       )}

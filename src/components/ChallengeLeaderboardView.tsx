@@ -132,7 +132,7 @@ export const ChallengeLeaderboardView: React.FC<ChallengeLeaderboardViewProps> =
               }}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
                 leaderboardTab === 'squads'
-                  ? 'bg-[#D4AF37] text-black shadow-md shadow-[#D4AF37]/20 font-black'
+                  ? 'bg-[#2F6FED] text-white shadow-md shadow-[#2F6FED]/20 font-black'
                   : 'text-white/60 hover:text-white'
               }`}
             >
@@ -147,7 +147,7 @@ export const ChallengeLeaderboardView: React.FC<ChallengeLeaderboardViewProps> =
               }}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
                 leaderboardTab === 'individuals'
-                  ? 'bg-[#D4AF37] text-black shadow-md shadow-[#D4AF37]/20 font-black'
+                  ? 'bg-[#2F6FED] text-white shadow-md shadow-[#2F6FED]/20 font-black'
                   : 'text-white/60 hover:text-white'
               }`}
             >
@@ -289,13 +289,7 @@ export const ChallengeLeaderboardView: React.FC<ChallengeLeaderboardViewProps> =
                 key={ind.user.id}
                 onClick={() => {
                   if (onViewUser && ind.user.id !== 'system') {
-                    onViewUser({
-                      id: ind.user.id,
-                      name: ind.user.name,
-                      username: ind.user.username,
-                      avatar: ind.user.avatar,
-                      streak: ind.user.currentStreak,
-                    });
+                    onViewUser({ ...ind.user, streak: ind.currentStreak });
                   }
                 }}
                 className={`p-3 sm:p-3.5 rounded-2xl border transition-all ${
@@ -367,7 +361,7 @@ export const ChallengeLeaderboardView: React.FC<ChallengeLeaderboardViewProps> =
                 <div className="mt-2 pt-2 border-t border-white/5">
                   <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-gradient-to-r from-amber-500 via-[#D4AF37] to-emerald-400 rounded-full"
+                      className="h-full bg-gradient-to-r from-amber-500 via-[#2F6FED] to-emerald-400 rounded-full"
                       style={{ width: `${Math.max(4, ind.completionPercentage)}%` }}
                     />
                   </div>

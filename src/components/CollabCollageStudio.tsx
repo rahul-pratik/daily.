@@ -233,11 +233,11 @@ export const CollabCollageStudio: React.FC<CollabCollageStudioProps> = ({
     ctx.fillStyle = '#121212';
     ctx.fill();
     ctx.lineWidth = 2;
-    ctx.strokeStyle = '#D4AF37';
+    ctx.strokeStyle = '#2F6FED';
     ctx.stroke();
 
     // Banner Text
-    ctx.fillStyle = '#D4AF37';
+    ctx.fillStyle = '#2F6FED';
     ctx.font = 'bold 24px system-ui, sans-serif';
     ctx.fillText('DAILY PROOF COLLAB', padding + 24, bannerY + 44);
 
@@ -246,7 +246,7 @@ export const CollabCollageStudio: React.FC<CollabCollageStudioProps> = ({
     ctx.fillText(`@${currentUser.username} • 1 Unbroken Daily Main Proof`, padding + 24, bannerY + 68);
 
     // Streak badge right
-    ctx.fillStyle = '#D4AF37';
+    ctx.fillStyle = '#2F6FED';
     ctx.font = 'bold 20px system-ui, sans-serif';
     ctx.textAlign = 'right';
     ctx.fillText(`🔥 STREAK ${currentUser.currentStreak}D`, width - padding - 24, bannerY + 48);
@@ -282,19 +282,19 @@ export const CollabCollageStudio: React.FC<CollabCollageStudioProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-xl bg-[#0D0D0D] border border-[#D4AF37]/40 rounded-[32px] p-5 sm:p-6 shadow-2xl relative text-white my-auto max-h-[94vh] flex flex-col animate-in zoom-in-95 duration-200"
+        className="w-full max-w-xl bg-[#0D0D0D] border border-[#2F6FED]/40 rounded-[32px] p-5 sm:p-6 shadow-2xl relative text-white my-auto max-h-[94vh] flex flex-col animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between pb-3.5 border-b border-white/10">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-[#D4AF37]/15 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37] shadow-inner">
+            <div className="w-10 h-10 rounded-2xl bg-[#2F6FED]/15 border border-[#2F6FED]/30 flex items-center justify-center text-[#2F6FED] shadow-inner">
               <Layers className="w-5 h-5" />
             </div>
             <div>
               <h3 className="font-black text-sm sm:text-base text-white flex items-center gap-1.5">
                 Collab Photo Stitcher
-                <span className="text-[10px] font-black uppercase tracking-wider bg-[#D4AF37] text-black px-2 py-0.5 rounded-full">
+                <span className="text-[10px] font-black uppercase tracking-wider bg-[#2F6FED] text-white px-2 py-0.5 rounded-full">
                   Main Post
                 </span>
               </h3>
@@ -318,7 +318,7 @@ export const CollabCollageStudio: React.FC<CollabCollageStudioProps> = ({
           {/* Canvas Live Preview */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-wider text-[#D4AF37] flex items-center gap-1">
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#2F6FED] flex items-center gap-1">
                 <Sparkles className="w-3.5 h-3.5" />
                 Live Composite Preview ({selectedImages.length} Photos Selected)
               </span>
@@ -332,7 +332,7 @@ export const CollabCollageStudio: React.FC<CollabCollageStudioProps> = ({
                     setLayoutMode('2-split');
                   }}
                   className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                    layoutMode === '2-split' ? 'bg-[#D4AF37] text-black' : 'text-white/60 hover:text-white'
+                    layoutMode === '2-split' ? 'bg-[#2F6FED] text-white' : 'text-white/60 hover:text-white'
                   }`}
                 >
                   2-Split
@@ -344,7 +344,7 @@ export const CollabCollageStudio: React.FC<CollabCollageStudioProps> = ({
                     setLayoutMode('3-hero');
                   }}
                   className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                    layoutMode === '3-hero' ? 'bg-[#D4AF37] text-black' : 'text-white/60 hover:text-white'
+                    layoutMode === '3-hero' ? 'bg-[#2F6FED] text-white' : 'text-white/60 hover:text-white'
                   }`}
                 >
                   3-Grid
@@ -356,7 +356,7 @@ export const CollabCollageStudio: React.FC<CollabCollageStudioProps> = ({
                     setLayoutMode('4-quad');
                   }}
                   className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                    layoutMode === '4-quad' ? 'bg-[#D4AF37] text-black' : 'text-white/60 hover:text-white'
+                    layoutMode === '4-quad' ? 'bg-[#2F6FED] text-white' : 'text-white/60 hover:text-white'
                   }`}
                 >
                   4-Quad
@@ -365,7 +365,7 @@ export const CollabCollageStudio: React.FC<CollabCollageStudioProps> = ({
             </div>
 
             {/* Canvas Element */}
-            <div className="w-full aspect-square max-w-[320px] mx-auto rounded-2xl overflow-hidden border border-[#D4AF37]/30 bg-black flex items-center justify-center shadow-xl shadow-black">
+            <div className="w-full aspect-square max-w-[320px] mx-auto rounded-2xl overflow-hidden border border-[#2F6FED]/30 bg-black flex items-center justify-center shadow-xl shadow-black">
               <canvas
                 ref={canvasRef}
                 className="w-full h-full object-contain"
@@ -390,7 +390,7 @@ export const CollabCollageStudio: React.FC<CollabCollageStudioProps> = ({
                       onClick={() => toggleImageSelection(post.imageUrl!)}
                       className={`relative aspect-video rounded-xl overflow-hidden border cursor-pointer group transition-all ${
                         isSelected
-                          ? 'border-[#D4AF37] ring-2 ring-[#D4AF37]/50'
+                          ? 'border-[#2F6FED] ring-2 ring-[#2F6FED]/50'
                           : 'border-white/10 hover:border-white/30 opacity-70'
                       }`}
                     >
@@ -401,7 +401,7 @@ export const CollabCollageStudio: React.FC<CollabCollageStudioProps> = ({
                         referrerPolicy="no-referrer"
                       />
                       {isSelected && (
-                        <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-[#D4AF37] text-black font-black text-[10px] flex items-center justify-center">
+                        <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-[#2F6FED] text-white font-black text-[10px] flex items-center justify-center">
                           <Check className="w-3 h-3 stroke-[3]" />
                         </div>
                       )}
@@ -444,7 +444,7 @@ export const CollabCollageStudio: React.FC<CollabCollageStudioProps> = ({
                     onClick={() => toggleImageSelection(preset.url)}
                     className={`relative aspect-square rounded-xl overflow-hidden border cursor-pointer transition-all ${
                       isSelected
-                        ? 'border-[#D4AF37] ring-2 ring-[#D4AF37]/50'
+                        ? 'border-[#2F6FED] ring-2 ring-[#2F6FED]/50'
                         : 'border-white/10 hover:border-white/30 opacity-60 hover:opacity-100'
                     }`}
                   >
@@ -455,7 +455,7 @@ export const CollabCollageStudio: React.FC<CollabCollageStudioProps> = ({
                       referrerPolicy="no-referrer"
                     />
                     {isSelected && (
-                      <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-[#D4AF37] text-black font-black text-[8px] flex items-center justify-center">
+                      <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-[#2F6FED] text-white font-black text-[8px] flex items-center justify-center">
                         <Check className="w-2.5 h-2.5 stroke-[3]" />
                       </div>
                     )}
@@ -481,7 +481,7 @@ export const CollabCollageStudio: React.FC<CollabCollageStudioProps> = ({
           <button
             type="button"
             onClick={handleApply}
-            className="w-2/3 py-3 rounded-2xl bg-[#D4AF37] hover:bg-[#E5B842] text-black font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-[#D4AF37]/25 transition-all min-h-[44px]"
+            className="w-2/3 py-3 rounded-2xl bg-[#2F6FED] hover:bg-[#E5B842] text-black font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-[#2F6FED]/25 transition-all min-h-[44px]"
           >
             <Sparkles className="w-4 h-4 stroke-[2.5]" />
             <span>Use Collab Photo for 1 Main Post</span>

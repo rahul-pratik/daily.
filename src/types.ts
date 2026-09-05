@@ -451,7 +451,7 @@ export const AVAILABLE_DISCIPLINE_MILESTONES: DisciplineMilestone[] = [
     title: 'Dawn Riser',
     category: 'Focus',
     icon: '🌅',
-    badgeColor: '#D4AF37',
+    badgeColor: '#2F6FED',
     headline: '5:00 AM Dawn Protocol',
     description: 'Relentless morning execution before the rest of the world wakes up.',
   },

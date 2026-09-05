@@ -74,7 +74,7 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({
                     className="w-7 h-7 rounded-full object-cover border border-white/10"
                   />
                   {comment.userStreak > 0 && (
-                    <span className="absolute -bottom-1 -right-1 bg-black text-[8px] text-[#D4AF37] px-0.5 rounded border border-[#D4AF37]/40 font-black">
+                    <span className="absolute -bottom-1 -right-1 bg-black text-[8px] text-[#2F6FED] px-0.5 rounded border border-[#2F6FED]/40 font-black">
                       🔥{comment.userStreak}
                     </span>
                   )}
@@ -86,7 +86,7 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({
                   </div>
                   <p className="text-white/80 leading-relaxed">{comment.content}</p>
                 </div>
-                <button className="text-white/30 hover:text-[#D4AF37] opacity-0 group-hover:opacity-100 transition-opacity p-1">
+                <button className="text-white/30 hover:text-[#2F6FED] opacity-0 group-hover:opacity-100 transition-opacity p-1">
                   <Heart className="w-3.5 h-3.5" />
                 </button>
               </div>

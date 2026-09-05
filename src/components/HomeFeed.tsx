@@ -177,7 +177,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search proofs, #tags, creators, topics..."
-              className="w-full pl-10 pr-9 py-2.5 rounded-2xl bg-white/5 border border-white/10 text-white placeholder-white/40 text-xs font-semibold focus:outline-none focus:border-[#D4AF37] focus:bg-white/[0.08] transition-all"
+              className="w-full pl-10 pr-9 py-2.5 rounded-2xl bg-white/5 border border-white/10 text-white placeholder-white/40 text-xs font-semibold focus:outline-none focus:border-[#2F6FED] focus:bg-white/[0.08] transition-all"
             />
             {searchQuery && (
               <button
@@ -193,9 +193,9 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
 
         {/* Focus Reading Mode Active Bar */}
         {isFocusMode && (
-          <div className="p-3.5 rounded-2xl bg-[#141414] border border-[#D4AF37]/40 flex items-center justify-between shadow-lg shadow-black/60 sticky top-2 z-20 backdrop-blur-md">
+          <div className="p-3.5 rounded-2xl bg-[#141414] border border-[#2F6FED]/40 flex items-center justify-between shadow-lg shadow-black/60 sticky top-2 z-20 backdrop-blur-md">
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37]">
+              <div className="w-7 h-7 rounded-xl bg-[#2F6FED]/10 border border-[#2F6FED]/30 flex items-center justify-center text-[#2F6FED]">
                 <BookOpen className="w-4 h-4" />
               </div>
               <div>
@@ -227,7 +227,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                 }}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                   feedFilter === 'all'
-                    ? 'bg-[#D4AF37] text-black font-black shadow-md shadow-[#D4AF37]/20'
+                    ? 'bg-[#2F6FED] text-white font-black shadow-md shadow-[#2F6FED]/20'
                     : 'text-white/60 hover:text-white'
                 }`}
               >
@@ -242,7 +242,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                 }}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
                   feedFilter === 'following'
-                    ? 'bg-[#D4AF37] text-black font-black shadow-md shadow-[#D4AF37]/20'
+                    ? 'bg-[#2F6FED] text-white font-black shadow-md shadow-[#2F6FED]/20'
                     : 'text-white/60 hover:text-white'
                 }`}
               >
@@ -258,7 +258,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                 }}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
                   feedFilter === 'interests'
-                    ? 'bg-[#D4AF37] text-black font-black shadow-md shadow-[#D4AF37]/20'
+                    ? 'bg-[#2F6FED] text-white font-black shadow-md shadow-[#2F6FED]/20'
                     : 'text-white/60 hover:text-white'
                 }`}
               >
@@ -311,7 +311,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                 }}
                 className={`shrink-0 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all border ${
                   activeTag === tag
-                    ? 'bg-[#D4AF37] text-black border-[#D4AF37] font-black'
+                    ? 'bg-[#2F6FED] text-white border-[#2F6FED] font-black'
                     : 'bg-white/5 text-white/60 border-white/10 hover:text-white hover:border-white/20'
                 }`}
               >

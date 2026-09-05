@@ -83,7 +83,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
-              <Flame className="w-4 h-4 text-[#D4AF37] fill-[#D4AF37]" />
+              <Flame className="w-4 h-4 text-[#2F6FED] fill-[#2F6FED]" />
             </div>
             <span className="font-bold text-xs uppercase tracking-wider text-white/50">
               Welcome to Daily
@@ -95,9 +95,9 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 key={s}
                 className={`h-1.5 rounded-full transition-all duration-300 ${
                   s === step
-                    ? 'w-6 bg-[#D4AF37]'
+                    ? 'w-6 bg-[#2F6FED]'
                     : s < step
-                    ? 'w-3 bg-[#D4AF37]/50'
+                    ? 'w-3 bg-[#2F6FED]/50'
                     : 'w-3 bg-white/10'
                 }`}
               />
@@ -126,7 +126,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <label className="absolute bottom-0 right-0 p-1.5 bg-black border border-white/20 hover:border-[#D4AF37] rounded-full text-white cursor-pointer shadow-md">
+                <label className="absolute bottom-0 right-0 p-1.5 bg-black border border-white/20 hover:border-[#2F6FED] rounded-full text-white cursor-pointer shadow-md">
                   <Upload className="w-3.5 h-3.5" />
                   <input
                     type="file"
@@ -147,7 +147,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                     onClick={() => setAvatar(preset)}
                     className={`w-7 h-7 rounded-full overflow-hidden border transition-all ${
                       avatar === preset
-                        ? 'border-[#D4AF37] scale-110 ring-2 ring-[#D4AF37]/40'
+                        ? 'border-[#2F6FED] scale-110 ring-2 ring-[#2F6FED]/40'
                         : 'border-white/10 opacity-60 hover:opacity-100'
                     }`}
                   >
@@ -170,7 +170,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. Alex Rivera"
-                className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 focus:border-[#D4AF37] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors"
+                className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors"
               />
             </div>
 
@@ -184,7 +184,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="alexrivera"
-                  className="w-full pl-7 pr-3.5 py-2.5 bg-white/5 border border-white/10 focus:border-[#D4AF37] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors"
+                  className="w-full pl-7 pr-3.5 py-2.5 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors"
                 />
               </div>
             </div>
@@ -198,7 +198,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 placeholder="What are you working on or building daily?"
                 rows={2}
                 maxLength={140}
-                className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 focus:border-[#D4AF37] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors resize-none"
+                className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors resize-none"
               />
               <span className="text-[10px] font-mono text-white/30 block text-right">
                 {bio.length}/140
@@ -208,7 +208,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             <button
               onClick={() => setStep(2)}
               disabled={!name.trim() || !username.trim()}
-              className="w-full mt-2 py-3 rounded-2xl bg-[#D4AF37] text-black font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-[#D4AF37]/90 active:scale-[0.99] transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-lg shadow-[#D4AF37]/20"
+              className="w-full mt-2 py-3 rounded-2xl bg-[#2F6FED] text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-[#2F6FED]/90 active:scale-[0.99] transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-lg shadow-[#2F6FED]/20"
             >
               Continue to Interests <ArrowRight className="w-4 h-4" />
             </button>
@@ -235,7 +235,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                     onClick={() => toggleInterest(interest)}
                     className={`px-3.5 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 border ${
                       isSelected
-                        ? 'bg-[#D4AF37] text-black border-[#D4AF37] shadow-md shadow-[#D4AF37]/20'
+                        ? 'bg-[#2F6FED] text-white border-[#2F6FED] shadow-md shadow-[#2F6FED]/20'
                         : 'bg-white/5 text-white/60 border-white/10 hover:border-white/20 hover:text-white'
                     }`}
                   >
@@ -256,7 +256,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               <button
                 onClick={() => setStep(3)}
                 disabled={selectedInterests.length === 0}
-                className="w-2/3 py-3 rounded-2xl bg-[#D4AF37] text-black font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-[#D4AF37]/90 active:scale-[0.99] transition-all disabled:opacity-30 shadow-lg shadow-[#D4AF37]/20"
+                className="w-2/3 py-3 rounded-2xl bg-[#2F6FED] text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-[#2F6FED]/90 active:scale-[0.99] transition-all disabled:opacity-30 shadow-lg shadow-[#2F6FED]/20"
               >
                 Next: Daily Habits <ArrowRight className="w-4 h-4" />
               </button>
@@ -295,8 +295,8 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               })}
             </div>
 
-            <div className="bg-[#D4AF37]/10 border border-[#D4AF37]/20 rounded-2xl p-3.5 flex items-start gap-3">
-              <Sparkles className="w-5 h-5 text-[#D4AF37] shrink-0 mt-0.5" />
+            <div className="bg-[#2F6FED]/10 border border-[#2F6FED]/20 rounded-2xl p-3.5 flex items-start gap-3">
+              <Sparkles className="w-5 h-5 text-[#2F6FED] shrink-0 mt-0.5" />
               <p className="text-xs text-white/80 leading-relaxed">
                 <strong className="text-white">One post every day.</strong> Posting increases your streak and inspires your network to stay locked in.
               </p>
@@ -311,7 +311,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               </button>
               <button
                 onClick={handleFinish}
-                className="w-2/3 py-3 rounded-2xl bg-[#D4AF37] text-black font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-[#D4AF37]/90 active:scale-[0.99] transition-all shadow-lg shadow-[#D4AF37]/20"
+                className="w-2/3 py-3 rounded-2xl bg-[#2F6FED] text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-[#2F6FED]/90 active:scale-[0.99] transition-all shadow-lg shadow-[#2F6FED]/20"
               >
                 <Flame className="w-4 h-4 fill-black" />
                 Launch Daily

@@ -188,7 +188,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             <div>
               <h2 className="font-bold text-sm text-white">Share Post</h2>
               <span className="text-[10px] text-white/40 font-mono">
-                Post by @{post.username} • <span className="text-[#D4AF37]">🔥{post.userStreak}d streak</span>
+                Post by @{post.username} • <span className="text-[#2F6FED]">🔥{post.userStreak}d streak</span>
               </span>
             </div>
           </div>
@@ -253,14 +253,14 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                   className="w-12 h-12 rounded-xl object-cover shrink-0 border border-white/10"
                 />
               ) : (
-                <div className="w-12 h-12 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/20 flex items-center justify-center shrink-0">
-                  <Flame className="w-5 h-5 text-[#D4AF37] fill-[#D4AF37]" />
+                <div className="w-12 h-12 rounded-xl bg-[#2F6FED]/10 border border-[#2F6FED]/20 flex items-center justify-center shrink-0">
+                  <Flame className="w-5 h-5 text-[#2F6FED] fill-[#2F6FED]" />
                 </div>
               )}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 mb-0.5">
                   <span className="font-bold text-xs text-white truncate">{post.name}</span>
-                  <span className="text-[10px] text-[#D4AF37] font-black shrink-0">
+                  <span className="text-[10px] text-[#2F6FED] font-black shrink-0">
                     🔥{post.userStreak}d
                   </span>
                 </div>
@@ -384,7 +384,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                                 referrerPolicy="no-referrer"
                                 className="w-9 h-9 rounded-full object-cover border border-white/10"
                               />
-                              <span className="absolute -bottom-1 -right-1 text-[8px] bg-[#D4AF37] text-black font-black px-1 rounded-full">
+                              <span className="absolute -bottom-1 -right-1 text-[8px] bg-[#2F6FED] text-white font-black px-1 rounded-full">
                                 🔥{friend.currentStreak}d
                               </span>
                             </div>

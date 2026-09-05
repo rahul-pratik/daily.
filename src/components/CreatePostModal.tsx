@@ -647,8 +647,8 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
 
             {/* Close & Streak Badge */}
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 text-[11px] font-bold text-[#D4AF37] bg-[#D4AF37]/10 px-2.5 py-1 rounded-full border border-[#D4AF37]/20">
-                <Flame className="w-3.5 h-3.5 fill-[#D4AF37]" />
+              <div className="flex items-center gap-1 text-[11px] font-bold text-[#2F6FED] bg-[#2F6FED]/10 px-2.5 py-1 rounded-full border border-[#2F6FED]/20">
+                <Flame className="w-3.5 h-3.5 fill-[#2F6FED]" />
                 <span>{currentUser.currentStreak}d Streak</span>
               </div>
               <button
@@ -694,7 +694,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                 {todayPost && (
                   <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10 space-y-2">
                     <span className="text-[11px] font-bold text-white/60 flex items-center gap-1.5 uppercase tracking-wider">
-                      <ImageIcon className="w-3.5 h-3.5 text-[#D4AF37]" />
+                      <ImageIcon className="w-3.5 h-3.5 text-[#2F6FED]" />
                       <span>Already in Today's Post ({todayPost.imageUrls?.length || (todayPost.imageUrl ? 1 : 0)})</span>
                     </span>
                     <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
@@ -822,7 +822,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               </div>
             ) : (
               <div className="py-8 px-2 flex-1 flex flex-col items-center justify-center text-center space-y-4">
-                <div className="w-16 h-16 rounded-2xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37] shadow-lg">
+                <div className="w-16 h-16 rounded-2xl bg-[#2F6FED]/10 border border-[#2F6FED]/30 flex items-center justify-center text-[#2F6FED] shadow-lg">
                   <CalendarCheck className="w-8 h-8" />
                 </div>
 
@@ -857,7 +857,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                       }}
                       className="w-full py-3 px-4 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs transition-all border border-white/10 flex items-center justify-center gap-2"
                     >
-                      <ExternalLink className="w-4 h-4 text-[#D4AF37]" />
+                      <ExternalLink className="w-4 h-4 text-[#2F6FED]" />
                       <span>View Today’s Post & Carousel</span>
                     </button>
                   )}
@@ -870,7 +870,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                     }}
                     className="w-full py-2.5 px-4 rounded-xl bg-transparent hover:bg-white/5 text-white/60 hover:text-white font-bold text-xs transition-all flex items-center justify-center gap-2"
                   >
-                    <FileText className="w-4 h-4 text-[#D4AF37]" />
+                    <FileText className="w-4 h-4 text-[#2F6FED]" />
                     <span>Draft Notes for Tomorrow</span>
                   </button>
                 </div>
@@ -928,7 +928,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setShowPresets(!showPresets)}
-                      className="text-xs text-[#D4AF37] hover:underline flex items-center gap-1 font-bold lowercase"
+                      className="text-xs text-[#2F6FED] hover:underline flex items-center gap-1 font-bold lowercase"
                     >
                       <Sparkles className="w-3.5 h-3.5" />
                       {showPresets ? 'hide samples' : 'sample presets'}
@@ -996,7 +996,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                       ))}
 
                       {/* Infinite Add Button */}
-                      <label className="w-14 h-14 rounded-xl border border-dashed border-[#D4AF37]/50 hover:border-[#D4AF37] bg-white/[0.03] hover:bg-white/[0.08] flex flex-col items-center justify-center gap-0.5 cursor-pointer shrink-0 text-[#D4AF37] transition-all">
+                      <label className="w-14 h-14 rounded-xl border border-dashed border-[#2F6FED]/50 hover:border-[#2F6FED] bg-white/[0.03] hover:bg-white/[0.08] flex flex-col items-center justify-center gap-0.5 cursor-pointer shrink-0 text-[#2F6FED] transition-all">
                         <Plus className="w-4 h-4" />
                         <span className="text-[8px] font-bold">Add</span>
                         <input
@@ -1011,8 +1011,8 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-2">
-                    <label className="border-2 border-dashed border-white/15 hover:border-[#D4AF37]/50 rounded-2xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer bg-white/[0.02] hover:bg-white/[0.04] transition-all text-center group">
-                      <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white/50 group-hover:text-[#D4AF37] group-hover:scale-110 transition-all">
+                    <label className="border-2 border-dashed border-white/15 hover:border-[#2F6FED]/50 rounded-2xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer bg-white/[0.02] hover:bg-white/[0.04] transition-all text-center group">
+                      <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white/50 group-hover:text-[#2F6FED] group-hover:scale-110 transition-all">
                         <Upload className="w-4 h-4" />
                       </div>
                       <span className="text-xs font-semibold text-white/80 group-hover:text-white">
@@ -1067,7 +1067,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                               setSelectedTags([preset.category, ...selectedTags.slice(0, 2)]);
                             }
                           }}
-                          className="relative rounded-xl overflow-hidden border border-white/10 aspect-video group text-left hover:border-[#D4AF37] transition-all"
+                          className="relative rounded-xl overflow-hidden border border-white/10 aspect-video group text-left hover:border-[#2F6FED] transition-all"
                         >
                           <img
                             src={preset.url}
@@ -1089,7 +1089,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className="text-[11px] font-bold text-white/70 uppercase tracking-wider flex items-center gap-1.5">
-                    <PenTool className="w-3.5 h-3.5 text-[#D4AF37]" />
+                    <PenTool className="w-3.5 h-3.5 text-[#2F6FED]" />
                     <span>Daily Reflection & Standard</span>
                   </label>
                   <div className="flex items-center gap-2">
@@ -1115,7 +1115,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                     onChange={(e) => setContent(e.target.value)}
                     placeholder="Describe what you executed today, lessons learned, or code shipped..."
                     rows={4}
-                    className="w-full bg-[#141414] border border-white/15 focus:border-[#D4AF37] rounded-2xl p-3.5 text-xs text-white placeholder-white/30 focus:outline-none transition-colors resize-none leading-relaxed"
+                    className="w-full bg-[#141414] border border-white/15 focus:border-[#2F6FED] rounded-2xl p-3.5 text-xs text-white placeholder-white/30 focus:outline-none transition-colors resize-none leading-relaxed"
                   />
                 </div>
 
@@ -1164,7 +1164,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                         onClick={() => toggleTag(tag)}
                         className={`px-3 py-1 rounded-full text-xs font-bold transition-all min-h-[32px] flex items-center gap-1 ${
                           isSelected
-                            ? 'bg-[#D4AF37] text-black shadow-sm shadow-[#D4AF37]/30'
+                            ? 'bg-[#2F6FED] text-white shadow-sm shadow-[#2F6FED]/30'
                             : 'bg-white/5 text-white/70 hover:text-white hover:bg-white/10 border border-white/10'
                         }`}
                       >
@@ -1182,7 +1182,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Clock className={`w-4 h-4 ${isScheduleMode ? 'text-[#D4AF37]' : 'text-white/50'}`} />
+                    <Clock className={`w-4 h-4 ${isScheduleMode ? 'text-[#2F6FED]' : 'text-white/50'}`} />
                     <div>
                       <span className="text-xs font-bold text-white block">
                         Schedule Post for Later
@@ -1200,7 +1200,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                       setIsScheduleMode(!isScheduleMode);
                     }}
                     className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      isScheduleMode ? 'bg-[#D4AF37]' : 'bg-white/20'
+                      isScheduleMode ? 'bg-[#2F6FED]' : 'bg-white/20'
                     }`}
                   >
                     <span
@@ -1236,7 +1236,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                         <button
                           type="button"
                           onClick={() => setPresetSchedule('tomorrow_morning')}
-                          className="py-1.5 px-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-semibold text-[#D4AF37] hover:bg-[#D4AF37]/10 text-center transition-colors"
+                          className="py-1.5 px-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-semibold text-[#2F6FED] hover:bg-[#2F6FED]/10 text-center transition-colors"
                         >
                           Tomorrow 9 AM
                         </button>
@@ -1254,7 +1254,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                     <div>
                       <label className="text-[10px] font-bold text-white/50 uppercase tracking-wider block mb-1 flex items-center justify-between">
                         <span>Select Date & Time</span>
-                        <span className="text-[#D4AF37] font-normal normal-case">
+                        <span className="text-[#2F6FED] font-normal normal-case">
                           {formattedScheduledPreview}
                         </span>
                       </label>
@@ -1263,7 +1263,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                         min={minDateTime}
                         value={scheduledDateTime}
                         onChange={(e) => setScheduledDateTime(e.target.value)}
-                        className="w-full bg-[#141414] border border-white/15 focus:border-[#D4AF37] rounded-xl px-3 py-2 text-xs text-white focus:outline-none transition-colors"
+                        className="w-full bg-[#141414] border border-white/15 focus:border-[#2F6FED] rounded-xl px-3 py-2 text-xs text-white focus:outline-none transition-colors"
                       />
                     </div>
                   </div>
@@ -1272,7 +1272,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
 
               {/* Toast Notification Banner */}
               {toastMessage && (
-                <div className="p-2.5 rounded-xl bg-[#D4AF37]/15 border border-[#D4AF37]/30 text-xs font-bold text-[#D4AF37] flex items-center justify-between animate-in fade-in duration-200">
+                <div className="p-2.5 rounded-xl bg-[#2F6FED]/15 border border-[#2F6FED]/30 text-xs font-bold text-[#2F6FED] flex items-center justify-between animate-in fade-in duration-200">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 shrink-0" />
                     <span>{toastMessage}</span>
@@ -1303,7 +1303,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                   <button
                     type="button"
                     onClick={handleExplicitSaveDraft}
-                    className="px-3.5 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 text-[#D4AF37] font-bold text-xs transition-colors border border-[#D4AF37]/30 flex items-center justify-center gap-1.5 min-h-[42px]"
+                    className="px-3.5 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 text-[#2F6FED] font-bold text-xs transition-colors border border-[#2F6FED]/30 flex items-center justify-center gap-1.5 min-h-[42px]"
                     title="Save to your drafts collection"
                   >
                     <Save className="w-3.5 h-3.5" />
@@ -1318,7 +1318,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                     disabled={!content.trim()}
                     className={`flex-1 py-3 px-4 rounded-2xl font-black text-xs transition-all shadow-lg flex items-center justify-center gap-2 min-h-[44px] ${
                       content.trim()
-                        ? 'bg-[#D4AF37] hover:bg-[#c49f27] text-black shadow-[#D4AF37]/20 hover:scale-[1.01]'
+                        ? 'bg-[#2F6FED] hover:bg-[#2861d6] text-white shadow-[#2F6FED]/20 hover:scale-[1.01]'
                         : 'bg-white/10 text-white/30 cursor-not-allowed'
                     }`}
                   >
@@ -1340,7 +1340,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                     disabled={!content.trim()}
                     className={`flex-1 py-3 px-4 rounded-2xl font-black text-xs transition-all shadow-lg flex items-center justify-center gap-2 min-h-[44px] ${
                       content.trim()
-                        ? 'bg-[#D4AF37] hover:bg-[#c49f27] text-black shadow-[#D4AF37]/20 hover:scale-[1.01]'
+                        ? 'bg-[#2F6FED] hover:bg-[#2861d6] text-white shadow-[#2F6FED]/20 hover:scale-[1.01]'
                         : 'bg-white/10 text-white/30 cursor-not-allowed'
                     }`}
                   >

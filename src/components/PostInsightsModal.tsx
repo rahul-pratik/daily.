@@ -106,7 +106,7 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
 
   if (numRate >= 18 || totalInteractions >= 50) {
     performanceTier = 'Top 5% Viral';
-    tierBadgeColor = 'bg-[#D4AF37]/20 text-[#D4AF37] border-[#D4AF37]/50';
+    tierBadgeColor = 'bg-[#2F6FED]/20 text-[#2F6FED] border-[#2F6FED]/50';
     tierHeadline = 'Outstanding Streak Momentum! 🚀';
   } else if (numRate >= 10 || totalInteractions >= 20) {
     performanceTier = 'Top 15% High Performer';
@@ -190,7 +190,7 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
               </div>
             ) : (
               <div className="w-14 h-14 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0 text-white/40">
-                <Zap className="w-6 h-6 text-[#D4AF37]" />
+                <Zap className="w-6 h-6 text-[#2F6FED]" />
               </div>
             )}
             <div className="flex-1 min-w-0">
@@ -200,7 +200,7 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
                   {safePost.createdAt}
                 </span>
                 {safePost.isDailyStreakPost && (
-                  <span className="text-[#D4AF37] font-bold flex items-center gap-0.5 bg-[#D4AF37]/10 px-2 py-0.2 rounded-full">
+                  <span className="text-[#2F6FED] font-bold flex items-center gap-0.5 bg-[#2F6FED]/10 px-2 py-0.2 rounded-full">
                     🔥 Day {safePost.userStreak}
                   </span>
                 )}
@@ -215,7 +215,7 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
           <div className="p-4 bg-white/5 rounded-2xl border border-white/10 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Activity className="w-4 h-4 text-[#D4AF37]" />
+                <Activity className="w-4 h-4 text-[#2F6FED]" />
                 <h3 className="text-xs font-bold text-white uppercase tracking-wider">
                   7-Day Performance Trend
                 </h3>
@@ -236,7 +236,7 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
                   onClick={() => setActiveMetricView('views')}
                   className={`px-2 py-0.5 rounded-lg transition-colors font-bold ${
                     activeMetricView === 'views'
-                      ? 'bg-[#D4AF37] text-black'
+                      ? 'bg-[#2F6FED] text-white'
                       : 'text-white/40 hover:text-white'
                   }`}
                 >
@@ -295,7 +295,7 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
                   <>
                     <polyline
                       fill="none"
-                      stroke="#D4AF37"
+                      stroke="#2F6FED"
                       strokeWidth="3"
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -310,7 +310,7 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
                           cx={cx}
                           cy={cy}
                           r={hoveredPoint === i ? 6 : 3.5}
-                          fill="#D4AF37"
+                          fill="#2F6FED"
                           stroke="#000"
                           strokeWidth="2"
                           className="cursor-pointer transition-all"
@@ -402,7 +402,7 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
               {/* Chart Legend */}
               <div className="flex items-center justify-center gap-4 mt-2 pt-2 border-t border-white/5 text-[10px]">
                 <div className="flex items-center gap-1.5 text-white/70">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#D4AF37]" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#2F6FED]" />
                   <span>Views ({viewsCount})</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-white/70">
@@ -480,13 +480,13 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
             <div className="p-3.5 bg-white/5 rounded-2xl border border-white/10 hover:border-white/20 transition-all flex flex-col justify-between">
               <div className="flex items-center justify-between text-white/50 mb-1">
                 <span className="text-[11px] font-semibold uppercase tracking-wider">Shares</span>
-                <Share2 className="w-4 h-4 text-[#D4AF37]" />
+                <Share2 className="w-4 h-4 text-[#2F6FED]" />
               </div>
               <div className="flex items-baseline gap-1.5 mt-1">
                 <span className="text-2xl font-black text-white tracking-tight">
                   {sharesCount.toLocaleString()}
                 </span>
-                <span className="text-[10px] text-[#D4AF37] font-semibold">
+                <span className="text-[10px] text-[#2F6FED] font-semibold">
                   forwards
                 </span>
               </div>
@@ -500,7 +500,7 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
           <div className="p-4 bg-gradient-to-br from-white/10 to-white/5 rounded-2xl border border-white/15 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-[#D4AF37]" />
+                <TrendingUp className="w-4 h-4 text-[#2F6FED]" />
                 <span className="text-xs font-bold text-white uppercase tracking-wide">
                   Overall Engagement Rate
                 </span>
@@ -527,7 +527,7 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
             <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden flex gap-0.5">
               <div
                 style={{ width: `${Math.min(100, Math.max(15, numRate * 4))}%` }}
-                className="bg-gradient-to-r from-[#D4AF37] to-amber-400 h-full rounded-full"
+                className="bg-gradient-to-r from-[#2F6FED] to-amber-400 h-full rounded-full"
               />
             </div>
           </div>
@@ -551,7 +551,7 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
               />
               <div
                 style={{ width: `${discoverRatio}%` }}
-                className="h-full bg-[#D4AF37] rounded-full"
+                className="h-full bg-[#2F6FED] rounded-full"
                 title="Discover & Tag Search"
               />
               <div
@@ -568,7 +568,7 @@ export const PostInsightsModal: React.FC<PostInsightsModalProps> = ({
                 <span className="truncate">Feed ({followerRatio}%)</span>
               </div>
               <div className="flex items-center gap-1.5 text-white/70">
-                <span className="w-2 h-2 rounded-full bg-[#D4AF37]" />
+                <span className="w-2 h-2 rounded-full bg-[#2F6FED]" />
                 <span className="truncate">Discover ({discoverRatio}%)</span>
               </div>
               <div className="flex items-center gap-1.5 text-white/70">

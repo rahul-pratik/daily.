@@ -28,7 +28,7 @@ export const AddToCollectionModal: React.FC<AddToCollectionModalProps> = ({
         {/* Header */}
         <div className="p-4 border-b border-white/10 flex items-center justify-between bg-black/50">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37]">
+            <div className="w-9 h-9 rounded-2xl bg-[#2F6FED]/10 border border-[#2F6FED]/30 flex items-center justify-center text-[#2F6FED]">
               <Folder className="w-4 h-4" />
             </div>
             <div>
@@ -60,7 +60,7 @@ export const AddToCollectionModal: React.FC<AddToCollectionModalProps> = ({
           )}
           <div className="min-w-0 flex-1">
             <p className="text-xs text-white line-clamp-2 leading-tight">{post.content}</p>
-            <span className="text-[9px] text-[#D4AF37] font-bold mt-0.5 block">
+            <span className="text-[9px] text-[#2F6FED] font-bold mt-0.5 block">
               {post.tags.map((t) => `#${t}`).join(' ')}
             </span>
           </div>
@@ -80,7 +80,7 @@ export const AddToCollectionModal: React.FC<AddToCollectionModalProps> = ({
                   }}
                   className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
                     isInCollection
-                      ? 'bg-[#D4AF37]/15 border-[#D4AF37]/40 text-white'
+                      ? 'bg-[#2F6FED]/15 border-[#2F6FED]/40 text-white'
                       : 'bg-white/5 border-white/5 hover:bg-white/10 text-white/80'
                   }`}
                 >
@@ -99,7 +99,7 @@ export const AddToCollectionModal: React.FC<AddToCollectionModalProps> = ({
                   <div
                     className={`w-6 h-6 rounded-lg flex items-center justify-center border transition-all ${
                       isInCollection
-                        ? 'bg-[#D4AF37] border-[#D4AF37] text-black'
+                        ? 'bg-[#2F6FED] border-[#2F6FED] text-black'
                         : 'border-white/20 bg-white/5 text-transparent'
                     }`}
                   >
@@ -120,9 +120,9 @@ export const AddToCollectionModal: React.FC<AddToCollectionModalProps> = ({
               onClose();
               onOpenCreateCollection();
             }}
-            className="w-full p-3 rounded-2xl border border-dashed border-white/20 hover:border-[#D4AF37]/50 text-white/70 hover:text-white flex items-center justify-center gap-2 text-xs font-bold transition-all bg-white/[0.02] hover:bg-white/5 mt-3 min-h-[44px]"
+            className="w-full p-3 rounded-2xl border border-dashed border-white/20 hover:border-[#2F6FED]/50 text-white/70 hover:text-white flex items-center justify-center gap-2 text-xs font-bold transition-all bg-white/[0.02] hover:bg-white/5 mt-3 min-h-[44px]"
           >
-            <Plus className="w-4 h-4 text-[#D4AF37]" />
+            <Plus className="w-4 h-4 text-[#2F6FED]" />
             <span>Create New Collection</span>
           </button>
         </div>

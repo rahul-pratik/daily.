@@ -113,7 +113,7 @@ export const CreateChallengeModal: React.FC<CreateChallengeModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between pb-3.5 border-b border-white/10">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-xl shrink-0">
+            <div className="w-10 h-10 rounded-2xl bg-[#2F6FED]/10 border border-[#2F6FED]/30 flex items-center justify-center text-xl shrink-0">
               {icon}
             </div>
             <div>
@@ -150,12 +150,12 @@ export const CreateChallengeModal: React.FC<CreateChallengeModalProps> = ({
                 }}
                 className={`p-3 rounded-2xl border text-left transition-all ${
                   challengeType === 'individual'
-                    ? 'bg-[#D4AF37]/15 border-[#D4AF37] text-white shadow-md'
+                    ? 'bg-[#2F6FED]/15 border-[#2F6FED] text-white shadow-md'
                     : 'bg-white/5 hover:bg-white/10 border-white/10 text-white/70'
                 }`}
               >
                 <div className="flex items-center gap-2 mb-1">
-                  <div className={`p-1.5 rounded-lg ${challengeType === 'individual' ? 'bg-[#D4AF37] text-black' : 'bg-white/10 text-white'}`}>
+                  <div className={`p-1.5 rounded-lg ${challengeType === 'individual' ? 'bg-[#2F6FED] text-white' : 'bg-white/10 text-white'}`}>
                     <UserIcon className="w-4 h-4" />
                   </div>
                   <span className="font-bold text-xs text-white">Individual Challenge</span>
@@ -174,12 +174,12 @@ export const CreateChallengeModal: React.FC<CreateChallengeModalProps> = ({
                 }}
                 className={`p-3 rounded-2xl border text-left transition-all ${
                   challengeType === 'group'
-                    ? 'bg-[#D4AF37]/15 border-[#D4AF37] text-white shadow-md'
+                    ? 'bg-[#2F6FED]/15 border-[#2F6FED] text-white shadow-md'
                     : 'bg-white/5 hover:bg-white/10 border-white/10 text-white/70'
                 }`}
               >
                 <div className="flex items-center gap-2 mb-1">
-                  <div className={`p-1.5 rounded-lg ${challengeType === 'group' ? 'bg-[#D4AF37] text-black' : 'bg-white/10 text-white'}`}>
+                  <div className={`p-1.5 rounded-lg ${challengeType === 'group' ? 'bg-[#2F6FED] text-white' : 'bg-white/10 text-white'}`}>
                     <Users className="w-4 h-4" />
                   </div>
                   <span className="font-bold text-xs text-white">Group Challenge</span>
@@ -193,13 +193,13 @@ export const CreateChallengeModal: React.FC<CreateChallengeModalProps> = ({
 
           {/* Group Team Size Config (Only if Group Challenge) */}
           {challengeType === 'group' && (
-            <div className="bg-[#171717] border border-[#D4AF37]/30 rounded-2xl p-3.5 space-y-3 animate-in fade-in duration-200">
+            <div className="bg-[#171717] border border-[#2F6FED]/30 rounded-2xl p-3.5 space-y-3 animate-in fade-in duration-200">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4 text-[#D4AF37]" />
+                  <Users className="w-4 h-4 text-[#2F6FED]" />
                   <span className="text-xs font-bold text-white">Team Size Limit</span>
                 </div>
-                <span className="text-xs font-mono font-black text-[#D4AF37] bg-[#D4AF37]/10 px-2.5 py-0.5 rounded-full border border-[#D4AF37]/30">
+                <span className="text-xs font-mono font-black text-[#2F6FED] bg-[#2F6FED]/10 px-2.5 py-0.5 rounded-full border border-[#2F6FED]/30">
                   {teamSize} Members / Squad
                 </span>
               </div>
@@ -216,7 +216,7 @@ export const CreateChallengeModal: React.FC<CreateChallengeModalProps> = ({
                     }}
                     className={`p-2 rounded-xl border text-left transition-all ${
                       teamSize === preset.size
-                        ? 'bg-[#D4AF37] border-white text-black font-bold shadow-sm'
+                        ? 'bg-[#2F6FED] border-white text-black font-bold shadow-sm'
                         : 'bg-white/5 hover:bg-white/10 border-white/10 text-white/80'
                     }`}
                   >
@@ -270,7 +270,7 @@ export const CreateChallengeModal: React.FC<CreateChallengeModalProps> = ({
                   }}
                   className={`w-9 h-9 rounded-xl text-lg flex items-center justify-center shrink-0 transition-all ${
                     icon === emoji
-                      ? 'bg-[#D4AF37] border-2 border-white scale-110 shadow-md'
+                      ? 'bg-[#2F6FED] border-2 border-white scale-110 shadow-md'
                       : 'bg-white/5 hover:bg-white/10 border border-white/10'
                   }`}
                 >
@@ -294,7 +294,7 @@ export const CreateChallengeModal: React.FC<CreateChallengeModalProps> = ({
                   ? 'e.g. Trio Spartan Conditioning, Startup Duo Sprint'
                   : 'e.g. 30 Days of Rust & Backend, 60-Day Strength'
               }
-              className="w-full bg-[#141414] border border-white/15 focus:border-[#D4AF37] rounded-2xl p-3 text-xs text-white placeholder-white/30 focus:outline-none transition-colors"
+              className="w-full bg-[#141414] border border-white/15 focus:border-[#2F6FED] rounded-2xl p-3 text-xs text-white placeholder-white/30 focus:outline-none transition-colors"
               required
             />
           </div>
@@ -315,7 +315,7 @@ export const CreateChallengeModal: React.FC<CreateChallengeModalProps> = ({
                   }}
                   className={`px-3 py-1 rounded-full text-xs font-bold transition-all min-h-[30px] ${
                     category === cat
-                      ? 'bg-[#D4AF37] text-black font-black shadow-md shadow-[#D4AF37]/25'
+                      ? 'bg-[#2F6FED] text-white font-black shadow-md shadow-[#2F6FED]/25'
                       : 'bg-white/5 text-white/70 hover:text-white hover:bg-white/10 border border-white/10'
                   }`}
                 >
@@ -361,7 +361,7 @@ export const CreateChallengeModal: React.FC<CreateChallengeModalProps> = ({
                 value={deadlineDate}
                 min={getTodayDateString()}
                 onChange={(e) => setDeadlineDate(e.target.value)}
-                className="w-full bg-[#141414] border border-white/15 focus:border-[#D4AF37] rounded-2xl p-3 text-xs text-white placeholder-white/30 focus:outline-none transition-colors"
+                className="w-full bg-[#141414] border border-white/15 focus:border-[#2F6FED] rounded-2xl p-3 text-xs text-white placeholder-white/30 focus:outline-none transition-colors"
                 required
               />
             </div>
@@ -381,7 +381,7 @@ export const CreateChallengeModal: React.FC<CreateChallengeModalProps> = ({
                   : 'What must participants execute every single day? (e.g., Code for at least 45 minutes and insert photo proof receipt).'
               }
               rows={3}
-              className="w-full bg-[#141414] border border-white/15 focus:border-[#D4AF37] rounded-2xl p-3 text-xs text-white placeholder-white/30 focus:outline-none transition-colors resize-none leading-relaxed"
+              className="w-full bg-[#141414] border border-white/15 focus:border-[#2F6FED] rounded-2xl p-3 text-xs text-white placeholder-white/30 focus:outline-none transition-colors resize-none leading-relaxed"
               required
             />
           </div>
@@ -393,7 +393,7 @@ export const CreateChallengeModal: React.FC<CreateChallengeModalProps> = ({
               disabled={!title.trim() || !description.trim()}
               className={`w-full py-3.5 px-4 rounded-2xl font-black text-xs transition-all shadow-lg flex items-center justify-center gap-2 min-h-[44px] ${
                 title.trim() && description.trim()
-                  ? 'bg-[#D4AF37] hover:bg-[#e5c158] text-black shadow-[#D4AF37]/25 hover:scale-[1.01]'
+                  ? 'bg-[#2F6FED] hover:bg-[#e5c158] text-black shadow-[#2F6FED]/25 hover:scale-[1.01]'
                   : 'bg-white/10 text-white/30 cursor-not-allowed'
               }`}
             >

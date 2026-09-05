@@ -221,7 +221,7 @@ export const ChallengeStreakFreezeBadgesCard: React.FC<ChallengeStreakFreezeBadg
       <div className="space-y-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Award className="w-4 h-4 text-[#D4AF37]" />
+            <Award className="w-4 h-4 text-[#2F6FED]" />
             <h4 className="text-xs font-black uppercase tracking-wider text-white">
               Challenge Digital Badges
             </h4>
@@ -242,7 +242,7 @@ export const ChallengeStreakFreezeBadgesCard: React.FC<ChallengeStreakFreezeBadg
               }}
               className={`p-3 rounded-2xl border text-left transition-all relative overflow-hidden group ${
                 badge.unlocked
-                  ? 'bg-white/[0.03] hover:bg-white/[0.06] border-white/10 hover:border-[#D4AF37]/50'
+                  ? 'bg-white/[0.03] hover:bg-white/[0.06] border-white/10 hover:border-[#2F6FED]/50'
                   : 'bg-black/30 border-white/5 opacity-60 hover:opacity-80'
               }`}
             >
@@ -278,12 +278,12 @@ export const ChallengeStreakFreezeBadgesCard: React.FC<ChallengeStreakFreezeBadg
             className="w-full max-w-sm bg-[#0E0E0E] border border-white/15 rounded-3xl p-5 shadow-2xl text-white space-y-4 text-center"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-16 h-16 rounded-3xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-3xl mx-auto shadow-xl">
+            <div className="w-16 h-16 rounded-3xl bg-[#2F6FED]/10 border border-[#2F6FED]/30 flex items-center justify-center text-3xl mx-auto shadow-xl">
               {selectedBadge.icon}
             </div>
 
             <div className="space-y-1">
-              <span className="text-[10px] font-bold text-[#D4AF37] uppercase tracking-widest bg-[#D4AF37]/10 px-2.5 py-0.5 rounded-full border border-[#D4AF37]/20">
+              <span className="text-[10px] font-bold text-[#2F6FED] uppercase tracking-widest bg-[#2F6FED]/10 px-2.5 py-0.5 rounded-full border border-[#2F6FED]/20">
                 {selectedBadge.category} Badge
               </span>
               <h4 className="text-base font-black text-white pt-1">{selectedBadge.name}</h4>

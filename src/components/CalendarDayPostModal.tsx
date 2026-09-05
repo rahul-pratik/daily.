@@ -98,7 +98,7 @@ export const CalendarDayPostModal: React.FC<CalendarDayPostModalProps> = ({
                   <span className="text-[10px] text-white/40">No activity recorded</span>
                 )}
                 {isToday && (
-                  <span className="px-1.5 py-0.5 rounded bg-[#D4AF37] text-black font-black text-[9px] uppercase">
+                  <span className="px-1.5 py-0.5 rounded bg-[#2F6FED] text-white font-black text-[9px] uppercase">
                     Today
                   </span>
                 )}
@@ -119,7 +119,7 @@ export const CalendarDayPostModal: React.FC<CalendarDayPostModalProps> = ({
         <div className="flex-1 overflow-y-auto space-y-4 py-3.5 pr-1">
           {postsOnDate.length > 0 ? (
             <div className="space-y-3">
-              <p className="text-[11px] font-bold text-[#D4AF37] uppercase tracking-wider">
+              <p className="text-[11px] font-bold text-[#2F6FED] uppercase tracking-wider">
                 Proof Posted On This Day ({postsOnDate.length}):
               </p>
               {postsOnDate.map((post) => (
@@ -160,7 +160,7 @@ export const CalendarDayPostModal: React.FC<CalendarDayPostModalProps> = ({
                         className="w-full h-full object-cover"
                       />
                       <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-sm text-white text-[9px] font-bold flex items-center gap-1">
-                        <Camera className="w-3 h-3 text-[#D4AF37]" />
+                        <Camera className="w-3 h-3 text-[#2F6FED]" />
                         <span>Daily Receipt</span>
                       </div>
                     </div>
@@ -177,7 +177,7 @@ export const CalendarDayPostModal: React.FC<CalendarDayPostModalProps> = ({
                       {post.tags.map((tag) => (
                         <span
                           key={tag}
-                          className="text-[10px] text-[#D4AF37] font-semibold bg-[#D4AF37]/10 px-2 py-0.5 rounded-md border border-[#D4AF37]/20"
+                          className="text-[10px] text-[#2F6FED] font-semibold bg-[#2F6FED]/10 px-2 py-0.5 rounded-md border border-[#2F6FED]/20"
                         >
                           #{tag}
                         </span>
@@ -223,7 +223,7 @@ export const CalendarDayPostModal: React.FC<CalendarDayPostModalProps> = ({
             </div>
           ) : challengeItemsOnDate.length > 0 ? (
             <div className="space-y-3">
-              <p className="text-[11px] font-bold text-[#D4AF37] uppercase tracking-wider">
+              <p className="text-[11px] font-bold text-[#2F6FED] uppercase tracking-wider">
                 Challenge Progress Proof ({challengeItemsOnDate.length}):
               </p>
               {challengeItemsOnDate.map(({ post: cp, challenge }) => (
@@ -232,7 +232,7 @@ export const CalendarDayPostModal: React.FC<CalendarDayPostModalProps> = ({
                   className="bg-[#141414] border border-white/15 rounded-3xl p-4 space-y-3"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black text-[#D4AF37] uppercase bg-[#D4AF37]/10 px-2 py-0.5 rounded-full border border-[#D4AF37]/30">
+                    <span className="text-[10px] font-black text-[#2F6FED] uppercase bg-[#2F6FED]/10 px-2 py-0.5 rounded-full border border-[#2F6FED]/30">
                       {challenge.icon} {challenge.title} • Day {cp.dayNumber}
                     </span>
                     <span className="text-[10px] text-white/40">{cp.createdAt}</span>
@@ -287,7 +287,7 @@ export const CalendarDayPostModal: React.FC<CalendarDayPostModalProps> = ({
                     onClose();
                     onOpenCreate();
                   }}
-                  className="py-3 px-5 rounded-2xl bg-[#D4AF37] hover:bg-[#e5c158] text-black font-black text-xs inline-flex items-center gap-2 shadow-lg shadow-[#D4AF37]/25"
+                  className="py-3 px-5 rounded-2xl bg-[#2F6FED] hover:bg-[#e5c158] text-black font-black text-xs inline-flex items-center gap-2 shadow-lg shadow-[#2F6FED]/25"
                 >
                   <PlusCircle className="w-4 h-4" />
                   <span>Post Proof For Today</span>

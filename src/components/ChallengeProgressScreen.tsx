@@ -331,7 +331,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
             </button>
           )}
 
-          <div className="flex items-center gap-1 text-[11px] font-black text-[#D4AF37] bg-[#D4AF37]/10 px-2.5 py-1 rounded-full border border-[#D4AF37]/30">
+          <div className="flex items-center gap-1 text-[11px] font-black text-[#2F6FED] bg-[#2F6FED]/10 px-2.5 py-1 rounded-full border border-[#2F6FED]/30">
             <Trophy className="w-3.5 h-3.5" />
             <span>{totalDays} Days</span>
           </div>
@@ -343,16 +343,16 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
         {/* Challenge Hero Information Card */}
         <div className="bg-[#0F0F0F] border border-white/15 rounded-3xl p-5 shadow-2xl space-y-4 relative overflow-hidden">
           <div className="flex items-start gap-3.5">
-            <div className="w-14 h-14 rounded-2xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-3xl shrink-0 shadow-lg">
+            <div className="w-14 h-14 rounded-2xl bg-[#2F6FED]/10 border border-[#2F6FED]/30 flex items-center justify-center text-3xl shrink-0 shadow-lg">
               {challenge.icon}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap mb-1">
-                <span className="px-2.5 py-0.5 rounded-full bg-[#D4AF37]/10 border border-[#D4AF37]/30 text-[10px] font-black text-[#D4AF37] uppercase tracking-wider">
+                <span className="px-2.5 py-0.5 rounded-full bg-[#2F6FED]/10 border border-[#2F6FED]/30 text-[10px] font-black text-[#2F6FED] uppercase tracking-wider">
                   #{challenge.tag || challenge.category}
                 </span>
                 <span className="text-[10px] text-white/40 flex items-center gap-1">
-                  <Clock className="w-3 h-3 text-[#D4AF37]" />
+                  <Clock className="w-3 h-3 text-[#2F6FED]" />
                   Ends {challenge.deadlineDate}
                 </span>
               </div>
@@ -368,7 +368,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
           {/* Participants bar & Actions */}
           <div className="flex items-center justify-between pt-3 border-t border-white/10 text-xs">
             <div className="flex items-center gap-1.5 text-white/60">
-              <Users className="w-3.5 h-3.5 text-[#D4AF37]" />
+              <Users className="w-3.5 h-3.5 text-[#2F6FED]" />
               <span className="font-bold text-white">
                 {(challenge.participantsCount || 1).toLocaleString()}
               </span>
@@ -378,7 +378,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
             {!isJoined ? (
               <button
                 onClick={handleToggleJoin}
-                className="py-2 px-4 rounded-xl bg-[#D4AF37] hover:bg-[#e5c158] text-black font-black text-xs transition-all shadow-md shadow-[#D4AF37]/25 flex items-center gap-1.5"
+                className="py-2 px-4 rounded-xl bg-[#2F6FED] hover:bg-[#e5c158] text-black font-black text-xs transition-all shadow-md shadow-[#2F6FED]/25 flex items-center gap-1.5"
               >
                 <Trophy className="w-3.5 h-3.5" />
                 <span>Join Challenge</span>
@@ -437,13 +437,13 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
             <div className="space-y-1.5">
               <div className="h-3 w-full bg-white/10 rounded-full overflow-hidden p-0.5 border border-white/5">
                 <div
-                  className="h-full bg-gradient-to-r from-[#D4AF37] via-amber-400 to-blue-500 rounded-full transition-all duration-500"
+                  className="h-full bg-gradient-to-r from-[#2F6FED] via-amber-400 to-blue-500 rounded-full transition-all duration-500"
                   style={{ width: `${percentComplete}%` }}
                 />
               </div>
               <div className="flex items-center justify-between text-[10px] text-white/50 font-bold">
                 <span>Day 1</span>
-                <span className="text-[#D4AF37] font-black">{daysCompleted} of {totalDays} Completed ({percentComplete}%)</span>
+                <span className="text-[#2F6FED] font-black">{daysCompleted} of {totalDays} Completed ({percentComplete}%)</span>
                 <span>Day {totalDays} 🏁</span>
               </div>
             </div>
@@ -459,7 +459,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                     <span className="w-2 h-2 rounded bg-blue-600 inline-block" /> Completed
                   </span>
                   <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded border border-[#D4AF37] inline-block" /> Target
+                    <span className="w-2 h-2 rounded border border-[#2F6FED] inline-block" /> Target
                   </span>
                 </div>
               </div>
@@ -482,7 +482,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                         isChecked
                           ? 'bg-blue-600 border-blue-400 text-white shadow-md shadow-blue-500/25 hover:scale-105 active:scale-95'
                           : isCurrentTarget
-                          ? 'bg-[#D4AF37]/15 border-2 border-[#D4AF37] text-[#D4AF37] shadow-lg shadow-[#D4AF37]/20 hover:scale-105 animate-pulse'
+                          ? 'bg-[#2F6FED]/15 border-2 border-[#2F6FED] text-[#2F6FED] shadow-lg shadow-[#2F6FED]/20 hover:scale-105 animate-pulse'
                           : 'bg-white/5 border-white/10 text-white/30 hover:bg-white/10 hover:text-white/60'
                       }`}
                       title={
@@ -500,8 +500,8 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                         </>
                       ) : isCurrentTarget ? (
                         <>
-                          <span className="text-[9px] font-black text-[#D4AF37] leading-none">{dayNum}</span>
-                          <span className="text-[7px] font-bold text-[#D4AF37] uppercase leading-none mt-0.5">Now</span>
+                          <span className="text-[9px] font-black text-[#2F6FED] leading-none">{dayNum}</span>
+                          <span className="text-[7px] font-bold text-[#2F6FED] uppercase leading-none mt-0.5">Now</span>
                         </>
                       ) : (
                         <>
@@ -556,7 +556,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                     vibrateLight();
                     setIsPostModalOpen(true);
                   }}
-                  className="w-full py-3.5 px-4 rounded-2xl bg-[#D4AF37] hover:bg-[#e5c158] text-black font-black text-xs transition-all shadow-lg shadow-[#D4AF37]/25 flex items-center justify-center gap-2 hover:scale-[1.01]"
+                  className="w-full py-3.5 px-4 rounded-2xl bg-[#2F6FED] hover:bg-[#e5c158] text-black font-black text-xs transition-all shadow-lg shadow-[#2F6FED]/25 flex items-center justify-center gap-2 hover:scale-[1.01]"
                 >
                   <Camera className="w-4 h-4 text-black" />
                   <span>Post Day {daysCompleted + 1} Progress Proof</span>
@@ -575,7 +575,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
             }}
             className={`flex-1 min-w-[70px] py-2 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
               challengeTab === 'proofs'
-                ? 'bg-[#D4AF37] text-black font-black shadow-md shadow-[#D4AF37]/20'
+                ? 'bg-[#2F6FED] text-white font-black shadow-md shadow-[#2F6FED]/20'
                 : 'text-white/60 hover:text-white hover:bg-white/5'
             }`}
           >
@@ -636,7 +636,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
           <div className="space-y-3 pt-1">
             <div className="flex items-center justify-between px-1">
               <h2 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
+                <Sparkles className="w-3.5 h-3.5 text-[#2F6FED]" />
                 <span>{isGroupChallenge ? 'Squad & Cohort Proofs' : 'Cohort Member Proofs'} ({progressPosts.length})</span>
               </h2>
               <span className="text-[10px] text-white/40">Photo receipts mandatory</span>
@@ -686,7 +686,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                     </div>
 
                     {/* Day Badge */}
-                    <div className="px-2.5 py-1 rounded-full bg-[#D4AF37]/10 border border-[#D4AF37]/30 text-[#D4AF37] font-black text-[10px] uppercase tracking-wider">
+                    <div className="px-2.5 py-1 rounded-full bg-[#2F6FED]/10 border border-[#2F6FED]/30 text-[#2F6FED] font-black text-[10px] uppercase tracking-wider">
                       Day {post.dayNumber} of {totalDays}
                     </div>
                   </div>
@@ -703,7 +703,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-sm text-white text-[9px] font-bold flex items-center gap-1">
-                      <Camera className="w-3 h-3 text-[#D4AF37]" />
+                      <Camera className="w-3 h-3 text-[#2F6FED]" />
                       <span>Receipt Photo</span>
                     </div>
                   </div>
@@ -723,7 +723,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                       onClick={() => handleToggleCheer(post.id)}
                       className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all min-h-[32px] ${
                         post.cheeredByMe
-                          ? 'bg-[#D4AF37] text-black font-black shadow-md shadow-[#D4AF37]/25'
+                          ? 'bg-[#2F6FED] text-white font-black shadow-md shadow-[#2F6FED]/25'
                           : 'bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/10'
                       }`}
                     >
@@ -1121,7 +1121,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                           isMe
                             ? chatChannel === 'squad'
                               ? 'bg-amber-400 text-black font-medium rounded-tr-sm shadow-md'
-                              : 'bg-[#D4AF37] text-black font-medium rounded-tr-sm shadow-md'
+                              : 'bg-[#2F6FED] text-white font-medium rounded-tr-sm shadow-md'
                             : 'bg-white/10 text-white rounded-tl-sm border border-white/10'
                         }`}
                       >
@@ -1145,12 +1145,12 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                       ? `Message ${mySquad.name} squad members...`
                       : 'Send a text message to cohort members...'
                   }
-                  className="flex-1 px-4 py-2.5 bg-white/5 border border-white/15 focus:border-[#D4AF37] rounded-xl text-xs text-white placeholder-white/35 outline-none transition-colors"
+                  className="flex-1 px-4 py-2.5 bg-white/5 border border-white/15 focus:border-[#2F6FED] rounded-xl text-xs text-white placeholder-white/35 outline-none transition-colors"
                 />
                 <button
                   type="submit"
                   disabled={!chatInputText.trim()}
-                  className="p-2.5 rounded-xl bg-[#D4AF37] hover:bg-[#e0be48] text-black font-black transition-all disabled:opacity-40 shadow-md min-w-[40px] flex items-center justify-center"
+                  className="p-2.5 rounded-xl bg-[#2F6FED] hover:bg-[#e0be48] text-black font-black transition-all disabled:opacity-40 shadow-md min-w-[40px] flex items-center justify-center"
                   title="Send Text Message"
                 >
                   <Send className="w-4 h-4" />
@@ -1200,7 +1200,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
             <div className="flex items-center justify-between pb-3.5 border-b border-white/10">
               <div>
                 <h3 className="font-black text-sm text-white flex items-center gap-1.5">
-                  <Camera className="w-4 h-4 text-[#D4AF37]" />
+                  <Camera className="w-4 h-4 text-[#2F6FED]" />
                   Log Day {daysCompleted + 1} Progress
                 </h3>
                 <p className="text-[10px] text-white/50">{challenge.title}</p>
@@ -1216,10 +1216,10 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
 
             <form onSubmit={handleSubmitProgress} className="flex-1 overflow-y-auto space-y-4 py-3.5 pr-1">
               {/* Photo Requirement Notice */}
-              <div className="p-3 bg-[#D4AF37]/10 border border-[#D4AF37]/30 rounded-2xl text-xs text-[#D4AF37] flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-[#D4AF37] shrink-0 mt-0.5" />
+              <div className="p-3 bg-[#2F6FED]/10 border border-[#2F6FED]/30 rounded-2xl text-xs text-[#2F6FED] flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-[#2F6FED] shrink-0 mt-0.5" />
                 <span className="leading-relaxed text-white/90">
-                  <strong className="text-[#D4AF37]">Photo proof is mandatory:</strong> Please insert a photo as your achievement (photo only, or photo + text reflection).
+                  <strong className="text-[#2F6FED]">Photo proof is mandatory:</strong> Please insert a photo as your achievement (photo only, or photo + text reflection).
                 </span>
               </div>
 
@@ -1237,7 +1237,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                   <button
                     type="button"
                     onClick={() => setShowPresets(!showPresets)}
-                    className="text-xs text-[#D4AF37] hover:underline font-bold lowercase flex items-center gap-1"
+                    className="text-xs text-[#2F6FED] hover:underline font-bold lowercase flex items-center gap-1"
                   >
                     <Sparkles className="w-3.5 h-3.5" />
                     {showPresets ? 'hide presets' : 'sample receipts'}
@@ -1262,8 +1262,8 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-2">
-                    <label className="border-2 border-dashed border-white/15 hover:border-[#D4AF37]/50 rounded-2xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer bg-white/[0.02] hover:bg-white/[0.04] transition-all text-center">
-                      <Upload className="w-5 h-5 text-[#D4AF37]" />
+                    <label className="border-2 border-dashed border-white/15 hover:border-[#2F6FED]/50 rounded-2xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer bg-white/[0.02] hover:bg-white/[0.04] transition-all text-center">
+                      <Upload className="w-5 h-5 text-[#2F6FED]" />
                       <span className="text-xs font-semibold text-white">Upload Photo</span>
                       <span className="text-[10px] text-white/40">Required proof</span>
                       <input
@@ -1274,8 +1274,8 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                       />
                     </label>
 
-                    <label className="border-2 border-dashed border-white/15 hover:border-[#D4AF37]/50 rounded-2xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer bg-white/[0.02] hover:bg-white/[0.04] transition-all text-center">
-                      <Camera className="w-5 h-5 text-[#D4AF37]" />
+                    <label className="border-2 border-dashed border-white/15 hover:border-[#2F6FED]/50 rounded-2xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer bg-white/[0.02] hover:bg-white/[0.04] transition-all text-center">
+                      <Camera className="w-5 h-5 text-[#2F6FED]" />
                       <span className="text-xs font-semibold text-white">Camera Snap</span>
                       <span className="text-[10px] text-white/40">Live snapshot</span>
                       <input
@@ -1306,7 +1306,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                             setPhotoError(null);
                             setShowPresets(false);
                           }}
-                          className="relative rounded-xl overflow-hidden border border-white/10 aspect-video group text-left hover:border-[#D4AF37]"
+                          className="relative rounded-xl overflow-hidden border border-white/10 aspect-video group text-left hover:border-[#2F6FED]"
                         >
                           <img
                             src={item.url}
@@ -1334,7 +1334,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                   onChange={(e) => setPostReflection(e.target.value)}
                   placeholder="Notes on what you accomplished, obstacles, or lessons..."
                   rows={3}
-                  className="w-full bg-[#141414] border border-white/15 focus:border-[#D4AF37] rounded-2xl p-3 text-xs text-white placeholder-white/30 focus:outline-none transition-colors resize-none leading-relaxed"
+                  className="w-full bg-[#141414] border border-white/15 focus:border-[#2F6FED] rounded-2xl p-3 text-xs text-white placeholder-white/30 focus:outline-none transition-colors resize-none leading-relaxed"
                 />
               </div>
 
@@ -1345,7 +1345,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                   disabled={!postPhotoUrl || isSubmitting}
                   className={`w-full py-3.5 px-4 rounded-2xl font-black text-xs transition-all shadow-lg flex items-center justify-center gap-2 min-h-[44px] ${
                     postPhotoUrl
-                      ? 'bg-[#D4AF37] hover:bg-[#e5c158] text-black shadow-[#D4AF37]/25 hover:scale-[1.01]'
+                      ? 'bg-[#2F6FED] hover:bg-[#e5c158] text-black shadow-[#2F6FED]/25 hover:scale-[1.01]'
                       : 'bg-white/10 text-white/30 cursor-not-allowed'
                   }`}
                 >

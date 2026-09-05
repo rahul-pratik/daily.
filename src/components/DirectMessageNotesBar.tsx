@@ -121,7 +121,7 @@ export const DirectMessageNotesBar: React.FC<DirectMessageNotesBarProps> = ({
             <img
               src={currentUser.avatar}
               alt="Your avatar"
-              className="w-14 h-14 rounded-full object-cover border-2 border-white/20 hover:border-[#D4AF37] transition-all p-0.5 bg-black"
+              className="w-14 h-14 rounded-full object-cover border-2 border-white/20 hover:border-[#2F6FED] transition-all p-0.5 bg-black"
               referrerPolicy="no-referrer"
             />
             {!currentUserNote && (
@@ -130,7 +130,7 @@ export const DirectMessageNotesBar: React.FC<DirectMessageNotesBarProps> = ({
               </div>
             )}
             {currentUserNote && (
-              <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[#D4AF37] text-black font-bold flex items-center justify-center text-[10px] shadow border-2 border-[#0A0A0A]">
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[#2F6FED] text-white font-bold flex items-center justify-center text-[10px] shadow border-2 border-[#0A0A0A]">
                 ✨
               </div>
             )}
@@ -218,7 +218,7 @@ export const DirectMessageNotesBar: React.FC<DirectMessageNotesBarProps> = ({
               <img
                 src={currentUser.avatar}
                 alt="My avatar"
-                className="w-16 h-16 rounded-full object-cover border-2 border-[#D4AF37] p-0.5 bg-black"
+                className="w-16 h-16 rounded-full object-cover border-2 border-[#2F6FED] p-0.5 bg-black"
                 referrerPolicy="no-referrer"
               />
             </div>
@@ -231,7 +231,7 @@ export const DirectMessageNotesBar: React.FC<DirectMessageNotesBarProps> = ({
                   placeholder="Share what's on your mind... (max 60 characters, words only)"
                   rows={2}
                   maxLength={60}
-                  className="w-full p-3 bg-white/5 border border-white/10 focus:border-[#D4AF37] rounded-2xl text-xs text-white placeholder-white/40 outline-none resize-none"
+                  className="w-full p-3 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-2xl text-xs text-white placeholder-white/40 outline-none resize-none"
                   autoFocus
                 />
                 <div className="flex justify-between items-center text-[10px] text-white/40 mt-1 px-1">
@@ -244,7 +244,7 @@ export const DirectMessageNotesBar: React.FC<DirectMessageNotesBarProps> = ({
               {showMusicInput ? (
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 p-2 bg-white/5 border border-white/10 rounded-xl">
-                    <Music className="w-3.5 h-3.5 text-[#D4AF37]" />
+                    <Music className="w-3.5 h-3.5 text-[#2F6FED]" />
                     <input
                       type="text"
                       value={musicTitle}
@@ -270,7 +270,7 @@ export const DirectMessageNotesBar: React.FC<DirectMessageNotesBarProps> = ({
                   onClick={() => setShowMusicInput(true)}
                   className="text-[11px] text-white/60 hover:text-white flex items-center gap-1.5 px-2 py-1 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 transition-colors"
                 >
-                  <Music className="w-3.5 h-3.5 text-[#D4AF37]" />
+                  <Music className="w-3.5 h-3.5 text-[#2F6FED]" />
                   <span>Attach music title caption</span>
                 </button>
               )}
@@ -289,7 +289,7 @@ export const DirectMessageNotesBar: React.FC<DirectMessageNotesBarProps> = ({
                 <button
                   type="submit"
                   disabled={!noteText.trim()}
-                  className="flex-1 py-2.5 rounded-xl bg-[#D4AF37] hover:bg-[#bfa035] disabled:opacity-40 text-black font-black text-xs transition-all shadow-md shadow-[#D4AF37]/20 active:scale-95"
+                  className="flex-1 py-2.5 rounded-xl bg-[#2F6FED] hover:bg-[#bfa035] disabled:opacity-40 text-black font-black text-xs transition-all shadow-md shadow-[#2F6FED]/20 active:scale-95"
                 >
                   Share Note
                 </button>
@@ -327,7 +327,7 @@ export const DirectMessageNotesBar: React.FC<DirectMessageNotesBarProps> = ({
             {/* Note display bubble */}
             <div className="bg-[#242428] border border-white/10 rounded-2xl p-4 shadow-md space-y-2 text-center">
               {selectedNote.musicTitle && (
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-[10px] font-mono text-[#D4AF37]">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-[10px] font-mono text-[#2F6FED]">
                   <Music className="w-3 h-3" />
                   <span>{selectedNote.musicTitle}</span>
                 </div>
@@ -344,13 +344,13 @@ export const DirectMessageNotesBar: React.FC<DirectMessageNotesBarProps> = ({
                 value={replyText}
                 onChange={(e) => setReplyText(e.target.value)}
                 placeholder={`Send message to ${selectedNote.userName}...`}
-                className="flex-1 px-3.5 py-2.5 bg-white/5 border border-white/10 focus:border-[#D4AF37] rounded-xl text-xs text-white placeholder-white/40 outline-none"
+                className="flex-1 px-3.5 py-2.5 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-xl text-xs text-white placeholder-white/40 outline-none"
                 autoFocus
               />
               <button
                 type="submit"
                 disabled={!replyText.trim()}
-                className="p-2.5 rounded-xl bg-[#D4AF37] hover:bg-[#c4a132] disabled:opacity-40 text-black font-bold transition-all min-h-[38px] min-w-[38px] flex items-center justify-center active:scale-95"
+                className="p-2.5 rounded-xl bg-[#2F6FED] hover:bg-[#c4a132] disabled:opacity-40 text-black font-bold transition-all min-h-[38px] min-w-[38px] flex items-center justify-center active:scale-95"
                 title="Send Reply"
               >
                 <Send className="w-4 h-4" />

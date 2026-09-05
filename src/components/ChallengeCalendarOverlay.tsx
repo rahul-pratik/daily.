@@ -157,7 +157,7 @@ export const ChallengeCalendarOverlay: React.FC<ChallengeCalendarOverlayProps> =
           }}
           className={`px-3 py-1 rounded-full text-xs font-bold transition-all shrink-0 ${
             selectedChallengeId === 'all'
-              ? 'bg-[#D4AF37] text-black font-black shadow-sm shadow-[#D4AF37]/30'
+              ? 'bg-[#2F6FED] text-white font-black shadow-sm shadow-[#2F6FED]/30'
               : 'bg-white/5 text-white/60 hover:text-white border border-white/10'
           }`}
         >
@@ -245,7 +245,7 @@ export const ChallengeCalendarOverlay: React.FC<ChallengeCalendarOverlayProps> =
                     : hasActivity
                     ? 'bg-gradient-to-br from-amber-500/25 to-amber-600/10 border border-amber-500/40 text-amber-300 hover:scale-105 shadow-md shadow-amber-500/10'
                     : isTodayDate
-                    ? 'border-2 border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37]/10'
+                    ? 'border-2 border-[#2F6FED] text-[#2F6FED] hover:bg-[#2F6FED]/10'
                     : 'text-white/40 hover:bg-white/5 hover:text-white'
                 }`}
                 title={`${dStr}: ${hasActivity ? 'Verified challenge check-in' : 'No receipts'}`}
@@ -262,7 +262,7 @@ export const ChallengeCalendarOverlay: React.FC<ChallengeCalendarOverlayProps> =
                     {challengePostsOnDate.length > 1 ? `${challengePostsOnDate.length} proofs` : 'Proof'}
                   </span>
                 ) : isTodayDate ? (
-                  <span className="text-[8px] font-bold text-[#D4AF37] uppercase">Today</span>
+                  <span className="text-[8px] font-bold text-[#2F6FED] uppercase">Today</span>
                 ) : (
                   <span className="text-[9px] text-transparent">•</span>
                 )}
@@ -279,7 +279,7 @@ export const ChallengeCalendarOverlay: React.FC<ChallengeCalendarOverlayProps> =
               <span>Verified Proof Logged</span>
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full border border-[#D4AF37]" />
+              <span className="w-2.5 h-2.5 rounded-full border border-[#2F6FED]" />
               <span>Current Day</span>
             </span>
           </div>
