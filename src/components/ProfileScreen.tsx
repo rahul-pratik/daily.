@@ -430,39 +430,59 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </button>
         </div>
 
-        {/* Person Dossier Quick Launch Banner */}
-        {onOpenDossier && (
-          <div className="mt-3 pt-3 border-t border-white/5">
-            <button
-              onClick={() => {
-                vibrateLight();
-                onOpenDossier();
-              }}
-              className="w-full py-2.5 px-3.5 rounded-2xl bg-[#2F6FED]/10 hover:bg-[#2F6FED]/15 border border-[#2F6FED]/30 text-white flex items-center justify-between transition-all group min-h-[44px] text-left active:scale-[0.99]"
-            >
-              <div className="flex items-center gap-2.5">
-                <span className="w-2 h-2 rounded-full bg-[#2F6FED]" />
-                <div>
-                  <div className="text-xs font-semibold text-white group-hover:text-[#2F6FED] transition-colors flex items-center gap-1.5">
-                    <span>Rahul's Person Dossier</span>
-                    <span className="text-[10px] font-mono text-[#2F6FED] bg-[#2F6FED]/10 px-1.5 py-0.5 rounded-full">Active</span>
-                  </div>
-                  <div className="text-[10px] text-white/50 font-mono">
-                    Goals, Pillars (Building/Fitness/Learning) & Timeline
-                  </div>
+        {/* Person Dossier Quick Switch Banner */}
+        <div className="mt-3 pt-3 border-t border-white/5">
+          <button
+            onClick={() => {
+              vibrateLight();
+              setProfileTab('dossier');
+            }}
+            className={`w-full py-2.5 px-3.5 rounded-2xl transition-all group min-h-[44px] text-left active:scale-[0.99] flex items-center justify-between ${
+              profileTab === 'dossier'
+                ? 'bg-[#2F6FED]/20 border border-[#2F6FED] text-white'
+                : 'bg-[#2F6FED]/10 hover:bg-[#2F6FED]/15 border border-[#2F6FED]/30 text-white'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="w-2 h-2 rounded-full bg-[#2F6FED]" />
+              <div>
+                <div className="text-xs font-semibold text-white group-hover:text-[#2F6FED] transition-colors flex items-center gap-1.5">
+                  <span>Rahul's Person Dossier</span>
+                  <span className="text-[10px] font-mono text-[#2F6FED] bg-[#2F6FED]/10 px-1.5 py-0.5 rounded-full">
+                    {profileTab === 'dossier' ? 'Viewing' : 'Open'}
+                  </span>
+                </div>
+                <div className="text-[10px] text-white/50 font-mono">
+                  Pillars (Building / Fitness / Learning) & Proof Timeline
                 </div>
               </div>
-              <ChevronRight className="w-4 h-4 text-[#2F6FED] group-hover:translate-x-0.5 transition-transform" />
-            </button>
-          </div>
-        )}
+            </div>
+            <ChevronRight className="w-4 h-4 text-[#2F6FED] group-hover:translate-x-0.5 transition-transform" />
+          </button>
+        </div>
       </div>
 
-      {/* Clean Profile Navigation Tabs: STRICTLY 3 TABS (Proofs, Collections, Milestones) */}
+      {/* Clean Profile Navigation Tabs */}
       <div className="space-y-3 pt-2">
         <div className="flex items-center justify-between border-b border-white/5 pb-3">
           {/* Tab buttons */}
           <div className="flex items-center gap-1 bg-white/5 p-1 rounded-2xl border border-white/5 overflow-x-auto no-scrollbar">
+            <button
+              onClick={() => {
+                vibrateLight();
+                setProfileTab('dossier');
+                setSelectedCollectionId(null);
+              }}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                profileTab === 'dossier'
+                  ? 'bg-white text-black shadow-sm font-black'
+                  : 'text-white/50 hover:text-white'
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-[#2F6FED]" />
+              <span>Dossier</span>
+            </button>
+
             <button
               onClick={() => {
                 vibrateLight();
@@ -475,7 +495,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   : 'text-white/50 hover:text-white'
               }`}
             >
-              <Flame className="w-3.5 h-3.5 text-[#D4AF37]" />
+              <Flame className="w-3.5 h-3.5 text-[#2F6FED]" />
               <span>Proofs ({userPosts.length})</span>
             </button>
 
@@ -503,11 +523,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               }}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
                 profileTab === 'milestones'
-                  ? 'bg-gradient-to-r from-[#D4AF37] to-amber-500 text-black shadow-sm font-black'
-                  : 'text-amber-200/70 hover:text-amber-200'
+                  ? 'bg-[#2F6FED] text-white shadow-sm font-bold'
+                  : 'text-white/60 hover:text-white'
               }`}
             >
-              <Award className="w-3.5 h-3.5 text-[#D4AF37]" />
+              <Award className="w-3.5 h-3.5 text-[#2F6FED]" />
               <span>Milestones ({currentUser.disciplineMilestones?.length || 0}/3)</span>
             </button>
           </div>
@@ -542,12 +562,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 vibrateLight();
                 onOpenCreateCollection();
               }}
-              className="px-3 py-1.5 rounded-xl bg-[#D4AF37] text-black font-black text-xs flex items-center gap-1 shadow-md shadow-[#D4AF37]/20 active:scale-95 whitespace-nowrap shrink-0 min-h-[36px]"
+              className="px-3 py-1.5 rounded-xl bg-[#2F6FED] hover:bg-[#2861d6] text-white font-bold text-xs flex items-center gap-1 shadow-md shadow-[#2F6FED]/20 active:scale-95 whitespace-nowrap shrink-0 min-h-[36px]"
             >
               <Plus className="w-3.5 h-3.5 stroke-[3]" />
               <span>New Box</span>
             </button>
-          ) : (
+          ) : profileTab === 'milestones' ? (
             <button
               onClick={() => {
                 vibrateLight();
@@ -555,26 +575,33 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               }}
               className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs flex items-center gap-1 border border-white/10 active:scale-95 whitespace-nowrap shrink-0 min-h-[36px]"
             >
-              <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
+              <Sparkles className="w-3.5 h-3.5 text-[#2F6FED]" />
               <span>Equip</span>
             </button>
-          )}
+          ) : null}
         </div>
       </div>
 
       {/* Floating Action Toast Notification */}
       {draftActionToast && (
-        <div className="p-3 rounded-2xl bg-[#D4AF37] text-black font-black text-xs flex items-center justify-between shadow-xl animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="p-3 rounded-2xl bg-[#2F6FED] text-white font-bold text-xs flex items-center justify-between shadow-xl animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="flex items-center gap-2">
             <Check className="w-4 h-4 stroke-[3]" />
             <span>{draftActionToast}</span>
           </div>
           <button
             onClick={() => setDraftActionToast(null)}
-            className="text-black/70 hover:text-black text-[11px]"
+            className="text-white/70 hover:text-white text-[11px]"
           >
             ✕
           </button>
+        </div>
+      )}
+
+      {/* TAB 0: DOSSIER TAB */}
+      {profileTab === 'dossier' && (
+        <div className="animate-in fade-in pb-8">
+          <PersonProfileDossierScreen onOpenCreatePost={onOpenCreatePost} />
         </div>
       )}
 
