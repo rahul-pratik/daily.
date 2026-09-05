@@ -202,29 +202,6 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
 
   return (
     <div className="w-full pb-24 pt-2 px-3 sm:px-4 max-w-lg mx-auto space-y-4 text-white">
-      {/* Hero Streak & Challenges Bar */}
-      <div className="bg-[#0F0F0F] border border-white/15 rounded-3xl p-5 shadow-2xl">
-        <div className="flex items-center gap-3">
-          {/* Blue Streak Flame */}
-          <div className="w-12 h-12 rounded-2xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-400 shadow-lg shadow-blue-500/10">
-            <Flame className="w-6 h-6 fill-blue-400 text-blue-400" />
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <h2 className="text-xl font-black text-white">{currentUser.currentStreak} Day Streak</h2>
-              <span className="text-[10px] text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full font-bold border border-blue-500/20">
-                Electric Blue
-              </span>
-            </div>
-            <p className="text-xs text-white/50">
-              {hasPostedToday
-                ? 'Daily proof verified for today! 🔥'
-                : 'Post proof today to maintain your streak'}
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Visual Progress Bar: Group Members Daily Proof Accountability */}
       {activeGroupChallenge && (
         <ChallengeDailyProofProgressBar

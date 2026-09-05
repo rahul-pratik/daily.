@@ -37,6 +37,9 @@ import { EmptyStateIllustration } from './EmptyStateIllustration';
 import { PersonProfileDossierScreen } from './PersonProfileDossierScreen';
 import { PostInsightsModal } from './PostInsightsModal';
 import { StreakFreezeCard } from './StreakFreezeCard';
+import { UserConnectionsModal } from './UserConnectionsModal';
+import { ShareProfileIdModal } from './ShareProfileIdModal';
+import { ProfileSettingsModal } from './ProfileSettingsModal';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
 import { DailyStorageService } from '../services/storage';
 
@@ -99,20 +102,25 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onUserUpdated,
   onOpenNotifications,
 }) => {
-  // Main clean tabs: Dossier, Proofs, Collections
-  const [profileTab, setProfileTab] = useState<'dossier' | 'proofs' | 'collections'>(
-    initialTab === 'milestones' as any ? 'proofs' : initialTab
-  );
+  // Clean profile tabs: Proofs and Collections
+  const [profileTab, setProfileTab] = useState<'proofs' | 'collections'>('proofs');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
-  // Popup Hub Modal for Insights, Drafts, and Saved
-  const [isQuickHubOpen, setIsQuickHubOpen] = useState(false);
-  const [activeHubView, setActiveHubView] = useState<'insights' | 'drafts' | 'saved' | null>(null);
+  // Connections (Followers / Following) Modal State
+  const [isConnectionsModalOpen, setIsConnectionsModalOpen] = useState(false);
+  const [connectionsTab, setConnectionsTab] = useState<'followers' | 'following'>('followers');
 
-  // Settings & share state
-  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
-  const [copiedLink, setCopiedLink] = useState(false);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  // Share ID Modal State
+  const [isShareIdModalOpen, setIsShareIdModalOpen] = useState(false);
+
+  // Settings & Tools Modal State
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+
+  // Person Dossier Full Modal State (opened from Settings)
+  const [isDossierModalOpen, setIsDossierModalOpen] = useState(false);
+
+  // Sub-modals for Insights, Drafts, and Saved (accessible via Settings)
+  const [activeHubView, setActiveHubView] = useState<'insights' | 'drafts' | 'saved' | null>(null);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
 
   // Drafts & Scheduled Queue State
@@ -183,160 +191,54 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       ? standardDrafts
       : drafts;
 
-  const handleShareProfile = () => {
-    navigator.clipboard?.writeText(window.location.href);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
-  };
-
-  // Quick Hub Options Configuration
-  const hubOptions = [
-    {
-      id: 'insights' as const,
-      title: 'Insights',
-      subtitle: 'Engagement Analytics & Performance',
-      icon: <BarChart3 className="w-5 h-5 text-[#2F6FED]" />,
-      badge: `${userPosts.reduce((acc, p) => acc + (p.likesCount || 0), 0)} likes`,
-      badgeColor: 'bg-[#2F6FED]/15 text-[#2F6FED] border-[#2F6FED]/30',
-      gradient: 'from-blue-950/40 to-black',
-    },
-    {
-      id: 'drafts' as const,
-      title: 'Drafts & Saved Posts',
-      subtitle: 'Post Queue & Scheduled Drafts',
-      icon: <FileText className="w-5 h-5 text-[#2F6FED]" />,
-      badge: `${drafts.length} drafts`,
-      badgeColor: 'bg-[#2F6FED]/15 text-[#2F6FED] border-[#2F6FED]/30',
-      gradient: 'from-blue-950/40 to-black',
-    },
-    {
-      id: 'saved' as const,
-      title: 'Saved Proofs',
-      subtitle: 'Bookmarked Inspiration & Recipes',
-      icon: <Bookmark className="w-5 h-5 text-white/80" />,
-      badge: `${savedPosts.length} saved`,
-      badgeColor: 'bg-white/10 text-white/80 border-white/20',
-      gradient: 'from-white/10 to-black',
-    },
-  ];
-
   return (
     <div className="w-full pb-24 pt-2 px-3 sm:px-4 max-w-lg mx-auto space-y-4">
       {/* Profile Header Card */}
       <div className="bg-white/5 border border-white/10 rounded-[32px] p-5 sm:p-6 shadow-xl relative overflow-hidden">
-        {/* Top bar with username, share, quick hub button, and settings */}
+        {/* Top bar with username, share ID button, and settings */}
         <div className="flex items-center justify-between mb-4">
           <span className="text-xs font-mono font-bold text-white/50">
             @{currentUser.username}
           </span>
           <div className="flex items-center gap-2">
-            {/* Pop-Up Hub Button in Top Bar */}
+            {/* Share ID to Chats & Groups Button */}
             <button
               onClick={() => {
                 vibrateLight();
-                setIsQuickHubOpen(true);
+                setIsShareIdModalOpen(true);
               }}
-              className="px-3 py-1.5 rounded-full bg-[#2F6FED]/15 hover:bg-[#2F6FED]/25 border border-[#2F6FED]/40 text-[#2F6FED] text-xs font-black transition-all flex items-center gap-1.5 shadow-sm shadow-[#2F6FED]/10 active:scale-95"
-              title="Open Insights, Analytics & Saved"
+              className="p-2 rounded-full bg-white/5 border border-white/10 hover:border-white/20 text-white/70 hover:text-white transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center"
+              title="Share ID to Chats & Groups"
+              aria-label="Share ID to Chats & Groups"
             >
-              <Sparkles className="w-3.5 h-3.5 fill-[#2F6FED]" />
-              <span>Hub & Tools</span>
+              <Send className="w-3.5 h-3.5" />
             </button>
 
+            {/* Settings & Tools Button */}
             <button
-              onClick={handleShareProfile}
-              className="p-2 rounded-full bg-white/5 border border-white/10 hover:border-white/20 text-white/60 hover:text-white transition-colors relative min-w-[36px] min-h-[36px] flex items-center justify-center"
-              title="Share profile"
+              onClick={() => {
+                vibrateLight();
+                setIsSettingsModalOpen(true);
+              }}
+              className="p-2 rounded-full bg-white/5 border border-white/10 hover:border-white/20 text-white/70 hover:text-white transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center"
+              title="Settings & Tools"
+              aria-label="Settings & Tools"
             >
-              <Share2 className="w-3.5 h-3.5" />
-              {copiedLink && (
-                <span className="absolute -top-7 right-0 text-[10px] font-bold bg-[#2F6FED] text-white px-2 py-0.5 rounded shadow whitespace-nowrap">
-                  Link copied!
-                </span>
-              )}
+              <Settings className="w-3.5 h-3.5" />
             </button>
-            <div className="relative">
-              <button
-                onClick={() => setShowSettingsMenu(!showSettingsMenu)}
-                className="p-2 rounded-full bg-white/5 border border-white/10 hover:border-white/20 text-white/60 hover:text-white transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center"
-                title="Settings & Reset"
-              >
-                <Settings className="w-3.5 h-3.5" />
-              </button>
-              {showSettingsMenu && (
-                <div className="absolute right-0 top-10 w-48 bg-[#0A0A0A] border border-white/10 rounded-2xl p-1.5 shadow-2xl z-30 animate-in fade-in">
-                  <button
-                    onClick={() => {
-                      setShowSettingsMenu(false);
-                      onOpenEditProfile();
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs text-white/80 hover:bg-white/5 rounded-xl flex items-center gap-2"
-                  >
-                    <Edit3 className="w-3.5 h-3.5 text-[#2F6FED]" />
-                    Edit Profile
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowSettingsMenu(false);
-                      setShowResetConfirm(true);
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 rounded-xl flex items-center gap-2"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5 text-red-400" />
-                    Reset Demo Data
-                  </button>
-                </div>
-              )}
-            </div>
           </div>
         </div>
-
-        {/* Reset Confirmation Dialog */}
-        {showResetConfirm && (
-          <div className="mb-4 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 text-white animate-in fade-in">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <h4 className="text-xs font-bold text-red-300">Reset All Demo Data?</h4>
-                <p className="text-[11px] text-white/70 mt-0.5">
-                  This will restore sample users, streak records, posts, groups, and notifications to their initial states.
-                </p>
-                <div className="flex items-center gap-2 mt-3">
-                  <button
-                    onClick={() => {
-                      onResetData();
-                      setShowResetConfirm(false);
-                    }}
-                    className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-xl text-[11px] font-bold transition-colors"
-                  >
-                    Confirm Reset
-                  </button>
-                  <button
-                    onClick={() => setShowResetConfirm(false)}
-                    className="px-3 py-1.5 bg-white/10 hover:bg-white/15 text-white/70 hover:text-white rounded-xl text-[11px] font-semibold transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* User Info Row */}
         <div className="flex items-start gap-4">
           <div className="relative">
-            <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-full overflow-hidden border border-white/10 shadow-lg">
+            <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-full overflow-hidden border border-white/10 shadow-lg shrink-0">
               <img
                 src={currentUser.avatar}
                 alt={currentUser.name}
                 referrerPolicy="no-referrer"
                 className="w-full h-full object-cover"
               />
-            </div>
-            <div className="absolute -bottom-1 -right-1 bg-black text-[#2F6FED] text-[10px] font-black px-2 py-0.5 rounded-full border border-[#2F6FED]/50 flex items-center gap-1 shadow-md">
-              <Flame className="w-3 h-3 fill-[#2F6FED]" />
-              <span>{currentUser.currentStreak}d</span>
             </div>
           </div>
 
@@ -349,17 +251,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </div>
         </div>
 
-        {/* Stats Row */}
+        {/* Stats Row: Proofs, Collections, Followers, Following */}
         <div className="grid grid-cols-4 gap-2 mt-5 pt-4 border-t border-white/5 text-center">
-          <div>
-            <span className="text-base font-black text-[#2F6FED] block">
-              {currentUser.currentStreak}d
-            </span>
-            <span className="text-[10px] uppercase tracking-wider text-white/40 font-semibold flex items-center justify-center gap-0.5">
-              <Flame className="w-2.5 h-2.5 text-[#2F6FED] fill-[#2F6FED]" /> Streak
-            </span>
-          </div>
-
           <div>
             <span className="text-base font-black text-white block">
               {userPosts.length}
@@ -374,12 +267,41 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <span className="text-[10px] uppercase tracking-wider text-white/40 font-semibold">Collections</span>
           </div>
 
-          <div>
-            <span className="text-base font-black text-white block">
-              {currentUser.followersCount}
+          <button
+            type="button"
+            onClick={() => {
+              vibrateLight();
+              setConnectionsTab('followers');
+              setIsConnectionsModalOpen(true);
+            }}
+            className="group p-1 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
+            title="View Followers"
+          >
+            <span className="text-base font-black text-white group-hover:text-[#2F6FED] transition-colors block">
+              {currentUser.followersCount || 489}
             </span>
-            <span className="text-[10px] uppercase tracking-wider text-white/40 font-semibold">Followers</span>
-          </div>
+            <span className="text-[10px] uppercase tracking-wider text-white/40 group-hover:text-white/70 font-semibold transition-colors">
+              Followers
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              vibrateLight();
+              setConnectionsTab('following');
+              setIsConnectionsModalOpen(true);
+            }}
+            className="group p-1 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
+            title="View Following"
+          >
+            <span className="text-base font-black text-white group-hover:text-[#2F6FED] transition-colors block">
+              {currentUser.followingCount || currentUser.followedUserIds?.length || 92}
+            </span>
+            <span className="text-[10px] uppercase tracking-wider text-white/40 group-hover:text-white/70 font-semibold transition-colors">
+              Following
+            </span>
+          </button>
         </div>
 
         {/* Focus Areas */}
@@ -399,56 +321,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </div>
         )}
 
-        {/* Primary Action Buttons: Edit Profile & Pop-Up Hub Button */}
-        <div className="mt-4 pt-3 border-t border-white/5 grid grid-cols-2 gap-2">
+        {/* Primary Action Button: Edit Profile */}
+        <div className="mt-4 pt-3 border-t border-white/5">
           <button
             onClick={onOpenEditProfile}
-            className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-white flex items-center justify-center gap-2 transition-colors min-h-[44px] active:scale-[0.99]"
+            className="w-full py-2.5 px-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-white flex items-center justify-center gap-2 transition-colors min-h-[44px] active:scale-[0.99]"
           >
             <Edit3 className="w-3.5 h-3.5 text-[#2F6FED]" />
             <span>Edit Profile</span>
-          </button>
-
-          <button
-            onClick={() => {
-              vibrateLight();
-              setIsQuickHubOpen(true);
-            }}
-            className="py-2.5 px-3 rounded-xl bg-[#2F6FED]/10 hover:bg-[#2F6FED]/20 border border-[#2F6FED]/30 text-[#2F6FED] text-xs font-black flex items-center justify-center gap-2 transition-all min-h-[44px] shadow-sm shadow-[#2F6FED]/10 active:scale-[0.99]"
-          >
-            <Sparkles className="w-3.5 h-3.5 fill-[#2F6FED]" />
-            <span>Analytics & Saved</span>
-          </button>
-        </div>
-
-        {/* Person Dossier Quick Switch Banner */}
-        <div className="mt-3 pt-3 border-t border-white/5">
-          <button
-            onClick={() => {
-              vibrateLight();
-              setProfileTab('dossier');
-            }}
-            className={`w-full py-2.5 px-3.5 rounded-2xl transition-all group min-h-[44px] text-left active:scale-[0.99] flex items-center justify-between ${
-              profileTab === 'dossier'
-                ? 'bg-[#2F6FED]/20 border border-[#2F6FED] text-white'
-                : 'bg-[#2F6FED]/10 hover:bg-[#2F6FED]/15 border border-[#2F6FED]/30 text-white'
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              <span className="w-2 h-2 rounded-full bg-[#2F6FED]" />
-              <div>
-                <div className="text-xs font-semibold text-white group-hover:text-[#2F6FED] transition-colors flex items-center gap-1.5">
-                  <span>Rahul's Person Dossier</span>
-                  <span className="text-[10px] font-mono text-[#2F6FED] bg-[#2F6FED]/10 px-1.5 py-0.5 rounded-full">
-                    {profileTab === 'dossier' ? 'Viewing' : 'Open'}
-                  </span>
-                </div>
-                <div className="text-[10px] text-white/50 font-mono">
-                  Pillars (Building / Fitness / Learning) & Proof Timeline
-                </div>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-[#2F6FED] group-hover:translate-x-0.5 transition-transform" />
           </button>
         </div>
       </div>
@@ -465,22 +345,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         <div className="flex items-center justify-between border-b border-white/5 pb-3">
           {/* Tab buttons */}
           <div className="flex items-center gap-1 bg-white/5 p-1 rounded-2xl border border-white/5 overflow-x-auto no-scrollbar">
-            <button
-              onClick={() => {
-                vibrateLight();
-                setProfileTab('dossier');
-                setSelectedCollectionId(null);
-              }}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
-                profileTab === 'dossier'
-                  ? 'bg-white text-black shadow-sm font-black'
-                  : 'text-white/50 hover:text-white'
-              }`}
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-[#2F6FED]" />
-              <span>Dossier</span>
-            </button>
-
             <button
               onClick={() => {
                 vibrateLight();
@@ -566,13 +430,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           >
             ✕
           </button>
-        </div>
-      )}
-
-      {/* TAB 0: DOSSIER TAB */}
-      {profileTab === 'dossier' && (
-        <div className="animate-in fade-in pb-8">
-          <PersonProfileDossierScreen onOpenCreatePost={onOpenCreatePost} />
         </div>
       )}
 
@@ -922,80 +779,59 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
 
 
-      {/* POP-UP OPTIONS MENU MODAL: Insights, Drafts, and Saved */}
-      {isQuickHubOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
-          onClick={() => setIsQuickHubOpen(false)}
-        >
-          <div
-            className="w-full max-w-lg bg-[#0E0E0E] border-t sm:border border-white/15 rounded-t-[36px] sm:rounded-[36px] overflow-hidden shadow-2xl text-white p-5 sm:p-6 space-y-4 max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-[#2F6FED]/20 border border-[#2F6FED]/40 flex items-center justify-center text-[#2F6FED]">
-                  <Sparkles className="w-4 h-4 fill-[#2F6FED]" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-black text-white">Profile Tools & Quick Hub</h2>
-                  <p className="text-[11px] text-white/50">Explore insights, analytics & drafts</p>
-                </div>
-              </div>
+      {/* USER CONNECTIONS MODAL: Followers & Following */}
+      <UserConnectionsModal
+        isOpen={isConnectionsModalOpen}
+        onClose={() => setIsConnectionsModalOpen(false)}
+        initialTab={connectionsTab}
+        currentUser={currentUser}
+        onSendDM={onSendDM}
+        onToggleFollow={onToggleFollow}
+      />
 
+      {/* SHARE PROFILE ID MODAL: Send ID to Chats & Groups */}
+      <ShareProfileIdModal
+        isOpen={isShareIdModalOpen}
+        onClose={() => setIsShareIdModalOpen(false)}
+        currentUser={currentUser}
+      />
+
+      {/* PROFILE SETTINGS & TOOLS MODAL: Hub for Analytics, Saved, Dossier, Drafts, and Data */}
+      <ProfileSettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        currentUser={currentUser}
+        userPosts={userPosts}
+        savedPosts={savedPosts}
+        drafts={drafts}
+        onOpenEditProfile={onOpenEditProfile}
+        onOpenAnalytics={() => setActiveHubView('insights')}
+        onOpenSaved={() => setActiveHubView('saved')}
+        onOpenDrafts={() => setActiveHubView('drafts')}
+        onOpenDossier={() => setIsDossierModalOpen(true)}
+        onResetData={onResetData}
+      />
+
+      {/* PERSON DOSSIER FULLSCREEN MODAL (Opened from Settings) */}
+      {isDossierModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black overflow-y-auto animate-in fade-in duration-200">
+          <div className="max-w-lg mx-auto p-4 pt-6 min-h-screen">
+            <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-4 sticky top-0 bg-black/90 backdrop-blur-md z-10">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#2F6FED]" />
+                <h2 className="text-base font-black text-white">Person Dossier</h2>
+              </div>
               <button
-                onClick={() => setIsQuickHubOpen(false)}
-                className="p-1.5 rounded-full bg-white/5 text-white/50 hover:text-white hover:bg-white/10 transition-colors"
-                aria-label="Close hub options"
+                type="button"
+                onClick={() => setIsDossierModalOpen(false)}
+                className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors"
+                title="Close Dossier"
+                aria-label="Close Dossier"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-
-            {/* Prominent Option Cards */}
-            <div className="space-y-2.5">
-              {hubOptions.map((opt) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => {
-                    vibrateLight();
-                    setIsQuickHubOpen(false);
-                    setActiveHubView(opt.id);
-                  }}
-                  className="w-full p-3.5 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-white/20 transition-all flex items-center justify-between text-left group"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                      {opt.icon}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-black text-white group-hover:text-[#2F6FED] transition-colors">
-                          {opt.title}
-                        </span>
-                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${opt.badgeColor}`}>
-                          {opt.badge}
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-white/50 mt-0.5 truncate">{opt.subtitle}</p>
-                    </div>
-                  </div>
-
-                  <ChevronRight className="w-4 h-4 text-white/30 group-hover:text-white group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
-                </button>
-              ))}
-            </div>
-
-            {/* Bottom Dismiss */}
-            <button
-              type="button"
-              onClick={() => setIsQuickHubOpen(false)}
-              className="w-full py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 text-xs font-bold text-white/70 hover:text-white transition-colors text-center"
-            >
-              Close
-            </button>
+            <PersonProfileDossierScreen onOpenCreatePost={onOpenCreatePost} />
           </div>
         </div>
       )}

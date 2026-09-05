@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Flame, Check, Upload, Save } from 'lucide-react';
-import { User, AVAILABLE_INTERESTS, AVAILABLE_HABITS } from '../types';
+import { User, AVAILABLE_INTERESTS } from '../types';
 import { vibrateLight } from '../services/haptics';
 
 interface EditProfileModalProps {
@@ -30,7 +30,6 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   const [avatar, setAvatar] = useState(currentUser.avatar);
   const [bio, setBio] = useState(currentUser.bio);
   const [interests, setInterests] = useState<string[]>(currentUser.interests || []);
-  const [habits, setHabits] = useState<string[]>(currentUser.habits || []);
 
   if (!isOpen) return null;
 
@@ -40,15 +39,6 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       setInterests(interests.filter((i) => i !== item));
     } else {
       setInterests([...interests, item]);
-    }
-  };
-
-  const toggleHabit = (item: string) => {
-    vibrateLight();
-    if (habits.includes(item)) {
-      setHabits(habits.filter((h) => h !== item));
-    } else {
-      setHabits([...habits, item]);
     }
   };
 
@@ -73,7 +63,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       avatar,
       bio: bio.trim(),
       interests,
-      habits,
+      habits: currentUser.habits || [],
     });
     onClose();
   };
@@ -182,32 +172,6 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                     className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all border ${
                       isSelected
                         ? 'bg-blue-600 text-white border-blue-500 shadow-sm font-black'
-                        : 'bg-white/5 text-white/60 border-white/10 hover:border-white/20'
-                    }`}
-                  >
-                    {isSelected ? `✓ ${item}` : item}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Habits */}
-          <div>
-            <label className="block text-xs font-black uppercase tracking-wider text-white/70 mb-1.5">
-              Daily Core Habits
-            </label>
-            <div className="flex flex-wrap gap-1.5">
-              {AVAILABLE_HABITS.map((item) => {
-                const isSelected = habits.includes(item);
-                return (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => toggleHabit(item)}
-                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all border ${
-                      isSelected
-                        ? 'bg-white text-black border-white font-black'
                         : 'bg-white/5 text-white/60 border-white/10 hover:border-white/20'
                     }`}
                   >
