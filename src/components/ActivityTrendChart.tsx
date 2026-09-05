@@ -163,9 +163,9 @@ export const ActivityTrendChart: React.FC<ActivityTrendChartProps> = ({
     if (active && payload && payload.length) {
       const data: DayDataPoint = payload[0].payload;
       return (
-        <div className="bg-[#121212]/95 border border-[#D4AF37]/30 backdrop-blur-md rounded-2xl p-3.5 shadow-2xl text-white min-w-[190px] animate-in fade-in duration-150">
+        <div className="bg-[#121212]/95 border border-[#2F6FED]/30 backdrop-blur-md rounded-2xl p-3.5 shadow-2xl text-white min-w-[190px] animate-in fade-in duration-150">
           <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-2">
-            <span className="text-xs font-mono font-bold text-[#D4AF37]">{data.dateStr}</span>
+            <span className="text-xs font-mono font-bold text-[#2F6FED]">{data.dateStr}</span>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-white/80">
               {data.isActive ? 'Active Day 🔥' : 'Rest Day'}
             </span>
@@ -174,7 +174,7 @@ export const ActivityTrendChart: React.FC<ActivityTrendChartProps> = ({
           <div className="space-y-1.5 text-xs">
             <div className="flex items-center justify-between">
               <span className="text-white/60">Activity Score:</span>
-              <span className="font-bold text-[#D4AF37]">{data.activityScore} pts</span>
+              <span className="font-bold text-[#2F6FED]">{data.activityScore} pts</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-white/60">Discipline Proofs:</span>
@@ -196,8 +196,8 @@ export const ActivityTrendChart: React.FC<ActivityTrendChartProps> = ({
 
           {onOpenDayDetails && (
             <div className="mt-2.5 pt-2 border-t border-white/10 text-[10px] text-white/50 text-center font-medium flex items-center justify-center gap-1">
-              <span>Click to view day diary</span>
-              <ChevronRight className="w-3 h-3 text-[#D4AF37]" />
+              <span>Click to view day activity</span>
+              <ChevronRight className="w-3 h-3 text-[#2F6FED]" />
             </div>
           )}
         </div>
@@ -211,13 +211,13 @@ export const ActivityTrendChart: React.FC<ActivityTrendChartProps> = ({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-3.5">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-2xl bg-[#D4AF37]/15 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37]">
+          <div className="w-9 h-9 rounded-2xl bg-[#2F6FED]/15 border border-[#2F6FED]/30 flex items-center justify-center text-[#2F6FED]">
             <TrendingUp className="w-4 h-4" />
           </div>
           <div>
             <h3 className="text-sm font-black text-white tracking-tight flex items-center gap-1.5">
               <span>Activity Trend</span>
-              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[#D4AF37]/10 text-[#D4AF37] border border-[#D4AF37]/20">
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[#2F6FED]/10 text-[#2F6FED] border border-[#2F6FED]/20">
                 30 Days
               </span>
             </h3>
@@ -233,7 +233,7 @@ export const ActivityTrendChart: React.FC<ActivityTrendChartProps> = ({
             onClick={() => setMetricView('combined')}
             className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors whitespace-nowrap ${
               metricView === 'combined'
-                ? 'bg-[#D4AF37] text-black font-black shadow-sm'
+                ? 'bg-[#2F6FED] text-white font-bold shadow-sm'
                 : 'text-white/60 hover:text-white'
             }`}
           >
@@ -243,7 +243,7 @@ export const ActivityTrendChart: React.FC<ActivityTrendChartProps> = ({
             onClick={() => setMetricView('posts')}
             className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors whitespace-nowrap ${
               metricView === 'posts'
-                ? 'bg-[#D4AF37] text-black font-black shadow-sm'
+                ? 'bg-[#2F6FED] text-white font-bold shadow-sm'
                 : 'text-white/60 hover:text-white'
             }`}
           >
@@ -253,7 +253,7 @@ export const ActivityTrendChart: React.FC<ActivityTrendChartProps> = ({
             onClick={() => setMetricView('streak')}
             className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors whitespace-nowrap ${
               metricView === 'streak'
-                ? 'bg-[#D4AF37] text-black font-black shadow-sm'
+                ? 'bg-[#2F6FED] text-white font-bold shadow-sm'
                 : 'text-white/60 hover:text-white'
             }`}
           >
@@ -267,7 +267,7 @@ export const ActivityTrendChart: React.FC<ActivityTrendChartProps> = ({
         <div className="bg-black/30 border border-white/5 rounded-2xl p-3">
           <div className="flex items-center justify-between text-white/50 text-[10px] font-bold mb-1">
             <span>Consistency</span>
-            <Flame className="w-3.5 h-3.5 text-amber-400" />
+            <Flame className="w-3.5 h-3.5 text-[#2F6FED]" />
           </div>
           <div className="text-lg font-black text-white">{stats.consistencyRate}%</div>
           <div className="text-[10px] text-white/40">{stats.activeDaysCount}/30 active days</div>
@@ -276,27 +276,27 @@ export const ActivityTrendChart: React.FC<ActivityTrendChartProps> = ({
         <div className="bg-black/30 border border-white/5 rounded-2xl p-3">
           <div className="flex items-center justify-between text-white/50 text-[10px] font-bold mb-1">
             <span>Proofs Logged</span>
-            <Activity className="w-3.5 h-3.5 text-[#D4AF37]" />
+            <Activity className="w-3.5 h-3.5 text-[#2F6FED]" />
           </div>
-          <div className="text-lg font-black text-[#D4AF37]">{stats.totalProofs}</div>
+          <div className="text-lg font-black text-[#2F6FED]">{stats.totalProofs}</div>
           <div className="text-[10px] text-white/40">Verified submissions</div>
         </div>
 
         <div className="bg-black/30 border border-white/5 rounded-2xl p-3">
           <div className="flex items-center justify-between text-white/50 text-[10px] font-bold mb-1">
             <span>Peak Day</span>
-            <Zap className="w-3.5 h-3.5 text-emerald-400" />
+            <Zap className="w-3.5 h-3.5 text-white" />
           </div>
-          <div className="text-lg font-black text-emerald-400">{stats.peakScore} pts</div>
+          <div className="text-lg font-black text-white">{stats.peakScore} pts</div>
           <div className="text-[10px] text-white/40">Highest output day</div>
         </div>
 
         <div className="bg-black/30 border border-white/5 rounded-2xl p-3">
           <div className="flex items-center justify-between text-white/50 text-[10px] font-bold mb-1">
             <span>Best Run</span>
-            <Award className="w-3.5 h-3.5 text-blue-400" />
+            <Award className="w-3.5 h-3.5 text-[#2F6FED]" />
           </div>
-          <div className="text-lg font-black text-blue-400">{stats.bestStreak}d</div>
+          <div className="text-lg font-black text-[#2F6FED]">{stats.bestStreak}d</div>
           <div className="text-[10px] text-white/40">Max unbroken streak</div>
         </div>
       </div>
@@ -334,10 +334,10 @@ export const ActivityTrendChart: React.FC<ActivityTrendChartProps> = ({
               <Line
                 type="monotone"
                 dataKey="runningStreak"
-                stroke="#F59E0B"
+                stroke="#2F6FED"
                 strokeWidth={2.5}
-                dot={{ r: 2, fill: '#F59E0B' }}
-                activeDot={{ r: 5, fill: '#D4AF37', stroke: '#000', strokeWidth: 2 }}
+                dot={{ r: 2, fill: '#2F6FED' }}
+                activeDot={{ r: 5, fill: '#2F6FED', stroke: '#fff', strokeWidth: 2 }}
               />
             </LineChart>
           ) : (
@@ -352,12 +352,12 @@ export const ActivityTrendChart: React.FC<ActivityTrendChartProps> = ({
             >
               <defs>
                 <linearGradient id="activityGoldGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#D4AF37" stopOpacity={0.45} />
-                  <stop offset="95%" stopColor="#D4AF37" stopOpacity={0.0} />
+                  <stop offset="5%" stopColor="#2F6FED" stopOpacity={0.45} />
+                  <stop offset="95%" stopColor="#2F6FED" stopOpacity={0.0} />
                 </linearGradient>
                 <linearGradient id="postsBlueGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#60A5FA" stopOpacity={0.45} />
-                  <stop offset="95%" stopColor="#60A5FA" stopOpacity={0.0} />
+                  <stop offset="5%" stopColor="#2F6FED" stopOpacity={0.45} />
+                  <stop offset="95%" stopColor="#2F6FED" stopOpacity={0.0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
@@ -380,11 +380,11 @@ export const ActivityTrendChart: React.FC<ActivityTrendChartProps> = ({
               <Area
                 type="monotone"
                 dataKey={metricView === 'posts' ? 'postsCount' : 'activityScore'}
-                stroke={metricView === 'posts' ? '#60A5FA' : '#D4AF37'}
+                stroke="#2F6FED"
                 strokeWidth={2.5}
                 fillOpacity={1}
-                fill={metricView === 'posts' ? 'url(#postsBlueGradient)' : 'url(#activityGoldGradient)'}
-                activeDot={{ r: 5, fill: '#fff', stroke: '#D4AF37', strokeWidth: 2 }}
+                fill="url(#activityGoldGradient)"
+                activeDot={{ r: 5, fill: '#fff', stroke: '#2F6FED', strokeWidth: 2 }}
               />
             </AreaChart>
           )}
@@ -394,8 +394,8 @@ export const ActivityTrendChart: React.FC<ActivityTrendChartProps> = ({
       {/* Footer prompt */}
       <div className="flex items-center justify-between text-[11px] text-white/50 pt-1 border-t border-white/5">
         <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-[#D4AF37] animate-pulse" />
-          <span>Tap any point on the chart to jump into that day’s diary</span>
+          <span className="w-2 h-2 rounded-full bg-[#2F6FED] animate-pulse" />
+          <span>Tap any point on the chart to jump into that day's activity</span>
         </div>
         <span className="font-mono text-white/40">30d Rolling Window</span>
       </div>

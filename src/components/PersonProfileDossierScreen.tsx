@@ -446,7 +446,7 @@ export const PersonProfileDossierScreen: React.FC<PersonProfileDossierScreenProp
                   <span className="w-2 h-2 rounded-full bg-[#2F6FED]" />
                 ) : (
                   <span className="text-[10px] text-black/30 dark:text-white/30 font-mono">
-                    1 goal
+                    Active
                   </span>
                 )}
               </div>
@@ -474,7 +474,7 @@ export const PersonProfileDossierScreen: React.FC<PersonProfileDossierScreenProp
                   <span className="w-2 h-2 rounded-full bg-[#2F6FED]" />
                 ) : (
                   <span className="text-[10px] text-black/30 dark:text-white/30 font-mono">
-                    1 goal
+                    Active
                   </span>
                 )}
               </div>
@@ -502,7 +502,7 @@ export const PersonProfileDossierScreen: React.FC<PersonProfileDossierScreenProp
                   <span className="w-2 h-2 rounded-full bg-[#2F6FED]" />
                 ) : (
                   <span className="text-[10px] text-black/30 dark:text-white/30 font-mono">
-                    1 goal
+                    Active
                   </span>
                 )}
               </div>
