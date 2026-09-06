@@ -362,6 +362,35 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     currentDraftId,
   ]);
 
+  const handleSafeClose = () => {
+    if (content.trim() || imageUrl.trim()) {
+      const { draft } = DailyStorageService.saveDraft(currentUser.id, {
+        id: currentDraftId,
+        content: content.trim(),
+        imageUrl: imageUrl.trim() || undefined,
+        tags: selectedTags,
+        scheduledAt: isScheduleMode ? scheduledDateTime : undefined,
+        isScheduled: isScheduleMode,
+        isCollage: isCollageGenerated,
+      });
+      window.dispatchEvent(new CustomEvent('daily:draft-saved', { detail: { draft } }));
+    }
+    onClose();
+  };
+
+  // Escape key handler for auto-saving draft on close (hook must be called unconditionally before early return)
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        handleSafeClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, content, imageUrl, selectedTags, isScheduleMode, scheduledDateTime, isCollageGenerated, currentUser.id, currentDraftId]);
+
   if (!isOpen) return null;
 
   const toggleTag = (tag: string) => {
@@ -533,35 +562,6 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     setTimeout(() => {
       onClose();
     }, 1200);
-  };
-
-  // Escape key handler for auto-saving draft on close
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        handleSafeClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, content, imageUrl, selectedTags, isScheduleMode, scheduledDateTime, isCollageGenerated, currentUser.id, currentDraftId]);
-
-  const handleSafeClose = () => {
-    if (content.trim() || imageUrl.trim()) {
-      const { draft } = DailyStorageService.saveDraft(currentUser.id, {
-        id: currentDraftId,
-        content: content.trim(),
-        imageUrl: imageUrl.trim() || undefined,
-        tags: selectedTags,
-        scheduledAt: isScheduleMode ? scheduledDateTime : undefined,
-        isScheduled: isScheduleMode,
-        isCollage: isCollageGenerated,
-      });
-      window.dispatchEvent(new CustomEvent('daily:draft-saved', { detail: { draft } }));
-    }
-    onClose();
   };
 
   const handleInsertStarter = (starterText: string) => {
