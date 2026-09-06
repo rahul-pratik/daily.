@@ -132,29 +132,6 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
       completedText="Feed updated • Just now"
     >
       <div className="w-full pb-24 pt-2 px-3 sm:px-4 max-w-lg mx-auto space-y-3">
-        {/* Global Search Bar */}
-        <div className="relative">
-          <div className="relative flex items-center">
-            <Search className="w-4 h-4 text-white/40 absolute left-3.5 pointer-events-none" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search proofs, #tags, creators, topics..."
-              className="w-full pl-10 pr-9 py-2.5 rounded-2xl bg-white/5 border border-white/10 text-white placeholder-white/40 text-xs font-semibold focus:outline-none focus:border-[#2F6FED] focus:bg-white/[0.08] transition-all"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 p-1 rounded-full text-white/40 hover:text-white hover:bg-white/10 transition-colors"
-                title="Clear search"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-        </div>
-
         {/* Primary Filter Tabs: 'All' | 'Following' | 'Interests' */}
         <div className="flex items-center justify-between gap-2 border-b border-white/5 pb-2.5">
           <div className="flex items-center gap-1 bg-white/5 p-1 rounded-2xl border border-white/5">

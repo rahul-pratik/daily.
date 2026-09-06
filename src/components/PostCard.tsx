@@ -539,9 +539,9 @@ export const PostCard: React.FC<PostCardProps> = ({
               </button>
             </div>
 
-            {/* Right actions: Add to Collection & Bookmark */}
+            {/* Right actions: Add to Collection (only for user's own posts) & Bookmark */}
             <div className="flex items-center gap-1">
-              {onOpenAddToCollection && (
+              {onOpenAddToCollection && currentUser && post.userId === currentUser.id && (
                 <button
                   onClick={() => {
                     vibrateLight();
@@ -549,7 +549,7 @@ export const PostCard: React.FC<PostCardProps> = ({
                   }}
                   className="text-white/40 hover:text-[#2F6FED] transition-transform active:scale-110 p-1.5 rounded-lg hover:bg-white/5 min-h-[36px] min-w-[36px] flex items-center justify-center"
                   aria-label="Add to collection"
-                  title="Add proof to collection"
+                  title="Add proof to your collections"
                 >
                   <FolderPlus className="w-4 h-4 stroke-2" />
                 </button>

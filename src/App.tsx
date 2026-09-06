@@ -68,6 +68,19 @@ export default function App() {
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [activeProfileUser, setActiveProfileUser] = useState<User | null>(null);
   const [activeDraftToEdit, setActiveDraftToEdit] = useState<PostDraft | null>(null);
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => DailyStorageService.getTheme());
+
+  // Initialize and synchronize global theme preference
+  useEffect(() => {
+    DailyStorageService.setTheme(theme);
+    const handleThemeChange = (e: any) => {
+      if (e.detail?.theme) {
+        setTheme(e.detail.theme);
+      }
+    };
+    window.addEventListener('daily:theme-changed', handleThemeChange);
+    return () => window.removeEventListener('daily:theme-changed', handleThemeChange);
+  }, [theme]);
 
   // Background processor for auto-publishing scheduled posts when due
   useEffect(() => {
@@ -591,9 +604,9 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white flex justify-center font-sans antialiased selection:bg-[#2F6FED] selection:text-white">
+    <div className={`min-h-screen ${theme === 'light' ? 'bg-[#f8fafc] text-[#0f172a]' : 'bg-[#050505] text-white'} flex justify-center font-sans antialiased selection:bg-[#2F6FED] selection:text-white`}>
       {/* Mobile-first centered frame container */}
-      <div className="w-full max-w-lg min-h-screen bg-[#050505] flex flex-col shadow-2xl relative border-x border-white/5">
+      <div className={`w-full max-w-lg min-h-screen ${theme === 'light' ? 'bg-[#f8fafc] border-slate-200' : 'bg-[#050505] border-white/5'} flex flex-col shadow-2xl relative border-x`}>
         {/* Top Header */}
         <TopHeader
           currentUser={currentUser}
@@ -654,6 +667,7 @@ export default function App() {
               initialChallengeId={selectedChallengeId}
               onClearInitialChallenge={() => setSelectedChallengeId(null)}
               onOpenNotifications={() => setIsNotificationsOpen(true)}
+              onUserUpdated={setCurrentUser}
             />
           )}
 
@@ -764,7 +778,7 @@ export default function App() {
         <CreateCollectionModal
           isOpen={isCreateCollectionOpen}
           onClose={() => setIsCreateCollectionOpen(false)}
-          userPosts={posts}
+          userPosts={posts.filter((p) => p.userId === currentUser.id)}
           onCreateCollection={handleCreateCollection}
         />
 
@@ -773,6 +787,7 @@ export default function App() {
           isOpen={!!selectedPostForCollection}
           onClose={() => setSelectedPostForCollection(null)}
           post={selectedPostForCollection}
+          currentUserId={currentUser.id}
           collections={currentUser.proofCollections || []}
           onTogglePostInCollection={handleTogglePostInCollection}
           onOpenCreateCollection={() => {
@@ -954,6 +969,8 @@ export default function App() {
           users={users}
           communities={communities}
           posts={posts}
+          currentUser={currentUser}
+          onToggleFollow={handleToggleFollow}
           onSelectUser={(user) => {
             handleViewUser(user);
           }}

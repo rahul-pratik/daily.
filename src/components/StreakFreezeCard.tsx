@@ -95,7 +95,7 @@ export const StreakFreezeCard: React.FC<StreakFreezeCardProps> = ({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-sm font-black tracking-tight text-white flex items-center gap-1.5">
-                <span>Streak Freeze Shield</span>
+                <span>Challenge Streak Shield</span>
               </h3>
               <span
                 className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold tracking-wider border ${
@@ -113,10 +113,10 @@ export const StreakFreezeCard: React.FC<StreakFreezeCardProps> = ({
 
             <p className="text-xs text-white/60 mt-0.5 leading-tight">
               {isProtectedToday
-                ? 'Protected today • Streak safely guarded against drops'
+                ? 'Challenge streak protected today • Guarded against missed check-ins'
                 : isEquipped
-                ? 'Active defense • Protects streak automatically if 1 day is missed'
-                : 'Safeguard your progress if you ever need an off-day'}
+                ? 'Challenge active defense • Protects challenge streaks if you miss an off-day'
+                : 'Dedicated defense shield for Grounded & Squad challenges'}
             </p>
           </div>
         </div>

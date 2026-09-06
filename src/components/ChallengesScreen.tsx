@@ -29,6 +29,7 @@ import { CreateChallengeModal } from './CreateChallengeModal';
 import { ChallengeProgressScreen } from './ChallengeProgressScreen';
 import { DirectChallengeInviteModal } from './DirectChallengeInviteModal';
 import { ChallengeDailyProofProgressBar } from './ChallengeDailyProofProgressBar';
+import { StreakFreezeCard } from './StreakFreezeCard';
 
 interface ChallengesScreenProps {
   currentUser: User;
@@ -47,6 +48,7 @@ interface ChallengesScreenProps {
   initialChallengeId?: string | null;
   onClearInitialChallenge?: () => void;
   onOpenNotifications?: () => void;
+  onUserUpdated?: (user: User) => void;
 }
 
 const CATEGORY_CHIPS = [
@@ -80,6 +82,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
   initialChallengeId,
   onClearInitialChallenge,
   onOpenNotifications,
+  onUserUpdated,
 }) => {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -223,6 +226,13 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
           onOpenGroupChat={onOpenGroupChat}
         />
       )}
+
+      {/* Challenge Streak Freeze Defense Shield */}
+      <StreakFreezeCard
+        currentUser={currentUser}
+        onUserUpdated={onUserUpdated}
+        onOpenNotifications={onOpenNotifications}
+      />
 
       {/* SEARCH BAR FOR CHALLENGES */}
       <div className="space-y-3">

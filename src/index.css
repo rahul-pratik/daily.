@@ -12,10 +12,163 @@
   }
 }
 
+:root {
+  color-scheme: dark;
+}
+
+html.light,
+[data-theme="light"] {
+  color-scheme: light;
+}
+
 body {
   margin: 0;
   background-color: #050505;
   color: #ffffff;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
+
+/* Global Light Mode Overrides */
+html.light body,
+[data-theme="light"] body {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+/* Containers and Shells */
+html.light .bg-\[\#050505\],
+[data-theme="light"] .bg-\[\#050505\] {
+  background-color: #f8fafc !important;
+}
+
+html.light .bg-\[\#0A0A0A\],
+[data-theme="light"] .bg-\[\#0A0A0A\],
+html.light .bg-\[\#0D0D0D\],
+[data-theme="light"] .bg-\[\#0D0D0D\],
+html.light .bg-\[\#0E0E0E\],
+[data-theme="light"] .bg-\[\#0E0E0E\],
+html.light .bg-\[\#111111\],
+[data-theme="light"] .bg-\[\#111111\],
+html.light .bg-\[\#141414\],
+[data-theme="light"] .bg-\[\#141414\],
+html.light .bg-\[\#181818\],
+[data-theme="light"] .bg-\[\#181818\] {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.05);
+}
+
+/* Modals & Sheets */
+html.light .bg-black\/85,
+[data-theme="light"] .bg-black\/85,
+html.light .bg-black\/90,
+[data-theme="light"] .bg-black\/90 {
+  background-color: rgba(15, 23, 42, 0.45) !important;
+}
+
+/* Sticky Headers and Navigations */
+html.light header,
+[data-theme="light"] header {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-bottom-color: #e2e8f0 !important;
+}
+
+html.light nav,
+[data-theme="light"] nav {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-top-color: #e2e8f0 !important;
+}
+
+/* Text adjustments in light mode */
+html.light .text-white,
+[data-theme="light"] .text-white {
+  color: #0f172a !important;
+}
+
+html.light .text-white\/90,
+[data-theme="light"] .text-white\/90,
+html.light .text-white\/80,
+[data-theme="light"] .text-white\/80,
+html.light .text-white\/70,
+[data-theme="light"] .text-white\/70 {
+  color: #334155 !important;
+}
+
+html.light .text-white\/60,
+[data-theme="light"] .text-white\/60,
+html.light .text-white\/50,
+[data-theme="light"] .text-white\/50 {
+  color: #64748b !important;
+}
+
+html.light .text-white\/40,
+[data-theme="light"] .text-white\/40,
+html.light .text-white\/30,
+[data-theme="light"] .text-white\/30 {
+  color: #94a3b8 !important;
+}
+
+/* Preserve bright text inside primary buttons and badges */
+html.light .bg-\[\#2F6FED\] .text-white,
+[data-theme="light"] .bg-\[\#2F6FED\] .text-white,
+html.light .bg-blue-600 .text-white,
+[data-theme="light"] .bg-blue-600 .text-white,
+html.light .bg-red-500 .text-white,
+[data-theme="light"] .bg-red-500 .text-white,
+html.light .bg-red-600 .text-white,
+[data-theme="light"] .bg-red-600 .text-white,
+html.light button.bg-\[\#2F6FED\],
+[data-theme="light"] button.bg-\[\#2F6FED\],
+html.light .btn-primary,
+[data-theme="light"] .btn-primary {
+  color: #ffffff !important;
+}
+
+/* Interactive chips and subtle backgrounds in light mode */
+html.light .bg-white\/5,
+[data-theme="light"] .bg-white\/5,
+html.light .bg-white\/\[0\.02\],
+[data-theme="light"] .bg-white\/\[0\.02\],
+html.light .bg-white\/\[0\.03\],
+[data-theme="light"] .bg-white\/\[0\.03\],
+html.light .bg-white\/\[0\.04\],
+[data-theme="light"] .bg-white\/\[0\.04\] {
+  background-color: #f1f5f9 !important;
+}
+
+html.light .bg-white\/10,
+[data-theme="light"] .bg-white\/10,
+html.light .bg-white\/15,
+[data-theme="light"] .bg-white\/15 {
+  background-color: #e2e8f0 !important;
+}
+
+/* Borders in light mode */
+html.light .border-white\/5,
+[data-theme="light"] .border-white\/5,
+html.light .border-white\/10,
+[data-theme="light"] .border-white\/10,
+html.light .border-white\/15,
+[data-theme="light"] .border-white\/15,
+html.light .border-white\/20,
+[data-theme="light"] .border-white\/20 {
+  border-color: #e2e8f0 !important;
+}
+
+/* Inputs in light mode */
+html.light input,
+[data-theme="light"] input,
+html.light textarea,
+[data-theme="light"] textarea {
+  color: #0f172a !important;
+}
+
+html.light input::placeholder,
+[data-theme="light"] input::placeholder,
+html.light textarea::placeholder,
+[data-theme="light"] textarea::placeholder {
+  color: #94a3b8 !important;
+}
+

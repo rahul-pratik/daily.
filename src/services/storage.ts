@@ -44,6 +44,7 @@ const STORAGE_KEYS = {
   BLOCKED_USERS: 'daily_app_blocked_users_v1',
   NOTIFICATIONS: 'daily_app_notifications_v1',
   USER_NOTES: 'daily_app_user_notes_v1',
+  THEME: 'daily_app_theme_v1',
 };
 
 // Current reference date (today in the app context)
@@ -217,6 +218,38 @@ export class DailyStorageService {
 
   static setOnboarded(status: boolean): void {
     localStorage.setItem(STORAGE_KEYS.ONBOARDED, status ? 'true' : 'false');
+  }
+
+  static getTheme(): 'dark' | 'light' {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.THEME);
+      if (saved === 'light' || saved === 'dark') {
+        return saved;
+      }
+      return 'dark';
+    } catch {
+      return 'dark';
+    }
+  }
+
+  static setTheme(theme: 'dark' | 'light'): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.THEME, theme);
+      if (typeof document !== 'undefined') {
+        if (theme === 'light') {
+          document.documentElement.classList.add('light');
+          document.documentElement.classList.remove('dark');
+          document.documentElement.setAttribute('data-theme', 'light');
+        } else {
+          document.documentElement.classList.add('dark');
+          document.documentElement.classList.remove('light');
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+        window.dispatchEvent(new CustomEvent('daily:theme-changed', { detail: { theme } }));
+      }
+    } catch {
+      // Ignore storage errors
+    }
   }
 
   // Toggle follow
@@ -1938,6 +1971,12 @@ export class DailyStorageService {
 
   static addPostToCollection(collectionId: string, postId: string): User {
     const currentUser = this.getCurrentUser();
+    // Guard: Only user's own posts can be added to collections
+    const post = this.getAllPosts().find((p) => p.id === postId);
+    if (post && post.userId !== currentUser.id) {
+      return currentUser;
+    }
+
     const collections = currentUser.proofCollections || [];
     const today = getTodayDateString();
 

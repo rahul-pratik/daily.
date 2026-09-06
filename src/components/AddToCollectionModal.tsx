@@ -7,6 +7,7 @@ interface AddToCollectionModalProps {
   isOpen: boolean;
   onClose: () => void;
   post: Post | null;
+  currentUserId?: string;
   collections: ProofCollection[];
   onTogglePostInCollection: (collectionId: string, postId: string) => void;
   onOpenCreateCollection: () => void;
@@ -16,11 +17,35 @@ export const AddToCollectionModal: React.FC<AddToCollectionModalProps> = ({
   isOpen,
   onClose,
   post,
+  currentUserId,
   collections,
   onTogglePostInCollection,
   onOpenCreateCollection,
 }) => {
   if (!isOpen || !post) return null;
+
+  // Guard: Only user's own posts can be added to collections
+  if (currentUserId && post.userId !== currentUserId) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-3 sm:p-4 animate-in fade-in">
+        <div className="bg-[#0A0A0A] border border-white/10 w-full max-w-sm rounded-[32px] p-6 text-center space-y-4 shadow-2xl">
+          <div className="w-12 h-12 rounded-2xl bg-[#2F6FED]/15 border border-[#2F6FED]/30 flex items-center justify-center mx-auto text-[#2F6FED]">
+            <Folder className="w-6 h-6" />
+          </div>
+          <h3 className="text-base font-bold text-white">Your Proofs Only</h3>
+          <p className="text-xs text-white/60 leading-relaxed">
+            Proof Collections are personal albums designed to organize your own logged achievements and habits. You can bookmark other creators' posts using the Bookmark button.
+          </p>
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 rounded-xl bg-[#2F6FED] text-white font-bold text-xs hover:bg-blue-600 transition-colors"
+          >
+            Understood
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-3 sm:p-4 animate-in fade-in">

@@ -36,7 +36,6 @@ import { PostCard } from './PostCard';
 import { EmptyStateIllustration } from './EmptyStateIllustration';
 import { PersonProfileDossierScreen } from './PersonProfileDossierScreen';
 import { PostInsightsModal } from './PostInsightsModal';
-import { StreakFreezeCard } from './StreakFreezeCard';
 import { UserConnectionsModal } from './UserConnectionsModal';
 import { ShareProfileIdModal } from './ShareProfileIdModal';
 import { ProfileSettingsModal } from './ProfileSettingsModal';
@@ -128,9 +127,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [draftFilter, setDraftFilter] = useState<'all' | 'scheduled' | 'standard'>('all');
   const [draftActionToast, setDraftActionToast] = useState<string | null>(null);
 
-  // Reload drafts when currentUser changes or hub view opens
+  // Reload drafts when currentUser changes, hub view opens, or draft is auto-saved
   useEffect(() => {
-    setDrafts(DailyStorageService.getAllDrafts(currentUser.id));
+    const refreshDrafts = () => {
+      setDrafts(DailyStorageService.getAllDrafts(currentUser.id));
+    };
+    refreshDrafts();
+    window.addEventListener('daily:draft-saved', refreshDrafts);
+    return () => window.removeEventListener('daily:draft-saved', refreshDrafts);
   }, [currentUser.id, activeHubView]);
 
   const showToast = (msg: string) => {
@@ -332,13 +336,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </button>
         </div>
       </div>
-
-      {/* Streak Freeze Shield (Shifted from Challenges Tab to Profile Tab) */}
-      <StreakFreezeCard
-        currentUser={currentUser}
-        onUserUpdated={onUserUpdated}
-        onOpenNotifications={onOpenNotifications}
-      />
 
       {/* Clean Profile Navigation Tabs */}
       <div className="space-y-3 pt-2">

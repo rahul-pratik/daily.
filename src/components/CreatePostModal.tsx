@@ -535,9 +535,22 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     }, 1200);
   };
 
+  // Escape key handler for auto-saving draft on close
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        handleSafeClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, content, imageUrl, selectedTags, isScheduleMode, scheduledDateTime, isCollageGenerated, currentUser.id, currentDraftId]);
+
   const handleSafeClose = () => {
     if (content.trim() || imageUrl.trim()) {
-      DailyStorageService.saveDraft(currentUser.id, {
+      const { draft } = DailyStorageService.saveDraft(currentUser.id, {
         id: currentDraftId,
         content: content.trim(),
         imageUrl: imageUrl.trim() || undefined,
@@ -546,6 +559,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
         isScheduled: isScheduleMode,
         isCollage: isCollageGenerated,
       });
+      window.dispatchEvent(new CustomEvent('daily:draft-saved', { detail: { draft } }));
     }
     onClose();
   };

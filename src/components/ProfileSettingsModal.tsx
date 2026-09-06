@@ -15,8 +15,11 @@ import {
   MessageSquare,
   Flame,
   AlertTriangle,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { User as UserType, Post, PostDraft } from '../types';
+import { DailyStorageService } from '../services/storage';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
 
 interface ProfileSettingsModalProps {
@@ -49,8 +52,15 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
   onResetData,
 }) => {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [currentTheme, setCurrentTheme] = useState<'dark' | 'light'>(() => DailyStorageService.getTheme());
 
   if (!isOpen) return null;
+
+  const handleSwitchTheme = (newTheme: 'dark' | 'light') => {
+    vibrateLight();
+    setCurrentTheme(newTheme);
+    DailyStorageService.setTheme(newTheme);
+  };
 
   const totalLikes = userPosts.reduce((acc, p) => acc + (p.likesCount || 0), 0);
   const totalComments = userPosts.reduce((acc, p) => acc + (p.comments?.length || 0), 0);
@@ -110,6 +120,55 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
               <Edit3 className="w-3.5 h-3.5" />
               <span>Edit Profile</span>
             </button>
+          </div>
+
+          {/* Theme Mode Toggle (Global Light / Dark) */}
+          <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-xl bg-[#2F6FED]/15 border border-[#2F6FED]/30 flex items-center justify-center text-[#2F6FED]">
+                  {currentTheme === 'dark' ? <Moon className="w-3.5 h-3.5" /> : <Sun className="w-3.5 h-3.5" />}
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-white">Appearance & Theme</h4>
+                  <p className="text-[10px] text-white/50">
+                    Switch between Dark Onyx and Light Daylight modes
+                  </p>
+                </div>
+              </div>
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[#2F6FED]">
+                {currentTheme === 'dark' ? 'Dark Mode' : 'Light Mode'}
+              </span>
+            </div>
+
+            {/* Segmented Switcher */}
+            <div className="grid grid-cols-2 gap-2 bg-black/40 p-1 rounded-xl border border-white/5">
+              <button
+                type="button"
+                onClick={() => handleSwitchTheme('dark')}
+                className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                  currentTheme === 'dark'
+                    ? 'bg-white/15 text-white shadow-sm border border-white/10'
+                    : 'text-white/50 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Moon className="w-3.5 h-3.5" />
+                <span>Dark Mode</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSwitchTheme('light')}
+                className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                  currentTheme === 'light'
+                    ? 'bg-[#2F6FED] text-white shadow-sm font-black'
+                    : 'text-white/50 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Sun className="w-3.5 h-3.5" />
+                <span>Light Mode</span>
+              </button>
+            </div>
           </div>
 
           {/* Reset Confirmation Notice if active */}
