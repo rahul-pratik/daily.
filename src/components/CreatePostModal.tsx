@@ -67,6 +67,7 @@ interface CreatePostModalProps {
 }
 
 const MAX_PHOTOS = 13;
+const LAST_DRAFT_STORAGE_KEY = 'last_draft';
 
 const CATEGORY_REFLECTION_PROMPTS: Record<string, string[]> = {
   Coding: [
@@ -250,37 +251,84 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
           }
           setDraftRestored(false);
         } else {
-          // Check if there are saved drafts
-          const userDrafts = DailyStorageService.getAllDrafts(currentUser.id);
-          if (userDrafts.length > 0) {
-            const latestDraft = userDrafts[0];
-            setCurrentDraftId(latestDraft.id);
-            setContent(latestDraft.content || '');
-            const draftList = latestDraft.imageUrls && latestDraft.imageUrls.length > 0
-              ? latestDraft.imageUrls
-              : latestDraft.imageUrl
-              ? [latestDraft.imageUrl]
-              : [];
-            setImageUrls(draftList);
-            setImageUrl(draftList[0] || '');
-            if (latestDraft.tags && latestDraft.tags.length > 0) {
-              setSelectedTags(latestDraft.tags);
+          // Check if there is an unsaved 'last_draft' in localStorage to prevent loss on accidental closure
+          let restoredFromLastDraft = false;
+          try {
+            const rawLastDraft = localStorage.getItem(LAST_DRAFT_STORAGE_KEY);
+            if (rawLastDraft) {
+              const parsed = JSON.parse(rawLastDraft);
+              const hasDraftContent = Boolean(
+                parsed &&
+                ((parsed.content && parsed.content.trim().length > 0) ||
+                  (parsed.imageUrl && parsed.imageUrl.trim().length > 0) ||
+                  (Array.isArray(parsed.imageUrls) && parsed.imageUrls.length > 0))
+              );
+              if (hasDraftContent) {
+                setContent(parsed.content || '');
+                const list = Array.isArray(parsed.imageUrls) && parsed.imageUrls.length > 0
+                  ? parsed.imageUrls
+                  : parsed.imageUrl
+                  ? [parsed.imageUrl]
+                  : [];
+                setImageUrls(list);
+                setImageUrl(list[0] || parsed.imageUrl || '');
+                if (Array.isArray(parsed.photoCaptions)) {
+                  setPhotoCaptions(parsed.photoCaptions);
+                }
+                if (Array.isArray(parsed.selectedTags) && parsed.selectedTags.length > 0) {
+                  setSelectedTags(parsed.selectedTags);
+                } else {
+                  setSelectedTags(['Building']);
+                }
+                if (parsed.scheduledDateTime) {
+                  setScheduledDateTime(parsed.scheduledDateTime);
+                  setIsScheduleMode(Boolean(parsed.isScheduleMode));
+                }
+                if (parsed.isCollageGenerated) {
+                  setIsCollageGenerated(true);
+                }
+                setDraftRestored(true);
+                restoredFromLastDraft = true;
+              }
+            }
+          } catch (err) {
+            console.warn('Could not parse last_draft from localStorage:', err);
+          }
+
+          // If no localStorage last_draft, check stored user drafts
+          if (!restoredFromLastDraft) {
+            const userDrafts = DailyStorageService.getAllDrafts(currentUser.id);
+            if (userDrafts.length > 0) {
+              const latestDraft = userDrafts[0];
+              setCurrentDraftId(latestDraft.id);
+              setContent(latestDraft.content || '');
+              const draftList = latestDraft.imageUrls && latestDraft.imageUrls.length > 0
+                ? latestDraft.imageUrls
+                : latestDraft.imageUrl
+                ? [latestDraft.imageUrl]
+                : [];
+              setImageUrls(draftList);
+              setImageUrl(draftList[0] || '');
+              if (latestDraft.tags && latestDraft.tags.length > 0) {
+                setSelectedTags(latestDraft.tags);
+              } else {
+                setSelectedTags(['Building']);
+              }
+              if (latestDraft.scheduledAt) {
+                setScheduledDateTime(latestDraft.scheduledAt);
+                setIsScheduleMode(Boolean(latestDraft.isScheduled));
+              }
+              setDraftRestored(true);
             } else {
+              setCurrentDraftId(undefined);
+              setContent('');
+              setImageUrl('');
+              setImageUrls([]);
+              setPhotoCaptions([]);
               setSelectedTags(['Building']);
+              setIsScheduleMode(false);
+              setDraftRestored(false);
             }
-            if (latestDraft.scheduledAt) {
-              setScheduledDateTime(latestDraft.scheduledAt);
-              setIsScheduleMode(Boolean(latestDraft.isScheduled));
-            }
-            setDraftRestored(true);
-          } else {
-            setCurrentDraftId(undefined);
-            setContent('');
-            setImageUrl('');
-            setImageUrls([]);
-            setSelectedTags(['Building']);
-            setIsScheduleMode(false);
-            setDraftRestored(false);
           }
         }
       }
@@ -300,10 +348,61 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     initialIsScheduled,
   ]);
 
-  // Debounced auto-save as user types
+  // Helper to construct current draft state payload
+  const buildCurrentDraftPayload = () => ({
+    content: content.trim(),
+    imageUrl: imageUrl.trim() || (imageUrls[0] || undefined),
+    imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
+    photoCaptions: photoCaptions.length > 0 ? photoCaptions : undefined,
+    selectedTags,
+    scheduledDateTime: isScheduleMode ? scheduledDateTime : undefined,
+    isScheduleMode,
+    isCollageGenerated,
+    savedAt: Date.now(),
+  });
+
+  // Periodic auto-save mechanism that persists current form state to localStorage as 'last_draft'
   useEffect(() => {
     if (!isOpen || !hasInitializedRef.current) return;
-    const hasAnyContent = Boolean(content.trim() || imageUrl.trim());
+
+    const periodicInterval = setInterval(() => {
+      const hasAnyContent = Boolean(
+        content.trim() ||
+        imageUrl.trim() ||
+        imageUrls.length > 0 ||
+        photoCaptions.some((c) => c && c.trim())
+      );
+      if (hasAnyContent) {
+        try {
+          setIsAutoSaving(true);
+          const payload = buildCurrentDraftPayload();
+          localStorage.setItem(LAST_DRAFT_STORAGE_KEY, JSON.stringify(payload));
+          setLastAutoSaveTime(Date.now());
+        } catch (err) {
+          console.warn('Periodic auto-save to localStorage failed:', err);
+        } finally {
+          setTimeout(() => setIsAutoSaving(false), 300);
+        }
+      }
+    }, 2000);
+
+    return () => clearInterval(periodicInterval);
+  }, [
+    isOpen,
+    content,
+    imageUrl,
+    imageUrls,
+    photoCaptions,
+    selectedTags,
+    isScheduleMode,
+    scheduledDateTime,
+    isCollageGenerated,
+  ]);
+
+  // Debounced auto-save as user types or edits photos
+  useEffect(() => {
+    if (!isOpen || !hasInitializedRef.current) return;
+    const hasAnyContent = Boolean(content.trim() || imageUrl.trim() || imageUrls.length > 0);
     if (!hasAnyContent) return;
 
     setIsAutoSaving(true);
@@ -312,10 +411,20 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     }
 
     autoSaveTimerRef.current = setTimeout(() => {
+      // 1. Persist immediately to localStorage as 'last_draft'
+      try {
+        const payload = buildCurrentDraftPayload();
+        localStorage.setItem(LAST_DRAFT_STORAGE_KEY, JSON.stringify(payload));
+      } catch (err) {
+        console.warn('Failed to auto-save last_draft to localStorage:', err);
+      }
+
+      // 2. Persist to storage service
       const { draft } = DailyStorageService.saveDraft(currentUser.id, {
         id: currentDraftId,
         content: content.trim(),
-        imageUrl: imageUrl.trim() || undefined,
+        imageUrl: imageUrl.trim() || (imageUrls[0] || undefined),
+        imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
         tags: selectedTags,
         scheduledAt: isScheduleMode ? scheduledDateTime : undefined,
         isScheduled: isScheduleMode,
@@ -337,6 +446,8 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     isOpen,
     content,
     imageUrl,
+    imageUrls,
+    photoCaptions,
     selectedTags,
     isScheduleMode,
     scheduledDateTime,
@@ -345,12 +456,27 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     currentDraftId,
   ]);
 
+  // Save current draft state on accidental closure or exit
   const handleSafeClose = () => {
-    if (content.trim() || imageUrl.trim()) {
+    const hasAnyContent = Boolean(
+      content.trim() ||
+      imageUrl.trim() ||
+      imageUrls.length > 0 ||
+      photoCaptions.some((c) => c && c.trim())
+    );
+    if (hasAnyContent) {
+      try {
+        const payload = buildCurrentDraftPayload();
+        localStorage.setItem(LAST_DRAFT_STORAGE_KEY, JSON.stringify(payload));
+      } catch (err) {
+        console.warn('Failed to persist last_draft on close:', err);
+      }
+
       const { draft } = DailyStorageService.saveDraft(currentUser.id, {
         id: currentDraftId,
         content: content.trim(),
-        imageUrl: imageUrl.trim() || undefined,
+        imageUrl: imageUrl.trim() || (imageUrls[0] || undefined),
+        imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
         tags: selectedTags,
         scheduledAt: isScheduleMode ? scheduledDateTime : undefined,
         isScheduled: isScheduleMode,
@@ -360,6 +486,37 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     }
     onClose();
   };
+
+  // Prevent accidental loss when page is refreshed or closed while drafting
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleBeforeUnload = () => {
+      const hasAnyContent = Boolean(
+        content.trim() ||
+        imageUrl.trim() ||
+        imageUrls.length > 0 ||
+        photoCaptions.some((c) => c && c.trim())
+      );
+      if (hasAnyContent) {
+        try {
+          const payload = buildCurrentDraftPayload();
+          localStorage.setItem(LAST_DRAFT_STORAGE_KEY, JSON.stringify(payload));
+        } catch {}
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [
+    isOpen,
+    content,
+    imageUrl,
+    imageUrls,
+    photoCaptions,
+    selectedTags,
+    isScheduleMode,
+    scheduledDateTime,
+    isCollageGenerated,
+  ]);
 
   // Escape key handler for auto-saving draft on close (hook must be called unconditionally before early return)
   useEffect(() => {
@@ -372,7 +529,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, content, imageUrl, selectedTags, isScheduleMode, scheduledDateTime, isCollageGenerated, currentUser.id, currentDraftId]);
+  }, [isOpen, content, imageUrl, imageUrls, photoCaptions, selectedTags, isScheduleMode, scheduledDateTime, isCollageGenerated, currentUser.id, currentDraftId]);
 
   if (!isOpen) return null;
 
@@ -511,6 +668,9 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
 
   const handleDiscardDraft = () => {
     vibrateLight();
+    try {
+      localStorage.removeItem(LAST_DRAFT_STORAGE_KEY);
+    } catch {}
     if (currentDraftId) {
       DailyStorageService.deleteDraft(currentUser.id, currentDraftId);
     }
@@ -577,6 +737,10 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       onPostScheduled(draft);
     }
 
+    try {
+      localStorage.removeItem(LAST_DRAFT_STORAGE_KEY);
+    } catch {}
+
     const formattedTime = new Date(scheduledDateTime).toLocaleString([], {
       month: 'short',
       day: 'numeric',
@@ -632,6 +796,10 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     if (currentDraftId) {
       DailyStorageService.deleteDraft(currentUser.id, currentDraftId);
     }
+
+    try {
+      localStorage.removeItem(LAST_DRAFT_STORAGE_KEY);
+    } catch {}
 
     setContent('');
     setImageUrl('');
@@ -699,17 +867,17 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
 
               {/* Draft Restored Banner */}
               {draftRestored && (
-                <div className="flex items-center justify-between px-3 py-1.5 bg-blue-500/10 border border-blue-500/30 rounded-xl text-blue-300 text-xs">
-                  <div className="flex items-center gap-1.5">
-                    <Save className="w-3.5 h-3.5" />
-                    <span>Restored previous draft</span>
+                <div className="flex items-center justify-between px-3 py-2 bg-[#2F6FED]/10 border border-[#2F6FED]/30 rounded-xl text-blue-200 text-xs">
+                  <div className="flex items-center gap-2">
+                    <Save className="w-3.5 h-3.5 text-[#2F6FED]" />
+                    <span>Restored previous draft from auto-save</span>
                   </div>
                   <button
                     type="button"
                     onClick={handleDiscardDraft}
-                    className="text-white/60 hover:text-white underline text-[11px]"
+                    className="text-white/60 hover:text-white underline text-[11px] font-semibold"
                   >
-                    Clear
+                    Clear draft
                   </button>
                 </div>
               )}
@@ -859,12 +1027,12 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                   </label>
                   <div className="flex items-center gap-2">
                     {isAutoSaving ? (
-                      <span className="text-[10px] text-amber-400 font-mono flex items-center gap-1">
+                      <span className="text-[10px] text-amber-400 font-mono flex items-center gap-1" title="Persisting form state to localStorage as last_draft">
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
                         Auto-saving...
                       </span>
                     ) : lastAutoSaveTime ? (
-                      <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
+                      <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1" title="Saved locally to last_draft">
                         <Check className="w-3 h-3" />
                         Auto-saved
                       </span>

@@ -483,23 +483,29 @@ export const PostCard: React.FC<PostCardProps> = ({
           </div>
         )}
 
-        {/* Post Content with Read More Truncation Mechanism */}
-        <div className="text-sm leading-relaxed text-white/80 break-words">
+        {/* Post Content with ARIA-labeled 'See more' Truncation Mechanism */}
+        <div
+          id={`post-content-${post.id}`}
+          className="text-sm leading-relaxed text-white/80 break-words"
+        >
           {isContentLong && !isContentExpanded ? (
             <p className="whitespace-pre-line">
               <span>{getTruncatedText(post.content)}... </span>
               <button
                 type="button"
+                id={`see-more-btn-${post.id}`}
+                aria-label="See more"
+                aria-expanded="false"
+                aria-controls={`post-content-${post.id}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   vibrateLight();
                   setIsContentExpanded(true);
                 }}
                 className="text-[#2F6FED] hover:text-[#4a85f6] font-bold text-xs inline-flex items-center gap-0.5 py-0.5 px-1.5 rounded-lg bg-[#2F6FED]/10 hover:bg-[#2F6FED]/20 transition-all cursor-pointer select-none"
-                aria-label="Read more of post content"
               >
-                <span>Read more</span>
-                <ChevronDown className="w-3 h-3 stroke-[2.5]" />
+                <span>See more</span>
+                <ChevronDown className="w-3 h-3 stroke-[2.5]" aria-hidden="true" />
               </button>
             </p>
           ) : (
@@ -508,16 +514,19 @@ export const PostCard: React.FC<PostCardProps> = ({
               {isContentLong && isContentExpanded && (
                 <button
                   type="button"
+                  id={`see-less-btn-${post.id}`}
+                  aria-label="See less"
+                  aria-expanded="true"
+                  aria-controls={`post-content-${post.id}`}
                   onClick={(e) => {
                     e.stopPropagation();
                     vibrateLight();
                     setIsContentExpanded(false);
                   }}
                   className="text-white/40 hover:text-white/70 font-semibold text-xs inline-flex items-center gap-0.5 ml-2 py-0.5 px-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-all cursor-pointer select-none"
-                  aria-label="Show less of post content"
                 >
-                  <span>Show less</span>
-                  <ChevronUp className="w-3 h-3 stroke-[2.5]" />
+                  <span>See less</span>
+                  <ChevronUp className="w-3 h-3 stroke-[2.5]" aria-hidden="true" />
                 </button>
               )}
             </p>
