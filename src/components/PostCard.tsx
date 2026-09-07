@@ -45,7 +45,6 @@ export const PostCard: React.FC<PostCardProps> = ({
   const [localSaved, setLocalSaved] = useState(false);
   const [lastTap, setLastTap] = useState<number>(0);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [currentPhotoIdx, setCurrentPhotoIdx] = useState(0);
   const [isContentExpanded, setIsContentExpanded] = useState(false);
 
@@ -131,14 +130,6 @@ export const PostCard: React.FC<PostCardProps> = ({
     }
   };
 
-  const confirmDelete = () => {
-    vibrateStreakMilestone();
-    setShowDeleteConfirm(false);
-    if (onDeletePost) {
-      onDeletePost(post.id);
-    }
-  };
-
   if (isReported) {
     return (
       <div className="w-full bg-white/5 border border-white/5 rounded-[24px] p-4 text-center text-xs text-white/40 mb-4 flex items-center justify-between">
@@ -216,8 +207,11 @@ export const PostCard: React.FC<PostCardProps> = ({
 
             {isMyPost && onDeletePost && (
               <button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="p-1.5 rounded-lg text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-colors min-w-[32px] min-h-[32px] flex items-center justify-center"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeletePost(post.id);
+                }}
+                className="p-1.5 rounded-lg text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-colors min-w-[32px] min-h-[32px] flex items-center justify-center cursor-pointer"
                 title="Delete Post (Resets 1-Photo/Day limit)"
                 aria-label="Delete Post"
               >
@@ -317,11 +311,12 @@ export const PostCard: React.FC<PostCardProps> = ({
 
                   {isMyPost && onDeletePost && (
                     <button
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setShowOptionsMenu(false);
-                        setShowDeleteConfirm(true);
+                        onDeletePost(post.id);
                       }}
-                      className="w-full text-left px-3 py-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl flex items-center gap-2 font-semibold"
+                      className="w-full text-left px-3 py-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl flex items-center gap-2 font-semibold cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5 text-red-400" />
                       <span>Delete Post</span>
@@ -626,41 +621,6 @@ export const PostCard: React.FC<PostCardProps> = ({
             </div>
           </div>
       </div>
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-sm bg-[#111111] border border-white/15 rounded-3xl p-5 shadow-2xl text-white space-y-4">
-            <div className="flex items-start gap-3">
-              <div className="p-2.5 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 shrink-0">
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-base font-bold text-white">Delete Daily Post?</h3>
-                <p className="text-xs text-white/60 leading-relaxed">
-                  Deleting your post will reset today's photo limit back to 0, allowing you to take and upload a fresh photo today.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 pt-2">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-all min-h-[40px]"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="flex-1 py-2.5 px-3 rounded-xl bg-red-500 hover:bg-red-600 text-white text-xs font-bold transition-all min-h-[40px] shadow-lg shadow-red-500/20 flex items-center justify-center gap-1.5"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Delete Post</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </article>
   );
 };

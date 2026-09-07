@@ -8,6 +8,8 @@ import {
   CommunityMemberRanking,
   PersonalHabit,
   Community,
+  CommunityDiscussionThread,
+  CommunityDiscussionComment,
   PostDraft,
   AppNotification,
   ProofCollection,
@@ -24,6 +26,7 @@ import {
   ChallengeWeeklyRecap,
 } from '../types';
 import { INITIAL_CURRENT_USER, SAMPLE_USERS, INITIAL_POSTS, INITIAL_MESSAGES, SAMPLE_GROUPS, INITIAL_PERSONAL_HABITS, INITIAL_COMMUNITIES, INITIAL_NOTIFICATIONS, INITIAL_USER_NOTES, getPastDate } from '../data/mockData';
+import { INITIAL_COMMUNITY_DISCUSSIONS } from '../data/CommunityDiscussionsData';
 
 const STORAGE_KEYS = {
   CURRENT_USER: 'daily_app_current_user_v1',
@@ -32,6 +35,7 @@ const STORAGE_KEYS = {
   MESSAGES: 'daily_app_messages_v1',
   GROUPS: 'daily_app_groups_v1',
   COMMUNITIES: 'daily_app_communities_v1',
+  COMMUNITY_DISCUSSIONS: 'daily_app_community_discussions_v1',
   CHALLENGES: 'daily_app_challenges_v1',
   CHALLENGE_PROGRESS_POSTS: 'daily_app_challenge_progress_posts_v1',
   CHALLENGE_RECAPS: 'daily_app_challenge_recaps_v1',
@@ -631,21 +635,42 @@ export class DailyStorageService {
     let updatedUser = currentUser;
     let wasTodayPost = false;
 
-    if (postToDelete && (postToDelete.userId === currentUser.id || postToDelete.userId === 'user_me')) {
-      const wasCreatedToday = postToDelete.postDate === today || postToDelete.createdAt === 'Just now';
+    const isMyPost = Boolean(
+      postToDelete &&
+        (postToDelete.userId === currentUser.id ||
+          postToDelete.userId === 'user_me' ||
+          (currentUser.username &&
+            postToDelete.username &&
+            postToDelete.username.toLowerCase() === currentUser.username.toLowerCase()))
+    );
+
+    if (postToDelete && isMyPost) {
+      const wasCreatedToday =
+        postToDelete.postDate === today ||
+        postToDelete.createdAt === 'Just now' ||
+        postToDelete.createdAt?.includes('m ago') ||
+        postToDelete.createdAt?.includes('h ago');
+
       const remainingTodayPosts = remainingPosts.filter(
-        (p) => (p.userId === currentUser.id || p.userId === 'user_me') && p.postDate === today
+        (p) =>
+          (p.userId === currentUser.id ||
+            p.userId === 'user_me' ||
+            (currentUser.username && p.username?.toLowerCase() === currentUser.username.toLowerCase())) &&
+          p.postDate === today
       );
 
       if (wasCreatedToday && remainingTodayPosts.length === 0) {
         wasTodayPost = true;
         const myOtherPosts = remainingPosts.filter(
-          (p) => p.userId === currentUser.id || p.userId === 'user_me'
+          (p) =>
+            p.userId === currentUser.id ||
+            p.userId === 'user_me' ||
+            (currentUser.username && p.username?.toLowerCase() === currentUser.username.toLowerCase())
         );
         const prevPostDate = myOtherPosts.length > 0 ? myOtherPosts[0].postDate || null : null;
-        const newActivityDates = currentUser.activityDates.filter((d) => d !== today);
-        const newStreak = Math.max(0, currentUser.currentStreak - 1);
-        const newTotalPosts = Math.max(0, currentUser.totalPosts - 1);
+        const newActivityDates = (currentUser.activityDates || []).filter((d) => d !== today);
+        const newStreak = Math.max(0, (currentUser.currentStreak || 1) - 1);
+        const newTotalPosts = Math.max(0, (currentUser.totalPosts || 1) - 1);
 
         updatedUser = {
           ...currentUser,
@@ -656,7 +681,7 @@ export class DailyStorageService {
         };
         this.saveCurrentUser(updatedUser);
       } else {
-        const newTotalPosts = Math.max(0, currentUser.totalPosts - 1);
+        const newTotalPosts = Math.max(0, (currentUser.totalPosts || 1) - 1);
         updatedUser = {
           ...currentUser,
           totalPosts: newTotalPosts,
@@ -1311,6 +1336,187 @@ export class DailyStorageService {
     const updated = [newCommunity, ...currentCommunities];
     this.saveAllCommunities(updated);
     return newCommunity;
+  }
+
+  // ---------------------------------------------------------------------------
+  // COMMUNITY DISCUSSIONS (REDDIT-STYLE THREADS & REPLIES)
+  // ---------------------------------------------------------------------------
+  static getAllCommunityDiscussions(): Record<string, CommunityDiscussionThread[]> {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.COMMUNITY_DISCUSSIONS);
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch {
+      // fallback
+    }
+    // initialize from INITIAL_COMMUNITY_DISCUSSIONS
+    try {
+      localStorage.setItem(
+        STORAGE_KEYS.COMMUNITY_DISCUSSIONS,
+        JSON.stringify(INITIAL_COMMUNITY_DISCUSSIONS)
+      );
+    } catch {
+      // ignore
+    }
+    return INITIAL_COMMUNITY_DISCUSSIONS;
+  }
+
+  static getCommunityDiscussions(communityId: string): CommunityDiscussionThread[] {
+    const all = this.getAllCommunityDiscussions();
+    const threads = all[communityId] || [];
+    if (threads.length === 0) {
+      const community = this.getAllCommunities().find((c) => c.id === communityId);
+      const seedThread: CommunityDiscussionThread = {
+        id: `disc_${communityId}_welcome`,
+        communityId,
+        authorId: community?.moderatorId || 'user_david',
+        authorName: community?.moderatorName || 'Community Moderator',
+        authorUsername: community?.moderatorUsername || 'moderator',
+        authorAvatar:
+          community?.moderatorAvatar ||
+          community?.avatar ||
+          'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80',
+        authorFlair: 'MOD',
+        title: `📌 Welcome to ${community?.name || 'our community'}! Discussion & Accountability Hub`,
+        content: `Welcome everyone! This is our dedicated discussion space. Share insights, ask questions, exchange advice, and discuss daily progress. Keep discussions respectful and substantive.`,
+        flair: 'Announcement',
+        isPinned: true,
+        upvotes: 24,
+        userVote: null,
+        createdAt: '1d ago',
+        comments: [],
+      };
+      const initialList = [seedThread];
+      all[communityId] = initialList;
+      try {
+        localStorage.setItem(STORAGE_KEYS.COMMUNITY_DISCUSSIONS, JSON.stringify(all));
+      } catch {}
+      return initialList;
+    }
+    return threads;
+  }
+
+  static saveCommunityDiscussions(communityId: string, threads: CommunityDiscussionThread[]): void {
+    const all = this.getAllCommunityDiscussions();
+    all[communityId] = threads;
+    try {
+      localStorage.setItem(STORAGE_KEYS.COMMUNITY_DISCUSSIONS, JSON.stringify(all));
+    } catch (e) {
+      console.error('Failed to save community discussions', e);
+    }
+  }
+
+  static createCommunityDiscussion(
+    communityId: string,
+    payload: {
+      title: string;
+      content: string;
+      flair: 'Discussion' | 'Question' | 'Advice' | 'Story' | 'Milestone' | 'Announcement';
+      imageUrl?: string;
+      tags?: string[];
+    }
+  ): CommunityDiscussionThread {
+    const currentUser = this.getCurrentUser();
+    const existing = this.getCommunityDiscussions(communityId);
+    const newThread: CommunityDiscussionThread = {
+      id: `disc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      communityId,
+      authorId: currentUser.id,
+      authorName: currentUser.name,
+      authorUsername: currentUser.username,
+      authorAvatar: currentUser.avatar,
+      authorFlair: currentUser.currentStreak ? `Streak ${currentUser.currentStreak}` : 'Member',
+      title: payload.title.trim(),
+      content: payload.content.trim(),
+      flair: payload.flair,
+      imageUrl: payload.imageUrl?.trim() || undefined,
+      tags: payload.tags || [],
+      upvotes: 1,
+      userVote: 'up',
+      createdAt: 'Just now',
+      comments: [],
+    };
+
+    const updated = [newThread, ...existing];
+    this.saveCommunityDiscussions(communityId, updated);
+    return newThread;
+  }
+
+  static voteCommunityDiscussion(
+    communityId: string,
+    threadId: string,
+    direction: 'up' | 'down'
+  ): CommunityDiscussionThread[] {
+    const threads = this.getCommunityDiscussions(communityId);
+    const updated = threads.map((t) => {
+      if (t.id !== threadId) return t;
+
+      if (t.userVote === direction) {
+        return {
+          ...t,
+          userVote: null,
+          upvotes: direction === 'up' ? Math.max(0, t.upvotes - 1) : t.upvotes + 1,
+        };
+      } else {
+        const delta =
+          t.userVote === null
+            ? direction === 'up'
+              ? 1
+              : -1
+            : direction === 'up'
+            ? 2
+            : -2;
+        return {
+          ...t,
+          userVote: direction,
+          upvotes: Math.max(0, t.upvotes + delta),
+        };
+      }
+    });
+
+    this.saveCommunityDiscussions(communityId, updated);
+    return updated;
+  }
+
+  static addDiscussionComment(
+    communityId: string,
+    threadId: string,
+    content: string
+  ): { threads: CommunityDiscussionThread[]; comment: CommunityDiscussionComment | null } {
+    const currentUser = this.getCurrentUser();
+    const threads = this.getCommunityDiscussions(communityId);
+    let createdComment: CommunityDiscussionComment | null = null;
+
+    const updated = threads.map((t) => {
+      if (t.id !== threadId) return t;
+      const newComment: CommunityDiscussionComment = {
+        id: `dcom_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        authorId: currentUser.id,
+        authorName: currentUser.name,
+        authorUsername: currentUser.username,
+        authorAvatar: currentUser.avatar,
+        authorFlair: 'Member',
+        content: content.trim(),
+        createdAt: 'Just now',
+        likesCount: 0,
+      };
+      createdComment = newComment;
+      return {
+        ...t,
+        comments: [...(t.comments || []), newComment],
+      };
+    });
+
+    this.saveCommunityDiscussions(communityId, updated);
+    return { threads: updated, comment: createdComment };
+  }
+
+  static deleteCommunityDiscussion(communityId: string, threadId: string): CommunityDiscussionThread[] {
+    const threads = this.getCommunityDiscussions(communityId);
+    const updated = threads.filter((t) => t.id !== threadId);
+    this.saveCommunityDiscussions(communityId, updated);
+    return updated;
   }
 
   static toggleJoinGroup(groupId: string): { groups: Group[]; isMember: boolean } {

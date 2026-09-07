@@ -217,7 +217,14 @@ export default function App() {
     communityName?: string;
     isCollage?: boolean;
   }) => {
-    const result = DailyStorageService.createPost(payload);
+    // Guardrail: Ensure someone's proof doesn't get posted directly into community or challenges
+    const safePayload = {
+      ...payload,
+      isMainPost: true,
+      communityId: undefined,
+      communityName: undefined,
+    };
+    const result = DailyStorageService.createPost(safePayload);
     if (result.error) {
       return;
     }
@@ -454,9 +461,12 @@ export default function App() {
   };
 
   const executeDeletePost = (postId: string) => {
+    vibrateStreakMilestone();
     const { posts: updatedPosts, updatedUser } = DailyStorageService.deletePost(postId);
-    setPosts(updatedPosts);
+    const filtered = (updatedPosts || []).filter((p) => p.id !== postId);
+    setPosts(filtered);
     setCurrentUser(updatedUser);
+    setSavedPostIds(DailyStorageService.getSavedPostIds());
     setPostPendingDelete(null);
     if (commentsPost && commentsPost.id === postId) {
       setCommentsPost(null);

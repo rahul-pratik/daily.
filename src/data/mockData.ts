@@ -751,6 +751,30 @@ export const SAMPLE_GROUPS: Group[] = [
 
 export const INITIAL_COMMUNITIES: Community[] = [
   {
+    id: 'comm_thirties_india',
+    name: 'ThirtiesIndia',
+    description: 'A welcoming, candid community for folks navigating their 30s: career pivots, sleep & health optimization, life milestones, and honest discussions.',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+    coverImage: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=1200&auto=format&fit=crop&q=80',
+    category: 'Lifestyle',
+    accessType: 'public',
+    moderatorId: 'user_david',
+    moderatorName: 'David Kim',
+    moderatorUsername: 'david_builds',
+    moderatorAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80',
+    memberCount: 3650,
+    memberIds: ['user_me', 'user_david', 'user_sarah', 'user_elena'],
+    rules: [
+      'Be respectful, empathetic, and constructive in all discussions',
+      'No unsolicited financial selling, spam, or direct promotion',
+      'Keep threads focused on practical wisdom and authentic experiences',
+      'No personal attacks or derogatory comments',
+    ],
+    tags: ['Thirties', 'Productivity', 'Life Hacks', 'Health'],
+    createdAt: '2026-05-10',
+    lastActivity: '2m ago',
+  },
+  {
     id: 'comm_code100',
     name: '100 Days of Code Hub',
     description: 'Global open space for software engineers, designers, and hobbyists building and documenting public streaks every single day.',

@@ -212,6 +212,39 @@ export interface Community {
   lastActivity?: string;
 }
 
+export interface CommunityDiscussionComment {
+  id: string;
+  authorId: string;
+  authorName: string;
+  authorUsername: string;
+  authorAvatar: string;
+  authorFlair?: string;
+  content: string;
+  createdAt: string;
+  likesCount: number;
+  likedByMe?: boolean;
+}
+
+export interface CommunityDiscussionThread {
+  id: string;
+  communityId: string;
+  authorId: string;
+  authorName: string;
+  authorUsername: string;
+  authorAvatar: string;
+  authorFlair?: string;
+  title: string;
+  content: string;
+  imageUrl?: string;
+  tags?: string[];
+  flair: 'Discussion' | 'Question' | 'Advice' | 'Story' | 'Milestone' | 'Announcement';
+  upvotes: number;
+  userVote: 'up' | 'down' | null;
+  comments: CommunityDiscussionComment[];
+  isPinned?: boolean;
+  createdAt: string;
+}
+
 export type ChallengeType = 'individual' | 'group';
 
 export interface ChallengeTeamMember {
@@ -269,7 +302,6 @@ export interface Challenge {
   icon: string;
   category: string;
   tag: string;
-  rules?: string[];
   durationDays: number; // e.g. 30
   deadlineDate: string; // YYYY-MM-DD
   createdBy: string;
