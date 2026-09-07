@@ -26,7 +26,7 @@ import {
   ChallengeWeeklyRecap,
 } from '../types';
 import { INITIAL_CURRENT_USER, SAMPLE_USERS, INITIAL_POSTS, INITIAL_MESSAGES, SAMPLE_GROUPS, INITIAL_PERSONAL_HABITS, INITIAL_COMMUNITIES, INITIAL_NOTIFICATIONS, INITIAL_USER_NOTES, getPastDate } from '../data/mockData';
-import { INITIAL_COMMUNITY_DISCUSSIONS } from '../data/CommunityDiscussionsData';
+import { INITIAL_COMMUNITY_DISCUSSIONS } from '../data/communityDiscussionsData';
 
 const STORAGE_KEYS = {
   CURRENT_USER: 'daily_app_current_user_v1',
@@ -451,6 +451,7 @@ export class DailyStorageService {
     content: string;
     imageUrl?: string;
     imageUrls?: string[];
+    photoCaptions?: string[];
     tags: string[];
     isMainPost?: boolean;
     communityId?: string;
@@ -511,6 +512,7 @@ export class DailyStorageService {
         content: payload.content,
         imageUrl: primaryImageUrl,
         imageUrls: safeImageUrls,
+        photoCaptions: payload.photoCaptions,
         tags: payload.tags,
         likesCount: 0,
         likedByMe: false,
@@ -553,6 +555,7 @@ export class DailyStorageService {
         content: payload.content,
         imageUrl: primaryImageUrl,
         imageUrls: safeImageUrls,
+        photoCaptions: payload.photoCaptions,
         tags: payload.tags,
         likesCount: 0,
         likedByMe: false,

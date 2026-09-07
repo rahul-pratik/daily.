@@ -211,6 +211,7 @@ export default function App() {
     content: string;
     imageUrl?: string;
     imageUrls?: string[];
+    photoCaptions?: string[];
     tags: string[];
     isMainPost?: boolean;
     communityId?: string;

@@ -105,6 +105,7 @@ export interface Post {
   content: string;
   imageUrl?: string;
   imageUrls?: string[]; // Multiple photos bundled in 1 post to prevent feed spam
+  photoCaptions?: string[]; // Optional per-photo caption aligned with imageUrls index
   tags: string[];
   likesCount: number;
   likedByMe: boolean;

@@ -53,6 +53,7 @@ export const PostCard: React.FC<PostCardProps> = ({
     ? post.imageUrls
     : (post.imageUrl ? [post.imageUrl] : []);
   const activePhoto = allPhotos[currentPhotoIdx] || allPhotos[0];
+  const currentPhotoCaption = post.photoCaptions?.[currentPhotoIdx];
 
   const isSaved = isSavedProp !== undefined ? isSavedProp : localSaved;
   const isMyPost =
@@ -425,6 +426,15 @@ export const PostCard: React.FC<PostCardProps> = ({
 
       {/* Caption & Content */}
       <div className="p-4 space-y-2">
+        {/* Photo-specific caption for currently visible carousel photo */}
+        {currentPhotoCaption && (
+          <div className="px-3 py-2 rounded-xl bg-white/[0.04] border border-white/10 text-xs text-white/90 flex items-start gap-2">
+            <span className="text-[10px] font-mono font-bold text-[#2F6FED] bg-[#2F6FED]/15 px-1.5 py-0.5 rounded shrink-0">
+              Photo #{currentPhotoIdx + 1}
+            </span>
+            <p className="leading-snug text-white/80">{currentPhotoCaption}</p>
+          </div>
+        )}
         {/* If Challenge Recap, render rich collective recap & MVP spotlight */}
         {post.challengeRecapData && (
           <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-500/10 via-[#2F6FED]/5 to-transparent border border-amber-500/30 space-y-2.5 mb-2">

@@ -53,6 +53,7 @@ interface CreatePostModalProps {
     content: string;
     imageUrl?: string;
     imageUrls?: string[];
+    photoCaptions?: string[];
     tags: string[];
     isMainPost?: boolean;
     communityId?: string;
@@ -65,38 +66,7 @@ interface CreatePostModalProps {
   onPostScheduled?: (draft: PostDraft) => void;
 }
 
-const PROOF_PHOTO_PRESETS = [
-  {
-    name: 'Laptop / Code',
-    category: 'Coding',
-    url: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=1000&auto=format&fit=crop&q=80',
-  },
-  {
-    name: 'Gym / Fitness',
-    category: 'Fitness',
-    url: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=1000&auto=format&fit=crop&q=80',
-  },
-  {
-    name: 'Book / Reading',
-    category: 'Reading',
-    url: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=1000&auto=format&fit=crop&q=80',
-  },
-  {
-    name: 'Desk Setup',
-    category: 'Building',
-    url: 'https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?w=1000&auto=format&fit=crop&q=80',
-  },
-  {
-    name: 'Running Track',
-    category: 'Run',
-    url: 'https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=1000&auto=format&fit=crop&q=80',
-  },
-  {
-    name: 'Garden / Plants',
-    category: 'Gardening',
-    url: 'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?w=1000&auto=format&fit=crop&q=80',
-  },
-];
+const MAX_PHOTOS = 13;
 
 const CATEGORY_REFLECTION_PROMPTS: Record<string, string[]> = {
   Coding: [
@@ -188,7 +158,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const [isAppendingPhotosToToday, setIsAppendingPhotosToToday] = useState(false);
   const [extraPhotosToAppend, setExtraPhotosToAppend] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>(['Building']);
-  const [showPresets, setShowPresets] = useState(false);
+  const [photoCaptions, setPhotoCaptions] = useState<string[]>([]);
   const [draftRestored, setDraftRestored] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isCollageGenerated, setIsCollageGenerated] = useState(false);
@@ -423,7 +393,13 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const filesArray = Array.from(files) as File[];
+    const remainingSlots = MAX_PHOTOS - imageUrls.length;
+    if (remainingSlots <= 0) {
+      showToast(`Maximum ${MAX_PHOTOS} photos already reached.`);
+      return;
+    }
+
+    const filesArray = (Array.from(files) as File[]).slice(0, remainingSlots);
 
     Promise.all(
       filesArray.map((file) => {
@@ -448,10 +424,16 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
           setImageUrl(combined[0] || '');
           return combined;
         });
-        setShowPresets(false);
+        setPhotoCaptions((prev) => {
+          const updated = [...prev];
+          while (updated.length < imageUrls.length + validImages.length) {
+            updated.push('');
+          }
+          return updated;
+        });
         setIsCollageGenerated(false);
         vibrateLight();
-        showToast(`Added ${validImages.length} photo${validImages.length > 1 ? 's' : ''} at once! (Proof Receipts)`);
+        showToast(`Added ${validImages.length} photo${validImages.length > 1 ? 's' : ''}! (${imageUrls.length + validImages.length}/${MAX_PHOTOS})`);
       }
     });
     e.target.value = '';
@@ -464,9 +446,21 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       setImageUrl(updated[0] || '');
       return updated;
     });
+    setPhotoCaptions((prev) => prev.filter((_, i) => i !== indexToRemove));
     if (imageUrls.length <= 1) {
       setIsCollageGenerated(false);
     }
+  };
+
+  const handleUpdatePhotoCaption = (idx: number, caption: string) => {
+    setPhotoCaptions((prev) => {
+      const copy = [...prev];
+      while (copy.length <= idx) {
+        copy.push('');
+      }
+      copy[idx] = caption;
+      return copy;
+    });
   };
 
   const handleAppendFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -523,6 +517,8 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     setCurrentDraftId(undefined);
     setContent('');
     setImageUrl('');
+    setImageUrls([]);
+    setPhotoCaptions([]);
     setSelectedTags(['Building']);
     setDraftRestored(false);
     setIsCollageGenerated(false);
@@ -606,7 +602,6 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const handleApplyStitchedCollage = (stitchedDataUrl: string) => {
     setImageUrl(stitchedDataUrl);
     setIsCollageGenerated(true);
-    setShowPresets(false);
     if (!content.trim()) {
       setContent('Daily proof collage: Combined progress receipts for today’s post!');
     }
@@ -628,6 +623,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       content: content.trim(),
       imageUrl: primaryImg,
       imageUrls: imageUrls.length > 0 ? imageUrls : (primaryImg ? [primaryImg] : undefined),
+      photoCaptions: photoCaptions.some((c) => c && c.trim()) ? photoCaptions : undefined,
       tags: selectedTags.length > 0 ? selectedTags : ['DailyProof'],
       isMainPost: true,
       isCollage: isCollageGenerated,
@@ -640,8 +636,8 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     setContent('');
     setImageUrl('');
     setImageUrls([]);
+    setPhotoCaptions([]);
     setSelectedTags(['Building']);
-    setShowPresets(false);
     setDraftRestored(false);
     setIsCollageGenerated(false);
     onClose();
@@ -719,10 +715,16 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               )}
 
               {/* Image Proof Upload / Preview Box */}
-              <div>
-                <label className="block text-[11px] font-bold text-white/70 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                  <span>Photo Proof Receipt</span>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-white/70 uppercase tracking-wider flex items-center gap-1.5">
+                    <ImageIcon className="w-3.5 h-3.5 text-[#2F6FED]" />
+                    <span>Attach Photos (Up to 13)</span>
+                  </label>
                   <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-white/10 text-white/80">
+                      {imageUrls.length} / {MAX_PHOTOS}
+                    </span>
                     <button
                       type="button"
                       onClick={() => setIsCollageStudioOpen(true)}
@@ -731,100 +733,22 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                       <Layers className="w-3.5 h-3.5" />
                       <span>Collab stitch</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowPresets(!showPresets)}
-                      className="text-xs text-[#2F6FED] hover:underline flex items-center gap-1 font-bold lowercase"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      {showPresets ? 'hide samples' : 'sample presets'}
-                    </button>
                   </div>
-                </label>
+                </div>
 
-                {imageUrls.length > 0 || imageUrl ? (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-300">
-                      <span className="flex items-center gap-1.5 font-bold">
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>{imageUrls.length || 1} Photo{(imageUrls.length || 1) > 1 ? 's' : ''} Attached</span>
-                      </span>
-                      <span className="text-[10px] text-emerald-400/70 font-medium">Bundled into 1 post • Zero spam</span>
-                    </div>
-
-                    <div className="relative rounded-2xl overflow-hidden border border-white/20 group bg-black/40 aspect-video max-h-48 w-full flex items-center justify-center">
-                      <img
-                        src={imageUrls[0] || imageUrl}
-                        alt="Proof preview"
-                        referrerPolicy="no-referrer"
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            vibrateLight();
-                            setImageUrl('');
-                            setImageUrls([]);
-                            setIsCollageGenerated(false);
-                          }}
-                          className="p-2 rounded-full bg-red-500/80 hover:bg-red-500 text-white transition-all transform hover:scale-105"
-                          title="Remove all photos"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                      {isCollageGenerated && (
-                        <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-blue-600/90 text-white text-[10px] font-black uppercase tracking-wider backdrop-blur-sm flex items-center gap-1">
-                          <Layers className="w-3 h-3" />
-                          <span>Stitched Collage</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Infinite Photo Thumbnails Carousel Strip */}
-                    <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-1 scrollbar-thin">
-                      {(imageUrls.length > 0 ? imageUrls : [imageUrl]).map((img, idx) => (
-                        <div key={idx} className="relative w-14 h-14 rounded-xl overflow-hidden border border-white/20 shrink-0 group bg-black">
-                          <img src={img} alt={`receipt-${idx}`} className="w-full h-full object-cover" />
-                          <button
-                            type="button"
-                            onClick={() => handleRemovePhotoAtIndex(idx)}
-                            className="absolute inset-0 bg-red-600/80 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity"
-                            title="Remove this photo"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                          <span className="absolute bottom-0.5 right-1 text-[8px] font-mono font-bold text-white bg-black/70 px-1 rounded">
-                            #{idx + 1}
-                          </span>
-                        </div>
-                      ))}
-
-                      {/* Infinite Add Button */}
-                      <label className="w-14 h-14 rounded-xl border border-dashed border-[#2F6FED]/50 hover:border-[#2F6FED] bg-white/[0.03] hover:bg-white/[0.08] flex flex-col items-center justify-center gap-0.5 cursor-pointer shrink-0 text-[#2F6FED] transition-all">
-                        <Plus className="w-4 h-4" />
-                        <span className="text-[8px] font-bold">Add</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          onChange={handleFileUpload}
-                          className="hidden"
-                        />
-                      </label>
-                    </div>
-                  </div>
-                ) : (
+                {/* Upload & Camera Buttons (Visible if less than MAX_PHOTOS) */}
+                {imageUrls.length < MAX_PHOTOS && (
                   <div className="grid grid-cols-2 gap-2">
-                    <label className="border-2 border-dashed border-white/15 hover:border-[#2F6FED]/50 rounded-2xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer bg-white/[0.02] hover:bg-white/[0.04] transition-all text-center group">
+                    <label className="border-2 border-dashed border-white/15 hover:border-[#2F6FED]/60 rounded-2xl p-3.5 flex flex-col items-center justify-center gap-1.5 cursor-pointer bg-white/[0.02] hover:bg-white/[0.04] transition-all text-center group">
                       <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white/50 group-hover:text-[#2F6FED] group-hover:scale-110 transition-all">
                         <Upload className="w-4 h-4" />
                       </div>
                       <span className="text-xs font-semibold text-white/80 group-hover:text-white">
                         Upload Photos
                       </span>
-                      <span className="text-[10px] text-white/40">Multiple or infinite</span>
+                      <span className="text-[10px] text-white/40">
+                        {imageUrls.length === 0 ? 'Select up to 13 photos' : `Add up to ${MAX_PHOTOS - imageUrls.length} more`}
+                      </span>
                       <input
                         type="file"
                         accept="image/*"
@@ -834,14 +758,14 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                       />
                     </label>
 
-                    <label className="border-2 border-dashed border-white/15 hover:border-blue-500/50 rounded-2xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer bg-white/[0.02] hover:bg-white/[0.04] transition-all text-center group">
+                    <label className="border-2 border-dashed border-white/15 hover:border-blue-500/60 rounded-2xl p-3.5 flex flex-col items-center justify-center gap-1.5 cursor-pointer bg-white/[0.02] hover:bg-white/[0.04] transition-all text-center group">
                       <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white/50 group-hover:text-blue-400 group-hover:scale-110 transition-all">
                         <Camera className="w-4 h-4" />
                       </div>
                       <span className="text-xs font-semibold text-white/80 group-hover:text-white">
                         Take Photo
                       </span>
-                      <span className="text-[10px] text-white/40">Live snapshot</span>
+                      <span className="text-[10px] text-white/40">Camera capture</span>
                       <input
                         type="file"
                         accept="image/*"
@@ -853,38 +777,73 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                   </div>
                 )}
 
-                {/* Presets Grid */}
-                {showPresets && (
-                  <div className="mt-2 p-2.5 bg-black/40 border border-white/10 rounded-2xl animate-in fade-in duration-200">
-                    <p className="text-[10px] text-white/50 font-bold mb-2 uppercase tracking-wider">
-                      Tap preset receipt to add:
-                    </p>
-                    <div className="grid grid-cols-3 gap-2">
-                      {PROOF_PHOTO_PRESETS.map((preset) => (
-                        <button
-                          key={preset.name}
-                          type="button"
-                          onClick={() => {
-                            vibrateLight();
-                            setImageUrls((prev) => [...prev, preset.url]);
-                            setImageUrl(preset.url);
-                            setShowPresets(false);
-                            if (!selectedTags.includes(preset.category)) {
-                              setSelectedTags([preset.category, ...selectedTags.slice(0, 2)]);
-                            }
-                          }}
-                          className="relative rounded-xl overflow-hidden border border-white/10 aspect-video group text-left hover:border-[#2F6FED] transition-all"
+                {/* Attached Photos List with Individual Caption for each */}
+                {imageUrls.length > 0 && (
+                  <div className="space-y-2.5 pt-1">
+                    <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-300">
+                      <span className="flex items-center gap-1.5 font-bold">
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>{imageUrls.length} Photo{imageUrls.length > 1 ? 's' : ''} Attached</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateLight();
+                          setImageUrl('');
+                          setImageUrls([]);
+                          setPhotoCaptions([]);
+                          setIsCollageGenerated(false);
+                        }}
+                        className="text-[10px] text-red-400 hover:text-red-300 hover:underline flex items-center gap-1 font-semibold"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>Remove all</span>
+                      </button>
+                    </div>
+
+                    <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1 scrollbar-thin">
+                      {imageUrls.map((img, idx) => (
+                        <div
+                          key={idx}
+                          className="p-2.5 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-white/20 transition-all space-y-2"
                         >
-                          <img
-                            src={preset.url}
-                            alt={preset.name}
-                            referrerPolicy="no-referrer"
-                            className="w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-105 transition-all"
-                          />
-                          <span className="absolute bottom-1 left-1.5 text-[9px] font-black text-white bg-black/70 px-1 py-0.5 rounded backdrop-blur-sm">
-                            {preset.name}
-                          </span>
-                        </button>
+                          <div className="flex items-center gap-3">
+                            <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-white/15 bg-black shrink-0">
+                              <img
+                                src={img}
+                                alt={`photo-${idx + 1}`}
+                                referrerPolicy="no-referrer"
+                                className="w-full h-full object-cover"
+                              />
+                              <span className="absolute bottom-1 left-1 text-[8px] font-mono font-bold text-white bg-black/75 px-1 rounded">
+                                #{idx + 1}
+                              </span>
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-[11px] font-bold text-white/80">
+                                  Photo #{idx + 1}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemovePhotoAtIndex(idx)}
+                                  className="p-1 rounded-lg text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                                  title="Remove this photo"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                              <input
+                                type="text"
+                                value={photoCaptions[idx] || ''}
+                                onChange={(e) => handleUpdatePhotoCaption(idx, e.target.value)}
+                                placeholder={`Write caption for photo #${idx + 1} (optional)...`}
+                                className="w-full px-2.5 py-1.5 text-xs rounded-xl bg-black/50 border border-white/10 text-white placeholder:text-white/30 focus:outline-none focus:border-[#2F6FED]"
+                              />
+                            </div>
+                          </div>
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -896,7 +855,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                 <div className="flex items-center justify-between">
                   <label className="text-[11px] font-bold text-white/70 uppercase tracking-wider flex items-center gap-1.5">
                     <PenTool className="w-3.5 h-3.5 text-[#2F6FED]" />
-                    <span>Daily Reflection & Standard</span>
+                    <span>Reflection & Main Caption</span>
                   </label>
                   <div className="flex items-center gap-2">
                     {isAutoSaving ? (
