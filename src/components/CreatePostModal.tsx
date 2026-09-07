@@ -256,9 +256,15 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
           setCurrentDraftId(initialDraftId);
         }
 
-        if (initialContent !== undefined || initialImageUrl !== undefined) {
+        if (initialContent !== undefined || initialImageUrl !== undefined || initialImageUrls !== undefined) {
           setContent(initialContent || '');
-          setImageUrl(initialImageUrl || '');
+          const initialList = initialImageUrls && initialImageUrls.length > 0
+            ? initialImageUrls
+            : initialImageUrl
+            ? [initialImageUrl]
+            : [];
+          setImageUrls(initialList);
+          setImageUrl(initialList[0] || '');
           if (initialTags && initialTags.length > 0) {
             setSelectedTags(initialTags);
           } else {
@@ -280,7 +286,13 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
             const latestDraft = userDrafts[0];
             setCurrentDraftId(latestDraft.id);
             setContent(latestDraft.content || '');
-            setImageUrl(latestDraft.imageUrl || '');
+            const draftList = latestDraft.imageUrls && latestDraft.imageUrls.length > 0
+              ? latestDraft.imageUrls
+              : latestDraft.imageUrl
+              ? [latestDraft.imageUrl]
+              : [];
+            setImageUrls(draftList);
+            setImageUrl(draftList[0] || '');
             if (latestDraft.tags && latestDraft.tags.length > 0) {
               setSelectedTags(latestDraft.tags);
             } else {
@@ -295,6 +307,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
             setCurrentDraftId(undefined);
             setContent('');
             setImageUrl('');
+            setImageUrls([]);
             setSelectedTags(['Building']);
             setIsScheduleMode(false);
             setDraftRestored(false);
@@ -411,29 +424,35 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     if (!files || files.length === 0) return;
 
     const filesArray = Array.from(files) as File[];
-    let loaded = 0;
-    const newImgs: string[] = [];
 
-    filesArray.forEach((file: File) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (typeof reader.result === 'string') {
-          newImgs.push(reader.result);
-        }
-        loaded += 1;
-        if (loaded === filesArray.length) {
-          setImageUrls((prev) => {
-            const combined = [...prev, ...newImgs];
-            setImageUrl(combined[0] || '');
-            return combined;
-          });
-          setShowPresets(false);
-          setIsCollageGenerated(false);
-          vibrateLight();
-          showToast(`Added ${newImgs.length} photo${newImgs.length > 1 ? 's' : ''}! (Bundled • Zero spam)`);
-        }
-      };
-      reader.readAsDataURL(file);
+    Promise.all(
+      filesArray.map((file) => {
+        return new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            if (typeof reader.result === 'string') {
+              resolve(reader.result);
+            } else {
+              resolve('');
+            }
+          };
+          reader.onerror = () => resolve('');
+          reader.readAsDataURL(file);
+        });
+      })
+    ).then((results) => {
+      const validImages = results.filter((img) => Boolean(img));
+      if (validImages.length > 0) {
+        setImageUrls((prev) => {
+          const combined = [...prev, ...validImages];
+          setImageUrl(combined[0] || '');
+          return combined;
+        });
+        setShowPresets(false);
+        setIsCollageGenerated(false);
+        vibrateLight();
+        showToast(`Added ${validImages.length} photo${validImages.length > 1 ? 's' : ''} at once! (Proof Receipts)`);
+      }
     });
     e.target.value = '';
   };
@@ -455,22 +474,29 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     if (!files || files.length === 0) return;
 
     const filesArray = Array.from(files) as File[];
-    let loaded = 0;
-    const newImgs: string[] = [];
 
-    filesArray.forEach((file: File) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (typeof reader.result === 'string') {
-          newImgs.push(reader.result);
-        }
-        loaded += 1;
-        if (loaded === filesArray.length) {
-          setExtraPhotosToAppend((prev) => [...prev, ...newImgs]);
-          vibrateLight();
-        }
-      };
-      reader.readAsDataURL(file);
+    Promise.all(
+      filesArray.map((file) => {
+        return new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            if (typeof reader.result === 'string') {
+              resolve(reader.result);
+            } else {
+              resolve('');
+            }
+          };
+          reader.onerror = () => resolve('');
+          reader.readAsDataURL(file);
+        });
+      })
+    ).then((results) => {
+      const validImages = results.filter((img) => Boolean(img));
+      if (validImages.length > 0) {
+        setExtraPhotosToAppend((prev) => [...prev, ...validImages]);
+        vibrateLight();
+        showToast(`Selected ${validImages.length} additional receipt photo${validImages.length > 1 ? 's' : ''}!`);
+      }
     });
     e.target.value = '';
   };
@@ -509,15 +535,17 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
 
   // Explicitly save current draft to user's saved drafts collection
   const handleExplicitSaveDraft = () => {
-    if (!content.trim() && !imageUrl.trim()) {
+    if (!content.trim() && !imageUrl.trim() && imageUrls.length === 0) {
       showToast('Add some text or a photo to save draft');
       return;
     }
     vibrateLight();
+    const primaryImg = imageUrls[0] || imageUrl.trim() || undefined;
     const { draft } = DailyStorageService.saveDraft(currentUser.id, {
       id: currentDraftId,
       content: content.trim(),
-      imageUrl: imageUrl.trim() || undefined,
+      imageUrl: primaryImg,
+      imageUrls: imageUrls.length > 0 ? imageUrls : (primaryImg ? [primaryImg] : undefined),
       tags: selectedTags,
       scheduledAt: isScheduleMode ? scheduledDateTime : undefined,
       isScheduled: isScheduleMode,
@@ -537,10 +565,12 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       return;
     }
     vibrateStreakMilestone();
+    const primaryImg = imageUrls[0] || imageUrl.trim() || undefined;
     const { draft } = DailyStorageService.saveDraft(currentUser.id, {
       id: currentDraftId,
       content: content.trim(),
-      imageUrl: imageUrl.trim() || undefined,
+      imageUrl: primaryImg,
+      imageUrls: imageUrls.length > 0 ? imageUrls : (primaryImg ? [primaryImg] : undefined),
       tags: selectedTags,
       scheduledAt: scheduledDateTime,
       isScheduled: true,
@@ -589,10 +619,6 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
 
     if (isScheduleMode) {
       handleQueueScheduledPost();
-      return;
-    }
-
-    if (hasPostedToday) {
       return;
     }
 
@@ -659,12 +685,8 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               </div>
             </div>
 
-            {/* Close & Streak Badge */}
+            {/* Close */}
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 text-[11px] font-bold text-[#2F6FED] bg-[#2F6FED]/10 px-2.5 py-1 rounded-full border border-[#2F6FED]/20">
-                <Flame className="w-3.5 h-3.5 fill-[#2F6FED]" />
-                <span>{currentUser.currentStreak}d Streak</span>
-              </div>
               <button
                 onClick={handleSafeClose}
                 className="p-1.5 rounded-full text-white/40 hover:text-white hover:bg-white/10 transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
@@ -676,238 +698,8 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
             </div>
           </div>
 
-          {/* If already posted today AND not currently drafting */}
-          {hasPostedToday && !allowDraftingAfterPost ? (
-            isAppendingPhotosToToday ? (
-              /* INFINITE PHOTO UPLOADER FOR TODAY'S PROOF (ZERO SPAM) */
-              <div className="py-4 px-1 flex-1 flex flex-col space-y-4 overflow-y-auto">
-                <div className="flex items-center justify-between pb-3 border-b border-white/10">
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsAppendingPhotosToToday(false)}
-                      className="p-1 rounded-lg text-white/50 hover:text-white hover:bg-white/10"
-                    >
-                      <ChevronLeft className="w-5 h-5" />
-                    </button>
-                    <div>
-                      <h4 className="text-sm font-black text-white flex items-center gap-2">
-                        <span>Add Extra Photos</span>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#2F6FED]/20 border border-[#2F6FED]/40 text-[#60A5FA]">
-                          Zero Spam
-                        </span>
-                      </h4>
-                      <p className="text-[11px] text-white/50">
-                        Upload infinite receipts today — bundled neatly inside your existing post.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Existing Photos on Today's Post */}
-                {todayPost && (
-                  <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10 space-y-2">
-                    <span className="text-[11px] font-bold text-white/60 flex items-center gap-1.5 uppercase tracking-wider">
-                      <ImageIcon className="w-3.5 h-3.5 text-[#2F6FED]" />
-                      <span>Already in Today's Post ({todayPost.imageUrls?.length || (todayPost.imageUrl ? 1 : 0)})</span>
-                    </span>
-                    <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
-                      {(todayPost.imageUrls || (todayPost.imageUrl ? [todayPost.imageUrl] : [])).map((img, i) => (
-                        <div key={i} className="w-14 h-14 rounded-lg overflow-hidden border border-white/15 shrink-0">
-                          <img src={img} alt={`receipt-${i}`} className="w-full h-full object-cover" />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Upload action buttons */}
-                <div className="space-y-2">
-                  <span className="text-[11px] font-bold text-white/70 uppercase tracking-wider">
-                    Select New Photos (Infinite uploads supported):
-                  </span>
-                  <div className="grid grid-cols-2 gap-2">
-                    <label className="border-2 border-dashed border-[#2F6FED]/40 hover:border-[#2F6FED] rounded-2xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer bg-[#2F6FED]/[0.04] hover:bg-[#2F6FED]/[0.08] transition-all text-center group">
-                      <div className="w-8 h-8 rounded-full bg-[#2F6FED]/20 flex items-center justify-center text-[#60A5FA] group-hover:scale-110 transition-all">
-                        <Upload className="w-4 h-4" />
-                      </div>
-                      <span className="text-xs font-semibold text-white">
-                        Upload Photos
-                      </span>
-                      <span className="text-[10px] text-white/40">Select single or multiple</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={handleAppendFileUpload}
-                        className="hidden"
-                      />
-                    </label>
-
-                    <label className="border-2 border-dashed border-white/15 hover:border-emerald-500/50 rounded-2xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer bg-white/[0.02] hover:bg-white/[0.04] transition-all text-center group">
-                      <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-all">
-                        <Camera className="w-4 h-4" />
-                      </div>
-                      <span className="text-xs font-semibold text-white">
-                        Take Live Photo
-                      </span>
-                      <span className="text-[10px] text-white/40">Camera snapshot</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        onChange={handleAppendFileUpload}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
-                </div>
-
-                {/* Staged New Photos to Append */}
-                {extraPhotosToAppend.length > 0 && (
-                  <div className="space-y-2 p-3 rounded-2xl bg-black/40 border border-white/10">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>Ready to append ({extraPhotosToAppend.length} photo{extraPhotosToAppend.length > 1 ? 's' : ''})</span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setExtraPhotosToAppend([])}
-                        className="text-[10px] text-red-400 hover:underline"
-                      >
-                        Clear all
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-2">
-                      {extraPhotosToAppend.map((img, i) => (
-                        <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-white/20 group">
-                          <img src={img} alt={`new-${i}`} className="w-full h-full object-cover" />
-                          <button
-                            type="button"
-                            onClick={() => setExtraPhotosToAppend((prev) => prev.filter((_, idx) => idx !== i))}
-                            className="absolute top-1 right-1 p-1 rounded-full bg-red-600 text-white opacity-90 hover:opacity-100"
-                            title="Remove photo"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleConfirmAppendPhotos}
-                      className="w-full mt-3 py-3 px-4 rounded-xl bg-[#2F6FED] hover:bg-[#255ecf] text-white font-black text-xs transition-all shadow-md flex items-center justify-center gap-2"
-                    >
-                      <Check className="w-4 h-4" />
-                      <span>Save & Append {extraPhotosToAppend.length} Photo{extraPhotosToAppend.length > 1 ? 's' : ''} (Zero Spam)</span>
-                    </button>
-                  </div>
-                )}
-
-                {/* Quick Presets for Extra Receipts */}
-                <div className="space-y-1.5">
-                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider">
-                    Quick Preset Receipts:
-                  </span>
-                  <div className="grid grid-cols-3 gap-2">
-                    {PROOF_PHOTO_PRESETS.map((preset) => (
-                      <button
-                        key={preset.name}
-                        type="button"
-                        onClick={() => {
-                          vibrateLight();
-                          setExtraPhotosToAppend((prev) => [...prev, preset.url]);
-                        }}
-                        className="p-1.5 rounded-xl border border-white/10 hover:border-[#60A5FA] bg-white/[0.02] text-left transition-all group"
-                      >
-                        <div className="aspect-video rounded-lg overflow-hidden mb-1">
-                          <img src={preset.url} alt={preset.name} className="w-full h-full object-cover opacity-70 group-hover:opacity-100" />
-                        </div>
-                        <span className="text-[9px] font-bold text-white/80 block truncate">
-                          + {preset.name}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="py-8 px-2 flex-1 flex flex-col items-center justify-center text-center space-y-4">
-                <div className="w-16 h-16 rounded-2xl bg-[#2F6FED]/10 border border-[#2F6FED]/30 flex items-center justify-center text-[#2F6FED] shadow-lg">
-                  <CalendarCheck className="w-8 h-8" />
-                </div>
-
-                <div className="space-y-1.5 max-w-sm">
-                  <h4 className="text-base sm:text-lg font-black text-white">
-                    You have already posted for today!
-                  </h4>
-                  <p className="text-xs text-white/60 leading-relaxed">
-                    Your daily streak is locked in. You can still upload infinite photos to your day without spamming the feed!
-                  </p>
-                </div>
-
-                <div className="w-full pt-2 space-y-2.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      vibrateLight();
-                      setIsAppendingPhotosToToday(true);
-                    }}
-                    className="w-full py-3 px-4 rounded-xl bg-[#2F6FED] hover:bg-[#255ecf] text-white font-black text-xs transition-all shadow-md flex items-center justify-center gap-2"
-                  >
-                    <Camera className="w-4 h-4" />
-                    <span>Upload Extra Photos to Today's Proof (Zero Spam)</span>
-                  </button>
-
-                  {todayPost && onViewMyPost && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onViewMyPost(todayPost.id);
-                        onClose();
-                      }}
-                      className="w-full py-3 px-4 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs transition-all border border-white/10 flex items-center justify-center gap-2"
-                    >
-                      <ExternalLink className="w-4 h-4 text-[#2F6FED]" />
-                      <span>View Today’s Post & Carousel</span>
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      vibrateLight();
-                      setAllowDraftingAfterPost(true);
-                    }}
-                    className="w-full py-2.5 px-4 rounded-xl bg-transparent hover:bg-white/5 text-white/60 hover:text-white font-bold text-xs transition-all flex items-center justify-center gap-2"
-                  >
-                    <FileText className="w-4 h-4 text-[#2F6FED]" />
-                    <span>Draft Notes for Tomorrow</span>
-                  </button>
-                </div>
-              </div>
-            )
-          ) : (
-            /* ACTIVE POST CREATOR / DRAFTER */
-            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto space-y-4 py-3.5 pr-1">
-              {hasPostedToday && allowDraftingAfterPost && (
-                <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-between text-xs text-blue-300">
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-blue-400 shrink-0" />
-                    <span>Drafting for tomorrow (auto-saved)</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setAllowDraftingAfterPost(false)}
-                    className="text-[11px] underline text-blue-300 hover:text-white"
-                  >
-                    Back
-                  </button>
-                </div>
-              )}
+          {/* ACTIVE POST CREATOR */}
+          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto space-y-4 py-3.5 pr-1">
 
               {/* Draft Restored Banner */}
               {draftRestored && (
@@ -1339,15 +1131,6 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                     <Clock className="w-4 h-4 stroke-[2.5]" />
                     <span>Queue Scheduled Post</span>
                   </button>
-                ) : hasPostedToday && allowDraftingAfterPost ? (
-                  <button
-                    type="button"
-                    onClick={handleExplicitSaveDraft}
-                    className="flex-1 py-3 px-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs transition-all shadow-lg flex items-center justify-center gap-2 min-h-[44px]"
-                  >
-                    <Save className="w-4 h-4" />
-                    <span>Save Draft for Tomorrow</span>
-                  </button>
                 ) : (
                   <button
                     type="submit"
@@ -1364,7 +1147,6 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                 )}
               </div>
             </form>
-          )}
         </div>
       </div>
 

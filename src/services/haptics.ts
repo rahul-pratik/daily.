@@ -1,6 +1,9 @@
+import { DailyStorageService } from './storage';
+
 /**
  * Tactile Haptic Vibration Feedback Utilities
  * Uses navigator.vibrate safely with graceful fallback for unsupported devices/browsers.
+ * Honors user accessibility settings for haptic feedback.
  */
 
 export const triggerVibration = (pattern: number | number[]): boolean => {
@@ -10,6 +13,10 @@ export const triggerVibration = (pattern: number | number[]): boolean => {
     typeof navigator.vibrate === 'function'
   ) {
     try {
+      // Check accessibility setting
+      if (!DailyStorageService.getHapticsEnabled()) {
+        return false;
+      }
       return navigator.vibrate(pattern);
     } catch {
       // Gracefully handle any security policy or permission errors

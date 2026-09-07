@@ -47,7 +47,7 @@ interface ProfileScreenProps {
   posts: Post[];
   savedPostIds?: string[];
   reportedPostIds?: string[];
-  initialTab?: 'dossier' | 'proofs' | 'collections';
+  initialTab?: 'dossier' | 'proofs' | 'collections' | 'drafts';
   onToggleLike: (postId: string) => void;
   onOpenComments: (post: Post) => void;
   onOpenEditProfile: () => void;
@@ -101,8 +101,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onUserUpdated,
   onOpenNotifications,
 }) => {
-  // Clean profile tabs: Proofs and Collections
-  const [profileTab, setProfileTab] = useState<'proofs' | 'collections'>('proofs');
+  // Clean profile tabs: Proofs, Collections, and Drafts
+  const [profileTab, setProfileTab] = useState<'proofs' | 'collections' | 'drafts'>(
+    initialTab === 'drafts' ? 'drafts' : initialTab === 'collections' ? 'collections' : 'proofs'
+  );
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
   // Connections (Followers / Following) Modal State
@@ -255,21 +257,55 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </div>
         </div>
 
-        {/* Stats Row: Proofs, Collections, Followers, Following */}
-        <div className="grid grid-cols-4 gap-2 mt-5 pt-4 border-t border-white/5 text-center">
-          <div>
-            <span className="text-base font-black text-white block">
+        {/* Stats Row: Proofs, Collections, Drafts, Followers, Following */}
+        <div className="grid grid-cols-5 gap-1 sm:gap-2 mt-5 pt-4 border-t border-white/5 text-center">
+          <button
+            type="button"
+            onClick={() => {
+              vibrateLight();
+              setProfileTab('proofs');
+              setSelectedCollectionId(null);
+            }}
+            className="group p-1 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
+            title="View Proofs"
+          >
+            <span className="text-base font-black text-white group-hover:text-[#2F6FED] transition-colors block">
               {userPosts.length}
             </span>
-            <span className="text-[10px] uppercase tracking-wider text-white/40 font-semibold">Proofs</span>
-          </div>
+            <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-white/40 group-hover:text-white/70 font-semibold transition-colors">Proofs</span>
+          </button>
 
-          <div>
-            <span className="text-base font-black text-white block">
+          <button
+            type="button"
+            onClick={() => {
+              vibrateLight();
+              setProfileTab('collections');
+              setSelectedCollectionId(null);
+            }}
+            className="group p-1 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
+            title="View Collections"
+          >
+            <span className="text-base font-black text-white group-hover:text-blue-400 transition-colors block">
               {collections.length}
             </span>
-            <span className="text-[10px] uppercase tracking-wider text-white/40 font-semibold">Collections</span>
-          </div>
+            <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-white/40 group-hover:text-white/70 font-semibold transition-colors">Boxes</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              vibrateLight();
+              setProfileTab('drafts');
+              setSelectedCollectionId(null);
+            }}
+            className="group p-1 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
+            title="View Saved Drafts"
+          >
+            <span className="text-base font-black text-white group-hover:text-amber-400 transition-colors block">
+              {drafts.length}
+            </span>
+            <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-white/40 group-hover:text-amber-400/80 font-semibold transition-colors">Drafts</span>
+          </button>
 
           <button
             type="button"
@@ -284,7 +320,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <span className="text-base font-black text-white group-hover:text-[#2F6FED] transition-colors block">
               {currentUser.followersCount || 489}
             </span>
-            <span className="text-[10px] uppercase tracking-wider text-white/40 group-hover:text-white/70 font-semibold transition-colors">
+            <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-white/40 group-hover:text-white/70 font-semibold transition-colors">
               Followers
             </span>
           </button>
@@ -302,7 +338,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <span className="text-base font-black text-white group-hover:text-[#2F6FED] transition-colors block">
               {currentUser.followingCount || currentUser.followedUserIds?.length || 92}
             </span>
-            <span className="text-[10px] uppercase tracking-wider text-white/40 group-hover:text-white/70 font-semibold transition-colors">
+            <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-white/40 group-hover:text-white/70 font-semibold transition-colors">
               Following
             </span>
           </button>
@@ -373,9 +409,25 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               <Folder className="w-3.5 h-3.5" />
               <span>Collections ({collections.length})</span>
             </button>
+
+            <button
+              onClick={() => {
+                vibrateLight();
+                setProfileTab('drafts');
+                setSelectedCollectionId(null);
+              }}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                profileTab === 'drafts'
+                  ? 'bg-white text-black shadow-sm font-black'
+                  : 'text-white/50 hover:text-white'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5 text-amber-400" />
+              <span>Drafts ({drafts.length})</span>
+            </button>
           </div>
 
-          {/* Grid vs List View Selector (when viewing Proofs) or New Collection Button */}
+          {/* Grid vs List View Selector (when viewing Proofs) or New Collection Button or New Draft Button */}
           {profileTab === 'proofs' || selectedCollectionId ? (
             <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/5 shrink-0">
               <button
@@ -410,7 +462,19 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               <Plus className="w-3.5 h-3.5 stroke-[3]" />
               <span>New Box</span>
             </button>
-          ) : null}
+          ) : (
+            <button
+              onClick={() => {
+                vibrateLight();
+                if (onOpenCreateDraft) onOpenCreateDraft();
+                else if (onOpenCreatePost) onOpenCreatePost();
+              }}
+              className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs flex items-center gap-1 shadow-md shadow-amber-500/20 active:scale-95 whitespace-nowrap shrink-0 min-h-[36px]"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[3]" />
+              <span>New Draft</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -769,6 +833,232 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   }}
                 />
               )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 3: DEDICATED DRAFTS & QUEUE TAB */}
+      {profileTab === 'drafts' && (
+        <div className="space-y-4 animate-in fade-in">
+          {/* Drafts Filter Pills and Actions Bar */}
+          <div className="flex items-center justify-between gap-2 overflow-x-auto no-scrollbar pb-1">
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateLight();
+                  setDraftFilter('all');
+                }}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+                  draftFilter === 'all'
+                    ? 'bg-white text-black font-black shadow-sm'
+                    : 'bg-white/5 text-white/60 hover:text-white border border-white/10'
+                }`}
+              >
+                All ({drafts.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateLight();
+                  setDraftFilter('scheduled');
+                }}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1 ${
+                  draftFilter === 'scheduled'
+                    ? 'bg-blue-500 text-white font-black shadow-sm'
+                    : 'bg-white/5 text-blue-300 hover:text-white border border-white/10'
+                }`}
+              >
+                <Clock className="w-3 h-3" />
+                <span>Scheduled ({scheduledDrafts.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateLight();
+                  setDraftFilter('standard');
+                }}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+                  draftFilter === 'standard'
+                    ? 'bg-amber-500 text-black font-black shadow-sm'
+                    : 'bg-white/5 text-amber-300 hover:text-white border border-white/10'
+                }`}
+              >
+                Standard ({standardDrafts.length})
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                vibrateLight();
+                if (onOpenCreateDraft) onOpenCreateDraft();
+                else if (onOpenCreatePost) onOpenCreatePost();
+              }}
+              className="text-xs font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 whitespace-nowrap pl-2 shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Create Draft</span>
+            </button>
+          </div>
+
+          {/* Drafts Cards List */}
+          {displayDrafts.length > 0 ? (
+            <div className="space-y-3">
+              {displayDrafts.map((draft) => {
+                const isScheduled = Boolean(draft.isScheduled && draft.scheduledAt);
+                const scheduledDateObj = draft.scheduledAt ? new Date(draft.scheduledAt) : null;
+                const isOverdue = scheduledDateObj ? scheduledDateObj.getTime() <= Date.now() : false;
+                const formattedScheduled = scheduledDateObj
+                  ? scheduledDateObj.toLocaleString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })
+                  : null;
+
+                const draftPhotos = draft.imageUrls && draft.imageUrls.length > 0
+                  ? draft.imageUrls
+                  : draft.imageUrl
+                  ? [draft.imageUrl]
+                  : [];
+
+                return (
+                  <div
+                    key={draft.id}
+                    className="p-4 rounded-3xl bg-white/[0.04] border border-white/10 hover:border-white/20 transition-all space-y-3 shadow-lg"
+                  >
+                    {/* Header: Title / Scheduled badge */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                        <h4 className="font-bold text-xs text-white line-clamp-1">
+                          {draft.title || (draft.content ? draft.content.slice(0, 40) + '...' : 'Untitled Post Draft')}
+                        </h4>
+                      </div>
+
+                      {isScheduled && (
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1 shrink-0 ${
+                            isOverdue
+                              ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                              : 'bg-blue-500/20 text-blue-300 border-blue-500/30'
+                          }`}
+                        >
+                          <Clock className="w-2.5 h-2.5" />
+                          <span>{isOverdue ? 'Ready to post' : formattedScheduled}</span>
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Content preview & Media */}
+                    <div className="flex items-start gap-3">
+                      {draftPhotos.length > 0 && (
+                        <div className="relative w-16 h-16 rounded-2xl overflow-hidden border border-white/15 bg-black shrink-0">
+                          <img
+                            src={draftPhotos[0]}
+                            alt="Draft receipt"
+                            referrerPolicy="no-referrer"
+                            className="w-full h-full object-cover"
+                          />
+                          {draftPhotos.length > 1 && (
+                            <span className="absolute bottom-1 right-1 bg-black/80 text-white text-[9px] font-bold font-mono px-1 rounded">
+                              +{draftPhotos.length - 1}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex-1 min-w-0 space-y-1.5">
+                        <p className="text-xs text-white/80 line-clamp-2 leading-relaxed">
+                          {draft.content || <span className="italic text-white/30">No text content</span>}
+                        </p>
+
+                        {/* Tags */}
+                        {draft.tags && draft.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {draft.tags.map((tag) => (
+                              <span
+                                key={tag}
+                                className="text-[9px] px-1.5 py-0.2 rounded-full bg-white/5 border border-white/10 text-white/60 font-semibold"
+                              >
+                                #{tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Actions: Edit, Delete, Post Now */}
+                    <div className="pt-2 border-t border-white/5 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            vibrateLight();
+                            if (onOpenResumeDraft) onOpenResumeDraft(draft);
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold flex items-center gap-1.5 transition-colors min-h-[32px]"
+                          title="Edit draft in composer"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-[#2F6FED]" />
+                          <span>Edit</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteDraft(draft.id, e)}
+                          className="p-1.5 rounded-xl bg-white/5 hover:bg-red-500/20 text-white/40 hover:text-red-400 transition-colors min-h-[32px] min-w-[32px] flex items-center justify-center"
+                          title="Delete draft"
+                          aria-label="Delete draft"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={(e) => handlePublishDraft(draft.id, e)}
+                        className="px-3.5 py-1.5 rounded-xl bg-[#2F6FED] hover:bg-[#2861d6] text-white text-xs font-black flex items-center gap-1.5 shadow-md shadow-[#2F6FED]/20 active:scale-95 transition-all min-h-[32px]"
+                      >
+                        <Flame className="w-3.5 h-3.5 fill-current text-white" />
+                        <span>Publish Now</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="p-8 text-center bg-white/[0.02] border border-white/10 rounded-3xl space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto">
+                <FileText className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="font-black text-sm text-white">No drafts found</h4>
+                <p className="text-xs text-white/50 max-w-xs mx-auto leading-relaxed">
+                  {draftFilter === 'scheduled'
+                    ? 'You have no scheduled posts queued. Schedule posts to automatically deliver on your target day!'
+                    : draftFilter === 'standard'
+                    ? 'You have no standard saved drafts.'
+                    : 'Capture your thoughts, multiple proof receipts, or scheduled check-ins here before publishing.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateLight();
+                  if (onOpenCreateDraft) onOpenCreateDraft();
+                  else if (onOpenCreatePost) onOpenCreatePost();
+                }}
+                className="px-4 py-2 rounded-2xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs inline-flex items-center gap-1.5 shadow-lg shadow-amber-500/20 active:scale-95 transition-all mt-2"
+              >
+                <Plus className="w-4 h-4 stroke-[3]" />
+                <span>Create New Draft</span>
+              </button>
             </div>
           )}
         </div>

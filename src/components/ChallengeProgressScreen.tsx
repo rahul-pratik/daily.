@@ -36,7 +36,6 @@ import { User, Challenge, ChallengeProgressPost, Message, ChallengeTeam, Challen
 import { DailyStorageService, getTodayDateString } from '../services/storage';
 import { vibrateLight, vibrateSuccess, vibrateStreakMilestone } from '../services/haptics';
 import { ChallengeLeaderboardView } from './ChallengeLeaderboardView';
-import { DirectChallengeInviteModal } from './DirectChallengeInviteModal';
 import { ChallengeWeeklyRecapModal } from './ChallengeWeeklyRecapModal';
 import { ChallengeDailyProofProgressBar } from './ChallengeDailyProofProgressBar';
 
@@ -79,7 +78,6 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
   const [challenge, setChallenge] = useState<Challenge>(initialChallenge);
   const [challengeTab, setChallengeTab] = useState<'proofs' | 'leaderboard' | 'squads' | 'chat'>(initialTab);
   const [chatChannel, setChatChannel] = useState<'cohort' | 'squad'>('cohort');
-  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isRecapModalOpen, setIsRecapModalOpen] = useState(false);
   const [progressPosts, setProgressPosts] = useState<ChallengeProgressPost[]>([]);
   const [chatMessages, setChatMessages] = useState<Message[]>([]);
@@ -305,20 +303,6 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
             <span className="hidden sm:inline">Weekly Recap</span>
             <span className="sm:hidden">Recap</span>
-          </button>
-
-          {/* Direct Challenge Invite Action Button */}
-          <button
-            type="button"
-            onClick={() => {
-              vibrateLight();
-              setIsInviteModalOpen(true);
-            }}
-            className="text-[11px] font-bold text-amber-400 hover:text-amber-300 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-all flex items-center gap-1 shadow-sm shadow-amber-500/10"
-            title="Invite friends or squad members"
-          >
-            <UserPlus className="w-3.5 h-3.5" />
-            <span>Invite</span>
           </button>
 
           {isJoined && (
@@ -1170,22 +1154,11 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
             <ChallengeLeaderboardView
               challenge={challenge}
               currentUser={currentUser}
-              onOpenInvite={() => setIsInviteModalOpen(true)}
             />
           </div>
         )}
 
       </div>
-
-      {/* DIRECT CHALLENGE INVITE MODAL */}
-      {isInviteModalOpen && (
-        <DirectChallengeInviteModal
-          isOpen={isInviteModalOpen}
-          onClose={() => setIsInviteModalOpen(false)}
-          currentUser={currentUser}
-          initialChallengeId={challenge.id}
-        />
-      )}
 
       {/* POST PROGRESS MODAL (Photo is MANDATORY) */}
       {isPostModalOpen && (

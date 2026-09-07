@@ -17,6 +17,8 @@ import {
   AlertTriangle,
   Sun,
   Moon,
+  Smartphone,
+  Monitor,
 } from 'lucide-react';
 import { User as UserType, Post, PostDraft } from '../types';
 import { DailyStorageService } from '../services/storage';
@@ -52,14 +54,26 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
   onResetData,
 }) => {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [themeMode, setThemeMode] = useState<'system' | 'dark' | 'light'>(() => DailyStorageService.getThemeMode());
   const [currentTheme, setCurrentTheme] = useState<'dark' | 'light'>(() => DailyStorageService.getTheme());
+  const [hapticsEnabled, setHapticsEnabled] = useState<boolean>(() => DailyStorageService.getHapticsEnabled());
 
   if (!isOpen) return null;
 
-  const handleSwitchTheme = (newTheme: 'dark' | 'light') => {
+  const handleSwitchThemeMode = (newMode: 'system' | 'dark' | 'light') => {
     vibrateLight();
-    setCurrentTheme(newTheme);
-    DailyStorageService.setTheme(newTheme);
+    setThemeMode(newMode);
+    DailyStorageService.setThemeMode(newMode);
+    setCurrentTheme(DailyStorageService.getTheme());
+  };
+
+  const handleToggleHaptics = () => {
+    const nextVal = !hapticsEnabled;
+    setHapticsEnabled(nextVal);
+    DailyStorageService.setHapticsEnabled(nextVal);
+    if (nextVal) {
+      vibrateLight();
+    }
   };
 
   const totalLikes = userPosts.reduce((acc, p) => acc + (p.likesCount || 0), 0);
@@ -122,52 +136,112 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
             </button>
           </div>
 
-          {/* Theme Mode Toggle (Global Light / Dark) */}
+          {/* Theme Mode Toggle (System Auto / Dark / Light) */}
           <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 space-y-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-xl bg-[#2F6FED]/15 border border-[#2F6FED]/30 flex items-center justify-center text-[#2F6FED]">
-                  {currentTheme === 'dark' ? <Moon className="w-3.5 h-3.5" /> : <Sun className="w-3.5 h-3.5" />}
+                  {themeMode === 'system' ? (
+                    <Monitor className="w-3.5 h-3.5" />
+                  ) : currentTheme === 'dark' ? (
+                    <Moon className="w-3.5 h-3.5" />
+                  ) : (
+                    <Sun className="w-3.5 h-3.5" />
+                  )}
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-white">Appearance & Theme</h4>
                   <p className="text-[10px] text-white/50">
-                    Switch between Dark Onyx and Light Daylight modes
+                    Sync with OS preference or force Dark/Light mode
                   </p>
                 </div>
               </div>
               <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[#2F6FED]">
-                {currentTheme === 'dark' ? 'Dark Mode' : 'Light Mode'}
+                {themeMode === 'system' ? 'System (Auto)' : themeMode === 'dark' ? 'Dark Mode' : 'Light Mode'}
               </span>
             </div>
 
-            {/* Segmented Switcher */}
-            <div className="grid grid-cols-2 gap-2 bg-black/40 p-1 rounded-xl border border-white/5">
+            {/* 3-Way Segmented Switcher */}
+            <div className="grid grid-cols-3 gap-1.5 bg-black/40 p-1 rounded-xl border border-white/5">
               <button
                 type="button"
-                onClick={() => handleSwitchTheme('dark')}
-                className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
-                  currentTheme === 'dark'
-                    ? 'bg-white/15 text-white shadow-sm border border-white/10'
+                onClick={() => handleSwitchThemeMode('system')}
+                className={`py-2 px-2 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  themeMode === 'system'
+                    ? 'bg-[#2F6FED] text-white shadow-sm font-black'
                     : 'text-white/50 hover:text-white hover:bg-white/5'
                 }`}
+                title="Automatically synchronizes with your device operating system theme"
               >
-                <Moon className="w-3.5 h-3.5" />
-                <span>Dark Mode</span>
+                <Monitor className="w-3 h-3" />
+                <span>Auto (OS)</span>
               </button>
 
               <button
                 type="button"
-                onClick={() => handleSwitchTheme('light')}
-                className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
-                  currentTheme === 'light'
-                    ? 'bg-[#2F6FED] text-white shadow-sm font-black'
+                onClick={() => handleSwitchThemeMode('dark')}
+                className={`py-2 px-2 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  themeMode === 'dark'
+                    ? 'bg-white/20 text-white shadow-sm font-black border border-white/15'
                     : 'text-white/50 hover:text-white hover:bg-white/5'
                 }`}
               >
-                <Sun className="w-3.5 h-3.5" />
-                <span>Light Mode</span>
+                <Moon className="w-3 h-3" />
+                <span>Dark</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => handleSwitchThemeMode('light')}
+                className={`py-2 px-2 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  themeMode === 'light'
+                    ? 'bg-amber-400 text-slate-900 shadow-sm font-black'
+                    : 'text-white/50 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Sun className="w-3 h-3" />
+                <span>Light</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Accessibility: Haptic Feedback Option */}
+          <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                  <Smartphone className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <span>Haptic Feedback</span>
+                    <span className="text-[10px] font-normal text-white/50">(Tactile Vibration)</span>
+                  </h4>
+                  <p className="text-[10px] text-white/50">
+                    Tactile pulses on post submissions, streak milestones, and alerts
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                role="switch"
+                aria-checked={hapticsEnabled}
+                onClick={handleToggleHaptics}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  hapticsEnabled ? 'bg-[#2F6FED]' : 'bg-white/20'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                    hapticsEnabled ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+            <div className="flex items-center justify-between pt-1 border-t border-white/5 text-[10px] text-white/40 font-mono">
+              <span>Status: {hapticsEnabled ? 'Vibrations Active' : 'Silent Mode'}</span>
+              <span className="text-[#2F6FED]">Accessibility Optimized</span>
             </div>
           </div>
 

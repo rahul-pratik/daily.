@@ -45,6 +45,8 @@ const STORAGE_KEYS = {
   NOTIFICATIONS: 'daily_app_notifications_v1',
   USER_NOTES: 'daily_app_user_notes_v1',
   THEME: 'daily_app_theme_v1',
+  THEME_MODE: 'daily_app_theme_mode_v1',
+  HAPTICS_ENABLED: 'daily_app_haptics_enabled_v1',
 };
 
 // Current reference date (today in the app context)
@@ -220,8 +222,58 @@ export class DailyStorageService {
     localStorage.setItem(STORAGE_KEYS.ONBOARDED, status ? 'true' : 'false');
   }
 
+  // Tactile Haptic Feedback Setting
+  static getHapticsEnabled(): boolean {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.HAPTICS_ENABLED);
+      if (saved === 'false') return false;
+      return true;
+    } catch {
+      return true;
+    }
+  }
+
+  static setHapticsEnabled(enabled: boolean): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.HAPTICS_ENABLED, enabled ? 'true' : 'false');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('daily:haptics-changed', { detail: { enabled } }));
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }
+
+  // OS Media Query Preference Check
+  static resolveSystemTheme(): 'dark' | 'light' {
+    if (typeof window !== 'undefined' && window.matchMedia) {
+      try {
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      } catch {
+        return 'dark';
+      }
+    }
+    return 'dark';
+  }
+
+  static getThemeMode(): 'system' | 'dark' | 'light' {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.THEME_MODE);
+      if (saved === 'system' || saved === 'dark' || saved === 'light') {
+        return saved;
+      }
+      return 'system';
+    } catch {
+      return 'system';
+    }
+  }
+
   static getTheme(): 'dark' | 'light' {
     try {
+      const mode = this.getThemeMode();
+      if (mode === 'system') {
+        return this.resolveSystemTheme();
+      }
       const saved = localStorage.getItem(STORAGE_KEYS.THEME);
       if (saved === 'light' || saved === 'dark') {
         return saved;
@@ -232,21 +284,37 @@ export class DailyStorageService {
     }
   }
 
+  static applyThemeToDOM(theme: 'dark' | 'light'): void {
+    if (typeof document !== 'undefined') {
+      if (theme === 'light') {
+        document.documentElement.classList.add('light');
+        document.documentElement.classList.remove('dark');
+        document.documentElement.setAttribute('data-theme', 'light');
+      } else {
+        document.documentElement.classList.add('dark');
+        document.documentElement.classList.remove('light');
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+      window.dispatchEvent(new CustomEvent('daily:theme-changed', { detail: { theme } }));
+    }
+  }
+
   static setTheme(theme: 'dark' | 'light'): void {
     try {
       localStorage.setItem(STORAGE_KEYS.THEME, theme);
-      if (typeof document !== 'undefined') {
-        if (theme === 'light') {
-          document.documentElement.classList.add('light');
-          document.documentElement.classList.remove('dark');
-          document.documentElement.setAttribute('data-theme', 'light');
-        } else {
-          document.documentElement.classList.add('dark');
-          document.documentElement.classList.remove('light');
-          document.documentElement.setAttribute('data-theme', 'dark');
-        }
-        window.dispatchEvent(new CustomEvent('daily:theme-changed', { detail: { theme } }));
-      }
+      localStorage.setItem(STORAGE_KEYS.THEME_MODE, theme);
+      this.applyThemeToDOM(theme);
+    } catch {
+      // Ignore storage errors
+    }
+  }
+
+  static setThemeMode(mode: 'system' | 'dark' | 'light'): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.THEME_MODE, mode);
+      const effectiveTheme = mode === 'system' ? this.resolveSystemTheme() : mode;
+      localStorage.setItem(STORAGE_KEYS.THEME, effectiveTheme);
+      this.applyThemeToDOM(effectiveTheme);
     } catch {
       // Ignore storage errors
     }
@@ -396,26 +464,19 @@ export class DailyStorageService {
     const primaryImageUrl = safeImageUrls ? safeImageUrls[0] : payload.imageUrl;
 
     if (isTargetingMain) {
-      const alreadyPostedMainToday = this.hasUserPostedMainToday(currentUser.id);
-      if (alreadyPostedMainToday) {
-        const existing = this.getTodayPostForUser(currentUser.id);
-        return {
-          post: existing || this.getAllPosts()[0],
-          updatedUser: currentUser,
-          isNewStreakDay: false,
-          error: 'You have already submitted proof as the main post for today',
-        };
-      }
-
-      // Update streak for 1 daily main post
-      const isConsecutive = currentUser.lastPostedDate === yesterday || currentUser.lastPostedDate === today;
+      const alreadyPostedToday = currentUser.lastPostedDate === today;
       let newCurrentStreak = currentUser.currentStreak;
       let newActivityDates = [...currentUser.activityDates];
+      let isNewStreakDay = false;
 
-      if (isConsecutive || currentUser.currentStreak === 0) {
-        newCurrentStreak = currentUser.currentStreak + 1;
-      } else {
-        newCurrentStreak = 1;
+      if (!alreadyPostedToday) {
+        const isConsecutive = currentUser.lastPostedDate === yesterday;
+        if (isConsecutive || currentUser.currentStreak === 0) {
+          newCurrentStreak = currentUser.currentStreak + 1;
+        } else {
+          newCurrentStreak = 1;
+        }
+        isNewStreakDay = true;
       }
 
       if (!newActivityDates.includes(today)) {
@@ -974,6 +1035,7 @@ export class DailyStorageService {
       title?: string;
       content: string;
       imageUrl?: string;
+      imageUrls?: string[];
       tags: string[];
       scheduledAt?: string;
       isScheduled?: boolean;
@@ -995,6 +1057,7 @@ export class DailyStorageService {
         title: draftData.title !== undefined ? draftData.title : drafts[existingIndex].title,
         content: draftData.content,
         imageUrl: draftData.imageUrl !== undefined ? draftData.imageUrl : drafts[existingIndex].imageUrl,
+        imageUrls: draftData.imageUrls !== undefined ? draftData.imageUrls : drafts[existingIndex].imageUrls,
         tags: draftData.tags && draftData.tags.length > 0 ? draftData.tags : drafts[existingIndex].tags,
         updatedAt: now,
         scheduledAt: draftData.scheduledAt !== undefined ? draftData.scheduledAt : drafts[existingIndex].scheduledAt,
@@ -1011,6 +1074,7 @@ export class DailyStorageService {
         title: draftData.title || undefined,
         content: draftData.content,
         imageUrl: draftData.imageUrl,
+        imageUrls: draftData.imageUrls,
         tags: draftData.tags && draftData.tags.length > 0 ? draftData.tags : ['Building'],
         updatedAt: now,
         scheduledAt: draftData.scheduledAt,
@@ -1066,9 +1130,11 @@ export class DailyStorageService {
     }
 
     const isMain = !draft.communityId || draft.communityId === 'main';
+    const primaryImg = (draft.imageUrls && draft.imageUrls[0]) || draft.imageUrl;
     const result = this.createPost({
       content: draft.content,
-      imageUrl: draft.imageUrl,
+      imageUrl: primaryImg,
+      imageUrls: draft.imageUrls && draft.imageUrls.length > 0 ? draft.imageUrls : (primaryImg ? [primaryImg] : undefined),
       tags: draft.tags && draft.tags.length > 0 ? draft.tags : ['DailyProof'],
       isMainPost: isMain,
       communityId: draft.communityId,

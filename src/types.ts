@@ -269,6 +269,7 @@ export interface Challenge {
   icon: string;
   category: string;
   tag: string;
+  rules?: string[];
   durationDays: number; // e.g. 30
   deadlineDate: string; // YYYY-MM-DD
   createdBy: string;

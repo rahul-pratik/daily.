@@ -70,17 +70,48 @@ export default function App() {
   const [activeDraftToEdit, setActiveDraftToEdit] = useState<PostDraft | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>(() => DailyStorageService.getTheme());
 
-  // Initialize and synchronize global theme preference
+  // Initialize and synchronize global theme preference with OS preference
   useEffect(() => {
-    DailyStorageService.setTheme(theme);
+    // Apply current effective theme to DOM
+    const currentTheme = DailyStorageService.getTheme();
+    DailyStorageService.applyThemeToDOM(currentTheme);
+    setTheme(currentTheme);
+
+    // Synchronize with user's OS preference using window.matchMedia('(prefers-color-scheme: dark)')
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+    const handleOSThemeChange = (e: MediaQueryListEvent | MediaQueryList) => {
+      const mode = DailyStorageService.getThemeMode();
+      if (mode === 'system') {
+        const osTheme: 'dark' | 'light' = e.matches ? 'dark' : 'light';
+        DailyStorageService.applyThemeToDOM(osTheme);
+        setTheme(osTheme);
+      }
+    };
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleOSThemeChange);
+    } else if ((mediaQuery as any).addListener) {
+      (mediaQuery as any).addListener(handleOSThemeChange);
+    }
+
+    // Synchronize with in-app theme changes
     const handleThemeChange = (e: any) => {
       if (e.detail?.theme) {
         setTheme(e.detail.theme);
       }
     };
     window.addEventListener('daily:theme-changed', handleThemeChange);
-    return () => window.removeEventListener('daily:theme-changed', handleThemeChange);
-  }, [theme]);
+
+    return () => {
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener('change', handleOSThemeChange);
+      } else if ((mediaQuery as any).removeListener) {
+        (mediaQuery as any).removeListener(handleOSThemeChange);
+      }
+      window.removeEventListener('daily:theme-changed', handleThemeChange);
+    };
+  }, []);
 
   // Background processor for auto-publishing scheduled posts when due
   useEffect(() => {
@@ -196,15 +227,6 @@ export default function App() {
 
     // Tactile haptic vibration feedback on submission
     vibratePostSubmit();
-
-    // Show celebration modal only if it was a new main streak day
-    if (result.isNewStreakDay) {
-      setCelebrationState({
-        isOpen: true,
-        streakCount: result.updatedUser.currentStreak,
-        isNewStreakDay: result.isNewStreakDay,
-      });
-    }
   };
 
   // Append infinite photos to today's proof without feed spam
@@ -498,7 +520,14 @@ export default function App() {
   };
 
   // View user from simplified user object (from notifications/DMs/etc)
-  const handleViewSimplifiedUser = (user: { id: string; name: string; username: string; avatar: string; streak: number }) => {
+  const handleViewSimplifiedUser = (user: {
+    id: string;
+    name: string;
+    username: string;
+    avatar: string;
+    streak?: number;
+    currentStreak?: number;
+  }) => {
     const fullUser = users.find((u) => u.id === user.id);
     if (fullUser) {
       setActiveProfileUser(fullUser);

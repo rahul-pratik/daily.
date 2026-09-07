@@ -5,6 +5,7 @@ import {
   Clock,
   Users,
   ChevronRight,
+  ChevronDown,
   PlusCircle,
   Sparkles,
   Award,
@@ -13,21 +14,17 @@ import {
   MessageSquare,
   Trophy,
   Search,
-  Filter,
   ArrowRight,
-  TrendingUp,
   X,
   Target,
-  UserPlus,
-  Crown,
   ShieldCheck,
+  Info,
 } from 'lucide-react';
 import { User, Post, Challenge } from '../types';
 import { DailyStorageService, getTodayDateString } from '../services/storage';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
 import { CreateChallengeModal } from './CreateChallengeModal';
 import { ChallengeProgressScreen } from './ChallengeProgressScreen';
-import { DirectChallengeInviteModal } from './DirectChallengeInviteModal';
 import { ChallengeDailyProofProgressBar } from './ChallengeDailyProofProgressBar';
 import { StreakFreezeCard } from './StreakFreezeCard';
 
@@ -53,15 +50,13 @@ interface ChallengesScreenProps {
 
 const CATEGORY_CHIPS = [
   'All',
-  '👥 Group Squads',
-  '🎯 Solo',
   'Joined',
+  '👥 Squads',
+  '🎯 Solo',
   '30 Days',
   '60 Days',
-  '21 Days',
-  'Coding',
   'Fitness',
-  'Learning',
+  'Coding',
   'Mindset',
 ];
 
@@ -90,7 +85,7 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
   const [isCreateChallengeOpen, setIsCreateChallengeOpen] = useState(false);
   const [activeChallengeScreen, setActiveChallengeScreen] = useState<Challenge | null>(null);
   const [initialChallengeTab, setInitialChallengeTab] = useState<'proofs' | 'leaderboard' | 'squads' | 'chat'>('proofs');
-  const [inviteChallenge, setInviteChallenge] = useState<Challenge | null>(null);
+  const [expandedChallengeId, setExpandedChallengeId] = useState<string | null>(null);
 
   // Active group challenge for the collective proof progress bar
   const activeGroupChallenge =
@@ -99,8 +94,6 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
       return isJoined && c.challengeType === 'group';
     }) ||
     challenges.find((c) => c.challengeType === 'group');
-
-
 
   useEffect(() => {
     const loadedChallenges = DailyStorageService.getAllChallenges();
@@ -118,14 +111,11 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
   }, [initialChallengeId]);
 
   const today = getTodayDateString();
-  const hasPostedToday = currentUser.lastPostedDate === today;
-
 
   // Filter Challenges
   const filteredChallenges = challenges.filter((c) => {
     const isJoined = (c.participantIds || []).includes(currentUser.id);
 
-    // Search query filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       const matchTitle = c.title.toLowerCase().includes(q);
@@ -138,10 +128,9 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
       }
     }
 
-    // Category / Tag / Filter chip
     if (selectedFilterChip === 'Joined') {
       return isJoined;
-    } else if (selectedFilterChip === '👥 Group Squads') {
+    } else if (selectedFilterChip === '👥 Squads') {
       return c.challengeType === 'group';
     } else if (selectedFilterChip === '🎯 Solo') {
       return c.challengeType === 'individual' || !c.challengeType;
@@ -149,8 +138,6 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
       return c.durationDays === 30;
     } else if (selectedFilterChip === '60 Days') {
       return c.durationDays === 60;
-    } else if (selectedFilterChip === '21 Days') {
-      return c.durationDays === 21;
     } else if (selectedFilterChip !== 'All') {
       const catLower = selectedFilterChip.toLowerCase();
       const matchCat = (c.category || '').toLowerCase() === catLower;
@@ -185,6 +172,12 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
     }
   };
 
+  const toggleExpand = (e: React.MouseEvent, challengeId: string) => {
+    e.stopPropagation();
+    vibrateLight();
+    setExpandedChallengeId((prev) => (prev === challengeId ? null : challengeId));
+  };
+
   // If viewing a specific challenge's progress hub
   if (activeChallengeScreen) {
     return (
@@ -204,8 +197,8 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
   }
 
   return (
-    <div className="w-full pb-24 pt-2 px-3 sm:px-4 max-w-lg mx-auto space-y-4 text-white">
-      {/* Visual Progress Bar: Group Members Daily Proof Accountability */}
+    <div className="w-full pb-24 pt-2 px-3 sm:px-4 max-w-lg mx-auto space-y-4 text-slate-900 dark:text-white">
+      {/* Visual Accountability Progress Bar */}
       {activeGroupChallenge && (
         <ChallengeDailyProofProgressBar
           challengeId={activeGroupChallenge.id}
@@ -234,12 +227,12 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
         onOpenNotifications={onOpenNotifications}
       />
 
-      {/* SEARCH BAR FOR CHALLENGES */}
+      {/* Header & Controls */}
       <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-2">
             <Trophy className="w-4 h-4 text-[#2F6FED]" />
-            <h2 className="text-sm font-black text-white">Grounded Challenges</h2>
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Challenges & Squads</h2>
           </div>
 
           <button
@@ -247,35 +240,35 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
               vibrateLight();
               setIsCreateChallengeOpen(true);
             }}
-            className="px-3.5 py-1.5 rounded-xl bg-[#2F6FED] hover:bg-[#e5c158] text-black font-black text-xs transition-all shadow-md shadow-[#2F6FED]/20 flex items-center gap-1.5 min-h-[34px]"
+            className="px-3 py-1.5 rounded-xl bg-[#2F6FED] hover:bg-[#255bd1] text-white font-bold text-xs transition-all shadow-sm flex items-center gap-1.5"
           >
             <PlusCircle className="w-3.5 h-3.5" />
-            <span>New Challenge</span>
+            <span>New</span>
           </button>
         </div>
 
-        {/* Live Search Input */}
+        {/* Minimal Search Input */}
         <div className="relative">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
+          <Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/40" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search challenges by title, goal, or #tag..."
-            className="w-full bg-[#111111] border border-white/15 focus:border-[#2F6FED] rounded-2xl pl-10 pr-9 py-2.5 text-xs text-white placeholder-white/30 focus:outline-none transition-colors"
+            placeholder="Search challenges..."
+            className="w-full bg-white dark:bg-[#111111] border border-slate-200 dark:border-white/15 focus:border-[#2F6FED] rounded-xl pl-9 pr-8 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30 focus:outline-none transition-colors shadow-sm"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-white/40 dark:hover:text-white"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
 
-        {/* Category Filter Chips (Active chip is Golden) */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+        {/* Category Filter Chips */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
           {CATEGORY_CHIPS.map((chip) => {
             const isSelected = selectedFilterChip === chip;
             return (
@@ -285,10 +278,10 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
                   vibrateLight();
                   setSelectedFilterChip(chip);
                 }}
-                className={`px-3 py-1 rounded-full text-xs font-bold transition-all shrink-0 min-h-[30px] ${
+                className={`px-3 py-1 rounded-full text-xs font-semibold transition-all shrink-0 ${
                   isSelected
-                    ? 'bg-[#2F6FED] text-white font-black shadow-md shadow-[#2F6FED]/25'
-                    : 'bg-white/5 text-white/60 hover:text-white hover:bg-white/10 border border-white/10'
+                    ? 'bg-[#2F6FED] text-white shadow-sm'
+                    : 'bg-white dark:bg-white/5 text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10'
                 }`}
               >
                 {chip}
@@ -298,25 +291,25 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
         </div>
       </div>
 
-      {/* CHALLENGES LIST */}
-      <div className="space-y-3 pt-1">
+      {/* MINIMAL PROGRESSIVE-DISCLOSURE CHALLENGES LIST */}
+      <div className="space-y-2.5 pt-1">
         {filteredChallenges.length === 0 ? (
-          <div className="bg-[#0F0F0F] border border-white/10 rounded-3xl p-8 text-center space-y-3">
-            <Trophy className="w-10 h-10 text-white/30 mx-auto" />
-            <div className="space-y-1">
-              <h3 className="text-sm font-bold text-white">No challenges found</h3>
-              <p className="text-xs text-white/50">
+          <div className="bg-white dark:bg-[#0F0F0F] border border-slate-200 dark:border-white/10 rounded-2xl p-6 text-center space-y-2 shadow-sm">
+            <Trophy className="w-8 h-8 text-slate-300 dark:text-white/30 mx-auto" />
+            <div className="space-y-0.5">
+              <h3 className="text-xs font-bold text-slate-900 dark:text-white">No challenges found</h3>
+              <p className="text-[11px] text-slate-500 dark:text-white/50">
                 {searchQuery
-                  ? `No challenges matched "${searchQuery}". Try a different query.`
-                  : 'Launch a new challenge with custom days and deadline!'}
+                  ? `No challenges match "${searchQuery}".`
+                  : 'Start a new challenge to build daily momentum.'}
               </p>
             </div>
             <button
               onClick={() => setIsCreateChallengeOpen(true)}
-              className="py-2 px-4 rounded-xl bg-[#2F6FED] text-white font-black text-xs inline-flex items-center gap-1.5 shadow-md shadow-[#2F6FED]/20"
+              className="py-1.5 px-3 rounded-lg bg-[#2F6FED] text-white font-bold text-xs inline-flex items-center gap-1 shadow-sm mt-1"
             >
               <PlusCircle className="w-3.5 h-3.5" />
-              <span>Create First Challenge</span>
+              <span>Create Challenge</span>
             </button>
           </div>
         ) : (
@@ -325,264 +318,169 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
             const userProgress = DailyStorageService.getChallengeUserProgress(challenge.id, currentUser.id);
             const percent = Math.min(100, Math.round((userProgress.daysCompleted / challenge.durationDays) * 100));
             const isGroup = challenge.challengeType === 'group';
-            const userTeam = userProgress.userTeam;
             const hasCheckedInToday = userProgress.userPostDates.includes(today);
-            const daysRemaining = Math.max(0, challenge.durationDays - userProgress.daysCompleted);
-
-            // Group squad stats calculation
-            const squadTotalCheckins = userTeam?.totalCheckinsCount || 0;
-            const squadGoalCheckins = challenge.durationDays * (challenge.teamSize || 3);
-            const squadPercent = Math.min(100, Math.round((squadTotalCheckins / squadGoalCheckins) * 100));
+            const isExpanded = expandedChallengeId === challenge.id;
 
             return (
               <div
                 key={challenge.id}
-                onClick={() => {
-                  vibrateLight();
-                  setActiveChallengeScreen(challenge);
-                }}
-                className="bg-[#0F0F0F] hover:bg-[#141414] border border-white/15 hover:border-[#2F6FED]/50 rounded-3xl p-4 sm:p-5 shadow-xl transition-all cursor-pointer group space-y-3.5"
+                className="bg-white dark:bg-[#0F0F0F] border border-slate-200 dark:border-white/10 rounded-2xl p-3.5 sm:p-4 shadow-sm hover:border-[#2F6FED]/50 transition-all space-y-3 text-slate-900 dark:text-white"
               >
-                {/* Header */}
+                {/* Main Row: Icon, Title, Tags, and Actions */}
                 <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div className="w-12 h-12 rounded-2xl bg-[#2F6FED]/10 border border-[#2F6FED]/20 flex items-center justify-center text-2xl shrink-0 group-hover:scale-105 transition-transform">
-                      {challenge.icon}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-xl shrink-0">
+                      {challenge.icon || '🏆'}
                     </div>
+
                     <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                        {isGroup ? (
-                          <span className="text-[10px] font-black text-amber-300 bg-amber-500/15 px-2 py-0.5 rounded-full border border-amber-500/30 flex items-center gap-1">
-                            <Users className="w-3 h-3 text-amber-300" />
-                            <span>Group Squad ({challenge.teamSize || 3}/team)</span>
-                          </span>
-                        ) : (
-                          <span className="text-[10px] font-black text-blue-400 bg-blue-500/15 px-2 py-0.5 rounded-full border border-blue-500/30 flex items-center gap-1">
-                            <Target className="w-3 h-3 text-blue-400" />
-                            <span>Solo Challenge</span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h3 className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                          {challenge.title}
+                        </h3>
+                        {isGroup && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/40">
+                            Squad
                           </span>
                         )}
-
-                        <span className="text-[10px] font-black text-[#2F6FED] uppercase tracking-wider bg-[#2F6FED]/10 px-2 py-0.5 rounded-full border border-[#2F6FED]/20">
-                          #{challenge.tag || challenge.category}
-                        </span>
-                        <span className="text-[10px] text-white/40 flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          Ends {challenge.deadlineDate}
-                        </span>
                       </div>
-                      <h3 className="font-black text-sm text-white group-hover:text-[#2F6FED] transition-colors leading-tight">
-                        {challenge.title}
-                      </h3>
-                      <p className="text-xs text-white/60 line-clamp-2 mt-1 leading-relaxed">
-                        {challenge.description}
-                      </p>
+
+                      <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-white/50 mt-0.5">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-slate-400 dark:text-white/40" />
+                          {challenge.durationDays}d
+                        </span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1">
+                          <Users className="w-3 h-3 text-slate-400 dark:text-white/40" />
+                          {(challenge.participantIds || []).length}
+                        </span>
+                        {challenge.tag && (
+                          <>
+                            <span>•</span>
+                            <span className="text-[#2F6FED]">#{challenge.tag}</span>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  <ChevronRight className="w-5 h-5 text-white/30 group-hover:text-[#2F6FED] group-hover:translate-x-0.5 transition-all shrink-0 mt-1" />
-                </div>
-
-                {/* VISUAL PROGRESS BARS FOR JOINED INDIVIDUAL & GROUP CHALLENGES */}
-                {isJoined ? (
-                  <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 space-y-3">
-                    {/* Goal Completion Progress & Proximity */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-white/80 font-bold flex items-center gap-1.5">
-                          <span>Goal Progress</span>
-                          <span className="text-[10px] text-white/40 font-normal">
-                            ({daysRemaining} {daysRemaining === 1 ? 'day' : 'days'} left)
-                          </span>
-                        </span>
-                        <span className="text-[#2F6FED] font-black font-mono">
-                          Day {userProgress.daysCompleted} of {challenge.durationDays}{' '}
-                          <span className="text-white/50 text-[10px]">({percent}%)</span>
-                        </span>
-                      </div>
-
-                      {/* Main Animated Progress Bar */}
-                      <div className="h-2.5 w-full bg-white/10 rounded-full overflow-hidden p-0.5 flex items-center">
-                        <div
-                          className="h-full bg-gradient-to-r from-amber-500 via-[#2F6FED] to-emerald-400 rounded-full transition-all duration-500 shadow-sm shadow-[#2F6FED]/40"
-                          style={{ width: `${Math.max(4, percent)}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Streak Requirement & Daily Status Tracker */}
-                    <div className="flex items-center justify-between pt-1 border-t border-white/5 text-[11px] gap-2 flex-wrap">
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-5 h-5 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
-                          <Flame className="w-3 h-3 fill-amber-400" />
-                        </div>
-                        <span className="font-black text-white">
-                          {userProgress.currentStreak} Day Streak
-                        </span>
-                      </div>
-
-                      {hasCheckedInToday ? (
-                        <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-[10px] flex items-center gap-1">
-                          <Check className="w-3 h-3" />
-                          <span>Posted Today • Streak Safe</span>
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-400 font-bold text-[10px] flex items-center gap-1 animate-pulse">
-                          <Zap className="w-3 h-3" />
-                          <span>Check-in Needed Today</span>
-                        </span>
-                      )}
-                    </div>
-
-                    {/* If Group Squad Challenge, show Squad Goal Progress Bar */}
-                    {isGroup && userTeam && (
-                      <div className="p-2.5 rounded-xl bg-black/40 border border-amber-500/20 space-y-2 mt-1">
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className="font-bold text-amber-300 flex items-center gap-1">
-                            <Crown className="w-3.5 h-3.5 text-amber-400" />
-                            <span>Squad: {userTeam.name}</span>
-                          </span>
-                          <span className="text-white/80 font-mono text-[10px]">
-                            {squadTotalCheckins} / {squadGoalCheckins} receipts ({squadPercent}%)
-                          </span>
-                        </div>
-                        <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-amber-400 to-amber-200 rounded-full"
-                            style={{ width: `${Math.max(5, squadPercent)}%` }}
-                          />
-                        </div>
-                        <div className="flex items-center justify-between text-[10px] text-white/50">
-                          <span>Your check-ins: {userProgress.daysCompleted}</span>
-                          <span>{userTeam.members.length}/{challenge.teamSize || 3} members</span>
-                        </div>
-
-                        {/* Visual Progress Bar: Group Members Today Proof Submissions */}
-                        <div className="pt-2 border-t border-white/5">
-                          <ChallengeDailyProofProgressBar
-                            challengeId={challenge.id}
-                            teamId={userTeam.id}
-                            compact={true}
-                            onOpenChallenge={() => setActiveChallengeScreen(challenge)}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  /* Explore / Unjoined Challenge Cohort Momentum Bar */
-                  <div className="p-2.5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-1.5">
-                    <div className="flex items-center justify-between text-[10px] text-white/60">
-                      <span className="flex items-center gap-1">
-                        <TrendingUp className="w-3 h-3 text-[#2F6FED]" />
-                        <span>Cohort Completion Momentum</span>
-                      </span>
-                      <span className="text-[#2F6FED] font-bold">85% Active Pace</span>
-                    </div>
-                    <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-[#2F6FED]/50 to-[#2F6FED] rounded-full w-2/3" />
-                    </div>
-                  </div>
-                )}
-
-                {/* Group Challenge Squads Preview (if not joined or exploring) */}
-                {isGroup && !isJoined && challenge.teams && challenge.teams.length > 0 && (
-                  <div className="p-2.5 rounded-2xl bg-[#141414] border border-white/10 flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="flex -space-x-1.5 overflow-hidden shrink-0">
-                        {challenge.teams.slice(0, 3).map((t) => (
-                          <div
-                            key={t.id}
-                            className="w-6 h-6 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-[10px] font-bold text-[#2F6FED]"
-                          >
-                            {t.name.slice(0, 1)}
-                          </div>
-                        ))}
-                      </div>
-                      <span className="text-[11px] text-white/70 truncate">
-                        {challenge.teams.length} Squad{challenge.teams.length > 1 ? 's' : ''} competing •{' '}
-                        <strong className="text-white">
-                          {challenge.teams.reduce((acc, t) => acc + (t.totalCheckinsCount || 0), 0)} receipts
-                        </strong>
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-[#2F6FED] shrink-0 font-bold">Join a Squad →</span>
-                  </div>
-                )}
-
-                {/* Footer: Participants + Direct Challenge Invite + Join/Hub button */}
-                <div className="flex items-center justify-between pt-2 border-t border-white/10 text-xs">
-                  <div className="flex items-center gap-1.5 text-white/50">
-                    <Users className="w-3.5 h-3.5 text-[#2F6FED]" />
-                    <span className="font-bold text-white">
-                      {(challenge.participantsCount || 1).toLocaleString()}
-                    </span>
-                    <span>members {isGroup && `(${challenge.teams?.length || 0} squads)`}</span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {/* Go to Team Chat Button (for joined challenge or group challenge) */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        vibrateLight();
-                        setInitialChallengeTab('chat');
-                        setActiveChallengeScreen(challenge);
-                      }}
-                      className="px-2.5 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 hover:text-amber-200 font-bold text-[11px] transition-all flex items-center gap-1 shadow-sm shadow-amber-500/10"
-                      title="Go to Team / Squad Chat"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Team Chat</span>
-                    </button>
-
-                    {/* Direct Challenge Invite Action Button */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        vibrateLight();
-                        setInviteChallenge(challenge);
-                      }}
-                      className="px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-amber-500/40 text-white/80 hover:text-amber-400 font-bold text-[11px] transition-all flex items-center gap-1"
-                      title="Direct Challenge Invite to Friends or Squads"
-                    >
-                      <UserPlus className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Invite</span>
-                    </button>
-
-                    {!isJoined ? (
+                  {/* Primary Fast Action */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {isJoined ? (
                       <button
-                        type="button"
-                        onClick={(e) => handleToggleJoin(e, challenge.id)}
-                        className="px-3.5 py-1.5 rounded-xl bg-[#2F6FED] hover:bg-[#e5c158] text-black font-black text-xs transition-all shadow-md shadow-[#2F6FED]/20"
+                        onClick={() => {
+                          vibrateLight();
+                          setInitialChallengeTab('proofs');
+                          setActiveChallengeScreen(challenge);
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 shadow-sm ${
+                          hasCheckedInToday
+                            ? 'bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-600/40 text-emerald-700 dark:text-emerald-300'
+                            : 'bg-[#2F6FED] hover:bg-[#255bd1] text-white'
+                        }`}
                       >
-                        Join
+                        {hasCheckedInToday ? (
+                          <>
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Done</span>
+                          </>
+                        ) : (
+                          <>
+                            <Flame className="w-3.5 h-3.5 fill-current" />
+                            <span>Check In</span>
+                          </>
+                        )}
                       </button>
                     ) : (
-                      <span className="text-xs font-bold text-[#2F6FED] flex items-center gap-1 group-hover:underline">
-                        <span>Progress Hub</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </span>
+                      <button
+                        onClick={(e) => handleToggleJoin(e, challenge.id)}
+                        className="px-3 py-1.5 rounded-xl bg-[#2F6FED] hover:bg-[#255bd1] text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1"
+                      >
+                        <span>Join</span>
+                      </button>
                     )}
+
+                    {/* Bit-by-bit Toggle Button */}
+                    <button
+                      onClick={(e) => toggleExpand(e, challenge.id)}
+                      className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:text-white/40 dark:hover:text-white bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
+                      title={isExpanded ? 'Hide details' : 'Show details'}
+                      aria-label="Toggle challenge details"
+                    >
+                      {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                    </button>
                   </div>
                 </div>
+
+                {/* Progress bar if joined */}
+                {isJoined && (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-white/50">
+                      <span>Day {userProgress.daysCompleted} of {challenge.durationDays}</span>
+                      <span className="font-semibold text-slate-700 dark:text-white/80">{percent}%</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-[#2F6FED] rounded-full transition-all duration-300"
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* BIT-BY-BIT PROGRESSIVE DISCLOSURE DRAWER */}
+                {isExpanded && (
+                  <div className="pt-2 border-t border-slate-100 dark:border-white/5 space-y-3 animate-in fade-in duration-200">
+                    {/* Goal & Description */}
+                    <div className="text-xs text-slate-600 dark:text-white/70 leading-relaxed">
+                      {challenge.description || 'Commit to showing up and submitting daily proof receipts to stay accountable.'}
+                    </div>
+
+                    {/* Guidelines or Rules bit */}
+                    {challenge.rules && challenge.rules.length > 0 && (
+                      <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-100 dark:border-white/5 space-y-1">
+                        <span className="text-[10px] font-bold text-slate-500 dark:text-white/50 uppercase tracking-wider flex items-center gap-1">
+                          <ShieldCheck className="w-3 h-3 text-[#2F6FED]" />
+                          Check-in Guidelines
+                        </span>
+                        <ul className="text-xs text-slate-600 dark:text-white/70 space-y-0.5 list-disc list-inside">
+                          {challenge.rules.map((rule, rIdx) => (
+                            <li key={rIdx}>{rule}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Secondary Actions Row */}
+                    <div className="flex items-center justify-between pt-1 gap-2">
+                      <button
+                        onClick={() => {
+                          vibrateLight();
+                          setActiveChallengeScreen(challenge);
+                        }}
+                        className="flex-1 py-1.5 px-3 rounded-lg bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-white text-xs font-semibold transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <Target className="w-3.5 h-3.5 text-[#2F6FED]" />
+                        <span>Open Challenge Hub</span>
+                      </button>
+
+                      {isJoined && (
+                        <button
+                          onClick={(e) => handleToggleJoin(e, challenge.id)}
+                          className="py-1.5 px-3 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-medium transition-colors"
+                        >
+                          Leave
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })
         )}
       </div>
-
-      {/* DIRECT CHALLENGE INVITE MODAL */}
-      {inviteChallenge && (
-        <DirectChallengeInviteModal
-          isOpen={Boolean(inviteChallenge)}
-          onClose={() => setInviteChallenge(null)}
-          currentUser={currentUser}
-          initialChallengeId={inviteChallenge.id}
-        />
-      )}
 
       {/* CREATE CHALLENGE MODAL */}
       {isCreateChallengeOpen && (
@@ -593,8 +491,6 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
           onChallengeCreated={handleChallengeCreated}
         />
       )}
-
-
     </div>
   );
 };

@@ -49,23 +49,45 @@ html.light .bg-\[\#0D0D0D\],
 [data-theme="light"] .bg-\[\#0D0D0D\],
 html.light .bg-\[\#0E0E0E\],
 [data-theme="light"] .bg-\[\#0E0E0E\],
+html.light .bg-\[\#0F0F0F\],
+[data-theme="light"] .bg-\[\#0F0F0F\],
 html.light .bg-\[\#111111\],
 [data-theme="light"] .bg-\[\#111111\],
+html.light .bg-\[\#121212\],
+[data-theme="light"] .bg-\[\#121212\],
 html.light .bg-\[\#141414\],
 [data-theme="light"] .bg-\[\#141414\],
+html.light .bg-\[\#161616\],
+[data-theme="light"] .bg-\[\#161616\],
 html.light .bg-\[\#181818\],
-[data-theme="light"] .bg-\[\#181818\] {
+[data-theme="light"] .bg-\[\#181818\],
+html.light .bg-\[\#1A1A1A\],
+[data-theme="light"] .bg-\[\#1A1A1A\] {
   background-color: #ffffff !important;
   border-color: #e2e8f0 !important;
   box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.05);
 }
 
-/* Modals & Sheets */
+/* Sub-card backgrounds in light mode */
+html.light .bg-black\/40,
+[data-theme="light"] .bg-black\/40,
+html.light .bg-black\/50,
+[data-theme="light"] .bg-black\/50,
+html.light .bg-black\/60,
+[data-theme="light"] .bg-black\/60 {
+  background-color: #f8fafc !important;
+}
+
+/* Modals & Backdrop Sheets */
+html.light .bg-black\/75,
+[data-theme="light"] .bg-black\/75,
+html.light .bg-black\/80,
+[data-theme="light"] .bg-black\/80,
 html.light .bg-black\/85,
 [data-theme="light"] .bg-black\/85,
 html.light .bg-black\/90,
 [data-theme="light"] .bg-black\/90 {
-  background-color: rgba(15, 23, 42, 0.45) !important;
+  background-color: rgba(15, 23, 42, 0.5) !important;
 }
 
 /* Sticky Headers and Navigations */
@@ -110,15 +132,31 @@ html.light .text-white\/30,
   color: #94a3b8 !important;
 }
 
-/* Preserve bright text inside primary buttons and badges */
-html.light .bg-\[\#2F6FED\] .text-white,
-[data-theme="light"] .bg-\[\#2F6FED\] .text-white,
-html.light .bg-blue-600 .text-white,
-[data-theme="light"] .bg-blue-600 .text-white,
-html.light .bg-red-500 .text-white,
-[data-theme="light"] .bg-red-500 .text-white,
-html.light .bg-red-600 .text-white,
-[data-theme="light"] .bg-red-600 .text-white,
+/* Preserve bright text inside primary buttons, pills, and badges */
+html.light .bg-\[\#2F6FED\],
+[data-theme="light"] .bg-\[\#2F6FED\],
+html.light .bg-\[\#2F6FED\] *,
+[data-theme="light"] .bg-\[\#2F6FED\] *,
+html.light .bg-blue-600,
+[data-theme="light"] .bg-blue-600,
+html.light .bg-blue-600 *,
+[data-theme="light"] .bg-blue-600 *,
+html.light .bg-emerald-600,
+[data-theme="light"] .bg-emerald-600,
+html.light .bg-emerald-600 *,
+[data-theme="light"] .bg-emerald-600 *,
+html.light .bg-amber-500,
+[data-theme="light"] .bg-amber-500,
+html.light .bg-amber-500 *,
+[data-theme="light"] .bg-amber-500 *,
+html.light .bg-red-500,
+[data-theme="light"] .bg-red-500,
+html.light .bg-red-500 *,
+[data-theme="light"] .bg-red-500 *,
+html.light .bg-red-600,
+[data-theme="light"] .bg-red-600,
+html.light .bg-red-600 *,
+[data-theme="light"] .bg-red-600 *,
 html.light button.bg-\[\#2F6FED\],
 [data-theme="light"] button.bg-\[\#2F6FED\],
 html.light .btn-primary,
