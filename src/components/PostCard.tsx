@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, MessageCircle, Send, Bookmark, Flame, MoreHorizontal, Check, UserPlus, Share2, Eye, User as UserIcon, Flag, ShieldAlert, BarChart3, Trash2, AlertTriangle, X, FolderPlus, Trophy, Sparkles, Award, Crown, ChevronLeft, ChevronRight, Camera } from 'lucide-react';
+import { Heart, MessageCircle, Send, Bookmark, Flame, MoreHorizontal, Check, UserPlus, Share2, Eye, User as UserIcon, Flag, ShieldAlert, BarChart3, Trash2, AlertTriangle, X, FolderPlus, Trophy, Sparkles, Award, Crown, ChevronLeft, ChevronRight, Camera, ChevronDown, ChevronUp } from 'lucide-react';
 import { Post, User } from '../types';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
 import { handleHorizontalWheelScroll } from '../utils/scroll';
@@ -47,6 +47,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [currentPhotoIdx, setCurrentPhotoIdx] = useState(0);
+  const [isContentExpanded, setIsContentExpanded] = useState(false);
 
   // Photos attached to this post (handles single or infinite multi-photo carousel without feed spam)
   const allPhotos: string[] = post.imageUrls && post.imageUrls.length > 0
@@ -61,6 +62,25 @@ export const PostCard: React.FC<PostCardProps> = ({
     post.username === currentUser.username ||
     (currentUser.username && post.username && currentUser.username.toLowerCase() === post.username.toLowerCase());
   const isFollowing = currentUser.followedUserIds.includes(post.userId);
+
+  // Text truncation mechanism for long post content in HomeFeed
+  const CONTENT_CHAR_LIMIT = 180;
+  const isContentLong = (post.content || '').length > CONTENT_CHAR_LIMIT || (post.content || '').split('\n').length > 3;
+
+  const getTruncatedText = (text: string) => {
+    if (!text) return '';
+    const lines = text.split('\n');
+    if (lines.length > 3) {
+      const topThree = lines.slice(0, 3).join('\n');
+      if (topThree.length <= CONTENT_CHAR_LIMIT) {
+        return topThree;
+      }
+    }
+    if (text.length <= CONTENT_CHAR_LIMIT) return text;
+    const slice = text.slice(0, CONTENT_CHAR_LIMIT);
+    const lastSpace = slice.lastIndexOf(' ');
+    return (lastSpace > 60 ? slice.slice(0, lastSpace) : slice).trim();
+  };
 
   // Handle double-tap to like
   const handleDoubleTap = () => {
@@ -458,9 +478,46 @@ export const PostCard: React.FC<PostCardProps> = ({
           </div>
         )}
 
-        <p className="text-sm leading-relaxed text-white/80 break-words">
-          {post.content}
-        </p>
+        {/* Post Content with Read More Truncation Mechanism */}
+        <div className="text-sm leading-relaxed text-white/80 break-words">
+          {isContentLong && !isContentExpanded ? (
+            <p className="whitespace-pre-line">
+              <span>{getTruncatedText(post.content)}... </span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  vibrateLight();
+                  setIsContentExpanded(true);
+                }}
+                className="text-[#2F6FED] hover:text-[#4a85f6] font-bold text-xs inline-flex items-center gap-0.5 py-0.5 px-1.5 rounded-lg bg-[#2F6FED]/10 hover:bg-[#2F6FED]/20 transition-all cursor-pointer select-none"
+                aria-label="Read more of post content"
+              >
+                <span>Read more</span>
+                <ChevronDown className="w-3 h-3 stroke-[2.5]" />
+              </button>
+            </p>
+          ) : (
+            <p className="whitespace-pre-line">
+              <span>{post.content}</span>
+              {isContentLong && isContentExpanded && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    vibrateLight();
+                    setIsContentExpanded(false);
+                  }}
+                  className="text-white/40 hover:text-white/70 font-semibold text-xs inline-flex items-center gap-0.5 ml-2 py-0.5 px-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-all cursor-pointer select-none"
+                  aria-label="Show less of post content"
+                >
+                  <span>Show less</span>
+                  <ChevronUp className="w-3 h-3 stroke-[2.5]" />
+                </button>
+              )}
+            </p>
+          )}
+        </div>
 
         {/* Tags (Horizontally Scrollable) */}
         {post.tags && post.tags.length > 0 && (
