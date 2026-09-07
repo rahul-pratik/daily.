@@ -227,6 +227,13 @@ export default function App() {
 
     // Tactile haptic vibration feedback on submission
     vibratePostSubmit();
+
+    // Trigger post celebration modal (Nice Post !! Great Proofs!!)
+    setCelebrationState({
+      isOpen: true,
+      streakCount: result.updatedUser.currentStreak,
+      isNewStreakDay: result.isNewStreakDay,
+    });
   };
 
   // Append infinite photos to today's proof without feed spam
