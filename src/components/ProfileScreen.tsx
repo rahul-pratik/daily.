@@ -288,7 +288,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <span className="text-base font-black text-white group-hover:text-blue-400 transition-colors block">
               {collections.length}
             </span>
-            <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-white/40 group-hover:text-white/70 font-semibold transition-colors">Boxes</span>
+            <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-white/40 group-hover:text-white/70 font-semibold transition-colors">Collections</span>
           </button>
 
           <button
