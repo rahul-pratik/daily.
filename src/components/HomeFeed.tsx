@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Flame,
   Sparkles,
@@ -7,6 +7,8 @@ import {
   X,
   Compass,
   PlusCircle,
+  Globe,
+  ArrowUp,
 } from 'lucide-react';
 import { Post, User } from '../types';
 import { PostCard } from './PostCard';
@@ -36,7 +38,7 @@ interface HomeFeedProps {
   onOpenAddToCollection?: (post: Post) => void;
 }
 
-type FeedCategoryFilter = 'all' | 'following' | 'interests';
+type FeedCategoryFilter = 'all' | 'following' | 'interests' | 'community';
 
 export const HomeFeed: React.FC<HomeFeedProps> = ({
   posts,
@@ -61,13 +63,32 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
   const [feedFilter, setFeedFilter] = useState<FeedCategoryFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  // Monitor scroll position: button appears whenever user scrolls down more than one full viewport height
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrolled = window.scrollY || document.documentElement.scrollTop;
+      const viewportHeight = window.innerHeight;
+      setShowScrollTop(scrolled > viewportHeight);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    vibrateLight();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // Filter out blocked users & reported posts
   const unblockedPosts = posts.filter(
     (post) => !currentUser.blockedUserIds?.includes(post.userId)
   );
 
-  // Apply Primary Feed Filter ('all' vs 'following' vs 'interests')
+  // Apply Primary Feed Filter ('all' vs 'following' vs 'interests' vs 'community')
   const categoryFilteredPosts = unblockedPosts.filter((post) => {
     if (feedFilter === 'following') {
       const isSelf = post.userId === currentUser.id || post.userId === 'user_me';
@@ -82,6 +103,25 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
         userInterests.some((interest) => tag.includes(interest) || interest.includes(tag))
       );
       return hasInterestMatch;
+    }
+
+    if (feedFilter === 'community') {
+      const isCommunityPost = Boolean(
+        post.communityId ||
+        post.communityName ||
+        (post.tags &&
+          post.tags.some((t) => {
+            const lower = t.toLowerCase();
+            return (
+              lower.includes('community') ||
+              lower.includes('squad') ||
+              lower.includes('challenge') ||
+              lower.includes('club') ||
+              lower.includes('cohort')
+            );
+          }))
+      );
+      return isCommunityPost;
     }
 
     return true;
@@ -180,6 +220,22 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
             >
               <Sparkles className="w-3 h-3" />
               <span>Interests</span>
+            </button>
+
+            <button
+              onClick={() => {
+                vibrateLight();
+                setFeedFilter('community');
+                setActiveTag(null);
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
+                feedFilter === 'community'
+                  ? 'bg-[#2F6FED] text-white font-black shadow-md shadow-[#2F6FED]/20'
+                  : 'text-white/60 hover:text-white'
+              }`}
+            >
+              <Globe className="w-3 h-3" />
+              <span>Community</span>
             </button>
           </div>
 
@@ -318,6 +374,19 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
           </div>
         )}
       </div>
+
+      {/* Scroll-to-Top Floating Button */}
+      {showScrollTop && (
+        <button
+          onClick={scrollToTop}
+          id="homefeed-scroll-to-top"
+          className="fixed bottom-20 right-4 sm:right-6 z-40 p-3 rounded-full bg-[#2F6FED] hover:bg-blue-600 text-white shadow-2xl shadow-[#2F6FED]/40 border border-white/20 transition-all duration-200 hover:scale-110 active:scale-95 flex items-center justify-center animate-in fade-in slide-in-from-bottom-3"
+          title="Scroll to top"
+          aria-label="Scroll to top"
+        >
+          <ArrowUp className="w-5 h-5 stroke-[2.5]" />
+        </button>
+      )}
     </PullToRefresh>
   );
 };

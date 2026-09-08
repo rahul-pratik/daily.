@@ -178,6 +178,56 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   // Filter saved posts
   const savedPosts = posts.filter((p) => savedPostIds.includes(p.id));
 
+  // Activity Heatmap: GitHub-style 30-day posting history dot graph
+  const [hoveredDay, setHoveredDay] = useState<{
+    date: string;
+    formattedLabel: string;
+    count: number;
+    isToday: boolean;
+  } | null>(null);
+
+  const last30DaysActivity = React.useMemo(() => {
+    const days = [];
+    const now = new Date();
+
+    const postsPerDayMap: Record<string, number> = {};
+    userPosts.forEach((post) => {
+      const dateKey = post.postDate || post.createdAt?.slice(0, 10);
+      if (dateKey) {
+        postsPerDayMap[dateKey] = (postsPerDayMap[dateKey] || 0) + 1;
+      }
+    });
+
+    if (Array.isArray(currentUser.activityDates)) {
+      currentUser.activityDates.forEach((dateKey) => {
+        if (!postsPerDayMap[dateKey]) {
+          postsPerDayMap[dateKey] = 1;
+        }
+      });
+    }
+
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const isoDate = d.toISOString().slice(0, 10);
+      const count = postsPerDayMap[isoDate] || 0;
+      const formattedLabel = d.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      });
+      days.push({
+        date: isoDate,
+        formattedLabel,
+        count,
+        isToday: i === 0,
+      });
+    }
+    return days;
+  }, [userPosts, currentUser.activityDates]);
+
+  const activeDaysCount = last30DaysActivity.filter((d) => d.count > 0).length;
+  const totalProofsLast30Days = last30DaysActivity.reduce((sum, d) => sum + d.count, 0);
+
   // Collections
   const collections = currentUser.proofCollections || [];
   const selectedCollection = collections.find((c) => c.id === selectedCollectionId);
@@ -360,6 +410,90 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             ))}
           </div>
         )}
+
+        {/* Activity Heatmap: GitHub-style 30-Day Posting Dot Graph */}
+        <div className="mt-4 pt-3.5 border-t border-white/5 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Activity className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-[11px] font-bold text-white/90 tracking-wide">
+                Posting Activity
+              </span>
+              <span className="text-[10px] text-white/40 font-medium">
+                (Last 30 Days)
+              </span>
+            </div>
+            <span className="text-[10px] font-mono text-emerald-400/90 font-bold">
+              {activeDaysCount}/30 active days • {totalProofsLast30Days} proofs
+            </span>
+          </div>
+
+          {/* GitHub-style Dot Grid */}
+          <div className="bg-black/30 rounded-2xl border border-white/10 p-3 space-y-2">
+            {/* Dots matrix: 30 days in a clean 10x3 scannable grid */}
+            <div className="grid grid-cols-10 gap-1.5 sm:gap-2">
+              {last30DaysActivity.map((day) => {
+                let dotStyle = 'bg-white/10 border-white/5 hover:border-white/30';
+                if (day.count === 1) {
+                  dotStyle = 'bg-emerald-500/70 border-emerald-400/80 shadow-sm shadow-emerald-500/20';
+                } else if (day.count >= 2) {
+                  dotStyle = 'bg-emerald-400 border-emerald-300 shadow-md shadow-emerald-400/30 font-bold';
+                }
+
+                return (
+                  <button
+                    key={day.date}
+                    type="button"
+                    onMouseEnter={() => setHoveredDay(day)}
+                    onMouseLeave={() => setHoveredDay(null)}
+                    onClick={() => {
+                      vibrateLight();
+                      setHoveredDay(day);
+                    }}
+                    className={`group relative aspect-square rounded-md border transition-all duration-150 flex items-center justify-center ${dotStyle} ${
+                      day.isToday ? 'ring-1 ring-white/60' : ''
+                    }`}
+                    title={`${day.formattedLabel}: ${day.count} ${day.count === 1 ? 'proof' : 'proofs'} posted`}
+                    aria-label={`${day.formattedLabel}: ${day.count} proofs`}
+                  >
+                    {day.count > 1 && (
+                      <span className="text-[7px] font-mono text-black font-black leading-none">
+                        {day.count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Hover Tooltip or Default Legend */}
+            <div className="flex items-center justify-between pt-1 border-t border-white/5 text-[10px] text-white/50">
+              {hoveredDay ? (
+                <div className="font-mono text-white text-[11px] flex items-center gap-1.5 animate-in fade-in duration-150">
+                  <span className="font-bold text-emerald-300">{hoveredDay.formattedLabel}:</span>
+                  <span>{hoveredDay.count} {hoveredDay.count === 1 ? 'proof' : 'proofs'} posted</span>
+                  {hoveredDay.isToday && <span className="text-amber-400 font-bold">(Today)</span>}
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[9px] uppercase tracking-wider text-white/40">Consistency</span>
+                  <span className="text-white/70 font-mono font-medium">
+                    {Math.round((activeDaysCount / 30) * 100)}% rate
+                  </span>
+                </div>
+              )}
+
+              {/* GitHub Dot Legend */}
+              <div className="flex items-center gap-1 text-[9px] text-white/40 font-mono">
+                <span>Less</span>
+                <span className="w-2 h-2 rounded-[2px] bg-white/10 border border-white/5 inline-block" />
+                <span className="w-2 h-2 rounded-[2px] bg-emerald-500/70 border border-emerald-400/80 inline-block" />
+                <span className="w-2 h-2 rounded-[2px] bg-emerald-400 border border-emerald-300 inline-block" />
+                <span>More</span>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Primary Action Button: Edit Profile */}
         <div className="mt-4 pt-3 border-t border-white/5">

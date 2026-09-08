@@ -23,6 +23,7 @@ import {
   Globe,
   Layers,
   ArrowRight,
+  ArrowLeft,
   PlusCircle,
   FileText,
   Calendar,
@@ -32,12 +33,18 @@ import {
   Plus,
   Crop,
   Images,
+  RotateCcw,
+  Maximize2,
+  Minimize2,
+  ZoomIn,
+  Sliders,
+  Square,
 } from 'lucide-react';
 import { User, Post, Community, PostDraft } from '../types';
 import { getTodayDateString, DailyStorageService } from '../services/storage';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
 import { CollabCollageStudio } from './CollabCollageStudio';
-import { cropAndCompressImage, AspectRatioType } from '../utils/imageCompressor';
+import { cropAndCompressImage, AspectRatioType, SquareCropOptions } from '../utils/imageCompressor';
 
 interface CreatePostModalProps {
   isOpen: boolean;
@@ -173,10 +180,19 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const [lastAutoSaveTime, setLastAutoSaveTime] = useState<number | null>(null);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Aspect-ratio & photo preview state
+  // Aspect-ratio & photo preview state (strictly focused on 1:1 square crop options per Instagram standard)
   const [aspectRatio, setAspectRatio] = useState<AspectRatioType>('square');
   const [activePreviewIdx, setActivePreviewIdx] = useState<number>(0);
   const [isProcessingImages, setIsProcessingImages] = useState<boolean>(false);
+
+  // Instagram-style 1:1 Crop Studio state (matching user's provided Instagram photo)
+  const [isInstagramCropModalOpen, setIsInstagramCropModalOpen] = useState(false);
+  const [cropMode, setCropMode] = useState<'fill' | 'fit'>('fill');
+  const [cropZoom, setCropZoom] = useState(1.0);
+  const [cropPanX, setCropPanX] = useState(0); // -1 (left) to 1 (right)
+  const [cropPanY, setCropPanY] = useState(0); // -1 (top) to 1 (bottom)
+  const [isCropAdjustOpen, setIsCropAdjustOpen] = useState(false);
+  const [hasStoredLastDraft, setHasStoredLastDraft] = useState(false);
 
   // Scheduling State
   const [isScheduleMode, setIsScheduleMode] = useState<boolean>(initialIsScheduled || false);
@@ -369,6 +385,69 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     isCollageGenerated,
     savedAt: Date.now(),
   });
+
+  // Check if a saved last_draft exists in localStorage to show the 'Restore last draft' option
+  useEffect(() => {
+    if (isOpen) {
+      try {
+        const raw = localStorage.getItem(LAST_DRAFT_STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          const hasDraftContent = Boolean(
+            parsed &&
+            ((parsed.content && parsed.content.trim().length > 0) ||
+              (parsed.imageUrl && parsed.imageUrl.trim().length > 0) ||
+              (Array.isArray(parsed.imageUrls) && parsed.imageUrls.length > 0) ||
+              (Array.isArray(parsed.photoCaptions) && parsed.photoCaptions.some((c: string) => c && c.trim().length > 0)))
+          );
+          setHasStoredLastDraft(hasDraftContent);
+        } else {
+          setHasStoredLastDraft(false);
+        }
+      } catch {
+        setHasStoredLastDraft(false);
+      }
+    }
+  }, [isOpen]);
+
+  // Explicitly restore last draft from localStorage
+  const handleExplicitRestoreLastDraft = () => {
+    try {
+      const raw = localStorage.getItem(LAST_DRAFT_STORAGE_KEY);
+      if (!raw) {
+        showToast('No saved draft found in local storage.');
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      if (parsed.content !== undefined) setContent(parsed.content || '');
+      const list = Array.isArray(parsed.imageUrls) && parsed.imageUrls.length > 0
+        ? parsed.imageUrls
+        : parsed.imageUrl
+        ? [parsed.imageUrl]
+        : [];
+      setImageUrls(list);
+      setImageUrl(list[0] || parsed.imageUrl || '');
+      if (Array.isArray(parsed.photoCaptions)) {
+        setPhotoCaptions(parsed.photoCaptions);
+      }
+      if (Array.isArray(parsed.selectedTags) && parsed.selectedTags.length > 0) {
+        setSelectedTags(parsed.selectedTags);
+      }
+      if (parsed.scheduledDateTime) {
+        setScheduledDateTime(parsed.scheduledDateTime);
+        setIsScheduleMode(Boolean(parsed.isScheduleMode));
+      }
+      if (parsed.isCollageGenerated) {
+        setIsCollageGenerated(true);
+      }
+      vibrateLight();
+      setDraftRestored(true);
+      showToast('Last draft restored successfully! ✓');
+    } catch (err) {
+      console.error('Error restoring last draft:', err);
+      showToast('Failed to restore draft.');
+    }
+  };
 
   // Periodic auto-save mechanism that persists current form state to localStorage as 'last_draft'
   useEffect(() => {
@@ -602,25 +681,32 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     }
   };
 
-  const handleApplyAspectRatioToAll = async (targetRatio: AspectRatioType) => {
+  const handleApply11CropToAll = async (targetMode: 'fill' | 'fit' = cropMode) => {
     if (imageUrls.length === 0) return;
-    setAspectRatio(targetRatio);
+    setCropMode(targetMode);
     setIsProcessingImages(true);
     vibrateLight();
     showToast(
-      `Fitting all ${imageUrls.length} photos to ${
-        targetRatio === 'square' ? '1:1 square' : targetRatio === '4:5' ? '4:5 portrait' : 'standard'
-      } format...`
+      `Formatting all ${imageUrls.length} photos into 1:1 ${
+        targetMode === 'fit' ? 'Fit (letterbox)' : 'Fill'
+      } square format...`
     );
     try {
       const updated = await Promise.all(
-        imageUrls.map((url) => cropAndCompressImage(url, targetRatio))
+        imageUrls.map((url) =>
+          cropAndCompressImage(url, 'square', 1000, 0.80, {
+            mode: targetMode,
+            zoom: 1.0,
+            panX: 0,
+            panY: 0,
+          })
+        )
       );
       setImageUrls(updated);
       setImageUrl(updated[0] || '');
       showToast(
-        `All ${updated.length} photos cropped to ${
-          targetRatio === 'square' ? '1:1 square' : targetRatio === '4:5' ? '4:5 portrait' : 'standard'
+        `All ${updated.length} photos cropped to 1:1 ${
+          targetMode === 'fit' ? 'Fit' : 'Fill'
         } feed format! ✓`
       );
     } catch (err) {
@@ -631,13 +717,24 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     }
   };
 
-  const handleCropCurrentPhoto = async (targetRatio: AspectRatioType, indexToCrop?: number) => {
+  const handleCropCurrentPhoto = async (targetMode: 'fill' | 'fit' = cropMode, indexToCrop?: number) => {
     const targetIdx = indexToCrop !== undefined ? indexToCrop : activePreviewIdx;
     if (!imageUrls[targetIdx]) return;
     setIsProcessingImages(true);
     vibrateLight();
     try {
-      const cropped = await cropAndCompressImage(imageUrls[targetIdx], targetRatio);
+      const cropped = await cropAndCompressImage(
+        imageUrls[targetIdx],
+        'square',
+        1000,
+        0.80,
+        {
+          mode: targetMode,
+          zoom: targetMode === 'fill' ? cropZoom : 1.0,
+          panX: targetMode === 'fill' ? cropPanX : 0,
+          panY: targetMode === 'fill' ? cropPanY : 0,
+        }
+      );
       setImageUrls((prev) => {
         const copy = [...prev];
         copy[targetIdx] = cropped;
@@ -647,13 +744,47 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
         return copy;
       });
       showToast(
-        `Photo #${targetIdx + 1} cropped to ${
-          targetRatio === 'square' ? '1:1' : targetRatio === '4:5' ? '4:5' : 'original'
-        }!`
+        `Photo #${targetIdx + 1} cropped to 1:1 ${targetMode === 'fit' ? 'Fit' : 'Fill'} square!`
       );
     } catch (err) {
       console.error('Failed to crop photo:', err);
       showToast('Crop failed.');
+    } finally {
+      setIsProcessingImages(false);
+    }
+  };
+
+  const handleApplyInstagramCrop = async (targetIdx?: number) => {
+    const idx = targetIdx !== undefined ? targetIdx : activePreviewIdx;
+    if (!imageUrls[idx]) return;
+    setIsProcessingImages(true);
+    vibrateLight();
+    try {
+      const cropped = await cropAndCompressImage(
+        imageUrls[idx],
+        'square',
+        1000,
+        0.80,
+        {
+          mode: cropMode,
+          zoom: cropMode === 'fill' ? cropZoom : 1.0,
+          panX: cropMode === 'fill' ? cropPanX : 0,
+          panY: cropMode === 'fill' ? cropPanY : 0,
+        }
+      );
+      setImageUrls((prev) => {
+        const copy = [...prev];
+        copy[idx] = cropped;
+        if (idx === 0) {
+          setImageUrl(cropped);
+        }
+        return copy;
+      });
+      setIsInstagramCropModalOpen(false);
+      showToast(`Photo #${idx + 1} cropped to 1:1 square (${cropMode === 'fit' ? 'Fit' : `${cropZoom.toFixed(1)}x Zoom`})! ✓`);
+    } catch (err) {
+      console.error('Failed to apply 1:1 crop:', err);
+      showToast('Failed to apply crop.');
     } finally {
       setIsProcessingImages(false);
     }
@@ -907,8 +1038,22 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               </div>
             </div>
 
-            {/* Auto-save status indicator & Close button */}
+            {/* Auto-save status indicator, Restore last draft, & Close button */}
             <div className="flex items-center gap-2">
+              {/* Restore last draft option */}
+              {hasStoredLastDraft && (
+                <button
+                  type="button"
+                  onClick={handleExplicitRestoreLastDraft}
+                  id="restore-last-draft-header-btn"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#2F6FED]/20 hover:bg-[#2F6FED]/35 border border-[#2F6FED]/50 text-blue-200 hover:text-white text-[11px] font-bold transition-all shadow-sm active:scale-95"
+                  title="Resume previously saved progress from local storage"
+                >
+                  <RotateCcw className="w-3 h-3 text-[#2F6FED]" />
+                  <span>Restore last draft</span>
+                </button>
+              )}
+
               {isAutoSaving ? (
                 <div
                   id="autosave-status-saving"
@@ -980,118 +1125,168 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                   </div>
                 </div>
 
-                {/* Aspect-Ratio Cropping Tool & Active Preview (Shown when photos are attached) */}
+                {/* Instagram-style 1:1 Square Cropping Tool & Active Preview (Shown when photos are attached) */}
                 {imageUrls.length > 0 && (
-                  <div className="space-y-2 rounded-2xl bg-black/40 border border-white/15 p-3">
-                    {/* Aspect Ratio Toolbar */}
+                  <div className="space-y-2.5 rounded-2xl bg-black/40 border border-white/15 p-3">
+                    {/* 1:1 Crop Options Toolbar */}
                     <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-white/10">
                       <div className="flex items-center gap-1.5 text-xs text-white/80 font-medium">
                         <Crop className="w-3.5 h-3.5 text-[#2F6FED]" />
-                        <span className="text-[11px] font-bold">Feed Format:</span>
+                        <span className="text-[11px] font-bold">1:1 Crop:</span>
                         <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/10">
+                          {/* 1:1 Fill Square Button */}
                           <button
                             type="button"
                             onClick={() => {
                               vibrateLight();
-                              setAspectRatio('square');
-                              handleCropCurrentPhoto('square');
+                              setCropMode('fill');
+                              handleCropCurrentPhoto('fill');
                             }}
                             className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${
-                              aspectRatio === 'square'
+                              cropMode === 'fill'
                                 ? 'bg-[#2F6FED] text-white shadow-sm'
                                 : 'text-white/60 hover:text-white'
                             }`}
-                            title="Feed square 1:1 format"
+                            title="1:1 Fill square crop format"
                           >
-                            1:1 Square
+                            1:1 Fill
                           </button>
+
+                          {/* 1:1 Fit (Letterbox) Button */}
                           <button
                             type="button"
                             onClick={() => {
                               vibrateLight();
-                              setAspectRatio('4:5');
-                              handleCropCurrentPhoto('4:5');
+                              setCropMode('fit');
+                              handleCropCurrentPhoto('fit');
                             }}
                             className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${
-                              aspectRatio === '4:5'
+                              cropMode === 'fit'
                                 ? 'bg-[#2F6FED] text-white shadow-sm'
                                 : 'text-white/60 hover:text-white'
                             }`}
-                            title="Feed vertical portrait 4:5 format"
+                            title="1:1 Fit whole photo inside 1:1 square"
                           >
-                            4:5 Portrait
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              vibrateLight();
-                              setAspectRatio('original');
-                              handleCropCurrentPhoto('original');
-                            }}
-                            className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${
-                              aspectRatio === 'original'
-                                ? 'bg-[#2F6FED] text-white shadow-sm'
-                                : 'text-white/60 hover:text-white'
-                            }`}
-                            title="Standard scaled aspect ratio"
-                          >
-                            Original
+                            1:1 Fit
                           </button>
                         </div>
+
+                        {/* Open Instagram Crop Studio Button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            vibrateLight();
+                            setIsInstagramCropModalOpen(true);
+                          }}
+                          className="px-2.5 py-1 text-[11px] font-bold rounded-xl bg-gradient-to-r from-[#2F6FED] to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-md shadow-[#2F6FED]/20 flex items-center gap-1.5 transition-all"
+                          title="Open Instagram-style 1:1 Crop Studio with Zoom, Pan, and Grid"
+                        >
+                          <Sliders className="w-3 h-3" />
+                          <span>Instagram Crop Studio</span>
+                        </button>
                       </div>
 
-                      {/* Apply to All Photos Button */}
+                      {/* Apply 1:1 to All Photos Button */}
                       {imageUrls.length > 1 && (
                         <button
                           type="button"
-                          onClick={() => handleApplyAspectRatioToAll(aspectRatio)}
+                          onClick={() => handleApply11CropToAll(cropMode)}
                           disabled={isProcessingImages}
                           className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/15 transition-all flex items-center gap-1 disabled:opacity-50"
-                          title={`Crop all ${imageUrls.length} photos to fit the ${aspectRatio} format`}
+                          title={`Crop all ${imageUrls.length} photos into 1:1 ${cropMode === 'fit' ? 'Fit' : 'Fill'} square`}
                         >
                           <Sparkles className="w-3 h-3 text-amber-400" />
-                          <span>Fit all {imageUrls.length} photos ({aspectRatio === 'square' ? '1:1' : aspectRatio === '4:5' ? '4:5' : 'std'})</span>
+                          <span>Fit all {imageUrls.length} photos (1:1)</span>
                         </button>
                       )}
                     </div>
 
-                    {/* Image Preview with Aspect Ratio Frame */}
-                    <div
-                      className={`relative w-full max-h-[360px] mx-auto rounded-xl overflow-hidden bg-black flex items-center justify-center border border-white/10 ${
-                        aspectRatio === 'square'
-                          ? 'aspect-square'
-                          : aspectRatio === '4:5'
-                          ? 'aspect-[4/5]'
-                          : 'aspect-[4/3] sm:aspect-[16/10]'
-                      }`}
-                    >
-                      <img
-                        src={imageUrls[activePreviewIdx] || imageUrls[0]}
-                        alt={`Preview photo ${activePreviewIdx + 1}`}
-                        className="w-full h-full object-cover"
-                      />
+                    {/* Image Preview with 1:1 Aspect Ratio Frame (Instagram Viewport) */}
+                    <div className="relative w-full max-h-[360px] aspect-square mx-auto rounded-xl overflow-hidden bg-black flex items-center justify-center border border-white/15 shadow-inner">
+                      <div
+                        className={`w-full h-full flex items-center justify-center overflow-hidden ${
+                          cropMode === 'fit' ? 'p-2' : ''
+                        }`}
+                      >
+                        <img
+                          src={imageUrls[activePreviewIdx] || imageUrls[0]}
+                          alt={`Preview photo ${activePreviewIdx + 1}`}
+                          className={`transition-all duration-150 ${
+                            cropMode === 'fit'
+                              ? 'max-w-full max-h-full object-contain'
+                              : 'w-full h-full object-cover'
+                          }`}
+                        />
+                      </div>
 
-                      {/* Header Badge & Navigation */}
+                      {/* Header Badge: Photo index and 1:1 Mode */}
                       <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
                         <span className="px-2 py-0.5 rounded-full bg-black/80 border border-white/20 text-[10px] font-mono font-bold text-white">
                           Photo {activePreviewIdx + 1} of {imageUrls.length}
                         </span>
                         <span className="px-2 py-0.5 rounded-full bg-[#2F6FED]/80 border border-white/20 text-[10px] font-mono font-bold text-white">
-                          {aspectRatio === 'square' ? '1:1 Square' : aspectRatio === '4:5' ? '4:5 Portrait' : 'Original'}
+                          1:1 {cropMode === 'fit' ? 'Fit' : 'Square'}
                         </span>
                       </div>
 
-                      {/* Quick Single Crop Button in Preview */}
-                      <button
-                        type="button"
-                        onClick={() => handleCropCurrentPhoto(aspectRatio)}
-                        disabled={isProcessingImages}
-                        className="absolute top-2.5 right-2.5 px-2 py-1 rounded-lg bg-black/75 hover:bg-black text-white border border-white/20 text-[10px] font-bold flex items-center gap-1"
-                        title="Crop current photo to selected aspect ratio"
-                      >
-                        <Crop className="w-3 h-3 text-[#2F6FED]" />
-                        <span>Re-crop #{activePreviewIdx + 1}</span>
-                      </button>
+                      {/* Instagram-style Bottom-Left Controls: ⛶ (Fit/Fill toggle) and 🔍 (Crop Studio) */}
+                      <div className="absolute bottom-3 left-3 flex items-center gap-2 z-20">
+                        {/* ⛶ Fit/Fill Toggle */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            vibrateLight();
+                            const newMode = cropMode === 'fill' ? 'fit' : 'fill';
+                            setCropMode(newMode);
+                            handleCropCurrentPhoto(newMode);
+                          }}
+                          className={`p-2 rounded-full backdrop-blur-md border transition-all ${
+                            cropMode === 'fit'
+                              ? 'bg-[#2F6FED] text-white border-blue-400 shadow-md'
+                              : 'bg-black/70 text-white/90 border-white/20 hover:bg-black/90'
+                          }`}
+                          title={cropMode === 'fill' ? 'Switch to 1:1 Fit (letterbox)' : 'Switch to 1:1 Fill'}
+                          aria-label="Toggle Fit / Fill"
+                        >
+                          {cropMode === 'fit' ? (
+                            <Minimize2 className="w-3.5 h-3.5 stroke-[2.5]" />
+                          ) : (
+                            <Maximize2 className="w-3.5 h-3.5 stroke-[2.5]" />
+                          )}
+                        </button>
+
+                        {/* 🔍 Open Instagram Crop Studio */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            vibrateLight();
+                            setIsInstagramCropModalOpen(true);
+                          }}
+                          className="p-2 rounded-full bg-black/70 hover:bg-black/90 text-white/90 border border-white/20 backdrop-blur-md transition-all shadow-md"
+                          title="Open Instagram 1:1 Crop Studio with Zoom & Pan"
+                          aria-label="Crop Studio"
+                        >
+                          <ZoomIn className="w-3.5 h-3.5 stroke-[2.5]" />
+                        </button>
+                      </div>
+
+                      {/* Instagram-style Bottom-Right Control: Multi-Photo Indicator */}
+                      {imageUrls.length > 1 && (
+                        <div className="absolute bottom-3 right-3 z-20">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              vibrateLight();
+                              setActivePreviewIdx((prev) => (prev + 1) % imageUrls.length);
+                            }}
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-white text-[10px] font-mono font-bold hover:bg-black/90 transition-all"
+                            title="Cycle to next photo"
+                          >
+                            <Layers className="w-3 h-3 text-[#2F6FED]" />
+                            <span>{activePreviewIdx + 1}/{imageUrls.length}</span>
+                          </button>
+                        </div>
+                      )}
 
                       {/* Arrows if multiple photos */}
                       {imageUrls.length > 1 && (
@@ -1242,9 +1437,9 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                                 <div className="flex items-center gap-1">
                                   <button
                                     type="button"
-                                    onClick={() => handleCropCurrentPhoto(aspectRatio, idx)}
+                                    onClick={() => handleCropCurrentPhoto(cropMode, idx)}
                                     className="px-2 py-0.5 rounded-lg text-[10px] font-semibold text-white/60 hover:text-white hover:bg-white/10 transition-colors flex items-center gap-1"
-                                    title={`Crop this photo to ${aspectRatio}`}
+                                    title={`Crop this photo to 1:1 ${cropMode === 'fit' ? 'Fit' : 'Fill'}`}
                                   >
                                     <Crop className="w-3 h-3" />
                                     <span>Crop</span>
@@ -1543,6 +1738,253 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
           onClose={() => setIsCollageStudioOpen(false)}
           onApplyCollage={handleApplyStitchedCollage}
         />
+      )}
+
+      {/* Instagram 1:1 Crop Studio Modal (Matching the exact Instagram crop interface) */}
+      {isInstagramCropModalOpen && imageUrls[activePreviewIdx] && (
+        <div className="fixed inset-0 z-[60] bg-black flex flex-col justify-between animate-in fade-in duration-200">
+          {/* Top Navigation Bar: [← Back]  [Crop]  [Next (Blue)] */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-[#0a0a0c]">
+            <button
+              type="button"
+              onClick={() => setIsInstagramCropModalOpen(false)}
+              className="p-2 text-white/80 hover:text-white rounded-full transition-colors flex items-center gap-1.5"
+              aria-label="Back to post"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+
+            <h3 className="text-sm font-black text-white tracking-wide">
+              Crop
+            </h3>
+
+            <button
+              type="button"
+              onClick={() => handleApplyInstagramCrop(activePreviewIdx)}
+              disabled={isProcessingImages}
+              className="px-4 py-1.5 rounded-lg bg-[#2F6FED] hover:bg-blue-600 text-white font-black text-xs tracking-wider transition-all shadow-md shadow-[#2F6FED]/30 disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
+
+          {/* 1:1 Square Cropping Viewport */}
+          <div className="flex-1 flex items-center justify-center p-3 sm:p-6 bg-[#050507]">
+            <div className="relative w-full max-w-[420px] aspect-square bg-[#0c0c10] rounded-2xl overflow-hidden border border-white/15 shadow-2xl flex items-center justify-center select-none">
+              {/* Image inside 1:1 frame */}
+              <div
+                className={`w-full h-full flex items-center justify-center overflow-hidden relative ${
+                  cropMode === 'fit' ? 'p-3' : ''
+                }`}
+              >
+                <img
+                  src={imageUrls[activePreviewIdx]}
+                  alt="Crop active photo"
+                  className={`select-none pointer-events-none transition-transform duration-100 ease-out ${
+                    cropMode === 'fit'
+                      ? 'max-w-full max-h-full object-contain'
+                      : 'w-full h-full object-cover'
+                  }`}
+                  style={
+                    cropMode === 'fill'
+                      ? {
+                          transform: `scale(${cropZoom}) translate(${cropPanX * 16}%, ${cropPanY * 16}%)`,
+                        }
+                      : {}
+                  }
+                />
+              </div>
+
+              {/* Instagram 3x3 Rule-of-Thirds Grid Overlay */}
+              {isCropAdjustOpen && (
+                <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none border border-white/20">
+                  <div className="border-r border-b border-white/15" />
+                  <div className="border-r border-b border-white/15" />
+                  <div className="border-b border-white/15" />
+                  <div className="border-r border-b border-white/15" />
+                  <div className="border-r border-b border-white/15" />
+                  <div className="border-b border-white/15" />
+                  <div className="border-r border-white/15" />
+                  <div className="border-r border-white/15" />
+                  <div />
+                </div>
+              )}
+
+              {/* Instagram Bottom-Left Buttons: ⛶ (Fit/Fill toggle) & 🔍 (Zoom/Pan toggle) */}
+              <div className="absolute bottom-3.5 left-3.5 flex items-center gap-2.5 z-20">
+                {/* Fit / Fill toggle button (⛶) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    vibrateLight();
+                    setCropMode((prev) => (prev === 'fill' ? 'fit' : 'fill'));
+                  }}
+                  className={`p-2.5 rounded-full backdrop-blur-md border transition-all ${
+                    cropMode === 'fit'
+                      ? 'bg-[#2F6FED] text-white border-blue-400 shadow-lg shadow-[#2F6FED]/40'
+                      : 'bg-black/60 text-white/90 border-white/25 hover:bg-black/80'
+                  }`}
+                  title={cropMode === 'fill' ? 'Switch to Fit (Letterbox whole photo in 1:1)' : 'Switch to Fill (Full 1:1 square crop)'}
+                  aria-label="Toggle Fit / Fill"
+                >
+                  {cropMode === 'fit' ? (
+                    <Minimize2 className="w-4 h-4 stroke-[2.5]" />
+                  ) : (
+                    <Maximize2 className="w-4 h-4 stroke-[2.5]" />
+                  )}
+                </button>
+
+                {/* Zoom / Pan Adjustment button (🔍) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    vibrateLight();
+                    setIsCropAdjustOpen((prev) => !prev);
+                  }}
+                  className={`p-2.5 rounded-full backdrop-blur-md border transition-all ${
+                    isCropAdjustOpen
+                      ? 'bg-[#2F6FED] text-white border-blue-400 shadow-lg shadow-[#2F6FED]/40'
+                      : 'bg-black/60 text-white/90 border-white/25 hover:bg-black/80'
+                  }`}
+                  title="Adjust 1:1 Zoom and Pan alignment"
+                  aria-label="Zoom and pan alignment"
+                >
+                  <ZoomIn className="w-4 h-4 stroke-[2.5]" />
+                </button>
+              </div>
+
+              {/* Instagram Bottom-Right Button: Multi-Photo Navigator (❐) */}
+              <div className="absolute bottom-3.5 right-3.5 z-20">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-white text-xs font-mono font-bold">
+                  <Layers className="w-3.5 h-3.5 text-[#2F6FED]" />
+                  <span>{activePreviewIdx + 1}/{imageUrls.length}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Controls / Multi-photo Tray & Adjustments */}
+          <div className="p-4 bg-[#0a0a0c] border-t border-white/10 space-y-3.5">
+            {/* Zoom & Pan Controls (when isCropAdjustOpen is true) */}
+            {isCropAdjustOpen && cropMode === 'fill' && (
+              <div className="p-3 bg-white/5 border border-white/10 rounded-2xl space-y-2.5 animate-in slide-in-from-bottom-2">
+                {/* Zoom Slider */}
+                <div className="flex items-center justify-between text-xs text-white/80">
+                  <span className="font-bold">Zoom: {cropZoom.toFixed(1)}x</span>
+                  <div className="flex items-center gap-1">
+                    {[1.0, 1.25, 1.5, 2.0].map((z) => (
+                      <button
+                        key={z}
+                        type="button"
+                        onClick={() => setCropZoom(z)}
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          Math.abs(cropZoom - z) < 0.05
+                            ? 'bg-[#2F6FED] text-white'
+                            : 'bg-white/10 text-white/70 hover:bg-white/20'
+                        }`}
+                      >
+                        {z}x
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <input
+                  type="range"
+                  min="1"
+                  max="2.5"
+                  step="0.05"
+                  value={cropZoom}
+                  onChange={(e) => setCropZoom(parseFloat(e.target.value))}
+                  className="w-full accent-[#2F6FED]"
+                />
+
+                {/* Pan X and Pan Y Controls */}
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <div className="flex justify-between text-[10px] text-white/60 mb-1 font-medium">
+                      <span>Horizontal Pan</span>
+                      <span>{cropPanX < -0.1 ? 'Left' : cropPanX > 0.1 ? 'Right' : 'Center'}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="-1"
+                      max="1"
+                      step="0.1"
+                      value={cropPanX}
+                      onChange={(e) => setCropPanX(parseFloat(e.target.value))}
+                      className="w-full accent-[#2F6FED]"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-[10px] text-white/60 mb-1 font-medium">
+                      <span>Vertical Pan</span>
+                      <span>{cropPanY < -0.1 ? 'Top' : cropPanY > 0.1 ? 'Bottom' : 'Center'}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="-1"
+                      max="1"
+                      step="0.1"
+                      value={cropPanY}
+                      onChange={(e) => setCropPanY(parseFloat(e.target.value))}
+                      className="w-full accent-[#2F6FED]"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Photo Thumbnail Strip (Instagram Multi-select) */}
+            {imageUrls.length > 1 && (
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+                {imageUrls.map((url, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setActivePreviewIdx(idx)}
+                    className={`relative w-14 h-14 rounded-lg overflow-hidden border-2 shrink-0 transition-all ${
+                      activePreviewIdx === idx
+                        ? 'border-[#2F6FED] scale-105 shadow-md shadow-[#2F6FED]/40'
+                        : 'border-white/20 opacity-60 hover:opacity-100'
+                    }`}
+                  >
+                    <img src={url} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover" />
+                    <span className="absolute bottom-0.5 right-0.5 bg-black/80 px-1 text-[9px] font-mono font-bold text-white rounded">
+                      {idx + 1}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => handleApplyInstagramCrop(activePreviewIdx)}
+                disabled={isProcessingImages}
+                className="flex-1 py-2.5 rounded-xl bg-[#2F6FED] hover:bg-blue-600 text-white text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-md shadow-[#2F6FED]/30"
+              >
+                <Check className="w-4 h-4" />
+                <span>Apply 1:1 Crop to Photo #{activePreviewIdx + 1}</span>
+              </button>
+
+              {imageUrls.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleApply11CropToAll(cropMode);
+                    setIsInstagramCropModalOpen(false);
+                  }}
+                  disabled={isProcessingImages}
+                  className="px-3.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-all whitespace-nowrap border border-white/15"
+                >
+                  Apply to All ({imageUrls.length})
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
