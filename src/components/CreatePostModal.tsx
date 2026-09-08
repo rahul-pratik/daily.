@@ -1038,8 +1038,23 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               </div>
             </div>
 
-            {/* Auto-save status indicator, Restore last draft, & Close button */}
+            {/* Auto-save status indicator, Crop all to 1:1, Restore last draft, & Close button */}
             <div className="flex items-center gap-2">
+              {/* Batch-apply 1:1 Crop to all photos when multiple photos are selected */}
+              {imageUrls.length > 1 && (
+                <button
+                  type="button"
+                  id="header-crop-all-to-11-btn"
+                  onClick={() => handleApply11CropToAll('fill')}
+                  disabled={isProcessingImages}
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#2F6FED] hover:bg-blue-600 text-white text-[11px] font-bold transition-all shadow-md shadow-[#2F6FED]/25 active:scale-95 disabled:opacity-50"
+                  title="Quickly batch-apply 1:1 square aspect ratio to all uploaded images"
+                >
+                  <Crop className="w-3.5 h-3.5" />
+                  <span>Crop all to 1:1</span>
+                </button>
+              )}
+
               {/* Restore last draft option */}
               {hasStoredLastDraft && (
                 <button
@@ -1401,7 +1416,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                         >
                           <div className="flex items-start gap-3">
                             {/* Thumbnail Preview */}
-                            <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border border-white/15 bg-black shrink-0">
+                            <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border border-white/15 bg-black shrink-0 group/thumb">
                               <img
                                 src={img}
                                 alt={`photo-${idx + 1}`}
@@ -1414,6 +1429,22 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                               {activePreviewIdx === idx && (
                                 <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#2F6FED] ring-2 ring-white" />
                               )}
+
+                              {/* Hover & Mobile Crop button directly on the thumbnail */}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  vibrateLight();
+                                  setActivePreviewIdx(idx);
+                                  setIsInstagramCropModalOpen(true);
+                                }}
+                                className="absolute inset-x-0 bottom-0 bg-black/85 hover:bg-[#2F6FED] text-white text-[9px] font-bold py-1 flex items-center justify-center gap-1 transition-all z-10"
+                                title="Open 1:1 square cropper overlay"
+                              >
+                                <Crop className="w-2.5 h-2.5" />
+                                <span>Crop</span>
+                              </button>
                             </div>
 
                             {/* Individual Caption & Controls */}
@@ -1435,13 +1466,18 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                                   )}
                                 </div>
                                 <div className="flex items-center gap-1">
+                                  {/* Crop Button on Thumbnail opening 1:1 square cropper */}
                                   <button
                                     type="button"
-                                    onClick={() => handleCropCurrentPhoto(cropMode, idx)}
-                                    className="px-2 py-0.5 rounded-lg text-[10px] font-semibold text-white/60 hover:text-white hover:bg-white/10 transition-colors flex items-center gap-1"
-                                    title={`Crop this photo to 1:1 ${cropMode === 'fit' ? 'Fit' : 'Fill'}`}
+                                    onClick={() => {
+                                      vibrateLight();
+                                      setActivePreviewIdx(idx);
+                                      setIsInstagramCropModalOpen(true);
+                                    }}
+                                    className="px-2.5 py-0.5 rounded-lg text-[10px] font-bold text-blue-200 bg-[#2F6FED]/20 hover:bg-[#2F6FED]/35 border border-[#2F6FED]/40 hover:text-white transition-colors flex items-center gap-1"
+                                    title="Open 1:1 square cropper overlay for this photo"
                                   >
-                                    <Crop className="w-3 h-3" />
+                                    <Crop className="w-3 h-3 text-[#2F6FED]" />
                                     <span>Crop</span>
                                   </button>
                                   <button
@@ -1754,17 +1790,25 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               <ArrowLeft className="w-5 h-5" />
             </button>
 
-            <h3 className="text-sm font-black text-white tracking-wide">
-              Crop
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-black text-white tracking-wide flex items-center gap-1.5">
+                <Crop className="w-4 h-4 text-[#2F6FED]" />
+                <span>1:1 Square Crop</span>
+                <span className="text-xs text-white/50 font-normal font-mono">
+                  ({activePreviewIdx + 1}/{imageUrls.length})
+                </span>
+              </h3>
+            </div>
 
             <button
               type="button"
+              id="apply-11-crop-btn"
               onClick={() => handleApplyInstagramCrop(activePreviewIdx)}
               disabled={isProcessingImages}
-              className="px-4 py-1.5 rounded-lg bg-[#2F6FED] hover:bg-blue-600 text-white font-black text-xs tracking-wider transition-all shadow-md shadow-[#2F6FED]/30 disabled:opacity-50"
+              className="px-4 py-1.5 rounded-lg bg-[#2F6FED] hover:bg-blue-600 text-white font-black text-xs tracking-wider transition-all shadow-md shadow-[#2F6FED]/30 disabled:opacity-50 flex items-center gap-1.5"
             >
-              Next
+              <Check className="w-3.5 h-3.5 stroke-[3]" />
+              <span>Apply 1:1</span>
             </button>
           </div>
 
