@@ -151,6 +151,12 @@ export default function App() {
 
   // Streak freeze used notification alert modal state
   const [isStreakFreezeAlertOpen, setIsStreakFreezeAlertOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
 
   useEffect(() => {
     const handleFreezeUsed = () => {
@@ -225,23 +231,29 @@ export default function App() {
       communityId: undefined,
       communityName: undefined,
     };
-    const result = DailyStorageService.createPost(safePayload);
-    if (result.error) {
-      return;
+    try {
+      const result = DailyStorageService.createPost(safePayload);
+      if (result.error) {
+        showToast(result.error);
+        return;
+      }
+      setPosts(DailyStorageService.getAllPosts());
+      setCurrentUser(result.updatedUser);
+      setIsCreateOpen(false);
+
+      // Tactile haptic vibration feedback on submission
+      vibratePostSubmit();
+
+      // Trigger post celebration modal (Nice Post !! Great Proofs!!)
+      setCelebrationState({
+        isOpen: true,
+        streakCount: result.updatedUser.currentStreak,
+        isNewStreakDay: result.isNewStreakDay,
+      });
+    } catch (err) {
+      console.error('Failed to create post:', err);
+      showToast('Could not save post. Please try with fewer photos or smaller images.');
     }
-    setPosts(DailyStorageService.getAllPosts());
-    setCurrentUser(result.updatedUser);
-    setIsCreateOpen(false);
-
-    // Tactile haptic vibration feedback on submission
-    vibratePostSubmit();
-
-    // Trigger post celebration modal (Nice Post !! Great Proofs!!)
-    setCelebrationState({
-      isOpen: true,
-      streakCount: result.updatedUser.currentStreak,
-      isNewStreakDay: result.isNewStreakDay,
-    });
   };
 
   // Append infinite photos to today's proof without feed spam
@@ -1059,6 +1071,12 @@ export default function App() {
             setCurrentTab('streak');
           }}
         />
+        {/* Global Toast Notification */}
+        {toastMessage && (
+          <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl bg-black/90 border border-white/20 text-white text-xs font-semibold shadow-2xl backdrop-blur-md max-w-sm text-center animate-in fade-in slide-in-from-bottom-3 duration-200">
+            {toastMessage}
+          </div>
+        )}
       </div>
     </div>
   );

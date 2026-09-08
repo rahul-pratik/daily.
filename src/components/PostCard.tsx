@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, MessageCircle, Send, Bookmark, Flame, MoreHorizontal, Check, UserPlus, Share2, Eye, User as UserIcon, Flag, ShieldAlert, BarChart3, Trash2, AlertTriangle, X, FolderPlus, Trophy, Sparkles, Award, Crown, ChevronLeft, ChevronRight, Camera, ChevronDown, ChevronUp } from 'lucide-react';
+import { Heart, MessageCircle, Send, Bookmark, Flame, MoreHorizontal, Check, UserPlus, Share2, Eye, User as UserIcon, Flag, ShieldAlert, BarChart3, Trash2, AlertTriangle, X, FolderPlus, Trophy, Sparkles, Award, Crown, ChevronLeft, ChevronRight, Camera, ChevronDown, ChevronUp, LayoutGrid, Images } from 'lucide-react';
 import { Post, User } from '../types';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
 import { handleHorizontalWheelScroll } from '../utils/scroll';
@@ -46,6 +46,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   const [lastTap, setLastTap] = useState<number>(0);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [currentPhotoIdx, setCurrentPhotoIdx] = useState(0);
+  const [viewMode, setViewMode] = useState<'carousel' | 'grid'>('carousel');
   const [isContentExpanded, setIsContentExpanded] = useState(false);
 
   // Photos attached to this post (handles single or infinite multi-photo carousel without feed spam)
@@ -342,83 +343,201 @@ export const PostCard: React.FC<PostCardProps> = ({
           </div>
       </header>
 
-      {/* Post Media (Image carousel if present) with double-tap heart */}
+      {/* Post Media (Image carousel & all-photos grid) with double-tap heart */}
       {allPhotos.length > 0 ? (
-        <div
-          onClick={handleDoubleTap}
-          className="relative w-full aspect-[4/3] sm:aspect-[16/10] bg-[#0A0A0A] overflow-hidden cursor-pointer select-none group"
-        >
-          <img
-            src={activePhoto}
-            alt={`Daily Proof Receipt ${currentPhotoIdx + 1}`}
-            referrerPolicy="no-referrer"
-            className="w-full h-full object-cover transition-transform duration-300 hover:scale-[1.01]"
-            loading="lazy"
-          />
-
-          {/* Multi-Photo Counter Badge & Spam-Free Indicator */}
+        <div className="relative w-full bg-[#0A0A0A] border-y border-white/10">
+          {/* Multi-Photo Toolbar: Carousel vs Grid Toggle & Counter */}
           {allPhotos.length > 1 && (
-            <div className="absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-white text-[11px] font-mono font-medium shadow-md">
-              <Camera className="w-3 h-3 text-[#2F6FED]" />
-              <span>
-                {currentPhotoIdx + 1} / {allPhotos.length}
-              </span>
+            <div className="px-4 py-2 bg-black/40 backdrop-blur-sm border-b border-white/10 flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs text-white/80 font-mono">
+                <Camera className="w-3.5 h-3.5 text-[#2F6FED]" />
+                <span className="font-semibold">
+                  {viewMode === 'carousel'
+                    ? `Photo ${currentPhotoIdx + 1} of ${allPhotos.length}`
+                    : `All ${allPhotos.length} Photos Gallery`}
+                </span>
+              </div>
+
+              {/* View mode toggle */}
+              <div className="flex items-center gap-1 bg-white/5 p-0.5 rounded-xl border border-white/10">
+                <button
+                  type="button"
+                  onClick={() => {
+                    vibrateLight();
+                    setViewMode('carousel');
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all ${
+                    viewMode === 'carousel'
+                      ? 'bg-[#2F6FED] text-white shadow-sm'
+                      : 'text-white/50 hover:text-white'
+                  }`}
+                  title="Carousel single view with thumbnails"
+                >
+                  <Images className="w-3.5 h-3.5" />
+                  <span>Carousel</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    vibrateLight();
+                    setViewMode('grid');
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all ${
+                    viewMode === 'grid'
+                      ? 'bg-[#2F6FED] text-white shadow-sm'
+                      : 'text-white/50 hover:text-white'
+                  }`}
+                  title="View all 13 photos simultaneously in a grid"
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span>Grid ({allPhotos.length})</span>
+                </button>
+              </div>
             </div>
           )}
 
-          {/* Carousel Left / Right Navigation */}
-          {allPhotos.length > 1 && (
-            <>
-              {currentPhotoIdx > 0 && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    vibrateLight();
-                    setCurrentPhotoIdx((prev) => Math.max(0, prev - 1));
-                  }}
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/60 hover:bg-black/85 text-white backdrop-blur-md border border-white/20 transition-all opacity-80 hover:opacity-100 shadow-lg"
-                  aria-label="Previous photo"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-              )}
+          {/* VIEW MODE: CAROUSEL */}
+          {viewMode === 'carousel' ? (
+            <div>
+              <div
+                onClick={handleDoubleTap}
+                className="relative w-full aspect-[4/3] sm:aspect-[16/10] bg-[#0A0A0A] overflow-hidden cursor-pointer select-none group"
+              >
+                <img
+                  src={activePhoto}
+                  alt={`Daily Proof Receipt ${currentPhotoIdx + 1}`}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover transition-transform duration-300 hover:scale-[1.01]"
+                  loading="lazy"
+                />
 
-              {currentPhotoIdx < allPhotos.length - 1 && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    vibrateLight();
-                    setCurrentPhotoIdx((prev) => Math.min(allPhotos.length - 1, prev + 1));
-                  }}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/60 hover:bg-black/85 text-white backdrop-blur-md border border-white/20 transition-all opacity-80 hover:opacity-100 shadow-lg"
-                  aria-label="Next photo"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              )}
+                {/* Carousel Left / Right Navigation */}
+                {allPhotos.length > 1 && (
+                  <>
+                    {currentPhotoIdx > 0 && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          vibrateLight();
+                          setCurrentPhotoIdx((prev) => Math.max(0, prev - 1));
+                        }}
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/60 hover:bg-black/85 text-white backdrop-blur-md border border-white/20 transition-all opacity-80 hover:opacity-100 shadow-lg"
+                        aria-label="Previous photo"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                    )}
 
-              {/* Dot Indicators */}
-              <div className="absolute bottom-2.5 left-0 right-0 flex items-center justify-center gap-1.5 pointer-events-none">
-                {allPhotos.map((_, idx) => (
-                  <span
+                    {currentPhotoIdx < allPhotos.length - 1 && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          vibrateLight();
+                          setCurrentPhotoIdx((prev) => Math.min(allPhotos.length - 1, prev + 1));
+                        }}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/60 hover:bg-black/85 text-white backdrop-blur-md border border-white/20 transition-all opacity-80 hover:opacity-100 shadow-lg"
+                        aria-label="Next photo"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    )}
+
+                    {/* Dot Indicators */}
+                    <div className="absolute bottom-2.5 left-0 right-0 flex items-center justify-center gap-1.5 pointer-events-none">
+                      {allPhotos.map((_, idx) => (
+                        <span
+                          key={idx}
+                          className={`h-1.5 rounded-full transition-all duration-300 ${
+                            idx === currentPhotoIdx
+                              ? 'w-5 bg-[#2F6FED] shadow-sm'
+                              : 'w-1.5 bg-white/50 backdrop-blur-sm'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {/* Heart burst animation on double tap */}
+                {showHeartBurst && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none animate-ping">
+                    <Heart className="w-24 h-24 text-red-500 fill-red-500 drop-shadow-2xl opacity-90" />
+                  </div>
+                )}
+              </div>
+
+              {/* Interactive Thumbnail Reel: See all 13 photos side-by-side with 1-click focus */}
+              {allPhotos.length > 1 && (
+                <div
+                  onWheel={handleHorizontalWheelScroll}
+                  className="p-2.5 bg-black/60 overflow-x-auto flex items-center gap-2 scrollbar-thin"
+                >
+                  {allPhotos.map((photo, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        vibrateLight();
+                        setCurrentPhotoIdx(idx);
+                      }}
+                      className={`relative w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden shrink-0 transition-all ${
+                        currentPhotoIdx === idx
+                          ? 'ring-2 ring-[#2F6FED] scale-105 shadow-md'
+                          : 'opacity-60 hover:opacity-100 border border-white/10'
+                      }`}
+                      title={`Jump to photo #${idx + 1}`}
+                    >
+                      <img
+                        src={photo}
+                        alt={`Thumb ${idx + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                      <span className="absolute bottom-0.5 left-0.5 text-[8px] font-mono font-bold text-white bg-black/80 px-1 rounded">
+                        #{idx + 1}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            /* VIEW MODE: GRID (SHOW ALL 13 PHOTOS SIMULTANEOUSLY) */
+            <div className="p-3 bg-black/40">
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {allPhotos.map((photo, idx) => (
+                  <div
                     key={idx}
-                    className={`h-1.5 rounded-full transition-all duration-300 ${
-                      idx === currentPhotoIdx
-                        ? 'w-5 bg-[#2F6FED] shadow-sm'
-                        : 'w-1.5 bg-white/50 backdrop-blur-sm'
-                    }`}
-                  />
+                    onClick={() => {
+                      vibrateLight();
+                      setCurrentPhotoIdx(idx);
+                      setViewMode('carousel');
+                    }}
+                    className="group relative aspect-square rounded-xl overflow-hidden bg-black/80 border border-white/15 cursor-pointer hover:border-[#2F6FED] transition-all hover:scale-[1.02]"
+                    title={`Click to focus photo #${idx + 1}`}
+                  >
+                    <img
+                      src={photo}
+                      alt={`Proof photo ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 opacity-80 group-hover:opacity-100 transition-opacity" />
+                    <span className="absolute top-1.5 left-1.5 text-[9px] font-mono font-bold text-white bg-black/80 px-1.5 py-0.5 rounded">
+                      #{idx + 1}
+                    </span>
+                    {post.photoCaptions?.[idx] && (
+                      <p className="absolute bottom-1.5 left-1.5 right-1.5 text-[9px] text-white/90 truncate font-medium bg-black/70 px-1.5 py-0.5 rounded">
+                        {post.photoCaptions[idx]}
+                      </p>
+                    )}
+                  </div>
                 ))}
               </div>
-            </>
-          )}
-
-          {/* Heart burst animation on double tap */}
-          {showHeartBurst && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none animate-ping">
-              <Heart className="w-24 h-24 text-red-500 fill-red-500 drop-shadow-2xl opacity-90" />
+              <p className="mt-2 text-center text-[10px] text-white/40">
+                Tap any photo to view full size in carousel mode
+              </p>
             </div>
           )}
         </div>

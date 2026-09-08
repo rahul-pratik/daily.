@@ -28,12 +28,16 @@ import {
   Calendar,
   ChevronDown,
   ChevronLeft,
+  ChevronRight,
   Plus,
+  Crop,
+  Images,
 } from 'lucide-react';
 import { User, Post, Community, PostDraft } from '../types';
 import { getTodayDateString, DailyStorageService } from '../services/storage';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
 import { CollabCollageStudio } from './CollabCollageStudio';
+import { cropAndCompressImage, AspectRatioType } from '../utils/imageCompressor';
 
 interface CreatePostModalProps {
   isOpen: boolean;
@@ -168,6 +172,11 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const [lastAutoSaveTime, setLastAutoSaveTime] = useState<number | null>(null);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Aspect-ratio & photo preview state
+  const [aspectRatio, setAspectRatio] = useState<AspectRatioType>('square');
+  const [activePreviewIdx, setActivePreviewIdx] = useState<number>(0);
+  const [isProcessingImages, setIsProcessingImages] = useState<boolean>(false);
 
   // Scheduling State
   const [isScheduleMode, setIsScheduleMode] = useState<boolean>(initialIsScheduled || false);
@@ -546,7 +555,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
@@ -557,23 +566,13 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     }
 
     const filesArray = (Array.from(files) as File[]).slice(0, remainingSlots);
+    setIsProcessingImages(true);
+    showToast(`Optimizing & formatting ${filesArray.length} photo${filesArray.length > 1 ? 's' : ''} to feed format...`);
 
-    Promise.all(
-      filesArray.map((file) => {
-        return new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            if (typeof reader.result === 'string') {
-              resolve(reader.result);
-            } else {
-              resolve('');
-            }
-          };
-          reader.onerror = () => resolve('');
-          reader.readAsDataURL(file);
-        });
-      })
-    ).then((results) => {
+    try {
+      const results = await Promise.all(
+        filesArray.map((file) => cropAndCompressImage(file, aspectRatio))
+      );
       const validImages = results.filter((img) => Boolean(img));
       if (validImages.length > 0) {
         setImageUrls((prev) => {
@@ -590,10 +589,74 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
         });
         setIsCollageGenerated(false);
         vibrateLight();
-        showToast(`Added ${validImages.length} photo${validImages.length > 1 ? 's' : ''}! (${imageUrls.length + validImages.length}/${MAX_PHOTOS})`);
+        showToast(
+          `Added ${validImages.length} photo${validImages.length > 1 ? 's' : ''} formatted for feed! (${imageUrls.length + validImages.length}/${MAX_PHOTOS})`
+        );
       }
-    });
-    e.target.value = '';
+    } catch (err) {
+      console.error('Error processing photos:', err);
+      showToast('Error formatting photos. Please try again.');
+    } finally {
+      setIsProcessingImages(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleApplyAspectRatioToAll = async (targetRatio: AspectRatioType) => {
+    if (imageUrls.length === 0) return;
+    setAspectRatio(targetRatio);
+    setIsProcessingImages(true);
+    vibrateLight();
+    showToast(
+      `Fitting all ${imageUrls.length} photos to ${
+        targetRatio === 'square' ? '1:1 square' : targetRatio === '4:5' ? '4:5 portrait' : 'standard'
+      } format...`
+    );
+    try {
+      const updated = await Promise.all(
+        imageUrls.map((url) => cropAndCompressImage(url, targetRatio))
+      );
+      setImageUrls(updated);
+      setImageUrl(updated[0] || '');
+      showToast(
+        `All ${updated.length} photos cropped to ${
+          targetRatio === 'square' ? '1:1 square' : targetRatio === '4:5' ? '4:5 portrait' : 'standard'
+        } feed format! ✓`
+      );
+    } catch (err) {
+      console.error('Failed to crop photos:', err);
+      showToast('Failed to format photos.');
+    } finally {
+      setIsProcessingImages(false);
+    }
+  };
+
+  const handleCropCurrentPhoto = async (targetRatio: AspectRatioType, indexToCrop?: number) => {
+    const targetIdx = indexToCrop !== undefined ? indexToCrop : activePreviewIdx;
+    if (!imageUrls[targetIdx]) return;
+    setIsProcessingImages(true);
+    vibrateLight();
+    try {
+      const cropped = await cropAndCompressImage(imageUrls[targetIdx], targetRatio);
+      setImageUrls((prev) => {
+        const copy = [...prev];
+        copy[targetIdx] = cropped;
+        if (targetIdx === 0) {
+          setImageUrl(cropped);
+        }
+        return copy;
+      });
+      showToast(
+        `Photo #${targetIdx + 1} cropped to ${
+          targetRatio === 'square' ? '1:1' : targetRatio === '4:5' ? '4:5' : 'original'
+        }!`
+      );
+    } catch (err) {
+      console.error('Failed to crop photo:', err);
+      showToast('Crop failed.');
+    } finally {
+      setIsProcessingImages(false);
+    }
   };
 
   const handleRemovePhotoAtIndex = (indexToRemove: number) => {
@@ -604,6 +667,9 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       return updated;
     });
     setPhotoCaptions((prev) => prev.filter((_, i) => i !== indexToRemove));
+    if (activePreviewIdx >= indexToRemove && activePreviewIdx > 0) {
+      setActivePreviewIdx((prev) => prev - 1);
+    }
     if (imageUrls.length <= 1) {
       setIsCollageGenerated(false);
     }
@@ -620,36 +686,28 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     });
   };
 
-  const handleAppendFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAppendFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     const filesArray = Array.from(files) as File[];
-
-    Promise.all(
-      filesArray.map((file) => {
-        return new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            if (typeof reader.result === 'string') {
-              resolve(reader.result);
-            } else {
-              resolve('');
-            }
-          };
-          reader.onerror = () => resolve('');
-          reader.readAsDataURL(file);
-        });
-      })
-    ).then((results) => {
+    setIsProcessingImages(true);
+    try {
+      const results = await Promise.all(
+        filesArray.map((file) => cropAndCompressImage(file, aspectRatio))
+      );
       const validImages = results.filter((img) => Boolean(img));
       if (validImages.length > 0) {
         setExtraPhotosToAppend((prev) => [...prev, ...validImages]);
         vibrateLight();
-        showToast(`Selected ${validImages.length} additional receipt photo${validImages.length > 1 ? 's' : ''}!`);
+        showToast(`Selected ${validImages.length} additional formatted photo${validImages.length > 1 ? 's' : ''}!`);
       }
-    });
-    e.target.value = '';
+    } catch (err) {
+      console.error('Error processing append photos:', err);
+    } finally {
+      setIsProcessingImages(false);
+      e.target.value = '';
+    }
   };
 
   const handleConfirmAppendPhotos = () => {
@@ -849,8 +907,26 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               </div>
             </div>
 
-            {/* Close */}
+            {/* Auto-save status indicator & Close button */}
             <div className="flex items-center gap-2">
+              {isAutoSaving ? (
+                <div
+                  id="autosave-status-saving"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-mono shadow-sm"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                  <span>Saving...</span>
+                </div>
+              ) : lastAutoSaveTime ? (
+                <div
+                  id="autosave-status-saved"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[11px] font-mono shadow-sm"
+                >
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Draft saved</span>
+                </div>
+              ) : null}
+
               <button
                 onClick={handleSafeClose}
                 className="p-1.5 rounded-full text-white/40 hover:text-white hover:bg-white/10 transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
@@ -882,12 +958,12 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                 </div>
               )}
 
-              {/* Image Proof Upload / Preview Box */}
+              {/* Image Proof Upload / Cropping Preview / Thumbnail Manager */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <label className="text-[11px] font-bold text-white/70 uppercase tracking-wider flex items-center gap-1.5">
                     <ImageIcon className="w-3.5 h-3.5 text-[#2F6FED]" />
-                    <span>Attach Photos (Up to 13)</span>
+                    <span>Attach Photos & Feed Cropping (Up to 13)</span>
                   </label>
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-white/10 text-white/80">
@@ -903,6 +979,148 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                     </button>
                   </div>
                 </div>
+
+                {/* Aspect-Ratio Cropping Tool & Active Preview (Shown when photos are attached) */}
+                {imageUrls.length > 0 && (
+                  <div className="space-y-2 rounded-2xl bg-black/40 border border-white/15 p-3">
+                    {/* Aspect Ratio Toolbar */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-white/10">
+                      <div className="flex items-center gap-1.5 text-xs text-white/80 font-medium">
+                        <Crop className="w-3.5 h-3.5 text-[#2F6FED]" />
+                        <span className="text-[11px] font-bold">Feed Format:</span>
+                        <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/10">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              vibrateLight();
+                              setAspectRatio('square');
+                              handleCropCurrentPhoto('square');
+                            }}
+                            className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${
+                              aspectRatio === 'square'
+                                ? 'bg-[#2F6FED] text-white shadow-sm'
+                                : 'text-white/60 hover:text-white'
+                            }`}
+                            title="Feed square 1:1 format"
+                          >
+                            1:1 Square
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              vibrateLight();
+                              setAspectRatio('4:5');
+                              handleCropCurrentPhoto('4:5');
+                            }}
+                            className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${
+                              aspectRatio === '4:5'
+                                ? 'bg-[#2F6FED] text-white shadow-sm'
+                                : 'text-white/60 hover:text-white'
+                            }`}
+                            title="Feed vertical portrait 4:5 format"
+                          >
+                            4:5 Portrait
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              vibrateLight();
+                              setAspectRatio('original');
+                              handleCropCurrentPhoto('original');
+                            }}
+                            className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${
+                              aspectRatio === 'original'
+                                ? 'bg-[#2F6FED] text-white shadow-sm'
+                                : 'text-white/60 hover:text-white'
+                            }`}
+                            title="Standard scaled aspect ratio"
+                          >
+                            Original
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Apply to All Photos Button */}
+                      {imageUrls.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleApplyAspectRatioToAll(aspectRatio)}
+                          disabled={isProcessingImages}
+                          className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/15 transition-all flex items-center gap-1 disabled:opacity-50"
+                          title={`Crop all ${imageUrls.length} photos to fit the ${aspectRatio} format`}
+                        >
+                          <Sparkles className="w-3 h-3 text-amber-400" />
+                          <span>Fit all {imageUrls.length} photos ({aspectRatio === 'square' ? '1:1' : aspectRatio === '4:5' ? '4:5' : 'std'})</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Image Preview with Aspect Ratio Frame */}
+                    <div
+                      className={`relative w-full max-h-[360px] mx-auto rounded-xl overflow-hidden bg-black flex items-center justify-center border border-white/10 ${
+                        aspectRatio === 'square'
+                          ? 'aspect-square'
+                          : aspectRatio === '4:5'
+                          ? 'aspect-[4/5]'
+                          : 'aspect-[4/3] sm:aspect-[16/10]'
+                      }`}
+                    >
+                      <img
+                        src={imageUrls[activePreviewIdx] || imageUrls[0]}
+                        alt={`Preview photo ${activePreviewIdx + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+
+                      {/* Header Badge & Navigation */}
+                      <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+                        <span className="px-2 py-0.5 rounded-full bg-black/80 border border-white/20 text-[10px] font-mono font-bold text-white">
+                          Photo {activePreviewIdx + 1} of {imageUrls.length}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full bg-[#2F6FED]/80 border border-white/20 text-[10px] font-mono font-bold text-white">
+                          {aspectRatio === 'square' ? '1:1 Square' : aspectRatio === '4:5' ? '4:5 Portrait' : 'Original'}
+                        </span>
+                      </div>
+
+                      {/* Quick Single Crop Button in Preview */}
+                      <button
+                        type="button"
+                        onClick={() => handleCropCurrentPhoto(aspectRatio)}
+                        disabled={isProcessingImages}
+                        className="absolute top-2.5 right-2.5 px-2 py-1 rounded-lg bg-black/75 hover:bg-black text-white border border-white/20 text-[10px] font-bold flex items-center gap-1"
+                        title="Crop current photo to selected aspect ratio"
+                      >
+                        <Crop className="w-3 h-3 text-[#2F6FED]" />
+                        <span>Re-crop #{activePreviewIdx + 1}</span>
+                      </button>
+
+                      {/* Arrows if multiple photos */}
+                      {imageUrls.length > 1 && (
+                        <>
+                          {activePreviewIdx > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setActivePreviewIdx((prev) => Math.max(0, prev - 1))}
+                              className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/70 hover:bg-black text-white border border-white/20 transition-all shadow-md"
+                              title="Previous photo"
+                            >
+                              <ChevronLeft className="w-4 h-4" />
+                            </button>
+                          )}
+                          {activePreviewIdx < imageUrls.length - 1 && (
+                            <button
+                              type="button"
+                              onClick={() => setActivePreviewIdx((prev) => Math.min(imageUrls.length - 1, prev + 1))}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/70 hover:bg-black text-white border border-white/20 transition-all shadow-md"
+                              title="Next photo"
+                            >
+                              <ChevronRight className="w-4 h-4" />
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Upload & Camera Buttons (Visible if less than MAX_PHOTOS) */}
                 {imageUrls.length < MAX_PHOTOS && (
@@ -921,6 +1139,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                         type="file"
                         accept="image/*"
                         multiple
+                        disabled={isProcessingImages}
                         onChange={handleFileUpload}
                         className="hidden"
                       />
@@ -938,6 +1157,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                         type="file"
                         accept="image/*"
                         capture="environment"
+                        disabled={isProcessingImages}
                         onChange={handleFileUpload}
                         className="hidden"
                       />
@@ -945,13 +1165,13 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                   </div>
                 )}
 
-                {/* Attached Photos List with Individual Caption for each */}
+                {/* Thumbnail Preview of Selected 13 Photos with Individual Captions Visible */}
                 {imageUrls.length > 0 && (
                   <div className="space-y-2.5 pt-1">
                     <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-300">
                       <span className="flex items-center gap-1.5 font-bold">
                         <Check className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>{imageUrls.length} Photo{imageUrls.length > 1 ? 's' : ''} Attached</span>
+                        <span>{imageUrls.length} Photo{imageUrls.length > 1 ? 's' : ''} Ready for Feed</span>
                       </span>
                       <button
                         type="button"
@@ -961,6 +1181,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                           setImageUrls([]);
                           setPhotoCaptions([]);
                           setIsCollageGenerated(false);
+                          setActivePreviewIdx(0);
                         }}
                         className="text-[10px] text-red-400 hover:text-red-300 hover:underline flex items-center gap-1 font-semibold"
                       >
@@ -969,45 +1190,81 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                       </button>
                     </div>
 
-                    <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1 scrollbar-thin">
+                    <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1 scrollbar-thin">
                       {imageUrls.map((img, idx) => (
                         <div
                           key={idx}
-                          className="p-2.5 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-white/20 transition-all space-y-2"
+                          onClick={() => {
+                            vibrateLight();
+                            setActivePreviewIdx(idx);
+                          }}
+                          className={`p-2.5 rounded-2xl border transition-all cursor-pointer ${
+                            activePreviewIdx === idx
+                              ? 'bg-[#2F6FED]/10 border-[#2F6FED]/60 shadow-md ring-1 ring-[#2F6FED]/30'
+                              : 'bg-white/[0.03] border-white/10 hover:border-white/20'
+                          }`}
                         >
-                          <div className="flex items-center gap-3">
-                            <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-white/15 bg-black shrink-0">
+                          <div className="flex items-start gap-3">
+                            {/* Thumbnail Preview */}
+                            <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border border-white/15 bg-black shrink-0">
                               <img
                                 src={img}
                                 alt={`photo-${idx + 1}`}
                                 referrerPolicy="no-referrer"
                                 className="w-full h-full object-cover"
                               />
-                              <span className="absolute bottom-1 left-1 text-[8px] font-mono font-bold text-white bg-black/75 px-1 rounded">
+                              <span className="absolute bottom-1 left-1 text-[8px] font-mono font-bold text-white bg-black/80 px-1 py-0.2 rounded">
                                 #{idx + 1}
                               </span>
+                              {activePreviewIdx === idx && (
+                                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#2F6FED] ring-2 ring-white" />
+                              )}
                             </div>
 
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-[11px] font-bold text-white/80">
-                                  Photo #{idx + 1}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemovePhotoAtIndex(idx)}
-                                  className="p-1 rounded-lg text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                                  title="Remove this photo"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
+                            {/* Individual Caption & Controls */}
+                            <div className="flex-1 min-w-0 space-y-1.5" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[11px] font-bold text-white/90">
+                                    Photo #{idx + 1}
+                                  </span>
+                                  {idx === 0 && (
+                                    <span className="text-[9px] font-bold text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30">
+                                      Cover
+                                    </span>
+                                  )}
+                                  {photoCaptions[idx]?.trim() && (
+                                    <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/20 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                                      Captioned
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCropCurrentPhoto(aspectRatio, idx)}
+                                    className="px-2 py-0.5 rounded-lg text-[10px] font-semibold text-white/60 hover:text-white hover:bg-white/10 transition-colors flex items-center gap-1"
+                                    title={`Crop this photo to ${aspectRatio}`}
+                                  >
+                                    <Crop className="w-3 h-3" />
+                                    <span>Crop</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemovePhotoAtIndex(idx)}
+                                    className="p-1 rounded-lg text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                                    title="Remove this photo"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                               </div>
                               <input
                                 type="text"
                                 value={photoCaptions[idx] || ''}
                                 onChange={(e) => handleUpdatePhotoCaption(idx, e.target.value)}
-                                placeholder={`Write caption for photo #${idx + 1} (optional)...`}
-                                className="w-full px-2.5 py-1.5 text-xs rounded-xl bg-black/50 border border-white/10 text-white placeholder:text-white/30 focus:outline-none focus:border-[#2F6FED]"
+                                placeholder={`Caption for photo #${idx + 1} (visible in home feed)...`}
+                                className="w-full px-2.5 py-1.5 text-xs rounded-xl bg-black/60 border border-white/10 text-white placeholder:text-white/30 focus:outline-none focus:border-[#2F6FED] transition-colors"
                               />
                             </div>
                           </div>
@@ -1028,13 +1285,13 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                   <div className="flex items-center gap-2">
                     {isAutoSaving ? (
                       <span className="text-[10px] text-amber-400 font-mono flex items-center gap-1" title="Persisting form state to localStorage as last_draft">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                        Auto-saving...
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                        Saving...
                       </span>
                     ) : lastAutoSaveTime ? (
-                      <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1" title="Saved locally to last_draft">
-                        <Check className="w-3 h-3" />
-                        Auto-saved
+                      <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1" title="Draft saved to localStorage">
+                        <Check className="w-3 h-3 text-emerald-400" />
+                        Draft saved
                       </span>
                     ) : null}
                     <span className="text-[10px] text-white/40">{content.length} chars</span>

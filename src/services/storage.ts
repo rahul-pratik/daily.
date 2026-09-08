@@ -158,9 +158,14 @@ export class DailyStorageService {
     };
   }
 
+  private static memoryPostsCache: Post[] | null = null;
+
   static getAllPosts(): Post[] {
     const data = localStorage.getItem(STORAGE_KEYS.POSTS);
     if (!data) {
+      if (this.memoryPostsCache && this.memoryPostsCache.length > 0) {
+        return this.memoryPostsCache.map((p) => this.ensurePostEngagement(p));
+      }
       this.saveAllPosts(INITIAL_POSTS);
       return INITIAL_POSTS;
     }
@@ -170,8 +175,12 @@ export class DailyStorageService {
         this.saveAllPosts(INITIAL_POSTS);
         return INITIAL_POSTS;
       }
+      this.memoryPostsCache = parsed;
       return parsed.map((p) => this.ensurePostEngagement(p));
     } catch {
+      if (this.memoryPostsCache && this.memoryPostsCache.length > 0) {
+        return this.memoryPostsCache.map((p) => this.ensurePostEngagement(p));
+      }
       return INITIAL_POSTS;
     }
   }
@@ -192,7 +201,29 @@ export class DailyStorageService {
   }
 
   static saveAllPosts(posts: Post[]): void {
-    localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(posts));
+    this.memoryPostsCache = posts;
+    try {
+      localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(posts));
+    } catch (err) {
+      console.warn('saveAllPosts failed due to localStorage quota, pruning older media...', err);
+      // Safe fallback: keep the latest 20 posts with all media intact, prune heavy images on older posts
+      const pruned = posts.map((p, idx) => {
+        if (idx < 20) return p;
+        return {
+          ...p,
+          imageUrl: undefined,
+          imageUrls: undefined,
+        };
+      });
+      try {
+        localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(pruned));
+      } catch (err2) {
+        console.warn('Deep quota pruning to top 10 posts...', err2);
+        try {
+          localStorage.setItem(STORAGE_KEYS.POSTS, JSON.stringify(posts.slice(0, 10)));
+        } catch {}
+      }
+    }
   }
 
   static getAllMessages(): Message[] {
