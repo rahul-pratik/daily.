@@ -269,6 +269,8 @@ export default function App() {
     groupId?: string;
     text: string;
     imageUrl?: string;
+    audioUrl?: string;
+    audioDuration?: number;
   }) => {
     const newMsg = DailyStorageService.sendMessage(params);
     setMessages((prev) => [...prev, newMsg]);
@@ -852,6 +854,7 @@ export default function App() {
               allGroups={groups}
               messages={messages}
               onSendMessage={handleSendMessage}
+              onGroupsUpdated={() => setGroups(DailyStorageService.getAllGroups())}
               initialChatUserId={activeChatUserId}
               initialGroupId={activeGroupId}
               onOpenCreateGroup={() => setIsCreateGroupOpen(true)}

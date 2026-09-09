@@ -905,6 +905,47 @@ export class DailyStorageService {
     return newGroup;
   }
 
+  static addMembersToGroup(groupId: string, memberIds: string[]): Group | null {
+    const groups = this.getAllGroups();
+    const group = groups.find((candidate) => candidate.id === groupId);
+    if (!group) return null;
+
+    const nextMemberIds = Array.from(new Set([...(group.memberIds || []), ...memberIds]));
+    const updatedGroup = { ...group, memberIds: nextMemberIds, memberCount: nextMemberIds.length };
+    this.saveAllGroups(groups.map((candidate) => (candidate.id === groupId ? updatedGroup : candidate)));
+    return updatedGroup;
+  }
+
+  static removeMemberFromGroup(groupId: string, memberId: string): Group | null {
+    const groups = this.getAllGroups();
+    const group = groups.find((candidate) => candidate.id === groupId);
+    if (!group || memberId === group.createdBy) return group || null;
+
+    const nextMemberIds = (group.memberIds || []).filter((id) => id !== memberId);
+    const updatedGroup = {
+      ...group,
+      memberIds: nextMemberIds,
+      memberCount: nextMemberIds.length,
+      adminIds: (group.adminIds || []).filter((id) => id !== memberId),
+    };
+    this.saveAllGroups(groups.map((candidate) => (candidate.id === groupId ? updatedGroup : candidate)));
+    return updatedGroup;
+  }
+
+  static toggleGroupAdmin(groupId: string, memberId: string): Group | null {
+    const groups = this.getAllGroups();
+    const group = groups.find((candidate) => candidate.id === groupId);
+    if (!group || !(group.memberIds || []).includes(memberId)) return group || null;
+
+    const adminIds = group.adminIds || [group.createdBy];
+    const nextAdminIds = adminIds.includes(memberId)
+      ? adminIds.filter((id) => id !== memberId || id === group.createdBy)
+      : [...adminIds, memberId];
+    const updatedGroup = { ...group, adminIds: Array.from(new Set(nextAdminIds)) };
+    this.saveAllGroups(groups.map((candidate) => (candidate.id === groupId ? updatedGroup : candidate)));
+    return updatedGroup;
+  }
+
   // Get dynamic community rankings for leaderboard
   static getCommunityRankings(groupId: string): CommunityMemberRanking[] {
     const groups = this.getAllGroups();

@@ -178,6 +178,7 @@ export interface Group {
   avatar: string;
   memberCount: number;
   memberIds: string[];
+  adminIds?: string[];
   category: string;
   lastActivity?: string;
   createdBy: string;
@@ -418,6 +419,8 @@ export interface Message {
   challengeId?: string;
   text: string;
   imageUrl?: string;
+  audioUrl?: string;
+  audioDuration?: number;
   sharedPost?: SharedPostPreview;
   challengeInvite?: ChallengeInvitePreview;
   timestamp: string;
@@ -489,6 +492,7 @@ export type NotificationType =
   | 'community_approved'
   | 'streak_milestone'
   | 'challenge_invite'
+  | 'group_invite'
   | 'cheer'
   | 'streak_freeze_earned'
   | 'streak_freeze_used'

@@ -1,6 +1,6 @@
 {
   "name": "Daily",
   "description": "Show up. Show the work. A proof-of-work social network documenting real action, photo receipts, and reflection.",
-  "requestFramePermissions": ["camera"],
+  "requestFramePermissions": ["camera", "microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

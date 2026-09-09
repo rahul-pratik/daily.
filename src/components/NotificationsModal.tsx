@@ -13,6 +13,7 @@ import {
   ArrowRight,
   Filter,
   Trophy,
+  Users,
 } from 'lucide-react';
 import { AppNotification, NotificationType, User, Post } from '../types';
 import { vibrateLight } from '../services/haptics';
@@ -89,6 +90,12 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
         return (
           <div className="w-5 h-5 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
             <Trophy className="w-3 h-3" />
+          </div>
+        );
+      case 'group_invite':
+        return (
+          <div className="w-5 h-5 rounded-full bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-blue-400">
+            <Users className="w-3 h-3 text-blue-400" />
           </div>
         );
       case 'community_request':

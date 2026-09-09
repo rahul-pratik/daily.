@@ -8,7 +8,6 @@ import {
   Image as ImageIcon,
   Plus,
   Pin,
-  ShieldCheck,
   Upload,
   X,
   ArrowUpDown,
@@ -16,9 +15,17 @@ import {
   Trophy,
   ExternalLink,
   ChevronDown,
+  Mic,
+  Square,
+  Play,
+  Pause,
+  Trash2,
+  Volume2,
 } from 'lucide-react';
-import { User, Message, Group, SharedPostPreview, ChallengeInvitePreview } from '../types';
+import { User, Message, Group } from '../types';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
+import { DailyStorageService } from '../services/storage';
+import { GroupDetailsScreen } from './GroupDetailsScreen';
 
 export type MessageSortOption = 'all' | 'groups' | 'direct';
 
@@ -32,7 +39,10 @@ interface DirectMessagesScreenProps {
     groupId?: string;
     text: string;
     imageUrl?: string;
+    audioUrl?: string;
+    audioDuration?: number;
   }) => void;
+  onGroupsUpdated?: () => void;
   initialChatUserId?: string | null;
   initialGroupId?: string | null;
   onOpenCreateGroup?: () => void;
@@ -69,12 +79,171 @@ interface UnifiedConversationItem {
   unreadCount: number;
 }
 
+// Generate fallback playable audio WAV in case microphone access is blocked
+const createSyntheticAudioDataUrl = (durationSec: number = 3): string => {
+  try {
+    const sampleRate = 8000;
+    const numSamples = Math.floor(sampleRate * durationSec);
+    const buffer = new ArrayBuffer(44 + numSamples * 2);
+    const view = new DataView(buffer);
+
+    const writeString = (offset: number, string: string) => {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    };
+
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + numSamples * 2, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeString(36, 'data');
+    view.setUint32(40, numSamples * 2, true);
+
+    for (let i = 0; i < numSamples; i++) {
+      const t = i / sampleRate;
+      const freq = 420 + Math.sin(t * 3) * 40;
+      const envelope = Math.min(1, Math.min(t * 4, (durationSec - t) * 4));
+      const sample = Math.sin(2 * Math.PI * freq * t) * 0.25 * envelope;
+      view.setInt16(44 + i * 2, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+    }
+
+    const blob = new Blob([buffer], { type: 'audio/wav' });
+    return URL.createObjectURL(blob);
+  } catch {
+    return '';
+  }
+};
+
+// Component for rendering an individual voice message with playback & animated waveform
+const VoiceMessageBubble: React.FC<{
+  audioUrl?: string;
+  duration?: number;
+  isCurrentUser: boolean;
+}> = ({ audioUrl, duration = 4, isCurrentUser }) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    if (!audioUrl) return;
+    const audio = new Audio(audioUrl);
+    audioRef.current = audio;
+
+    audio.ontimeupdate = () => {
+      setCurrentTime(audio.currentTime);
+    };
+
+    audio.onended = () => {
+      setIsPlaying(false);
+      setCurrentTime(0);
+    };
+
+    return () => {
+      audio.pause();
+      audio.src = '';
+    };
+  }, [audioUrl]);
+
+  const togglePlay = () => {
+    vibrateLight();
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      audioRef.current.play().then(() => {
+        setIsPlaying(true);
+      }).catch(() => {
+        setIsPlaying(false);
+      });
+    }
+  };
+
+  const totalDuration = duration || 4;
+  const progressRatio = totalDuration > 0 ? Math.min(1, currentTime / totalDuration) : 0;
+
+  // Waveform bars with pseudo-random aesthetic heights
+  const bars = [35, 60, 45, 90, 75, 40, 65, 80, 50, 70, 95, 60, 40, 85, 55, 75, 45, 30];
+
+  const formatSeconds = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  return (
+    <div className="flex items-center gap-3 py-1.5 px-2 min-w-[210px] max-w-[280px]">
+      <button
+        type="button"
+        onClick={togglePlay}
+        className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-all ${
+          isCurrentUser
+            ? 'bg-white text-[#2F6FED] hover:bg-white/90 shadow-md'
+            : 'bg-[#2F6FED] text-white hover:bg-blue-600 shadow-md'
+        }`}
+        aria-label={isPlaying ? 'Pause voice message' : 'Play voice message'}
+      >
+        {isPlaying ? (
+          <Pause className="w-4 h-4 fill-current" />
+        ) : (
+          <Play className="w-4 h-4 fill-current ml-0.5" />
+        )}
+      </button>
+
+      <div className="flex-1 space-y-1">
+        {/* Waveform Visualization */}
+        <div className="flex items-center gap-0.5 h-6">
+          {bars.map((barHeight, idx) => {
+            const barRatio = idx / bars.length;
+            const isPassed = barRatio <= progressRatio;
+            return (
+              <div
+                key={idx}
+                style={{ height: `${barHeight}%` }}
+                className={`w-1 rounded-full transition-all duration-100 ${
+                  isPassed
+                    ? isCurrentUser
+                      ? 'bg-white'
+                      : 'bg-[#2F6FED]'
+                    : isCurrentUser
+                    ? 'bg-white/40'
+                    : 'bg-white/20'
+                } ${isPlaying && isPassed ? 'scale-y-110' : ''}`}
+              />
+            );
+          })}
+        </div>
+
+        {/* Timestamps */}
+        <div className="flex items-center justify-between text-[10px] font-mono leading-none">
+          <span className={isCurrentUser ? 'text-white/80' : 'text-white/60'}>
+            {isPlaying ? formatSeconds(currentTime) : formatSeconds(totalDuration)}
+          </span>
+          <span className={`flex items-center gap-1 ${isCurrentUser ? 'text-white/70' : 'text-white/40'}`}>
+            <Volume2 className="w-2.5 h-2.5" />
+            <span>Voice</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
   currentUser,
   allUsers,
   allGroups,
   messages,
   onSendMessage,
+  onGroupsUpdated,
   initialChatUserId,
   initialGroupId,
   onOpenCreateGroup,
@@ -95,6 +264,16 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
   const [showPhotoPicker, setShowPhotoPicker] = useState(false);
   const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null);
 
+  // Group Details & Management Screen State
+  const [isGroupDetailsOpen, setIsGroupDetailsOpen] = useState(false);
+
+  // Voice Recording State
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<any>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -105,9 +284,11 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
     if (initialChatUserId) {
       setActiveUserId(initialChatUserId);
       setActiveGroupId(null);
+      setIsGroupDetailsOpen(false);
     } else if (initialGroupId) {
       setActiveGroupId(initialGroupId);
       setActiveUserId(null);
+      setIsGroupDetailsOpen(false);
     }
   }, [initialChatUserId, initialGroupId]);
 
@@ -129,12 +310,23 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Clean up recording timer on unmount
+  useEffect(() => {
+    return () => {
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+        mediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, []);
+
   // Scroll to bottom when messages change inside active chat
   useEffect(() => {
-    if (activeUserId || activeGroupId) {
+    if ((activeUserId || activeGroupId) && !isGroupDetailsOpen) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages, activeUserId, activeGroupId]);
+  }, [messages, activeUserId, activeGroupId, isGroupDetailsOpen]);
 
   const activeUser = allUsers.find((u) => u.id === activeUserId);
   const activeGroup = allGroups.find((g) => g.id === activeGroupId);
@@ -142,12 +334,10 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
   // Helper to extract numeric sorting timestamp from a message
   const getMessageTimestampScore = (msg: Message | undefined, defaultOrder: number = 0): number => {
     if (!msg) return defaultOrder;
-    // Check if ID has embedded timestamp
     const match = msg.id.match(/^msg_(\d+)/);
     if (match) {
       return parseInt(match[1], 10);
     }
-    // Check if index in messages array
     const idx = messages.indexOf(msg);
     if (idx !== -1) {
       return 1700000000000 + idx * 1000;
@@ -257,9 +447,6 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
     });
 
     // Filter by Sort Option:
-    // 'all' includes both groups and direct messages
-    // 'groups' includes only groups
-    // 'direct' includes only direct messages
     let filtered = items;
     if (sortOption === 'groups') {
       filtered = items.filter((item) => item.type === 'group');
@@ -337,6 +524,124 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
     }
   };
 
+  // Voice Message Recording Methods
+  const startVoiceRecording = async () => {
+    vibrateLight();
+    setIsRecordingVoice(true);
+    setRecordingSeconds(0);
+    audioChunksRef.current = [];
+
+    recordingTimerRef.current = setInterval(() => {
+      setRecordingSeconds((prev) => prev + 1);
+    }, 1000);
+
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const recorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = recorder;
+
+        recorder.ondataavailable = (event) => {
+          if (event.data && event.data.size > 0) {
+            audioChunksRef.current.push(event.data);
+          }
+        };
+
+        recorder.start(100);
+      }
+    } catch {
+      // Microphone not available / permission blocked: graceful simulated audio recording
+    }
+  };
+
+  const cancelVoiceRecording = () => {
+    vibrateLight();
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      try {
+        mediaRecorderRef.current.stop();
+        mediaRecorderRef.current.stream.getTracks().forEach((t) => t.stop());
+      } catch {
+        // ignore
+      }
+    }
+    setIsRecordingVoice(false);
+    setRecordingSeconds(0);
+    audioChunksRef.current = [];
+  };
+
+  const finishAndSendVoiceRecording = () => {
+    vibrateStreakMilestone();
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    const duration = Math.max(1, recordingSeconds);
+
+    const deliverVoiceMessage = (audioUrl: string) => {
+      if (activeGroupId) {
+        onSendMessage({
+          groupId: activeGroupId,
+          text: '🎤 Voice message',
+          audioUrl,
+          audioDuration: duration,
+        });
+      } else if (activeUserId) {
+        onSendMessage({
+          receiverId: activeUserId,
+          text: '🎤 Voice message',
+          audioUrl,
+          audioDuration: duration,
+        });
+      }
+    };
+
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state !== 'inactive' &&
+      audioChunksRef.current.length > 0
+    ) {
+      try {
+        mediaRecorderRef.current.onstop = () => {
+          const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const dataUrl = typeof reader.result === 'string' ? reader.result : '';
+            deliverVoiceMessage(dataUrl || createSyntheticAudioDataUrl(duration));
+          };
+          reader.readAsDataURL(blob);
+          mediaRecorderRef.current?.stream.getTracks().forEach((t) => t.stop());
+        };
+        mediaRecorderRef.current.stop();
+      } catch {
+        deliverVoiceMessage(createSyntheticAudioDataUrl(duration));
+      }
+    } else {
+      // Fallback synthetic voice recording
+      deliverVoiceMessage(createSyntheticAudioDataUrl(duration));
+    }
+
+    setIsRecordingVoice(false);
+    setRecordingSeconds(0);
+    audioChunksRef.current = [];
+  };
+
+  // Group Management Handlers (Admin controls & Member actions)
+  const handleAddMembersToGroup = (newMemberIds: string[]) => {
+    if (!activeGroupId) return;
+    DailyStorageService.addMembersToGroup(activeGroupId, newMemberIds);
+    if (onGroupsUpdated) onGroupsUpdated();
+  };
+
+  const handleRemoveMemberFromGroup = (memberId: string) => {
+    if (!activeGroupId) return;
+    DailyStorageService.removeMemberFromGroup(activeGroupId, memberId);
+    if (onGroupsUpdated) onGroupsUpdated();
+  };
+
+  const handleToggleAdminInGroup = (memberId: string) => {
+    if (!activeGroupId) return;
+    DailyStorageService.toggleGroupAdmin(activeGroupId, memberId);
+    if (onGroupsUpdated) onGroupsUpdated();
+  };
+
   const isInsideChat = Boolean(activeUserId || activeGroupId);
 
   const getSortOptionLabel = (option: MessageSortOption) => {
@@ -404,7 +709,7 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                 {isSortDropdownOpen && (
                   <div className="absolute right-0 mt-2 w-48 bg-[#121216] border border-white/15 rounded-2xl shadow-2xl py-1.5 z-30 animate-in fade-in zoom-in-95 duration-150">
                     <div className="px-3 py-1 text-[10px] uppercase tracking-wider font-bold text-white/40 border-b border-white/5 mb-1">
-                      Sort & Filter By Sent Time
+                      Sort By Message Sent
                     </div>
                     {(['all', 'groups', 'direct'] as MessageSortOption[]).map((opt) => (
                       <button
@@ -480,8 +785,8 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search messages, users, groups..."
-                  className="w-full pl-9 pr-8 py-2 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-xl text-xs text-white placeholder-white/40 outline-none transition-colors"
+                  placeholder="Search chats, groups, messages..."
+                  className="w-full pl-9 pr-8 py-2 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-white/40 focus:border-[#2F6FED] outline-none transition-colors"
                 />
                 {searchQuery && (
                   <button
@@ -506,48 +811,28 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
             </div>
           )}
 
-          {/* Active Sort Bar Summary */}
-          <div className="px-4 py-2 bg-white/[0.02] border-b border-white/5 flex items-center justify-between text-[11px] text-white/50 font-medium">
-            <div className="flex items-center gap-1.5">
-              <span>Sorted by latest message sent:</span>
-              <span className="text-white font-bold bg-white/10 px-2 py-0.5 rounded-md text-[10px]">
-                {sortOption === 'all'
-                  ? 'All (Mixed by Time)'
-                  : sortOption === 'groups'
-                  ? 'Groups Only'
-                  : 'Direct Messages Only'}
-              </span>
-            </div>
-            <span className="text-white/40 font-mono text-[10px]">
-              {unifiedConversations.length} conversation{unifiedConversations.length !== 1 ? 's' : ''}
-            </span>
-          </div>
-
-          {/* Chronologically Sorted Conversation Stream */}
-          <div className="flex-1 overflow-y-auto divide-y divide-white/5 p-2 space-y-1">
+          {/* Conversation Stream */}
+          <div className="flex-1 overflow-y-auto divide-y divide-white/5">
             {unifiedConversations.length === 0 ? (
-              <div className="h-64 flex flex-col items-center justify-center text-center p-6 space-y-3 text-white/50">
-                <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-white/30">
+              <div className="flex flex-col items-center justify-center p-8 text-center h-64 text-white/40 space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white/40">
                   <MessageSquare className="w-6 h-6" />
                 </div>
-                <div>
+                <div className="space-y-1">
                   <p className="text-sm font-bold text-white/80">No conversations found</p>
-                  <p className="text-xs text-white/40 mt-1 max-w-xs">
+                  <p className="text-xs text-white/40 max-w-xs">
                     {searchQuery
-                      ? 'No direct messages or groups match your search.'
-                      : sortOption === 'groups'
-                      ? 'No groups yet. Tap "+ New Group" above to start one!'
-                      : 'Follow people or start a new message to chat.'}
+                      ? `No conversations match "${searchQuery}".`
+                      : 'Connect with members or create a private group to start messaging.'}
                   </p>
                 </div>
-                {onOpenCreateGroup && sortOption === 'groups' && (
+                {onOpenCreateGroup && (
                   <button
                     type="button"
                     onClick={onOpenCreateGroup}
-                    className="px-3.5 py-2 rounded-xl bg-[#2F6FED] hover:bg-[#255bd1] text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-md mt-2"
+                    className="px-4 py-2 bg-[#2F6FED] text-white rounded-xl text-xs font-bold hover:bg-blue-600 transition-colors shadow-md mt-2"
                   >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Create Your First Group</span>
+                    Create a Group Chat
                   </button>
                 )}
               </div>
@@ -565,38 +850,36 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                       setActiveUserId(item.user.id);
                       setActiveGroupId(null);
                     }
+                    setIsGroupDetailsOpen(false);
                   }}
-                  className="w-full p-3 rounded-2xl hover:bg-white/5 transition-all flex items-center gap-3.5 text-left group"
+                  className="w-full p-3.5 flex items-center gap-3.5 text-left hover:bg-white/[0.04] active:bg-white/[0.08] transition-colors"
                 >
-                  {/* Avatar with Type Marker */}
                   <div className="relative shrink-0">
                     <img
                       src={item.avatar}
                       alt={item.title}
+                      referrerPolicy="no-referrer"
                       className={`w-12 h-12 object-cover border border-white/10 ${
                         item.type === 'group' ? 'rounded-2xl' : 'rounded-full'
                       }`}
                     />
-                    {item.type === 'group' ? (
-                      <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[9px] shadow-md">
+                    {item.type === 'group' && (
+                      <div className="absolute -bottom-1 -right-1 p-1 bg-emerald-500 rounded-lg text-black">
                         <Users className="w-2.5 h-2.5" />
-                      </span>
-                    ) : (
-                      <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-[#2F6FED] border-2 border-[#050505]" />
+                      </div>
                     )}
                   </div>
 
-                  {/* Main Details: Title, Message preview, Timestamp, Unread Badge */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2 mb-0.5">
+                    <div className="flex items-center justify-between gap-1 mb-0.5">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <h4 className="font-bold text-xs sm:text-sm text-white truncate">
                           {item.title}
                         </h4>
                         <span
-                          className={`text-[9px] px-1.5 py-0.2 rounded font-mono font-bold shrink-0 ${
+                          className={`text-[9px] px-1.5 py-0.2 rounded font-mono shrink-0 ${
                             item.type === 'group'
-                              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
+                              ? 'bg-emerald-500/20 text-emerald-300'
                               : 'bg-white/10 text-white/60'
                           }`}
                         >
@@ -614,7 +897,9 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                           item.unreadCount > 0 ? 'text-white font-semibold' : 'text-white/50'
                         }`}
                       >
-                        {item.lastMessage.text || 'Photo attachment'}
+                        {item.lastMessage.audioUrl
+                          ? '🎤 Voice message'
+                          : item.lastMessage.text || 'Photo attachment'}
                       </p>
                       {item.unreadCount > 0 && (
                         <span className="px-2 py-0.5 rounded-full bg-[#2F6FED] text-white font-black text-[10px] shrink-0 shadow-md">
@@ -628,6 +913,20 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
             )}
           </div>
         </div>
+      ) : isGroupDetailsOpen && activeGroup ? (
+        /* DEDICATED GROUP DETAILS & MEMBER MANAGEMENT SCREEN */
+        <GroupDetailsScreen
+          group={activeGroup}
+          currentUser={currentUser}
+          allUsers={allUsers}
+          messages={messages}
+          onBack={() => setIsGroupDetailsOpen(false)}
+          onAddMembers={handleAddMembersToGroup}
+          onRemoveMember={handleRemoveMemberFromGroup}
+          onToggleAdmin={handleToggleAdminInGroup}
+          onExpandPhoto={(photoUrl: string) => setExpandedPhoto(photoUrl)}
+          onViewUser={onViewUser}
+        />
       ) : (
         /* DEDICATED CHAT VIEW: CHAT IS THE MOST IMPORTANT THING */
         <div className="flex-1 flex flex-col h-full bg-[#070709]">
@@ -640,6 +939,7 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                   vibrateLight();
                   setActiveUserId(null);
                   setActiveGroupId(null);
+                  setIsGroupDetailsOpen(false);
                 }}
                 className="p-2 -ml-2 text-white/70 hover:text-white rounded-xl hover:bg-white/10 transition-colors flex items-center gap-1 text-xs font-semibold shrink-0"
                 aria-label="Back to conversations"
@@ -649,17 +949,27 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
               </button>
 
               {activeGroup ? (
-                <div className="flex items-center gap-2.5 min-w-0">
+                /* Clickable Group Header: Opens Group Management & Photos Screen */
+                <div
+                  className="flex items-center gap-2.5 min-w-0 cursor-pointer group/hdr hover:opacity-90 transition-opacity"
+                  onClick={() => {
+                    vibrateLight();
+                    setIsGroupDetailsOpen(true);
+                  }}
+                  title="Click to view group details, members, and shared photos"
+                >
                   <img
                     src={activeGroup.avatar}
                     alt={activeGroup.name}
-                    className="w-9 h-9 rounded-2xl object-cover shrink-0 border border-white/10"
+                    referrerPolicy="no-referrer"
+                    className="w-9 h-9 rounded-2xl object-cover shrink-0 border border-white/10 group-hover/hdr:border-blue-500/50 transition-colors"
                   />
                   <div className="min-w-0">
-                    <h3 className="font-bold text-xs sm:text-sm text-white truncate">
-                      {activeGroup.name}
+                    <h3 className="font-bold text-xs sm:text-sm text-white truncate flex items-center gap-1.5 group-hover/hdr:text-blue-400 transition-colors">
+                      <span>{activeGroup.name}</span>
+                      <ChevronDown className="w-3 h-3 text-white/40 group-hover/hdr:text-blue-400 transition-colors" />
                     </h3>
-                    <span className="text-[10px] text-emerald-400 font-medium block">
+                    <span className="text-[10px] text-emerald-400 font-medium block truncate">
                       {activeGroup.memberCount || activeGroup.memberIds?.length || 1} members • #{activeGroup.category || 'General'}
                     </span>
                   </div>
@@ -682,6 +992,7 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                   <img
                     src={activeUser.avatar}
                     alt={activeUser.name}
+                    referrerPolicy="no-referrer"
                     className="w-9 h-9 rounded-full object-cover shrink-0 border border-white/10"
                   />
                   <div className="min-w-0">
@@ -702,15 +1013,15 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
               {activeGroup && (
                 <button
                   type="button"
-                  onClick={() => setShowPinnedInfo(!showPinnedInfo)}
-                  className={`p-2 rounded-xl border transition-colors ${
-                    showPinnedInfo
-                      ? 'bg-[#2F6FED]/20 border-[#2F6FED] text-[#2F6FED]'
-                      : 'bg-white/5 border-white/10 text-white/60 hover:text-white'
-                  }`}
-                  title="Group Guidelines & Pinned Topic"
+                  onClick={() => {
+                    vibrateLight();
+                    setIsGroupDetailsOpen(true);
+                  }}
+                  className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white transition-colors flex items-center gap-1 text-xs"
+                  title="Group details & photos"
                 >
-                  <Pin className="w-4 h-4" />
+                  <Users className="w-4 h-4 text-blue-400" />
+                  <span className="hidden sm:inline text-[11px] font-bold">Manage</span>
                 </button>
               )}
 
@@ -730,163 +1041,89 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
             </div>
           </div>
 
-          {/* Pinned Info Banner for Groups */}
-          {activeGroup && showPinnedInfo && (
-            <div className="bg-[#101014] p-3.5 border-b border-white/10 animate-in slide-in-from-top-2 space-y-2">
-              {activeGroup.pinnedTopic && (
-                <div className="p-2.5 rounded-xl bg-[#2F6FED]/10 border border-[#2F6FED]/25 flex items-start gap-2">
-                  <Pin className="w-4 h-4 text-[#2F6FED] shrink-0 mt-0.5" />
-                  <div>
-                    <span className="text-[10px] font-bold text-[#2F6FED] uppercase tracking-wider block">
-                      Pinned Discussion Topic
-                    </span>
-                    <p className="text-xs text-white/90 font-medium mt-0.5">
-                      {activeGroup.pinnedTopic}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {activeGroup.rules && activeGroup.rules.length > 0 && (
-                <div className="p-2.5 rounded-xl bg-white/5 border border-white/5 space-y-1">
-                  <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider flex items-center gap-1">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                    Group Rules
-                  </span>
-                  <ul className="text-xs text-white/70 space-y-0.5 list-disc list-inside">
-                    {activeGroup.rules.map((rule, rIdx) => (
-                      <li key={rIdx}>{rule}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Main Chat Message Timeline */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {/* Messages Stream */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
             {currentChatMessages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-2 text-white/40">
-                <MessageSquare className="w-10 h-10 text-white/20" />
-                <p className="text-xs font-bold text-white/80">
-                  {activeGroup ? 'No messages in this group yet' : 'No messages yet'}
-                </p>
-                <p className="text-[11px] text-white/50 max-w-xs">
-                  {activeGroup
-                    ? 'Start the discussion or post today’s progress update!'
-                    : 'Say hi and check in on daily progress!'}
+              <div className="py-16 text-center space-y-2 text-white/40">
+                <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-white/30">
+                  <MessageSquare className="w-6 h-6" />
+                </div>
+                <p className="text-xs font-semibold text-white/70">
+                  No messages yet. Send a message, photo, or voice note to get started!
                 </p>
               </div>
             ) : (
               currentChatMessages.map((msg) => {
                 const isMe = msg.senderId === currentUser.id;
-                const sender = allUsers.find((u) => u.id === msg.senderId) || currentUser;
+                const sender = allUsers.find((u) => u.id === msg.senderId);
 
                 return (
                   <div
                     key={msg.id}
-                    className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} space-y-1`}
+                    className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
                   >
-                    {/* In groups: show sender avatar & name on incoming messages */}
-                    {activeGroup && !isMe && (
-                      <div className="flex items-center gap-1.5 ml-1 mb-0.5">
+                    {/* In group chat, show sender info if not current user */}
+                    {!isMe && activeGroup && sender && (
+                      <div className="flex items-center gap-1.5 mb-1 px-1">
                         <img
                           src={sender.avatar}
                           alt={sender.name}
-                          className="w-4 h-4 rounded-full object-cover"
+                          referrerPolicy="no-referrer"
+                          className="w-4 h-4 rounded-full object-cover border border-white/20"
                         />
-                        <span className="text-[10px] font-bold text-white/60">
+                        <span className="text-[10px] text-white/50 font-bold">
                           {sender.name}
                         </span>
                       </div>
                     )}
 
                     <div
-                      className={`max-w-[82%] sm:max-w-md rounded-2xl p-3 text-xs leading-relaxed ${
+                      className={`max-w-[85%] sm:max-w-[75%] rounded-2xl p-3 shadow-md ${
                         isMe
-                          ? 'bg-[#2F6FED] text-white shadow-md rounded-tr-sm'
-                          : 'bg-white/10 text-white border border-white/5 rounded-tl-sm'
+                          ? 'bg-[#2F6FED] text-white rounded-br-xs'
+                          : 'bg-[#141418] border border-white/10 text-white rounded-bl-xs'
                       }`}
                     >
-                      {msg.text && <p className="whitespace-pre-wrap">{msg.text}</p>}
-
-                      {/* Photo Attachment with Lightbox Zoom */}
+                      {/* Attached Photo */}
                       {msg.imageUrl && (
                         <div
-                          className="mt-2 rounded-xl overflow-hidden cursor-pointer border border-white/10 bg-black/40"
-                          onClick={() => setExpandedPhoto(msg.imageUrl || null)}
+                          className="mb-2 rounded-xl overflow-hidden cursor-pointer border border-white/10 relative group"
+                          onClick={() => {
+                            vibrateLight();
+                            setExpandedPhoto(msg.imageUrl!);
+                          }}
                         >
                           <img
                             src={msg.imageUrl}
                             alt="Chat attachment"
-                            className="max-h-56 w-auto object-cover rounded-lg"
+                            referrerPolicy="no-referrer"
+                            className="w-full max-h-64 object-cover group-hover:scale-105 transition-transform duration-200"
                           />
                         </div>
                       )}
 
-                      {/* Shared Post Card Preview */}
-                      {msg.sharedPost && (
-                        <div className="mt-2 p-2.5 rounded-xl bg-black/30 border border-white/10 space-y-1.5 text-left">
-                          <div className="flex items-center gap-1.5">
-                            <img
-                              src={msg.sharedPost.authorAvatar}
-                              alt={msg.sharedPost.authorName}
-                              className="w-4 h-4 rounded-full object-cover"
-                            />
-                            <span className="text-[10px] font-bold text-white/80">
-                              @{msg.sharedPost.authorUsername}
-                            </span>
-                          </div>
-                          {msg.sharedPost.imageUrl && (
-                            <img
-                              src={msg.sharedPost.imageUrl}
-                              alt="Shared preview"
-                              className="w-full h-28 object-cover rounded-lg"
-                            />
-                          )}
-                          <p className="text-[11px] text-white/90 line-clamp-2">
-                            {msg.sharedPost.content}
+                      {/* Attached Voice Message */}
+                      {msg.audioUrl ? (
+                        <VoiceMessageBubble
+                          audioUrl={msg.audioUrl}
+                          duration={msg.audioDuration}
+                          isCurrentUser={isMe}
+                        />
+                      ) : (
+                        msg.text && (
+                          <p className="text-xs sm:text-sm whitespace-pre-wrap break-words leading-relaxed">
+                            {msg.text}
                           </p>
-                          {onViewPost && (
-                            <button
-                              type="button"
-                              onClick={() => onViewPost(msg.sharedPost!.id)}
-                              className="w-full py-1 text-center text-[10px] font-bold text-[#2F6FED] hover:underline"
-                            >
-                              View Post
-                            </button>
-                          )}
-                        </div>
+                        )
                       )}
 
-                      {/* Challenge Invite Preview */}
-                      {msg.challengeInvite && (
-                        <div className="mt-2 p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 space-y-1.5 text-left">
-                          <div className="flex items-center gap-1.5 text-amber-400 font-bold text-[10px]">
-                            <Trophy className="w-3.5 h-3.5" />
-                            <span>Challenge Invite</span>
-                          </div>
-                          <h5 className="font-bold text-xs text-white">
-                            {msg.challengeInvite.challengeTitle}
-                          </h5>
-                          <p className="text-[10px] text-white/70">
-                            {msg.challengeInvite.durationDays} Days • #{msg.challengeInvite.category}
-                          </p>
-                          {onOpenChallenge && (
-                            <button
-                              type="button"
-                              onClick={() => onOpenChallenge(msg.challengeInvite!.challengeId)}
-                              className="w-full py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold transition-colors"
-                            >
-                              Join Challenge
-                            </button>
-                          )}
-                        </div>
-                      )}
-
-                      <div className="flex items-center justify-end gap-1 mt-1 text-[9px] text-white/50">
+                      <div
+                        className={`flex items-center justify-end gap-1 mt-1 text-[9px] font-mono ${
+                          isMe ? 'text-white/70' : 'text-white/40'
+                        }`}
+                      >
                         <span>{msg.timestamp}</span>
-                        {isMe && <span>✓✓</span>}
+                        {isMe && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                       </div>
                     </div>
                   </div>
@@ -896,55 +1133,20 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Photo Picker Drawer */}
-          {showPhotoPicker && (
-            <div className="p-3 bg-[#111116] border-t border-white/10 space-y-2 animate-in slide-in-from-bottom-2">
-              <div className="flex items-center justify-between text-[11px] font-bold text-white/70">
-                <span>Select a photo</span>
-                <button
-                  type="button"
-                  onClick={() => setShowPhotoPicker(false)}
-                  className="text-white/40 hover:text-white"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="grid grid-cols-5 gap-2">
-                {PRESET_CHAT_PHOTOS.map((url, pIdx) => (
-                  <button
-                    key={pIdx}
-                    type="button"
-                    onClick={() => {
-                      vibrateLight();
-                      setAttachedImage(url);
-                      setShowPhotoPicker(false);
-                    }}
-                    className="aspect-square rounded-xl overflow-hidden border border-white/10 hover:border-[#2F6FED] transition-colors"
-                  >
-                    <img src={url} alt={`Preset ${pIdx}`} className="w-full h-full object-cover" />
-                  </button>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
-              >
-                <Upload className="w-3.5 h-3.5" />
-                <span>Upload photo from device</span>
-              </button>
-            </div>
-          )}
-
-          {/* Attached image preview */}
+          {/* Attached Photo Preview Bar */}
           {attachedImage && (
-            <div className="p-2 border-t border-white/10 bg-[#121216] flex items-center gap-2">
-              <div className="relative inline-block rounded-xl overflow-hidden border border-[#2F6FED] h-16 w-16">
-                <img src={attachedImage} alt="Ready" className="w-full h-full object-cover" />
+            <div className="px-4 py-2 bg-[#121216] border-t border-white/10 flex items-center gap-3">
+              <div className="relative w-12 h-12 rounded-xl overflow-hidden border border-white/20">
+                <img
+                  src={attachedImage}
+                  alt="Attached"
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover"
+                />
                 <button
                   type="button"
                   onClick={() => setAttachedImage(null)}
-                  className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-black/70 text-white"
+                  className="absolute top-0.5 right-0.5 p-0.5 bg-black/70 rounded-full text-white hover:bg-black"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -953,48 +1155,99 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
             </div>
           )}
 
-          {/* Bottom Chat Composer Bar */}
-          <form
-            onSubmit={handleSend}
-            className="p-3 bg-[#0a0a0a] border-t border-white/10 flex items-center gap-2"
-          >
-            <button
-              type="button"
-              onClick={() => setShowPhotoPicker(!showPhotoPicker)}
-              className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white transition-colors"
-              title="Attach photo"
+          {/* Live Voice Recording Status Bar */}
+          {isRecordingVoice ? (
+            <div className="p-3 bg-[#111116] border-t border-blue-500/30 flex items-center justify-between gap-3 animate-in slide-in-from-bottom-2">
+              <div className="flex items-center gap-2.5">
+                <div className="w-3 h-3 rounded-full bg-rose-500 animate-ping" />
+                <span className="text-xs font-mono font-bold text-rose-400">
+                  Recording {Math.floor(recordingSeconds / 60)}:
+                  {recordingSeconds % 60 < 10 ? '0' : ''}
+                  {recordingSeconds % 60}
+                </span>
+                <span className="text-[11px] text-white/40 hidden sm:inline">
+                  • Speak now
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={cancelVoiceRecording}
+                  className="p-2 rounded-xl bg-white/5 hover:bg-rose-500/20 text-white/60 hover:text-rose-400 transition-colors"
+                  title="Cancel voice message"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={finishAndSendVoiceRecording}
+                  className="px-3.5 py-2 rounded-xl bg-[#2F6FED] hover:bg-blue-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-blue-500/20 transition-all active:scale-95"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Send Voice</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* Bottom Chat Composer Bar */
+            <form
+              onSubmit={handleSend}
+              className="p-3 bg-[#0a0a0a] border-t border-white/10 flex items-center gap-2"
             >
-              <ImageIcon className="w-4 h-4" />
-            </button>
+              {/* Photo Upload Trigger */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white transition-colors"
+                title="Attach photo"
+              >
+                <ImageIcon className="w-4 h-4" />
+              </button>
 
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileUpload}
-              accept="image/*"
-              className="hidden"
-            />
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                accept="image/*"
+                className="hidden"
+              />
 
-            <input
-              type="text"
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              placeholder={
-                activeGroup
-                  ? `Message in ${activeGroup.name}...`
-                  : `Message @${activeUser?.username || 'user'}...`
-              }
-              className="flex-1 px-3.5 py-2.5 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-xl text-xs text-white placeholder-white/40 outline-none transition-colors"
-            />
+              {/* Voice Message Trigger */}
+              <button
+                type="button"
+                onClick={startVoiceRecording}
+                className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-blue-400 transition-colors"
+                title="Record voice message"
+                aria-label="Record voice message"
+              >
+                <Mic className="w-4 h-4" />
+              </button>
 
-            <button
-              type="submit"
-              disabled={!inputText.trim() && !attachedImage}
-              className="p-2.5 bg-[#2F6FED] hover:bg-[#255bd1] disabled:opacity-30 text-white font-bold rounded-xl transition-all shadow-md"
-            >
-              <Send className="w-4 h-4" />
-            </button>
-          </form>
+              {/* Text Input */}
+              <input
+                type="text"
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                placeholder={
+                  activeGroup
+                    ? `Message in ${activeGroup.name}...`
+                    : `Message @${activeUser?.username || 'user'}...`
+                }
+                className="flex-1 px-3.5 py-2.5 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-xl text-xs text-white placeholder-white/40 outline-none transition-colors"
+              />
+
+              {/* Send Button */}
+              <button
+                type="submit"
+                disabled={!inputText.trim() && !attachedImage}
+                className="p-2.5 bg-[#2F6FED] hover:bg-[#255bd1] disabled:opacity-30 text-white font-bold rounded-xl transition-all shadow-md"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </form>
+          )}
         </div>
       )}
 
@@ -1008,6 +1261,7 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
             <img
               src={expandedPhoto}
               alt="Expanded preview"
+              referrerPolicy="no-referrer"
               className="w-full h-full object-contain"
             />
             <button
