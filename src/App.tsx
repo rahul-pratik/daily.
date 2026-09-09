@@ -711,7 +711,7 @@ export default function App() {
   return (
     <div className={`min-h-screen ${theme === 'light' ? 'bg-[#f8fafc] text-[#0f172a]' : 'bg-[#050505] text-white'} flex justify-center font-sans antialiased selection:bg-[#2F6FED] selection:text-white`}>
       {/* Mobile-first centered frame container */}
-      <div className={`w-full max-w-lg min-h-screen ${theme === 'light' ? 'bg-[#f8fafc] border-slate-200' : 'bg-[#050505] border-white/5'} flex flex-col shadow-2xl relative border-x`}>
+      <div className={`w-full max-w-lg ${currentTab === 'messages' ? 'h-[100dvh] max-h-[100dvh] overflow-hidden' : 'min-h-screen'} ${theme === 'light' ? 'bg-[#f8fafc] border-slate-200' : 'bg-[#050505] border-white/5'} flex flex-col shadow-2xl relative border-x`}>
         {/* Top Header - Hidden when on dedicated messages screen */}
         {currentTab !== 'messages' && (
           <TopHeader
@@ -726,7 +726,7 @@ export default function App() {
         )}
 
         {/* Main Tab Screens */}
-        <main className="flex-1 flex flex-col">
+        <main className={`flex-1 flex flex-col ${currentTab === 'messages' ? 'h-[100dvh] max-h-[100dvh] overflow-hidden min-h-0' : ''}`}>
           {currentTab === 'home' && (
             <HomeFeed
               posts={posts}
@@ -857,6 +857,10 @@ export default function App() {
               onGroupsUpdated={() => setGroups(DailyStorageService.getAllGroups())}
               initialChatUserId={activeChatUserId}
               initialGroupId={activeGroupId}
+              onActiveChatChange={(userId, groupId) => {
+                setActiveChatUserId(userId);
+                setActiveGroupId(groupId);
+              }}
               onOpenCreateGroup={() => setIsCreateGroupOpen(true)}
               onViewPost={handleViewPostFromId}
               onViewUser={handleViewSimplifiedUser}
@@ -870,8 +874,8 @@ export default function App() {
           )}
         </main>
 
-        {/* Bottom Navigation Bar - Hidden inside active chat thread for edge-to-edge chat UX */}
-        {!(currentTab === 'messages' && (activeChatUserId || activeGroupId)) && (
+        {/* Bottom Navigation Bar - Hidden on dedicated messages screen so chat bar is unobstructed */}
+        {currentTab !== 'messages' && (
           <BottomNavigation
             currentTab={currentTab}
             onSelectTab={(tab) => {

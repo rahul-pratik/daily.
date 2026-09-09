@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   ArrowLeft,
   Send,
@@ -26,6 +26,8 @@ import { User, Message, Group } from '../types';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
 import { DailyStorageService } from '../services/storage';
 import { GroupDetailsScreen } from './GroupDetailsScreen';
+import { VoiceMessageWaveformVisualizer } from './VoiceMessageWaveformVisualizer';
+import { createSyntheticAudioDataUrl } from '../utils/audio';
 
 export type MessageSortOption = 'all' | 'groups' | 'direct';
 
@@ -45,6 +47,7 @@ interface DirectMessagesScreenProps {
   onGroupsUpdated?: () => void;
   initialChatUserId?: string | null;
   initialGroupId?: string | null;
+  onActiveChatChange?: (userId: string | null, groupId: string | null) => void;
   onOpenCreateGroup?: () => void;
   onViewPost?: (postId: string) => void;
   onViewUser?: (user: {
@@ -79,164 +82,6 @@ interface UnifiedConversationItem {
   unreadCount: number;
 }
 
-// Generate fallback playable audio WAV in case microphone access is blocked
-const createSyntheticAudioDataUrl = (durationSec: number = 3): string => {
-  try {
-    const sampleRate = 8000;
-    const numSamples = Math.floor(sampleRate * durationSec);
-    const buffer = new ArrayBuffer(44 + numSamples * 2);
-    const view = new DataView(buffer);
-
-    const writeString = (offset: number, string: string) => {
-      for (let i = 0; i < string.length; i++) {
-        view.setUint8(offset + i, string.charCodeAt(i));
-      }
-    };
-
-    writeString(0, 'RIFF');
-    view.setUint32(4, 36 + numSamples * 2, true);
-    writeString(8, 'WAVE');
-    writeString(12, 'fmt ');
-    view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true);
-    view.setUint16(22, 1, true);
-    view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * 2, true);
-    view.setUint16(32, 2, true);
-    view.setUint16(34, 16, true);
-    writeString(36, 'data');
-    view.setUint32(40, numSamples * 2, true);
-
-    for (let i = 0; i < numSamples; i++) {
-      const t = i / sampleRate;
-      const freq = 420 + Math.sin(t * 3) * 40;
-      const envelope = Math.min(1, Math.min(t * 4, (durationSec - t) * 4));
-      const sample = Math.sin(2 * Math.PI * freq * t) * 0.25 * envelope;
-      view.setInt16(44 + i * 2, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
-    }
-
-    const blob = new Blob([buffer], { type: 'audio/wav' });
-    return URL.createObjectURL(blob);
-  } catch {
-    return '';
-  }
-};
-
-// Component for rendering an individual voice message with playback & animated waveform
-const VoiceMessageBubble: React.FC<{
-  audioUrl?: string;
-  duration?: number;
-  isCurrentUser: boolean;
-}> = ({ audioUrl, duration = 4, isCurrentUser }) => {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  useEffect(() => {
-    if (!audioUrl) return;
-    const audio = new Audio(audioUrl);
-    audioRef.current = audio;
-
-    audio.ontimeupdate = () => {
-      setCurrentTime(audio.currentTime);
-    };
-
-    audio.onended = () => {
-      setIsPlaying(false);
-      setCurrentTime(0);
-    };
-
-    return () => {
-      audio.pause();
-      audio.src = '';
-    };
-  }, [audioUrl]);
-
-  const togglePlay = () => {
-    vibrateLight();
-    if (!audioRef.current) return;
-    if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    } else {
-      audioRef.current.play().then(() => {
-        setIsPlaying(true);
-      }).catch(() => {
-        setIsPlaying(false);
-      });
-    }
-  };
-
-  const totalDuration = duration || 4;
-  const progressRatio = totalDuration > 0 ? Math.min(1, currentTime / totalDuration) : 0;
-
-  // Waveform bars with pseudo-random aesthetic heights
-  const bars = [35, 60, 45, 90, 75, 40, 65, 80, 50, 70, 95, 60, 40, 85, 55, 75, 45, 30];
-
-  const formatSeconds = (secs: number) => {
-    const m = Math.floor(secs / 60);
-    const s = Math.floor(secs % 60);
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
-  };
-
-  return (
-    <div className="flex items-center gap-3 py-1.5 px-2 min-w-[210px] max-w-[280px]">
-      <button
-        type="button"
-        onClick={togglePlay}
-        className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-all ${
-          isCurrentUser
-            ? 'bg-white text-[#2F6FED] hover:bg-white/90 shadow-md'
-            : 'bg-[#2F6FED] text-white hover:bg-blue-600 shadow-md'
-        }`}
-        aria-label={isPlaying ? 'Pause voice message' : 'Play voice message'}
-      >
-        {isPlaying ? (
-          <Pause className="w-4 h-4 fill-current" />
-        ) : (
-          <Play className="w-4 h-4 fill-current ml-0.5" />
-        )}
-      </button>
-
-      <div className="flex-1 space-y-1">
-        {/* Waveform Visualization */}
-        <div className="flex items-center gap-0.5 h-6">
-          {bars.map((barHeight, idx) => {
-            const barRatio = idx / bars.length;
-            const isPassed = barRatio <= progressRatio;
-            return (
-              <div
-                key={idx}
-                style={{ height: `${barHeight}%` }}
-                className={`w-1 rounded-full transition-all duration-100 ${
-                  isPassed
-                    ? isCurrentUser
-                      ? 'bg-white'
-                      : 'bg-[#2F6FED]'
-                    : isCurrentUser
-                    ? 'bg-white/40'
-                    : 'bg-white/20'
-                } ${isPlaying && isPassed ? 'scale-y-110' : ''}`}
-              />
-            );
-          })}
-        </div>
-
-        {/* Timestamps */}
-        <div className="flex items-center justify-between text-[10px] font-mono leading-none">
-          <span className={isCurrentUser ? 'text-white/80' : 'text-white/60'}>
-            {isPlaying ? formatSeconds(currentTime) : formatSeconds(totalDuration)}
-          </span>
-          <span className={`flex items-center gap-1 ${isCurrentUser ? 'text-white/70' : 'text-white/40'}`}>
-            <Volume2 className="w-2.5 h-2.5" />
-            <span>Voice</span>
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
   currentUser,
   allUsers,
@@ -246,6 +91,7 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
   onGroupsUpdated,
   initialChatUserId,
   initialGroupId,
+  onActiveChatChange,
   onOpenCreateGroup,
   onViewPost,
   onViewUser,
@@ -263,6 +109,7 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
   const [showPhotoPicker, setShowPhotoPicker] = useState(false);
   const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null);
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
 
   // Group Details & Management Screen State
   const [isGroupDetailsOpen, setIsGroupDetailsOpen] = useState(false);
@@ -275,9 +122,28 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
   const recordingTimerRef = useRef<any>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Scroll smoothly or instantly to the bottom of the active conversation
+  const scrollToBottom = useCallback((smooth: boolean = true) => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto',
+      });
+    } else if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' });
+    }
+  }, []);
+
+  const handleScrollMessages = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    const distanceToBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
+    setShowScrollBottom(distanceToBottom > 90);
+  };
 
   // Sync initial targets
   useEffect(() => {
@@ -285,10 +151,12 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
       setActiveUserId(initialChatUserId);
       setActiveGroupId(null);
       setIsGroupDetailsOpen(false);
+      onActiveChatChange?.(initialChatUserId, null);
     } else if (initialGroupId) {
       setActiveGroupId(initialGroupId);
       setActiveUserId(null);
       setIsGroupDetailsOpen(false);
+      onActiveChatChange?.(null, initialGroupId);
     }
   }, [initialChatUserId, initialGroupId]);
 
@@ -321,12 +189,21 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
     };
   }, []);
 
-  // Scroll to bottom when messages change inside active chat
+  // Immediate and responsive scrolling to bottom when entering active chat or receiving messages
   useEffect(() => {
     if ((activeUserId || activeGroupId) && !isGroupDetailsOpen) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      const timer = setTimeout(() => {
+        scrollToBottom(false);
+      }, 50);
+      return () => clearTimeout(timer);
     }
-  }, [messages, activeUserId, activeGroupId, isGroupDetailsOpen]);
+  }, [activeUserId, activeGroupId, isGroupDetailsOpen, scrollToBottom]);
+
+  useEffect(() => {
+    if ((activeUserId || activeGroupId) && !isGroupDetailsOpen) {
+      scrollToBottom(true);
+    }
+  }, [messages.length, activeUserId, activeGroupId, isGroupDetailsOpen, scrollToBottom]);
 
   const activeUser = allUsers.find((u) => u.id === activeUserId);
   const activeGroup = allGroups.find((g) => g.id === activeGroupId);
@@ -656,12 +533,12 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#050505] text-white min-h-[calc(100vh-3.5rem)] select-none">
+    <div className="flex-1 min-h-0 flex flex-col h-[100dvh] max-h-[100dvh] w-full bg-[#050505] text-white overflow-hidden relative">
       {!isInsideChat ? (
         /* CONVERSATION INBOX VIEW */
-        <div className="flex-1 flex flex-col h-full">
+        <div className="flex-1 min-h-0 flex flex-col h-full overflow-hidden">
           {/* Main Top Header */}
-          <div className="sticky top-0 z-20 px-4 py-3 bg-[#0a0a0a]/95 backdrop-blur-md border-b border-white/10 flex items-center justify-between gap-2">
+          <div className="shrink-0 z-20 px-4 py-3 bg-[#0a0a0a]/95 backdrop-blur-md border-b border-white/10 flex items-center justify-between gap-2">
             {/* Left: Back Button to previous screen & Screen Title */}
             <div className="flex items-center gap-2.5 min-w-0">
               <button
@@ -812,7 +689,7 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
           )}
 
           {/* Conversation Stream */}
-          <div className="flex-1 overflow-y-auto divide-y divide-white/5">
+          <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-white/5">
             {unifiedConversations.length === 0 ? (
               <div className="flex flex-col items-center justify-center p-8 text-center h-64 text-white/40 space-y-3">
                 <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white/40">
@@ -846,9 +723,11 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                     if (item.type === 'group' && item.group) {
                       setActiveGroupId(item.group.id);
                       setActiveUserId(null);
+                      onActiveChatChange?.(null, item.group.id);
                     } else if (item.user) {
                       setActiveUserId(item.user.id);
                       setActiveGroupId(null);
+                      onActiveChatChange?.(item.user.id, null);
                     }
                     setIsGroupDetailsOpen(false);
                   }}
@@ -929,9 +808,9 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
         />
       ) : (
         /* DEDICATED CHAT VIEW: CHAT IS THE MOST IMPORTANT THING */
-        <div className="flex-1 flex flex-col h-full bg-[#070709]">
+        <div className="flex-1 min-h-0 flex flex-col h-full bg-[#070709] overflow-hidden relative">
           {/* Active Chat Header */}
-          <div className="sticky top-0 z-20 px-4 py-3 bg-[#0a0a0a]/95 backdrop-blur-md border-b border-white/10 flex items-center justify-between gap-2 shrink-0">
+          <div className="shrink-0 z-20 px-4 py-3 bg-[#0a0a0a]/95 backdrop-blur-md border-b border-white/10 flex items-center justify-between gap-2">
             <div className="flex items-center gap-3 min-w-0">
               <button
                 type="button"
@@ -940,6 +819,7 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                   setActiveUserId(null);
                   setActiveGroupId(null);
                   setIsGroupDetailsOpen(false);
+                  onActiveChatChange?.(null, null);
                 }}
                 className="p-2 -ml-2 text-white/70 hover:text-white rounded-xl hover:bg-white/10 transition-colors flex items-center gap-1 text-xs font-semibold shrink-0"
                 aria-label="Back to conversations"
@@ -1041,8 +921,12 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
             </div>
           </div>
 
-          {/* Messages Stream */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
+          {/* Messages Stream with Constrained Scrolling */}
+          <div
+            ref={messagesContainerRef}
+            onScroll={handleScrollMessages}
+            className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 space-y-3.5 scroll-smooth"
+          >
             {currentChatMessages.length === 0 ? (
               <div className="py-16 text-center space-y-2 text-white/40">
                 <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-white/30">
@@ -1102,12 +986,13 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                         </div>
                       )}
 
-                      {/* Attached Voice Message */}
+                      {/* Attached Voice Message with Interactive Waveform Visualizer */}
                       {msg.audioUrl ? (
-                        <VoiceMessageBubble
+                        <VoiceMessageWaveformVisualizer
                           audioUrl={msg.audioUrl}
                           duration={msg.audioDuration}
                           isCurrentUser={isMe}
+                          messageId={msg.id}
                         />
                       ) : (
                         msg.text && (
@@ -1133,9 +1018,22 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
             <div ref={messagesEndRef} />
           </div>
 
+          {/* Jump to bottom button when scrolled up */}
+          {showScrollBottom && (
+            <button
+              type="button"
+              onClick={() => scrollToBottom(true)}
+              className="absolute bottom-20 right-4 z-30 p-2.5 rounded-full bg-[#2F6FED] hover:bg-blue-600 text-white shadow-xl flex items-center justify-center transition-all animate-in fade-in zoom-in-90 hover:scale-105 active:scale-95"
+              title="Jump to latest messages"
+              aria-label="Jump to latest messages"
+            >
+              <ChevronDown className="w-4 h-4 stroke-[3]" />
+            </button>
+          )}
+
           {/* Attached Photo Preview Bar */}
           {attachedImage && (
-            <div className="px-4 py-2 bg-[#121216] border-t border-white/10 flex items-center gap-3">
+            <div className="shrink-0 z-20 px-4 py-2 bg-[#121216] border-t border-white/10 flex items-center gap-3">
               <div className="relative w-12 h-12 rounded-xl overflow-hidden border border-white/20">
                 <img
                   src={attachedImage}
@@ -1157,25 +1055,42 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
 
           {/* Live Voice Recording Status Bar */}
           {isRecordingVoice ? (
-            <div className="p-3 bg-[#111116] border-t border-blue-500/30 flex items-center justify-between gap-3 animate-in slide-in-from-bottom-2">
-              <div className="flex items-center gap-2.5">
-                <div className="w-3 h-3 rounded-full bg-rose-500 animate-ping" />
-                <span className="text-xs font-mono font-bold text-rose-400">
-                  Recording {Math.floor(recordingSeconds / 60)}:
+            <div className="shrink-0 z-20 p-3 bg-[#111116] border-t border-blue-500/30 flex items-center justify-between gap-3 animate-in slide-in-from-bottom-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping shrink-0" />
+                <span className="text-xs font-mono font-bold text-rose-400 shrink-0">
+                  {Math.floor(recordingSeconds / 60)}:
                   {recordingSeconds % 60 < 10 ? '0' : ''}
                   {recordingSeconds % 60}
                 </span>
-                <span className="text-[11px] text-white/40 hidden sm:inline">
-                  • Speak now
+
+                {/* Animated real-time voice recording visualizer */}
+                <div className="flex items-center gap-[2.5px] h-6 px-2 py-1 bg-black/50 rounded-lg border border-white/10 overflow-hidden">
+                  {[40, 70, 55, 95, 80, 45, 90, 65, 100, 70, 50, 85, 60, 90, 45, 75].map((baseHeight, i) => {
+                    const wave = Math.sin(recordingSeconds * 8 + i * 0.75);
+                    const dynamicH = Math.max(18, Math.min(100, baseHeight * (0.5 + 0.5 * wave)));
+                    return (
+                      <div
+                        key={i}
+                        style={{ height: `${dynamicH}%` }}
+                        className="w-1 rounded-full bg-rose-500/90 transition-[height] duration-75 shrink-0"
+                      />
+                    );
+                  })}
+                </div>
+
+                <span className="text-[11px] text-white/40 hidden md:inline truncate">
+                  Recording voice note...
                 </span>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={cancelVoiceRecording}
                   className="p-2 rounded-xl bg-white/5 hover:bg-rose-500/20 text-white/60 hover:text-rose-400 transition-colors"
                   title="Cancel voice message"
+                  aria-label="Cancel voice message"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -1191,62 +1106,66 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
               </div>
             </div>
           ) : (
-            /* Bottom Chat Composer Bar */
-            <form
-              onSubmit={handleSend}
-              className="p-3 bg-[#0a0a0a] border-t border-white/10 flex items-center gap-2"
-            >
-              {/* Photo Upload Trigger */}
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white transition-colors"
-                title="Attach photo"
+            /* Bottom Chat Composer Bar - Pinned cleanly to bottom */
+            <div className="shrink-0 z-20 bg-[#0a0a0a] border-t border-white/10 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+              <form
+                onSubmit={handleSend}
+                className="p-3 flex items-center gap-2"
               >
-                <ImageIcon className="w-4 h-4" />
-              </button>
+                {/* Photo Upload Trigger */}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white transition-colors shrink-0"
+                  title="Attach photo"
+                  aria-label="Attach photo"
+                >
+                  <ImageIcon className="w-4 h-4" />
+                </button>
 
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileUpload}
-                accept="image/*"
-                className="hidden"
-              />
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  accept="image/*"
+                  className="hidden"
+                />
 
-              {/* Voice Message Trigger */}
-              <button
-                type="button"
-                onClick={startVoiceRecording}
-                className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-blue-400 transition-colors"
-                title="Record voice message"
-                aria-label="Record voice message"
-              >
-                <Mic className="w-4 h-4" />
-              </button>
+                {/* Voice Message Trigger */}
+                <button
+                  type="button"
+                  onClick={startVoiceRecording}
+                  className="p-2.5 rounded-xl bg-white/5 hover:bg-blue-500/20 border border-white/10 text-white/70 hover:text-[#2F6FED] transition-colors shrink-0"
+                  title="Record voice message"
+                  aria-label="Record voice message"
+                >
+                  <Mic className="w-4 h-4" />
+                </button>
 
-              {/* Text Input */}
-              <input
-                type="text"
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                placeholder={
-                  activeGroup
-                    ? `Message in ${activeGroup.name}...`
-                    : `Message @${activeUser?.username || 'user'}...`
-                }
-                className="flex-1 px-3.5 py-2.5 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-xl text-xs text-white placeholder-white/40 outline-none transition-colors"
-              />
+                {/* Text Input */}
+                <input
+                  type="text"
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  placeholder={
+                    activeGroup
+                      ? `Message in ${activeGroup.name}...`
+                      : `Message @${activeUser?.username || 'user'}...`
+                  }
+                  className="flex-1 min-w-0 px-3.5 py-2.5 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-xl text-xs text-white placeholder-white/40 outline-none transition-colors"
+                />
 
-              {/* Send Button */}
-              <button
-                type="submit"
-                disabled={!inputText.trim() && !attachedImage}
-                className="p-2.5 bg-[#2F6FED] hover:bg-[#255bd1] disabled:opacity-30 text-white font-bold rounded-xl transition-all shadow-md"
-              >
-                <Send className="w-4 h-4" />
-              </button>
-            </form>
+                {/* Send Button */}
+                <button
+                  type="submit"
+                  disabled={!inputText.trim() && !attachedImage}
+                  className="p-2.5 bg-[#2F6FED] hover:bg-[#255bd1] disabled:opacity-30 text-white font-bold rounded-xl transition-all shadow-md shrink-0 active:scale-95"
+                  aria-label="Send message"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </form>
+            </div>
           )}
         </div>
       )}

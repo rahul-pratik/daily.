@@ -1009,6 +1009,17 @@ export const INITIAL_MESSAGES: Message[] = [
     isRead: true,
   },
   {
+    id: 'm_sarah_voice',
+    conversationId: 'conv_sarah',
+    senderId: 'user_sarah',
+    receiverId: 'user_me',
+    text: '',
+    audioUrl: '',
+    audioDuration: 6,
+    timestamp: '11:32 AM',
+    isRead: true,
+  },
+  {
     id: 'm4',
     conversationId: 'conv_elena',
     senderId: 'user_elena',

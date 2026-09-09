@@ -238,6 +238,14 @@ export class DailyStorageService {
         this.saveAllMessages(INITIAL_MESSAGES);
         return INITIAL_MESSAGES;
       }
+      // Ensure sample voice note is present so users have immediate audio visualizer feedback
+      if (!parsed.some((m: Message) => m.id === 'm_sarah_voice')) {
+        const sarahVoice = INITIAL_MESSAGES.find((m) => m.id === 'm_sarah_voice');
+        if (sarahVoice) {
+          parsed.push(sarahVoice);
+          this.saveAllMessages(parsed);
+        }
+      }
       return parsed;
     } catch {
       return INITIAL_MESSAGES;
