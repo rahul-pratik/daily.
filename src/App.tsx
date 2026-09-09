@@ -546,6 +546,17 @@ export default function App() {
 
   // View full profile of another user
   const handleViewUser = (user: User) => {
+    const isMe =
+      user.id === currentUser.id ||
+      user.id === 'user_me' ||
+      (Boolean(user.username && currentUser.username) && user.username.toLowerCase() === currentUser.username.toLowerCase());
+
+    if (isMe) {
+      setActiveProfileUser(null);
+      setCurrentTab('profile');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     setActiveProfileUser(user);
   };
 
@@ -558,9 +569,43 @@ export default function App() {
     streak?: number;
     currentStreak?: number;
   }) => {
-    const fullUser = users.find((u) => u.id === user.id);
+    const isMe =
+      user.id === currentUser.id ||
+      user.id === 'user_me' ||
+      (Boolean(user.username && currentUser.username) && user.username.toLowerCase() === currentUser.username.toLowerCase());
+
+    if (isMe) {
+      setActiveProfileUser(null);
+      setCurrentTab('profile');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    const fullUser = users.find(
+      (u) =>
+        u.id === user.id ||
+        (Boolean(u.username && user.username) && u.username.toLowerCase() === user.username.toLowerCase())
+    );
     if (fullUser) {
       setActiveProfileUser(fullUser);
+    } else {
+      setActiveProfileUser({
+        id: user.id,
+        name: user.name,
+        username: user.username,
+        avatar: user.avatar,
+        bio: 'Daily member and creator.',
+        interests: ['Building', 'Fitness'],
+        habits: [],
+        activityDates: [],
+        currentStreak: 0,
+        longestStreak: 0,
+        totalPosts: 0,
+        followersCount: 1,
+        followingCount: 1,
+        followedUserIds: [],
+        lastPostedDate: null,
+        joinedDate: new Date().toISOString().slice(0, 10),
+      });
     }
   };
 
@@ -982,6 +1027,7 @@ export default function App() {
           currentUser={currentUser}
           onClose={() => setCommentsPost(null)}
           onAddComment={handleAddComment}
+          onViewUser={handleViewSimplifiedUser}
         />
 
         {/* Direct Messages & Group Chat Modal */}

@@ -373,12 +373,6 @@ export const PersonProfileDossierScreen: React.FC<PersonProfileDossierScreenProp
                 </p>
               </div>
             </div>
-
-            {/* Active Streak Pill */}
-            <div className="px-3 py-1 rounded-full bg-[#2F6FED]/10 text-[#2F6FED] text-xs font-medium flex items-center gap-1.5 shrink-0">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#2F6FED]" />
-              <span className="font-mono font-semibold">42d streak</span>
-            </div>
           </div>
 
           {/* Quick Metrics Bar */}

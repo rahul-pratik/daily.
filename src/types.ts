@@ -312,6 +312,7 @@ export interface Challenge {
   participantIds: string[];
   completedUserIds: string[]; // Users who completed all durationDays or finished
   userPostDates: Record<string, string[]>; // { [userId]: ["2026-08-25", ...] }
+  rules?: string[];
   // Group / Individual Challenge configurations
   challengeType: ChallengeType; // 'individual' | 'group'
   teamSize?: number; // Number of members allowed per team (e.g. 2 for Duo, 3 for Trio, 4, 5, etc.)

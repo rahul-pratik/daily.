@@ -13,7 +13,8 @@ import {
   ArrowLeft,
   Sparkles,
   Heart,
-  MessageSquare
+  MessageSquare,
+  Layers,
 } from 'lucide-react';
 import { User, Post, ProofCollection } from '../types';
 import { vibrateLight } from '../services/haptics';
@@ -112,11 +113,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         <div className="px-5 py-3.5 border-b border-white/10 flex items-center justify-between bg-[#0c0c10] sticky top-0 z-10">
           <div className="flex items-center gap-2">
             <span className="font-mono text-xs font-bold text-white/70">@{user.username}</span>
-            {user.currentStreak > 0 && (
-              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#2F6FED]/15 text-[#2F6FED] border border-[#2F6FED]/30 flex items-center gap-1">
-                <Flame className="w-3 h-3 fill-[#2F6FED]" /> {user.currentStreak}d Streak
-              </span>
-            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -159,11 +155,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   className="w-full h-full object-cover"
                 />
               </div>
-              {user.currentStreak > 0 && (
-                <span className="absolute -bottom-1 -right-1 bg-black text-[#2F6FED] text-[10px] font-black px-2 py-0.5 rounded-full border border-[#2F6FED]/60 shadow-md">
-                  🔥 {user.currentStreak}
-                </span>
-              )}
             </div>
 
             {/* Name, Handle, Bio */}
@@ -350,9 +341,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                             </span>
                           </div>
 
-                          {p.isDailyStreakPost && (
-                            <span className="absolute top-1.5 left-1.5 bg-black/80 backdrop-blur-sm text-[#2F6FED] text-[9px] font-black px-1.5 py-0.5 rounded-md border border-white/10">
-                              🔥 {p.userStreak}d
+                          {p.imageUrls && p.imageUrls.length > 1 && (
+                            <span
+                              className="absolute top-1.5 right-1.5 bg-black/80 backdrop-blur-sm text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md border border-white/10 flex items-center gap-1 shadow-sm"
+                              title={`${p.imageUrls.length} photos in this proof`}
+                            >
+                              <Layers className="w-2.5 h-2.5 text-[#2F6FED]" />
+                              <span>{p.imageUrls.length}</span>
                             </span>
                           )}
                         </div>
@@ -367,21 +362,22 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                         >
                           <div className="flex items-center justify-between text-[11px] text-white/50">
                             <span>{p.createdAt}</span>
-                            {p.isDailyStreakPost && (
-                              <span className="text-[#2F6FED] font-black flex items-center gap-1">
-                                <Flame className="w-3 h-3 fill-[#2F6FED]" /> Day {p.userStreak} Proof
-                              </span>
-                            )}
                           </div>
 
                           {p.imageUrl && (
-                            <div className="aspect-video rounded-xl overflow-hidden bg-black border border-white/10">
+                            <div className="relative aspect-video rounded-xl overflow-hidden bg-black border border-white/10">
                               <img
                                 src={p.imageUrl}
                                 alt="Proof Media"
                                 referrerPolicy="no-referrer"
                                 className="w-full h-full object-cover"
                               />
+                              {p.imageUrls && p.imageUrls.length > 1 && (
+                                <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded-md bg-black/70 backdrop-blur-sm border border-white/20 text-white flex items-center gap-1 shadow-sm">
+                                  <Layers className="w-2.5 h-2.5 text-white/90" />
+                                  <span className="text-[9px] font-mono font-bold">{p.imageUrls.length}</span>
+                                </div>
+                              )}
                             </div>
                           )}
 

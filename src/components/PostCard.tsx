@@ -12,7 +12,7 @@ interface PostCardProps {
   onToggleFollow?: (userId: string) => void;
   onSendDM?: (targetUser: { id: string; name: string; username: string; avatar: string; streak: number }) => void;
   onTagClick?: (tag: string) => void;
-  onViewUser?: (user: { id: string; name: string; username: string; avatar: string; streak: number }) => void;
+  onViewUser?: (user: { id: string; name: string; username: string; avatar: string; streak?: number }) => void;
   isSaved?: boolean;
   onToggleSave?: (postId: string) => void;
   onReportPost?: (post: Post) => void;
@@ -113,15 +113,24 @@ export const PostCard: React.FC<PostCardProps> = ({
     }
   };
 
-  const handleUserClick = () => {
+  const handleUserClick = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     if (onViewUser) {
-      onViewUser({
-        id: post.userId,
-        name: post.name,
-        username: post.username,
-        avatar: post.userAvatar,
-        streak: post.userStreak,
-      });
+      if (isMyPost) {
+        onViewUser({
+          id: currentUser.id,
+          name: currentUser.name,
+          username: currentUser.username,
+          avatar: currentUser.avatar,
+        });
+      } else {
+        onViewUser({
+          id: post.userId,
+          name: post.name,
+          username: post.username,
+          avatar: post.userAvatar,
+        });
+      }
     }
   };
 
@@ -152,7 +161,7 @@ export const PostCard: React.FC<PostCardProps> = ({
           onClick={handleUserClick}
           className="flex items-center gap-3 cursor-pointer group"
         >
-          {/* Avatar with clean streak indication */}
+          {/* Avatar */}
           <div className="relative">
             <div className="w-9 h-9 rounded-full overflow-hidden border border-white/10 group-hover:border-[#2F6FED]/50 transition-colors">
               <img
@@ -162,11 +171,6 @@ export const PostCard: React.FC<PostCardProps> = ({
                 className="w-full h-full object-cover"
               />
             </div>
-            {post.userStreak > 0 && (
-              <span className="absolute -bottom-1 -right-1 bg-black border border-[#2F6FED]/50 text-[#2F6FED] text-[8px] font-black px-1 rounded-full flex items-center shadow">
-                🔥{post.userStreak}
-              </span>
-            )}
           </div>
 
           <div className="flex flex-col">
@@ -177,20 +181,14 @@ export const PostCard: React.FC<PostCardProps> = ({
               <span className="text-white/20 text-xs">•</span>
               <span className="text-white/40 text-[10px]">{post.createdAt}</span>
             </div>
-            {post.isChallengeRecap ? (
+            {post.isChallengeRecap && (
               <div className="flex items-center gap-1 mt-0.5">
                 <span className="text-[10px] text-amber-300 font-black bg-gradient-to-r from-amber-500/20 to-amber-600/10 px-2 py-0.5 rounded-full border border-amber-500/40 flex items-center gap-1 shadow-sm shadow-amber-500/10">
                   <Sparkles className="w-2.5 h-2.5 text-amber-400" />
                   <span>Weekly Recap & MVP</span>
                 </span>
               </div>
-            ) : post.isDailyStreakPost ? (
-              <div className="flex items-center gap-1 mt-0.5">
-                <span className="text-[10px] text-[#2F6FED] font-bold">
-                  🔥 {post.userStreak} Day Streak
-                </span>
-              </div>
-            ) : null}
+            )}
           </div>
         </div>
 

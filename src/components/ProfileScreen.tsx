@@ -663,6 +663,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                       </div>
                     )}
 
+                    {/* Multi-photo indicator when post has a group of photos */}
+                    {post.imageUrls && post.imageUrls.length > 1 && (
+                      <div className="absolute top-2 right-2 z-10 px-1.5 py-0.5 rounded-md bg-black/70 backdrop-blur-sm border border-white/20 text-white flex items-center gap-1 shadow-sm pointer-events-none">
+                        <Layers className="w-2.5 h-2.5 text-white/90" />
+                        <span className="text-[9px] font-mono font-bold">{post.imageUrls.length}</span>
+                      </div>
+                    )}
+
                     {/* Hover overlay */}
                     <div className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 text-white text-xs font-bold p-1">
                       <div className="flex items-center gap-2 text-[11px]">

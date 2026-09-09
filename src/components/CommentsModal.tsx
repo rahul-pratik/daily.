@@ -7,6 +7,7 @@ interface CommentsModalProps {
   currentUser: User;
   onClose: () => void;
   onAddComment: (postId: string, content: string) => void;
+  onViewUser?: (user: { id: string; name: string; username: string; avatar: string; streak?: number }) => void;
 }
 
 export const CommentsModal: React.FC<CommentsModalProps> = ({
@@ -14,10 +15,33 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({
   currentUser,
   onClose,
   onAddComment,
+  onViewUser,
 }) => {
   const [commentText, setCommentText] = useState('');
 
   if (!post) return null;
+
+  const handleUserClick = (userId: string, username: string, name: string, avatar: string) => {
+    onClose();
+    if (
+      userId === currentUser.id ||
+      userId === 'user_me' ||
+      (Boolean(username && currentUser.username) && username.toLowerCase() === currentUser.username.toLowerCase())
+    ) {
+      if (onViewUser) {
+        onViewUser({
+          id: currentUser.id,
+          username: currentUser.username,
+          name: currentUser.name,
+          avatar: currentUser.avatar,
+        });
+      }
+      return;
+    }
+    if (onViewUser) {
+      onViewUser({ id: userId, username, name, avatar });
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,14 +72,26 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({
 
         {/* Post owner caption preview */}
         <div className="p-4 bg-white/[0.02] border-b border-white/5 flex items-start gap-3">
-          <img
-            src={post.userAvatar}
-            alt={post.username}
-            referrerPolicy="no-referrer"
-            className="w-8 h-8 rounded-full object-cover border border-white/10 mt-0.5"
-          />
+          <button
+            type="button"
+            onClick={() => handleUserClick(post.userId, post.username, post.name, post.userAvatar)}
+            className="shrink-0 hover:opacity-80 transition-opacity"
+          >
+            <img
+              src={post.userAvatar}
+              alt={post.username}
+              referrerPolicy="no-referrer"
+              className="w-8 h-8 rounded-full object-cover border border-white/10 mt-0.5"
+            />
+          </button>
           <div className="flex-1 text-xs">
-            <span className="font-bold text-white mr-1.5">{post.username}</span>
+            <button
+              type="button"
+              onClick={() => handleUserClick(post.userId, post.username, post.name, post.userAvatar)}
+              className="font-bold text-white hover:text-[#2F6FED] transition-colors mr-1.5 inline"
+            >
+              @{post.username}
+            </button>
             <span className="text-white/80">{post.content}</span>
             <span className="block text-[10px] text-white/40 mt-1 font-mono">{post.createdAt}</span>
           </div>
@@ -66,22 +102,27 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({
           {post.comments && post.comments.length > 0 ? (
             post.comments.map((comment) => (
               <div key={comment.id} className="flex items-start gap-3 group">
-                <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => handleUserClick(comment.userId, comment.username, comment.username, comment.userAvatar)}
+                  className="relative shrink-0 hover:opacity-80 transition-opacity"
+                >
                   <img
                     src={comment.userAvatar}
                     alt={comment.username}
                     referrerPolicy="no-referrer"
                     className="w-7 h-7 rounded-full object-cover border border-white/10"
                   />
-                  {comment.userStreak > 0 && (
-                    <span className="absolute -bottom-1 -right-1 bg-black text-[8px] text-[#2F6FED] px-0.5 rounded border border-[#2F6FED]/40 font-black">
-                      🔥{comment.userStreak}
-                    </span>
-                  )}
-                </div>
+                </button>
                 <div className="flex-1 text-xs">
                   <div className="flex items-center gap-1.5 mb-0.5">
-                    <span className="font-bold text-white">{comment.username}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleUserClick(comment.userId, comment.username, comment.username, comment.userAvatar)}
+                      className="font-bold text-white hover:text-[#2F6FED] transition-colors"
+                    >
+                      @{comment.username}
+                    </button>
                     <span className="text-[10px] text-white/40 font-mono">{comment.createdAt}</span>
                   </div>
                   <p className="text-white/80 leading-relaxed">{comment.content}</p>
