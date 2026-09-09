@@ -757,7 +757,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                 <h3 className="font-black text-sm text-white flex items-center gap-1.5">
                   Post Daily Proof
                 </h3>
-                <p className="text-[10px] text-white/50">1 Post / Day • Streak & Receipts</p>
+                <p className="text-[10px] text-white/50"></p>
               </div>
             </div>
 
