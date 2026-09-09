@@ -15,7 +15,7 @@ import { PersonProfileDossierScreen } from './components/PersonProfileDossierScr
 import { CreatePostModal } from './components/CreatePostModal';
 import { StreakCelebrationModal } from './components/StreakCelebrationModal';
 import { CommentsModal } from './components/CommentsModal';
-import { DirectMessagesModal } from './components/DirectMessagesModal';
+import { DirectMessagesScreen } from './components/DirectMessagesScreen';
 import { OnboardingModal } from './components/OnboardingModal';
 import { EditProfileModal } from './components/EditProfileModal';
 import { UserProfileModal } from './components/UserProfileModal';
@@ -48,9 +48,9 @@ export default function App() {
 
   // UI Navigation & Modals
   const [currentTab, setCurrentTab] = useState<NavigationTab>('home');
+  const [previousTab, setPreviousTab] = useState<NavigationTab>('home');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [isDMsOpen, setIsDMsOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isCreateCollectionOpen, setIsCreateCollectionOpen] = useState(false);
   const [selectedPostForCollection, setSelectedPostForCollection] = useState<Post | null>(null);
@@ -293,7 +293,7 @@ export default function App() {
             receiverId: currentUser.id,
             text: randomReply,
             timestamp: 'Just now',
-            isRead: isDMsOpen && activeChatUserId === receiverId,
+            isRead: currentTab === 'messages' && activeChatUserId === receiverId,
           };
           const allMsg = DailyStorageService.getAllMessages();
           DailyStorageService.saveAllMessages([...allMsg, replyMsg]);
@@ -322,7 +322,7 @@ export default function App() {
             groupId: groupId,
             text: randomReply,
             timestamp: 'Just now',
-            isRead: isDMsOpen && activeGroupId === groupId,
+            isRead: currentTab === 'messages' && activeGroupId === groupId,
           };
           const allMsg = DailyStorageService.getAllMessages();
           DailyStorageService.saveAllMessages([...allMsg, replyMsg]);
@@ -343,11 +343,8 @@ export default function App() {
     const group = DailyStorageService.createGroup(params);
     setGroups(DailyStorageService.getAllGroups());
     setIsCreateGroupOpen(false);
-
-    // Open chat for newly created group
-    setActiveGroupId(group.id);
-    setActiveChatUserId(null);
-    setIsDMsOpen(true);
+    showToast(`Created group "${group.name}"!`);
+    handleOpenDMs(null, group.id);
   };
 
   // Create Community (in Explore/Discover)
@@ -535,13 +532,10 @@ export default function App() {
 
     setSharingPost(null);
     if (recipientUserIds.length > 0) {
-      setActiveChatUserId(recipientUserIds[0]);
-      setActiveGroupId(null);
+      handleOpenDMs(recipientUserIds[0], null);
     } else if (recipientGroupIds.length > 0) {
-      setActiveGroupId(recipientGroupIds[0]);
-      setActiveChatUserId(null);
+      handleOpenDMs(null, recipientGroupIds[0]);
     }
-    setIsDMsOpen(true);
   };
 
   // View full profile of another user
@@ -625,12 +619,10 @@ export default function App() {
     avatar: string;
     streak: number;
   }) => {
-    setActiveChatUserId(target.id);
-    setActiveGroupId(null);
-    setIsDMsOpen(true);
     if (activeProfileUser) {
       setActiveProfileUser(null);
     }
+    handleOpenDMs(target.id, null);
 
     const existingUser = users.find((u) => u.id === target.id);
     if (!existingUser) {
@@ -693,40 +685,43 @@ export default function App() {
   // State for navigating directly to a challenge from DMs / Squad chats
   const [selectedChallengeId, setSelectedChallengeId] = useState<string | null>(null);
 
+  // Dedicated Messages Screen Navigation
+  const handleOpenDMs = (userId?: string | null, groupId?: string | null) => {
+    setGroups(DailyStorageService.getAllGroups());
+    setMessages(DailyStorageService.getAllMessages());
+    if (currentTab !== 'messages') {
+      setPreviousTab(currentTab);
+    }
+    setCurrentTab('messages');
+    setActiveChatUserId(userId || null);
+    setActiveGroupId(groupId || null);
+  };
+
   const handleOpenChallenge = (challengeId: string) => {
     setSelectedChallengeId(challengeId);
     setCurrentTab('streak');
-    setIsDMsOpen(false);
   };
 
   const handleOpenDMWithGroup = (groupId: string) => {
-    setGroups(DailyStorageService.getAllGroups());
-    setMessages(DailyStorageService.getAllMessages());
-    setActiveGroupId(groupId);
-    setActiveChatUserId(null);
-    setIsDMsOpen(true);
+    handleOpenDMs(null, groupId);
   };
 
   return (
     <div className={`min-h-screen ${theme === 'light' ? 'bg-[#f8fafc] text-[#0f172a]' : 'bg-[#050505] text-white'} flex justify-center font-sans antialiased selection:bg-[#2F6FED] selection:text-white`}>
       {/* Mobile-first centered frame container */}
       <div className={`w-full max-w-lg min-h-screen ${theme === 'light' ? 'bg-[#f8fafc] border-slate-200' : 'bg-[#050505] border-white/5'} flex flex-col shadow-2xl relative border-x`}>
-        {/* Top Header */}
-        <TopHeader
-          currentUser={currentUser}
-          onOpenDMs={() => {
-            setGroups(DailyStorageService.getAllGroups());
-            setMessages(DailyStorageService.getAllMessages());
-            setActiveChatUserId(null);
-            setActiveGroupId(null);
-            setIsDMsOpen(true);
-          }}
-          unreadCount={unreadMessagesCount}
-          onSelectTab={setCurrentTab}
-          unreadNotificationsCount={unreadNotificationsCount}
-          onOpenNotifications={() => setIsNotificationsOpen(true)}
-          onOpenSearch={() => setIsSearchOpen(true)}
-        />
+        {/* Top Header - Hidden when on dedicated messages screen */}
+        {currentTab !== 'messages' && (
+          <TopHeader
+            currentUser={currentUser}
+            onOpenDMs={() => handleOpenDMs()}
+            unreadCount={unreadMessagesCount}
+            onSelectTab={setCurrentTab}
+            unreadNotificationsCount={unreadNotificationsCount}
+            onOpenNotifications={() => setIsNotificationsOpen(true)}
+            onOpenSearch={() => setIsSearchOpen(true)}
+          />
+        )}
 
         {/* Main Tab Screens */}
         <main className="flex-1 flex flex-col">
@@ -849,21 +844,46 @@ export default function App() {
               onOpenCreatePost={() => setIsCreateOpen(true)}
             />
           )}
+
+          {currentTab === 'messages' && (
+            <DirectMessagesScreen
+              currentUser={currentUser}
+              allUsers={users}
+              allGroups={groups}
+              messages={messages}
+              onSendMessage={handleSendMessage}
+              initialChatUserId={activeChatUserId}
+              initialGroupId={activeGroupId}
+              onOpenCreateGroup={() => setIsCreateGroupOpen(true)}
+              onViewPost={handleViewPostFromId}
+              onViewUser={handleViewSimplifiedUser}
+              onOpenChallenge={handleOpenChallenge}
+              onBack={() => {
+                setCurrentTab(previousTab === 'messages' ? 'home' : previousTab);
+                setActiveChatUserId(null);
+                setActiveGroupId(null);
+              }}
+            />
+          )}
         </main>
 
-        {/* Bottom Navigation Bar */}
-        <BottomNavigation
-          currentTab={currentTab}
-          onSelectTab={setCurrentTab}
-          currentUser={currentUser}
-          onOpenDMs={() => {
-            setActiveChatUserId(null);
-            setActiveGroupId(null);
-            setIsDMsOpen(true);
-          }}
-          unreadMessagesCount={unreadMessagesCount}
-          onOpenCreate={() => setIsCreateOpen(true)}
-        />
+        {/* Bottom Navigation Bar - Hidden inside active chat thread for edge-to-edge chat UX */}
+        {!(currentTab === 'messages' && (activeChatUserId || activeGroupId)) && (
+          <BottomNavigation
+            currentTab={currentTab}
+            onSelectTab={(tab) => {
+              if (tab !== 'messages') {
+                setActiveChatUserId(null);
+                setActiveGroupId(null);
+              }
+              setCurrentTab(tab);
+            }}
+            currentUser={currentUser}
+            onOpenDMs={() => handleOpenDMs()}
+            unreadMessagesCount={unreadMessagesCount}
+            onOpenCreate={() => setIsCreateOpen(true)}
+          />
+        )}
 
         {/* Modals */}
         {/* Notifications Modal */}
@@ -915,15 +935,11 @@ export default function App() {
           }}
           onOpenDirectChat={(userId) => {
             setSharingPost(null);
-            setActiveChatUserId(userId);
-            setActiveGroupId(null);
-            setIsDMsOpen(true);
+            handleOpenDMs(userId, null);
           }}
           onOpenGroupChat={(groupId) => {
             setSharingPost(null);
-            setActiveGroupId(groupId);
-            setActiveChatUserId(null);
-            setIsDMsOpen(true);
+            handleOpenDMs(null, groupId);
           }}
         />
 
@@ -1030,26 +1046,7 @@ export default function App() {
           onViewUser={handleViewSimplifiedUser}
         />
 
-        {/* Direct Messages & Group Chat Modal */}
-        <DirectMessagesModal
-          isOpen={isDMsOpen}
-          onClose={() => {
-            setIsDMsOpen(false);
-            setActiveChatUserId(null);
-            setActiveGroupId(null);
-          }}
-          currentUser={currentUser}
-          allUsers={users}
-          allGroups={groups}
-          messages={messages}
-          onSendMessage={handleSendMessage}
-          initialChatUserId={activeChatUserId}
-          initialGroupId={activeGroupId}
-          onOpenCreateGroup={() => setIsCreateGroupOpen(true)}
-          onViewPost={handleViewPostFromId}
-          onViewUser={handleViewSimplifiedUser}
-          onOpenChallenge={handleOpenChallenge}
-        />
+
 
         {/* Edit Profile Modal */}
         <EditProfileModal

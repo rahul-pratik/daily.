@@ -479,7 +479,7 @@ export const AVAILABLE_HABITS = [
   'Early Rise',
 ] as const;
 
-export type NavigationTab = 'home' | 'streak' | 'create' | 'discover' | 'profile' | 'dossier';
+export type NavigationTab = 'home' | 'streak' | 'create' | 'discover' | 'profile' | 'dossier' | 'messages';
 
 export type NotificationType =
   | 'like'
