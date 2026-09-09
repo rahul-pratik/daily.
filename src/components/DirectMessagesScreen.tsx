@@ -373,7 +373,7 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                   <MessageSquare className="w-3.5 h-3.5" />
                 </div>
                 <h2 className="font-black text-base tracking-tight text-white truncate">
-                  Messages & Groups
+                  Messages
                 </h2>
               </div>
             </div>
