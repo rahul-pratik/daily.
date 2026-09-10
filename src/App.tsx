@@ -374,6 +374,7 @@ export default function App() {
     rules?: string[];
     avatar?: string;
     coverImage?: string;
+    themeColor?: string;
   }) => {
     const community = DailyStorageService.createCommunity({
       name: params.name,
@@ -382,6 +383,7 @@ export default function App() {
       accessType: params.accessType,
       avatar: params.avatar || 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=400&auto=format&fit=crop&q=80',
       coverImage: params.coverImage,
+      themeColor: params.themeColor,
       rules: params.rules,
     });
     setCommunities(DailyStorageService.getAllCommunities());

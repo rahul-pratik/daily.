@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   Compass,
   Search,
-  Flame,
   UserPlus,
   Check,
   MessageSquare,
@@ -15,15 +14,19 @@ import {
   Clock,
   BookOpen,
   ArrowRight,
+  ArrowLeft,
   Filter,
   SlidersHorizontal,
   ChevronDown,
+  ChevronRight,
+  Flame,
 } from 'lucide-react';
 import { User, Community, AVAILABLE_INTERESTS, AVAILABLE_HABITS } from '../types';
 import { PullToRefresh } from './PullToRefresh';
 import { handleHorizontalWheelScroll } from '../utils/scroll';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
 import { EmptyStateIllustration } from './EmptyStateIllustration';
+import { DailyStorageService } from '../services/storage';
 
 interface DiscoverScreenProps {
   users: User[];
@@ -56,6 +59,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
   const [activeFilterTag, setActiveFilterTag] = useState<string | null>(null);
   const [entityFilter, setEntityFilter] = useState<EntityTypeFilter>('all');
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
+  const [showJoinedCommunities, setShowJoinedCommunities] = useState(false);
 
   // Calculate match percentage for a user based on overlapping interests and habits
   const calculateMatchScore = (otherUser: User): number => {
@@ -138,6 +142,11 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
     return true;
   });
 
+  // Communities joined by the current user
+  const myJoinedCommunities = communities.filter((c) =>
+    (c.memberIds || []).includes(currentUser.id)
+  );
+
   // Filter Chips List
   const allFilterChips = [
     { label: 'All', value: null, icon: '🔥' },
@@ -161,7 +170,143 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
     }
   };
 
-  const totalMatches = filteredUsers.length + filteredCommunities.length;
+  // If user opened the "Joined Communities" view, render chat-like list of joined communities
+  if (showJoinedCommunities) {
+    return (
+      <PullToRefresh onRefresh={handleDiscoverRefresh}>
+        <div className="w-full max-w-xl mx-auto px-3 sm:px-4 py-4 space-y-4 text-white animate-in fade-in duration-200">
+          {/* Back header */}
+          <div className="flex items-center justify-between gap-3 pb-3 border-b border-white/10">
+            <button
+              type="button"
+              onClick={() => {
+                vibrateLight();
+                setShowJoinedCommunities(false);
+              }}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-white transition-all active:scale-95"
+            >
+              <ArrowLeft className="w-4 h-4 text-blue-400" />
+              <span>Back to Explore</span>
+            </button>
+
+            <div className="text-right">
+              <h2 className="text-sm font-bold text-white">Joined Communities</h2>
+              <p className="text-[10px] text-white/40">{myJoinedCommunities.length} Active spaces</p>
+            </div>
+          </div>
+
+          {myJoinedCommunities.length === 0 ? (
+            <div className="text-center py-14 px-4 space-y-4 bg-white/[0.02] border border-white/5 rounded-3xl">
+              <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 mx-auto flex items-center justify-center text-blue-400">
+                <Globe2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white">No joined communities yet</h3>
+                <p className="text-xs text-white/50 max-w-xs mx-auto mt-1">
+                  Explore open communities or request access to moderated groups to receive discussions and chat-style updates here.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowJoinedCommunities(false)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-md transition-colors"
+              >
+                Browse Communities
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-bold text-white/70 uppercase tracking-wider">
+                  Community Chats & Updates
+                </span>
+                <span className="text-[10px] text-white/40">Tap to open updates</span>
+              </div>
+
+              <div className="divide-y divide-white/5 bg-white/[0.03] border border-white/10 rounded-2xl overflow-hidden shadow-lg">
+                {myJoinedCommunities.map((comm) => {
+                  const threads = DailyStorageService.getCommunityDiscussions(comm.id);
+                  const latestThread = threads.length > 0 ? threads[0] : null;
+
+                  return (
+                    <div
+                      key={comm.id}
+                      onClick={() => {
+                        vibrateLight();
+                        onOpenCommunity && onOpenCommunity(comm);
+                      }}
+                      className="p-3.5 hover:bg-white/5 transition-colors cursor-pointer flex items-center gap-3.5 group active:bg-white/10"
+                    >
+                      {/* Avatar with theme indicator */}
+                      <div className="relative shrink-0">
+                        <img
+                          src={comm.avatar}
+                          alt={comm.name}
+                          referrerPolicy="no-referrer"
+                          className="w-12 h-12 rounded-2xl object-cover ring-2"
+                          style={{ '--tw-ring-color': comm.themeColor || '#2F6FED' } as React.CSSProperties}
+                        />
+                        <div
+                          className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-black flex items-center justify-center"
+                          style={{ backgroundColor: comm.themeColor || '#2F6FED' }}
+                        >
+                          <Globe2 className="w-2 h-2 text-white" />
+                        </div>
+                      </div>
+
+                      {/* Chat Details */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <h3 className="font-bold text-xs sm:text-sm text-white truncate group-hover:text-blue-300 transition-colors">
+                              {comm.name}
+                            </h3>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-white/5 text-white/60 font-semibold border border-white/10 shrink-0">
+                              #{comm.category}
+                            </span>
+                          </div>
+
+                          <span className="text-[10px] text-white/40 shrink-0">
+                            {latestThread?.createdAt || comm.lastActivity || 'Active'}
+                          </span>
+                        </div>
+
+                        {/* Latest update preview line (formatted like a chat message) */}
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs text-white/60 truncate flex items-center gap-1">
+                            {latestThread ? (
+                              <>
+                                <span className="font-semibold text-blue-400 shrink-0">
+                                  {latestThread.authorName}:
+                                </span>
+                                <span className="truncate">{latestThread.title}</span>
+                              </>
+                            ) : (
+                              <span className="text-white/40 italic">
+                                No updates yet • Tap to start a discussion
+                              </span>
+                            )}
+                          </p>
+
+                          {threads.length > 0 && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/30 shrink-0">
+                              {threads.length} updates
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <ChevronRight className="w-4 h-4 text-white/30 group-hover:text-white/80 group-hover:translate-x-0.5 transition-all shrink-0" />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </PullToRefresh>
+    );
+  }
 
   return (
     <PullToRefresh onRefresh={handleDiscoverRefresh}>
@@ -174,12 +319,12 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
             </div>
             <div>
               <h1 className="font-black text-lg text-white">Explore</h1>
-              <p className="text-[11px] text-white/50">Discover open communities & fellow builders</p>
+              <p className="text-[11px] text-white/50">Discover communities & fellow builders</p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Sort by Option: All, Communities, Creators */}
+            {/* Sort by Option (No numbers mentioned beside options) */}
             <div className="relative">
               <button
                 type="button"
@@ -227,7 +372,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                     >
                       <div className="flex items-center gap-2">
                         <Compass className="w-3.5 h-3.5" />
-                        <span>All ({totalMatches})</span>
+                        <span>All</span>
                       </div>
                       {entityFilter === 'all' && <Check className="w-3.5 h-3.5" />}
                     </button>
@@ -247,7 +392,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                     >
                       <div className="flex items-center gap-2">
                         <Globe2 className="w-3.5 h-3.5" />
-                        <span>Communities ({filteredCommunities.length})</span>
+                        <span>Communities</span>
                       </div>
                       {entityFilter === 'communities' && <Check className="w-3.5 h-3.5" />}
                     </button>
@@ -267,7 +412,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                     >
                       <div className="flex items-center gap-2">
                         <Users className="w-3.5 h-3.5" />
-                        <span>Creators ({filteredUsers.length})</span>
+                        <span>Creators</span>
                       </div>
                       {entityFilter === 'people' && <Check className="w-3.5 h-3.5" />}
                     </button>
@@ -283,34 +428,68 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
               >
                 <PlusCircle className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Create Community</span>
-                <span className="sm:hidden">Create</span>
               </button>
             )}
           </div>
         </div>
 
-        {/* Horizontal Filter Chips */}
+        {/* Search Bar */}
+        <div className="relative">
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search communities, creators, topics..."
+            className="w-full pl-9 pr-9 py-2.5 bg-white/5 border border-white/10 rounded-2xl text-xs text-white placeholder-white/30 focus:border-blue-500 focus:bg-white/[0.07] outline-none transition-all"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Filter Chips Carousel */}
         <div className="space-y-1.5">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-[11px] font-bold text-white/40 uppercase tracking-wider flex items-center gap-1">
+              <Filter className="w-3 h-3 text-blue-400" />
+              <span>Filter by Topic / Habit</span>
+            </span>
+            {activeFilterTag && (
+              <button
+                onClick={() => setActiveFilterTag(null)}
+                className="text-[10px] text-blue-400 hover:underline font-semibold"
+              >
+                Clear filter
+              </button>
+            )}
+          </div>
+
           <div
             onWheel={handleHorizontalWheelScroll}
-            className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap flex-nowrap pb-1 no-scrollbar touch-pan-x overscroll-x-contain py-1"
+            className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap flex-nowrap pb-1 no-scrollbar touch-pan-x overscroll-x-contain"
           >
             {allFilterChips.map((chip, idx) => {
-              const isSelected = activeFilterTag === chip.value;
+              const isActive = activeFilterTag === chip.value;
               return (
                 <button
                   key={idx}
                   onClick={() => {
                     vibrateLight();
-                    setActiveFilterTag(isSelected ? null : chip.value);
+                    setActiveFilterTag(isActive ? null : chip.value);
                   }}
-                  className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border ${
-                    isSelected
-                      ? 'bg-[#2F6FED] text-white border-[#2F6FED] shadow-md shadow-[#2F6FED]/20 scale-105'
-                      : 'bg-white/5 text-white/70 border-white/10 hover:border-white/20 hover:text-white'
+                  className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    isActive
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20 scale-[1.02]'
+                      : 'bg-white/5 hover:bg-white/10 border border-white/5 text-white/70'
                   }`}
                 >
-                  <span className="text-xs">{chip.icon}</span>
+                  <span>{chip.icon}</span>
                   <span>{chip.label}</span>
                 </button>
               );
@@ -318,48 +497,39 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
           </div>
         </div>
 
-        {/* Entity Segment Tabs (All / Creators / Communities) */}
-        <div className="flex items-center justify-between border-b border-white/5 pb-2">
-          <div className="flex items-center gap-1.5 bg-white/5 p-1 rounded-2xl border border-white/5">
-            <button
-              onClick={() => setEntityFilter('all')}
-              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
-                entityFilter === 'all'
-                  ? 'bg-white text-black shadow-sm'
-                  : 'text-white/50 hover:text-white'
-              }`}
-            >
-              All ({totalMatches})
-            </button>
-            <button
-              onClick={() => setEntityFilter('communities')}
-              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                entityFilter === 'communities'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-white/50 hover:text-white'
-              }`}
-            >
-              <Globe2 className="w-3 h-3 text-blue-400" />
-              <span>Communities ({filteredCommunities.length})</span>
-            </button>
-            <button
-              onClick={() => setEntityFilter('people')}
-              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                entityFilter === 'people'
-                  ? 'bg-white text-black shadow-sm'
-                  : 'text-white/50 hover:text-white'
-              }`}
-            >
-              <Users className="w-3 h-3 text-[#2F6FED]" />
-              <span>Creators ({filteredUsers.length})</span>
-            </button>
-          </div>
-
-          {activeFilterTag && (
-            <span className="text-[11px] text-blue-400 font-bold hidden sm:inline-block">
-              Tag: #{activeFilterTag}
-            </span>
-          )}
+        {/* BUTTON: My Joined Communities (Replaces previous All / Communities / Creators bar) */}
+        <div>
+          <button
+            type="button"
+            onClick={() => {
+              vibrateLight();
+              setShowJoinedCommunities(true);
+            }}
+            className="w-full flex items-center justify-between p-3 sm:p-3.5 rounded-2xl bg-gradient-to-r from-blue-600/15 via-blue-500/10 to-indigo-600/15 border border-blue-500/25 hover:border-blue-500/40 text-white transition-all group shadow-sm active:scale-[0.99]"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#2F6FED] flex items-center justify-center text-white shadow-md shadow-[#2F6FED]/30 shrink-0 group-hover:scale-105 transition-transform">
+                <MessageSquare className="w-5 h-5" />
+              </div>
+              <div className="text-left">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs sm:text-sm font-bold text-white group-hover:text-blue-300 transition-colors">
+                    My Joined Communities
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                    {myJoinedCommunities.length}
+                  </span>
+                </div>
+                <p className="text-[11px] text-white/50">
+                  View chat-style updates, discussions & announcements
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-400 group-hover:translate-x-0.5 transition-transform">
+              <span className="hidden sm:inline">View Chats</span>
+              <ChevronRight className="w-4 h-4" />
+            </div>
+          </button>
         </div>
 
         {/* Active Tag Filter Summary Banner */}
@@ -368,15 +538,12 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-blue-400 shrink-0" />
               <span>
-                Filtering by <strong className="text-blue-400">#{activeFilterTag}</strong>: Found{' '}
-                <strong>{filteredCommunities.length}</strong> communities and{' '}
-                <strong>{filteredUsers.length}</strong> creators
+                Showing results filtered by <strong>#{activeFilterTag}</strong>
               </span>
             </div>
             <button
               onClick={() => setActiveFilterTag(null)}
-              className="p-1 rounded-lg hover:bg-white/10 text-white/60 hover:text-white"
-              title="Remove filter tag"
+              className="p-1 rounded-full hover:bg-white/10 text-white/60 hover:text-white"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -385,22 +552,15 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
 
         {/* Content Lists */}
         <div className="space-y-6">
-          {/* SECTION 1: COMMUNITIES (Public & Moderated Explore Spaces) */}
+          {/* SECTION 1: COMMUNITIES (Both Public & Moderated Spaces) */}
           {(entityFilter === 'all' || entityFilter === 'communities') && filteredCommunities.length > 0 && (
             <div className="space-y-3">
+              {/* Header without count or view-all text */}
               <div className="flex items-center justify-between">
                 <h2 className="text-xs uppercase font-bold tracking-wider text-white/50 flex items-center gap-1.5">
                   <Globe2 className="w-3.5 h-3.5 text-blue-400" />
-                  Open Communities ({filteredCommunities.length})
+                  Communities
                 </h2>
-                {entityFilter === 'all' && filteredCommunities.length > 2 && (
-                  <button
-                    onClick={() => setEntityFilter('communities')}
-                    className="text-[11px] text-blue-400 hover:underline font-bold"
-                  >
-                    View all {filteredCommunities.length}
-                  </button>
-                )}
               </div>
 
               <div className="grid grid-cols-1 gap-3">
@@ -414,18 +574,36 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                       key={comm.id}
                       className="bg-white/5 border border-white/5 hover:border-blue-500/20 rounded-[24px] overflow-hidden transition-all group"
                     >
-                      {/* Banner / Cover */}
+                      {/* Banner / Visual Theme Header (No default banner fallback) */}
                       <div
                         onClick={() => onOpenCommunity && onOpenCommunity(comm)}
-                        className="relative h-24 w-full bg-black cursor-pointer overflow-hidden"
+                        className="relative h-24 w-full cursor-pointer overflow-hidden"
+                        style={
+                          comm.coverImage
+                            ? undefined
+                            : {
+                                background: `linear-gradient(135deg, ${comm.themeColor || '#2F6FED'}33 0%, rgba(15, 15, 22, 0.95) 100%)`,
+                              }
+                        }
                       >
-                        <img
-                          src={comm.coverImage || comm.avatar}
-                          alt={comm.name}
-                          referrerPolicy="no-referrer"
-                          className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-300"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] via-black/40 to-transparent" />
+                        {comm.coverImage ? (
+                          <img
+                            src={comm.coverImage}
+                            alt={comm.name}
+                            referrerPolicy="no-referrer"
+                            className="w-full h-full object-cover opacity-75 group-hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <div className="w-full h-full relative overflow-hidden">
+                            <div
+                              className="absolute -right-6 -bottom-6 w-32 h-32 rounded-full blur-2xl opacity-25 pointer-events-none"
+                              style={{ backgroundColor: comm.themeColor || '#2F6FED' }}
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] via-transparent to-transparent" />
+                          </div>
+                        )}
+
+                        <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] via-black/30 to-transparent" />
 
                         {/* Badge: Access Model */}
                         <div className="absolute top-2.5 left-3 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-[10px] font-bold text-blue-300">
@@ -455,7 +633,10 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                             onClick={() => onOpenCommunity && onOpenCommunity(comm)}
                             className="flex items-center gap-3 min-w-0 cursor-pointer"
                           >
-                            <div className="w-11 h-11 rounded-2xl overflow-hidden border border-blue-500/40 -mt-6 shadow-lg bg-black shrink-0">
+                            <div
+                              className="w-11 h-11 rounded-2xl overflow-hidden border -mt-6 shadow-lg bg-black shrink-0 ring-2"
+                              style={{ '--tw-ring-color': comm.themeColor || '#2F6FED' } as React.CSSProperties}
+                            >
                               <img
                                 src={comm.avatar}
                                 alt={comm.name}
@@ -552,22 +733,15 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
             </div>
           )}
 
-          {/* SECTION 2: CREATORS / BUILDERS */}
+          {/* SECTION 2: CREATORS / BUILDERS (No streak displayed, no count/view all in header) */}
           {(entityFilter === 'all' || entityFilter === 'people') && sortedUsers.length > 0 && (
             <div className="space-y-3">
+              {/* Header without count or view-all text */}
               <div className="flex items-center justify-between">
                 <h2 className="text-xs uppercase font-bold tracking-wider text-white/50 flex items-center gap-1.5">
                   <Users className="w-3.5 h-3.5 text-[#2F6FED]" />
-                  Matching Creators ({sortedUsers.length})
+                  Matching Creators
                 </h2>
-                {entityFilter === 'all' && sortedUsers.length > 3 && (
-                  <button
-                    onClick={() => setEntityFilter('people')}
-                    className="text-[11px] text-[#2F6FED] hover:underline font-bold"
-                  >
-                    View all {sortedUsers.length}
-                  </button>
-                )}
               </div>
 
               <div className="space-y-3">
@@ -612,10 +786,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                               <p className="text-[10px] text-white/40 truncate">@{user.username}</p>
                             </div>
 
-                            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#2F6FED]/15 border border-[#2F6FED]/30 text-[#2F6FED] text-[10px] font-bold">
-                              <Flame className="w-3 h-3 fill-[#2F6FED]" />
-                              <span>{user.currentStreak}d</span>
-                            </div>
+                            {/* Streaks removed from cards per user instruction */}
                           </div>
 
                           {user.bio && (
@@ -630,7 +801,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                               {commonInterests.slice(0, 2).map((i) => (
                                 <span
                                   key={i}
-                                  className="text-[9px] px-2 py-0.5 rounded-lg bg-[#2F6FED]/10 text-[#2F6FED] border border-[#2F6FED]/20 font-semibold"
+                                  className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 font-semibold border border-blue-500/20"
                                 >
                                   #{i}
                                 </span>
@@ -638,30 +809,47 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                               {commonHabits.slice(0, 2).map((h) => (
                                 <span
                                   key={h}
-                                  className="text-[9px] px-2 py-0.5 rounded-lg bg-white/5 text-white/60 border border-white/5 font-semibold"
+                                  className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/20"
                                 >
-                                  {h}
+                                  ⚡ {h}
                                 </span>
                               ))}
                             </div>
                           )}
 
-                          {/* Actions */}
-                          <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between gap-2">
-                            <span className="text-[10px] text-white/40">
-                              <strong className="text-white/80">{matchScore}%</strong> alignment
-                            </span>
+                          {/* Action Buttons */}
+                          <div className="flex items-center justify-between mt-3 pt-2 border-t border-white/5">
+                            <div className="flex items-center gap-1.5 text-[11px] text-white/40">
+                              <span className="text-blue-400 font-bold">{matchScore}%</span>
+                              <span>match</span>
+                            </div>
 
                             <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() =>
+                                  onSendDM({
+                                    id: user.id,
+                                    name: user.name,
+                                    username: user.username,
+                                    avatar: user.avatar,
+                                    streak: user.currentStreak,
+                                  })
+                                }
+                                className="px-3 py-1 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-white/80 hover:text-white transition-all flex items-center gap-1"
+                              >
+                                <MessageSquare className="w-3 h-3 text-[#2F6FED]" />
+                                <span>Message</span>
+                              </button>
+
                               <button
                                 onClick={() => {
                                   vibrateLight();
                                   onToggleFollow(user.id);
                                 }}
-                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
+                                className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
                                   isFollowing
-                                    ? 'bg-white/10 text-white/80 hover:bg-white/15 border border-white/10'
-                                    : 'bg-white text-black hover:bg-white/90 shadow-sm'
+                                    ? 'bg-white/10 text-white/80 hover:bg-red-500/20 hover:text-red-400'
+                                    : 'bg-[#2F6FED] hover:bg-[#2F6FED]/90 text-white shadow-md shadow-[#2F6FED]/20'
                                 }`}
                               >
                                 {isFollowing ? (
@@ -676,22 +864,6 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                                   </>
                                 )}
                               </button>
-
-                              <button
-                                onClick={() =>
-                                  onSendDM({
-                                    id: user.id,
-                                    name: user.name,
-                                    username: user.username,
-                                    avatar: user.avatar,
-                                    streak: user.currentStreak,
-                                  })
-                                }
-                                className="p-2 bg-white/5 hover:bg-white/10 text-white/80 hover:text-white rounded-xl border border-white/10 transition-colors"
-                                title={`Message ${user.name}`}
-                              >
-                                <MessageSquare className="w-3.5 h-3.5" />
-                              </button>
                             </div>
                           </div>
                         </div>
@@ -704,18 +876,18 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
           )}
 
           {/* Empty State */}
-          {totalMatches === 0 && (
-            <div className="pt-2">
+          {filteredCommunities.length === 0 && filteredUsers.length === 0 && (
+            <div className="py-12">
               <EmptyStateIllustration
                 type="search"
-                title="No matching creators or communities"
+                title="No matching communities or creators"
                 description={
                   searchQuery
-                    ? `No creators, habits, or communities matched "${searchQuery}".`
-                    : 'Try selecting a different focus filter tag or explore all categories.'
+                    ? `We couldn't find anything matching "${searchQuery}". Try different keywords or reset filters.`
+                    : 'Try clearing the active filter or searching for other interests.'
                 }
                 primaryAction={{
-                  label: 'Clear Search & Filters',
+                  label: 'Clear Filters',
                   onClick: () => {
                     setSearchQuery('');
                     setActiveFilterTag(null);

@@ -44,6 +44,10 @@ const STORAGE_KEYS = {
   ONBOARDED: 'daily_app_onboarded_v1',
   SAVED_POSTS: 'daily_app_saved_posts_v1',
   REPORTED_POSTS: 'daily_app_reported_posts_v1',
+  MUTED_GROUPS: 'daily_app_muted_groups_v1',
+  MUTED_COMMUNITIES: 'daily_app_muted_communities_v1',
+  REPORTED_MESSAGES: 'daily_app_reported_messages_v1',
+  REPORTED_DISCUSSIONS: 'daily_app_reported_discussions_v1',
   HABITS: 'daily_app_personal_habits_v1',
   BLOCKED_USERS: 'daily_app_blocked_users_v1',
   NOTIFICATIONS: 'daily_app_notifications_v1',
@@ -1305,13 +1309,53 @@ export class DailyStorageService {
   // Communities (Public / Moderated spaces in Explore)
   static getAllCommunities(): Community[] {
     const data = localStorage.getItem(STORAGE_KEYS.COMMUNITIES);
+    const defaultCoverSignatures = [
+      'photo-1517245386807',
+      'photo-1555066931',
+      'photo-1519389950',
+      'photo-1502680390',
+      'photo-1506880018',
+      'photo-1618005182',
+      'photo-1517838277536',
+      'photo-1497633762265',
+      'photo-1486406146926',
+    ];
+
+    const cleanDefaultBanners = (list: Community[]): Community[] => {
+      let changed = false;
+      const cleaned = list.map((comm) => {
+        let nextCover = comm.coverImage;
+        if (nextCover && defaultCoverSignatures.some((sig) => nextCover!.includes(sig))) {
+          nextCover = undefined;
+          changed = true;
+        }
+        let nextTheme = comm.themeColor;
+        if (!nextTheme) {
+          const initialMatch = INITIAL_COMMUNITIES.find((c) => c.id === comm.id);
+          nextTheme = initialMatch?.themeColor || '#2F6FED';
+          changed = true;
+        }
+        if (nextCover !== comm.coverImage || nextTheme !== comm.themeColor) {
+          return { ...comm, coverImage: nextCover, themeColor: nextTheme };
+        }
+        return comm;
+      });
+
+      if (changed) {
+        try {
+          localStorage.setItem(STORAGE_KEYS.COMMUNITIES, JSON.stringify(cleaned));
+        } catch {}
+      }
+      return cleaned;
+    };
+
     if (!data) {
       this.saveAllCommunities(INITIAL_COMMUNITIES);
       return INITIAL_COMMUNITIES;
     }
     try {
       const parsed = JSON.parse(data);
-      return Array.isArray(parsed) ? parsed : INITIAL_COMMUNITIES;
+      return Array.isArray(parsed) ? cleanDefaultBanners(parsed) : INITIAL_COMMUNITIES;
     } catch {
       return INITIAL_COMMUNITIES;
     }
@@ -1405,6 +1449,7 @@ export class DailyStorageService {
     accessType: 'public' | 'moderated';
     avatar: string;
     coverImage?: string;
+    themeColor?: string;
     rules?: string[];
     tags?: string[];
   }): Community {
@@ -1420,7 +1465,8 @@ export class DailyStorageService {
       moderatorUsername: currentUser.username,
       moderatorAvatar: currentUser.avatar,
       avatar: params.avatar || 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=400&auto=format&fit=crop&q=80',
-      coverImage: params.coverImage || params.avatar,
+      coverImage: params.coverImage?.trim() || undefined,
+      themeColor: params.themeColor || '#2F6FED',
       memberCount: 1,
       memberIds: [currentUser.id],
       pendingRequestUserIds: [],
@@ -1640,6 +1686,157 @@ export class DailyStorageService {
 
     this.saveAllGroups(updated);
     return { groups: updated, isMember };
+  }
+
+  static leaveGroup(groupId: string): { groups: Group[]; success: boolean } {
+    const currentUser = this.getCurrentUser();
+    const groups = this.getAllGroups();
+    let success = false;
+
+    const updated = groups.map((g) => {
+      if (g.id === groupId) {
+        const nextMemberIds = (g.memberIds || []).filter((id) => id !== currentUser.id);
+        success = true;
+        return {
+          ...g,
+          memberIds: nextMemberIds,
+          memberCount: Math.max(0, nextMemberIds.length),
+        };
+      }
+      return g;
+    });
+
+    this.saveAllGroups(updated);
+    return { groups: updated, success };
+  }
+
+  static leaveCommunity(communityId: string): { communities: Community[]; success: boolean } {
+    const currentUser = this.getCurrentUser();
+    const communities = this.getAllCommunities();
+    let success = false;
+
+    const updated = communities.map((comm) => {
+      if (comm.id === communityId) {
+        const nextMemberIds = (comm.memberIds || []).filter((id) => id !== currentUser.id);
+        const nextPending = (comm.pendingRequestUserIds || []).filter((id) => id !== currentUser.id);
+        success = true;
+        return {
+          ...comm,
+          memberIds: nextMemberIds,
+          pendingRequestUserIds: nextPending,
+          memberCount: Math.max(0, nextMemberIds.length),
+        };
+      }
+      return comm;
+    });
+
+    this.saveAllCommunities(updated);
+    return { communities: updated, success };
+  }
+
+  // --- MUTE SYSTEM (FOR HIGH-TRAFFIC GROUP CHATS & COMMUNITIES) ---
+  static getMutedGroupIds(): string[] {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.MUTED_GROUPS);
+      return data ? JSON.parse(data) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  static isGroupMuted(groupId: string): boolean {
+    return this.getMutedGroupIds().includes(groupId);
+  }
+
+  static toggleMuteGroup(groupId: string): boolean {
+    const muted = this.getMutedGroupIds();
+    const isMuted = muted.includes(groupId);
+    const nextMuted = isMuted ? muted.filter((id) => id !== groupId) : [...muted, groupId];
+    try {
+      localStorage.setItem(STORAGE_KEYS.MUTED_GROUPS, JSON.stringify(nextMuted));
+    } catch {}
+    return !isMuted;
+  }
+
+  static getMutedCommunityIds(): string[] {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.MUTED_COMMUNITIES);
+      return data ? JSON.parse(data) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  static isCommunityMuted(communityId: string): boolean {
+    return this.getMutedCommunityIds().includes(communityId);
+  }
+
+  static toggleMuteCommunity(communityId: string): boolean {
+    const muted = this.getMutedCommunityIds();
+    const isMuted = muted.includes(communityId);
+    const nextMuted = isMuted ? muted.filter((id) => id !== communityId) : [...muted, communityId];
+    try {
+      localStorage.setItem(STORAGE_KEYS.MUTED_COMMUNITIES, JSON.stringify(nextMuted));
+    } catch {}
+    return !isMuted;
+  }
+
+  // --- REPORTING SYSTEM (MESSAGES & COMMUNITY DISCUSSIONS) ---
+  static reportMessage(params: {
+    messageId: string;
+    senderId?: string;
+    conversationId?: string;
+    groupId?: string;
+    textPreview?: string;
+    reason: string;
+    details?: string;
+  }): void {
+    const currentUser = this.getCurrentUser();
+    try {
+      const existingStr = localStorage.getItem(STORAGE_KEYS.REPORTED_MESSAGES);
+      const reports = existingStr ? JSON.parse(existingStr) : [];
+      reports.push({
+        id: `rep_msg_${Date.now()}`,
+        reportedBy: currentUser.id,
+        reportedByUsername: currentUser.username,
+        messageId: params.messageId,
+        senderId: params.senderId,
+        groupId: params.groupId,
+        conversationId: params.conversationId,
+        textPreview: params.textPreview?.slice(0, 150),
+        reason: params.reason,
+        details: params.details,
+        timestamp: new Date().toISOString(),
+      });
+      localStorage.setItem(STORAGE_KEYS.REPORTED_MESSAGES, JSON.stringify(reports));
+    } catch {}
+  }
+
+  static reportCommunityDiscussion(params: {
+    threadId: string;
+    communityId: string;
+    title: string;
+    authorUsername?: string;
+    reason: string;
+    details?: string;
+  }): void {
+    const currentUser = this.getCurrentUser();
+    try {
+      const existingStr = localStorage.getItem(STORAGE_KEYS.REPORTED_DISCUSSIONS);
+      const reports = existingStr ? JSON.parse(existingStr) : [];
+      reports.push({
+        id: `rep_disc_${Date.now()}`,
+        reportedBy: currentUser.id,
+        threadId: params.threadId,
+        communityId: params.communityId,
+        title: params.title,
+        authorUsername: params.authorUsername,
+        reason: params.reason,
+        details: params.details,
+        timestamp: new Date().toISOString(),
+      });
+      localStorage.setItem(STORAGE_KEYS.REPORTED_DISCUSSIONS, JSON.stringify(reports));
+    } catch {}
   }
 
   // Send Direct or Group Message (with optional photo / audio note / shared post attachment / challenge invite)

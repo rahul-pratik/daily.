@@ -825,7 +825,7 @@ export const INITIAL_COMMUNITIES: Community[] = [
     name: 'ThirtiesIndia',
     description: 'A welcoming, candid community for folks navigating their 30s: career pivots, sleep & health optimization, life milestones, and honest discussions.',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
-    coverImage: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=1200&auto=format&fit=crop&q=80',
+    themeColor: '#3B82F6',
     category: 'Lifestyle',
     accessType: 'public',
     moderatorId: 'user_david',
@@ -849,7 +849,7 @@ export const INITIAL_COMMUNITIES: Community[] = [
     name: '100 Days of Code Hub',
     description: 'Global open space for software engineers, designers, and hobbyists building and documenting public streaks every single day.',
     avatar: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=400&auto=format&fit=crop&q=80',
-    coverImage: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=1200&auto=format&fit=crop&q=80',
+    themeColor: '#10B981',
     category: 'Coding',
     accessType: 'public', // Anyone can join
     moderatorId: 'user_sarah',
@@ -872,7 +872,7 @@ export const INITIAL_COMMUNITIES: Community[] = [
     name: 'Indie Hackers & Founders Guild',
     description: 'Curated community for micro-SaaS builders, bootstrappers, and solopreneurs sharing authentic revenue, metrics, and launch logs.',
     avatar: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=400&auto=format&fit=crop&q=80',
-    coverImage: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=1200&auto=format&fit=crop&q=80',
+    themeColor: '#8B5CF6',
     category: 'Startups',
     accessType: 'moderated', // Moderator grants access
     moderatorId: 'user_david',
@@ -896,7 +896,7 @@ export const INITIAL_COMMUNITIES: Community[] = [
     name: 'Dawn Patrol: 5 AM Athletes',
     description: 'High-energy runners, endurance athletes, and early risers pushing physical limits before sunrise.',
     avatar: 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=400&auto=format&fit=crop&q=80',
-    coverImage: 'https://images.unsplash.com/photo-1502680390469-be75c86b636f?w=1200&auto=format&fit=crop&q=80',
+    themeColor: '#F59E0B',
     category: 'Fitness',
     accessType: 'public', // Anyone can join
     moderatorId: 'user_marcus',
@@ -918,7 +918,7 @@ export const INITIAL_COMMUNITIES: Community[] = [
     name: 'Deep Focus & Non-Fiction Circle',
     description: 'Book summaries, mental models, note-taking systems, and deep work practitioners reading 20+ pages every day.',
     avatar: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&auto=format&fit=crop&q=80',
-    coverImage: 'https://images.unsplash.com/photo-1506880018603-83d5b814b5a6?w=1200&auto=format&fit=crop&q=80',
+    themeColor: '#06B6D4',
     category: 'Learning',
     accessType: 'public',
     moderatorId: 'user_sarah',
@@ -940,7 +940,7 @@ export const INITIAL_COMMUNITIES: Community[] = [
     name: 'Autonomous AI & Agents Lab',
     description: 'Vetted researchers, agent architects, and prompt engineers experimenting with cutting-edge reasoning models and neural interfaces.',
     avatar: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&auto=format&fit=crop&q=80',
-    coverImage: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80',
+    themeColor: '#EC4899',
     category: 'AI',
     accessType: 'moderated', // Moderator grants access
     moderatorId: 'user_elena',

@@ -13,9 +13,14 @@ import {
   Globe,
   X,
   Sparkles,
+  Bell,
+  BellOff,
+  LogOut,
+  AlertTriangle,
 } from 'lucide-react';
 import { Group, User, Message } from '../types';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
+import { DailyStorageService } from '../services/storage';
 
 interface GroupDetailsScreenProps {
   group: Group;
@@ -35,6 +40,10 @@ interface GroupDetailsScreenProps {
     avatar: string;
     currentStreak: number;
   }) => void;
+  isMuted?: boolean;
+  onToggleMute?: () => void;
+  onLeaveGroup?: () => void;
+  onLeaveCommunity?: () => void;
 }
 
 export const GroupDetailsScreen: React.FC<GroupDetailsScreenProps> = ({
@@ -49,12 +58,31 @@ export const GroupDetailsScreen: React.FC<GroupDetailsScreenProps> = ({
   onExpandPhoto,
   onTogglePinMessage,
   onViewUser,
+  isMuted = false,
+  onToggleMute,
+  onLeaveGroup,
+  onLeaveCommunity,
 }) => {
   const [isAddMembersOpen, setIsAddMembersOpen] = useState(false);
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
   const [selectedNewMemberIds, setSelectedNewMemberIds] = useState<string[]>([]);
   const [memberFilterQuery, setMemberFilterQuery] = useState('');
   const [memberPendingRemove, setMemberPendingRemove] = useState<User | null>(null);
+  const [showLeaveGroupConfirm, setShowLeaveGroupConfirm] = useState(false);
+  const [showLeaveCommunityConfirm, setShowLeaveCommunityConfirm] = useState(false);
+
+  // Find if this group is tied to an existing community or user belongs to a community
+  const allCommunities = DailyStorageService.getAllCommunities();
+  const associatedCommunity = allCommunities.find((c) => {
+    const groupNameLower = group.name.toLowerCase();
+    const commNameLower = c.name.toLowerCase();
+    return (
+      groupNameLower.includes(commNameLower) ||
+      commNameLower.includes(groupNameLower) ||
+      (group.category && c.category && group.category.toLowerCase() === c.category.toLowerCase()) ||
+      (c.memberIds || []).includes(currentUser.id)
+    );
+  }) || (allCommunities.length > 0 ? allCommunities[0] : null);
 
   const adminIds = group.adminIds && group.adminIds.length > 0
     ? group.adminIds
@@ -231,6 +259,59 @@ export const GroupDetailsScreen: React.FC<GroupDetailsScreenProps> = ({
 
           <div className="mt-3 text-[10px] text-white/40 font-mono">
             Created by {creatorUser ? `@${creatorUser.username}` : 'Founder'} • {group.createdAt || 'Active'}
+          </div>
+        </div>
+
+        {/* NOTIFICATION & MUTE SETTINGS: Silence notifications for high-traffic groups */}
+        <div className="bg-[#0e0e12] border border-white/10 rounded-3xl p-4 shadow-xl">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div
+                className={`w-10 h-10 rounded-2xl flex items-center justify-center border transition-colors ${
+                  isMuted
+                    ? 'bg-amber-500/15 border-amber-500/30 text-amber-400'
+                    : 'bg-blue-500/15 border-blue-500/30 text-blue-400'
+                }`}
+              >
+                {isMuted ? <BellOff className="w-5 h-5" /> : <Bell className="w-5 h-5" />}
+              </div>
+              <div>
+                <h4 className="font-bold text-xs sm:text-sm text-white flex items-center gap-2">
+                  <span>Mute Group Chat</span>
+                  {isMuted && (
+                    <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-bold border border-amber-500/30">
+                      Muted
+                    </span>
+                  )}
+                </h4>
+                <p className="text-[11px] text-white/60">
+                  {isMuted
+                    ? 'Notifications silenced for this high-traffic group'
+                    : 'Silence notifications for this high-traffic group'}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                vibrateLight();
+                onToggleMute?.();
+              }}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                isMuted ? 'bg-amber-500' : 'bg-white/20'
+              }`}
+              role="switch"
+              aria-checked={isMuted}
+              aria-label="Toggle mute group notifications"
+            >
+              <span
+                aria-hidden="true"
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                  isMuted ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
           </div>
         </div>
 
@@ -494,7 +575,140 @@ export const GroupDetailsScreen: React.FC<GroupDetailsScreenProps> = ({
             })}
           </div>
         </div>
+
+        {/* MEMBERSHIP ACTIONS: LEAVE GROUP & LEAVE COMMUNITY */}
+        <div className="bg-[#0e0e12] border border-rose-500/20 rounded-3xl p-5 space-y-3.5 shadow-xl">
+          <div className="flex items-center gap-2 text-rose-400">
+            <LogOut className="w-4 h-4" />
+            <h4 className="font-bold text-xs uppercase tracking-wider">
+              Membership Actions
+            </h4>
+          </div>
+          <p className="text-xs text-white/60 leading-relaxed">
+            Exit this group chat or the associated community. You can rejoin or be reinvited whenever you choose.
+          </p>
+
+          <div className="space-y-2.5 pt-1">
+            {/* Leave Group Button */}
+            <button
+              type="button"
+              onClick={() => {
+                vibrateLight();
+                setShowLeaveGroupConfirm(true);
+              }}
+              className="w-full py-3 px-4 rounded-2xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 hover:text-rose-200 font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.99]"
+            >
+              <LogOut className="w-4 h-4 text-rose-400" />
+              <span>Leave Group</span>
+            </button>
+
+            {/* Leave Community Button */}
+            <button
+              type="button"
+              onClick={() => {
+                vibrateLight();
+                setShowLeaveCommunityConfirm(true);
+              }}
+              className="w-full py-3 px-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 hover:text-white font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-[0.99]"
+            >
+              <Users className="w-4 h-4 text-white/40" />
+              <span>Leave Community {associatedCommunity ? `(${associatedCommunity.name})` : ''}</span>
+            </button>
+          </div>
+        </div>
       </div>
+
+      {/* Confirmation Modal: Leave Group */}
+      {showLeaveGroupConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="bg-[#0e0e12] border border-white/15 rounded-3xl p-5 max-w-sm w-full space-y-4 shadow-2xl">
+            <div className="w-11 h-11 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 mx-auto">
+              <LogOut className="w-5 h-5" />
+            </div>
+
+            <div className="text-center space-y-1.5">
+              <h4 className="font-bold text-sm text-white">
+                Leave {group.name}?
+              </h4>
+              <p className="text-xs text-white/60 leading-relaxed">
+                You will no longer receive new messages, photos, or voice notes from this group chat. You can be re-invited or rejoin anytime.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowLeaveGroupConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-colors"
+              >
+                Stay in Group
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateStreakMilestone();
+                  setShowLeaveGroupConfirm(false);
+                  if (onLeaveGroup) {
+                    onLeaveGroup();
+                  } else {
+                    DailyStorageService.leaveGroup(group.id);
+                    onBack();
+                  }
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-colors shadow-lg shadow-rose-600/30"
+              >
+                Leave Group
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal: Leave Community */}
+      {showLeaveCommunityConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="bg-[#0e0e12] border border-white/15 rounded-3xl p-5 max-w-sm w-full space-y-4 shadow-2xl">
+            <div className="w-11 h-11 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto">
+              <Users className="w-5 h-5" />
+            </div>
+
+            <div className="text-center space-y-1.5">
+              <h4 className="font-bold text-sm text-white">
+                Leave {associatedCommunity ? associatedCommunity.name : 'Community'}?
+              </h4>
+              <p className="text-xs text-white/60 leading-relaxed">
+                You will exit this community and lose access to its members-only discussion threads and updates. You can rejoin or send a request anytime.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowLeaveCommunityConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateStreakMilestone();
+                  setShowLeaveCommunityConfirm(false);
+                  if (onLeaveCommunity) {
+                    onLeaveCommunity();
+                  } else if (associatedCommunity) {
+                    DailyStorageService.leaveCommunity(associatedCommunity.id);
+                  }
+                  onBack();
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-colors shadow-lg shadow-rose-600/30"
+              >
+                Leave Community
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Confirmation Modal: Remove Member */}
       {memberPendingRemove && (

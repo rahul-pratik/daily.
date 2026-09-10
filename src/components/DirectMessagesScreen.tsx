@@ -22,6 +22,10 @@ import {
   Trash2,
   Volume2,
   Smile,
+  Bell,
+  BellOff,
+  Flag,
+  AlertCircle,
 } from 'lucide-react';
 import { User, Message, Group } from '../types';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
@@ -245,6 +249,49 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
     vibrateLight();
     const updated = DailyStorageService.togglePinChat(chatId);
     setPinnedChatIds(updated);
+  };
+
+  // Mute and Report state
+  const [, setMuteUpdateKey] = useState(0);
+  const [messagePendingReport, setMessagePendingReport] = useState<Message | null>(null);
+  const [reportReason, setReportReason] = useState('Harassment, bullying, or hate speech');
+  const [reportDetails, setReportDetails] = useState('');
+  const [toastNotification, setToastNotification] = useState<string | null>(null);
+
+  const showToast = (text: string) => {
+    setToastNotification(text);
+    setTimeout(() => {
+      setToastNotification(null);
+    }, 3500);
+  };
+
+  const handleMuteGroup = (groupId: string) => {
+    vibrateLight();
+    const isNowMuted = DailyStorageService.toggleMuteGroup(groupId);
+    setMuteUpdateKey((k) => k + 1);
+    showToast(
+      isNowMuted
+        ? 'Notifications silenced for this group.'
+        : 'Notifications unmuted for this group.'
+    );
+  };
+
+  const handleSubmitMessageReport = () => {
+    if (!messagePendingReport) return;
+    vibrateStreakMilestone();
+    DailyStorageService.reportMessage({
+      messageId: messagePendingReport.id,
+      senderId: messagePendingReport.senderId,
+      groupId: activeGroupId || undefined,
+      textPreview:
+        messagePendingReport.text ||
+        (messagePendingReport.imageUrl ? '[Photo Attachment]' : '[Voice Message]'),
+      reason: reportReason,
+      details: reportDetails.trim(),
+    });
+    setMessagePendingReport(null);
+    setReportDetails('');
+    showToast('Message reported to moderators. Thank you for keeping our community safe.');
   };
 
   // Pinned banner navigation & scroll-to-message
@@ -957,6 +1004,15 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                             >
                               {item.type === 'group' ? 'Group' : 'Direct'}
                             </span>
+                            {item.type === 'group' && DailyStorageService.isGroupMuted(item.id) && (
+                              <span
+                                className="text-[9px] px-1.5 py-0.2 rounded font-mono bg-amber-500/15 text-amber-300 border border-amber-500/25 flex items-center gap-0.5 shrink-0 font-bold"
+                                title="Notifications muted"
+                              >
+                                <BellOff className="w-2.5 h-2.5 text-amber-300" />
+                                Muted
+                              </span>
+                            )}
                           </div>
                           <span className="text-[10px] text-white/40 font-mono shrink-0">
                             {item.lastMessage.timestamp}
@@ -988,8 +1044,31 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                       </div>
                     </button>
 
-                    {/* Quick Pin / Unpin Chat Action Button */}
-                    <div className="pr-3 pl-1 shrink-0">
+                    {/* Quick Mute & Pin Actions */}
+                    <div className="pr-3 pl-1 shrink-0 flex items-center gap-1">
+                      {item.type === 'group' && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMuteGroup(item.id);
+                          }}
+                          className={`p-1.5 rounded-xl border transition-all ${
+                            DailyStorageService.isGroupMuted(item.id)
+                              ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                              : 'opacity-40 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-white/10 border-white/10 text-white/50 hover:text-white'
+                          }`}
+                          title={DailyStorageService.isGroupMuted(item.id) ? 'Unmute group' : 'Mute group chat'}
+                          aria-label="Mute or unmute group"
+                        >
+                          {DailyStorageService.isGroupMuted(item.id) ? (
+                            <BellOff className="w-3.5 h-3.5" />
+                          ) : (
+                            <Bell className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={(e) => {
@@ -1030,6 +1109,31 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
             if (targetMsg) handleTogglePinMessage(targetMsg);
           }}
           onViewUser={onViewUser}
+          isMuted={DailyStorageService.isGroupMuted(activeGroup.id)}
+          onToggleMute={() => handleMuteGroup(activeGroup.id)}
+          onLeaveGroup={() => {
+            DailyStorageService.leaveGroup(activeGroup.id);
+            setIsGroupDetailsOpen(false);
+            setActiveGroupId(null);
+            onGroupsUpdated?.();
+            showToast(`You left ${activeGroup.name}`);
+          }}
+          onLeaveCommunity={() => {
+            const allComms = DailyStorageService.getAllCommunities();
+            const matchingComm = allComms.find(
+              (c) =>
+                c.name.toLowerCase().includes(activeGroup.name.toLowerCase()) ||
+                activeGroup.name.toLowerCase().includes(c.name.toLowerCase()) ||
+                (c.memberIds || []).includes(currentUser.id)
+            );
+            if (matchingComm) {
+              DailyStorageService.leaveCommunity(matchingComm.id);
+              showToast(`You left ${matchingComm.name}`);
+            }
+            setIsGroupDetailsOpen(false);
+            setActiveGroupId(null);
+            onGroupsUpdated?.();
+          }}
         />
       ) : (
         /* DEDICATED CHAT VIEW: CHAT IS THE MOST IMPORTANT THING */
@@ -1133,6 +1237,33 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
               >
                 <Search className="w-4 h-4" />
               </button>
+
+              {activeGroup && (
+                <button
+                  type="button"
+                  onClick={() => handleMuteGroup(activeGroup.id)}
+                  className={`p-2 rounded-xl border transition-colors flex items-center gap-1.5 text-xs ${
+                    DailyStorageService.isGroupMuted(activeGroup.id)
+                      ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                      : 'bg-white/5 hover:bg-white/10 border-white/10 text-white/70 hover:text-white'
+                  }`}
+                  title={
+                    DailyStorageService.isGroupMuted(activeGroup.id)
+                      ? 'Unmute group chat notifications'
+                      : 'Mute notifications for this high-traffic group'
+                  }
+                  aria-label="Mute group notifications"
+                >
+                  {DailyStorageService.isGroupMuted(activeGroup.id) ? (
+                    <BellOff className="w-4 h-4 text-amber-300" />
+                  ) : (
+                    <Bell className="w-4 h-4" />
+                  )}
+                  <span className="hidden md:inline text-[11px] font-bold">
+                    {DailyStorageService.isGroupMuted(activeGroup.id) ? 'Muted' : 'Mute'}
+                  </span>
+                </button>
+              )}
 
               {activeGroup && (
                 <button
@@ -1439,6 +1570,20 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
 
                           <button
                             type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setReactingMessageId(null);
+                              setMessagePendingReport(msg);
+                            }}
+                            className="px-2 py-1 rounded-full flex items-center gap-1 text-[11px] font-bold text-rose-400 hover:text-rose-300 hover:bg-rose-500/20 transition-all"
+                            title="Report message"
+                          >
+                            <Flag className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Report</span>
+                          </button>
+
+                          <button
+                            type="button"
                             onClick={() => setReactingMessageId(null)}
                             className="w-6 h-6 rounded-full flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 ml-0.5"
                             title="Close"
@@ -1469,7 +1614,7 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                             ? 'bg-[#2F6FED] text-white rounded-br-xs'
                             : 'bg-[#141418] border border-white/10 text-white rounded-bl-xs'
                         } ${msg.isPinned ? 'border border-amber-500/40 shadow-amber-500/10' : ''}`}
-                        title="Long-press to add emoji reaction or pin message/photo"
+                        title="Long-press to add emoji reaction, pin, or report message"
                       >
                         {/* Pinned Indicator on Message Bubble */}
                         {msg.isPinned && (
@@ -1524,7 +1669,7 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                         </div>
                       </div>
 
-                      {/* Message Action Triggers: Reaction & Pin */}
+                      {/* Message Action Triggers: Reaction, Pin, & Report */}
                       <div className="flex items-center gap-0.5">
                         <button
                           type="button"
@@ -1561,6 +1706,21 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                           aria-label={msg.isPinned ? 'Unpin item' : 'Pin item'}
                         >
                           <Pin className={`w-3.5 h-3.5 ${msg.isPinned ? 'fill-amber-300' : ''}`} />
+                        </button>
+
+                        {/* Report inappropriate message button */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            vibrateLight();
+                            setMessagePendingReport(msg);
+                          }}
+                          className="opacity-0 group-hover/msg:opacity-100 transition-opacity p-1.5 rounded-full bg-white/10 hover:bg-rose-500/20 text-white/50 hover:text-rose-400 shrink-0 active:scale-95"
+                          title="Report message"
+                          aria-label="Report message"
+                        >
+                          <Flag className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
@@ -1784,6 +1944,122 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
             >
               <X className="w-5 h-5" />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toastNotification && (
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] bg-[#1a1a24] border border-white/20 text-white text-xs font-semibold px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-3 duration-200">
+          <Check className="w-4 h-4 text-emerald-400 stroke-[3]" />
+          <span>{toastNotification}</span>
+        </div>
+      )}
+
+      {/* Report Message Modal */}
+      {messagePendingReport && (
+        <div className="fixed inset-0 z-70 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="bg-[#111116] border border-white/15 rounded-3xl p-5 max-w-md w-full space-y-4 shadow-2xl text-white">
+            <div className="flex items-center justify-between pb-2 border-b border-white/10">
+              <div className="flex items-center gap-2.5 text-rose-400">
+                <div className="w-8 h-8 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center">
+                  <Flag className="w-4 h-4 text-rose-400" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-white">Report Inappropriate Message</h3>
+                  <span className="text-[10px] text-white/50">Flagged content is reviewed by moderators</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMessagePendingReport(null)}
+                className="p-1.5 rounded-full hover:bg-white/10 text-white/40 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Quoted Message Preview */}
+            <div className="bg-black/40 border border-white/10 rounded-2xl p-3 space-y-1">
+              <div className="flex items-center justify-between text-[10px] text-white/50">
+                <span>Message preview</span>
+                <span>{messagePendingReport.timestamp}</span>
+              </div>
+              <p className="text-xs text-white/80 line-clamp-3 italic">
+                &ldquo;
+                {messagePendingReport.text ||
+                  (messagePendingReport.imageUrl ? '[Photo Attachment]' : '[Voice Message]')}
+                &rdquo;
+              </p>
+            </div>
+
+            {/* Reason selector */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-white/80 block">
+                Why are you reporting this message?
+              </label>
+              <div className="space-y-1.5">
+                {[
+                  'Harassment, bullying, or hate speech',
+                  'Spam or unsolicited advertising',
+                  'Inappropriate or sexually explicit content',
+                  'Misinformation, violence, or dangerous activity',
+                  'Other violation of community guidelines',
+                ].map((reason) => (
+                  <label
+                    key={reason}
+                    className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-xs cursor-pointer transition-all ${
+                      reportReason === reason
+                        ? 'bg-rose-500/15 border-rose-500/40 text-rose-200'
+                        : 'bg-white/5 border-white/5 hover:bg-white/10 text-white/70 hover:text-white'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="reportReason"
+                      value={reason}
+                      checked={reportReason === reason}
+                      onChange={() => setReportReason(reason)}
+                      className="accent-rose-500"
+                    />
+                    <span>{reason}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Additional details optional textarea */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-white/70 block">
+                Additional details (optional)
+              </label>
+              <textarea
+                value={reportDetails}
+                onChange={(e) => setReportDetails(e.target.value)}
+                placeholder="Help us understand the issue..."
+                rows={2}
+                className="w-full p-2.5 bg-black/30 border border-white/10 rounded-xl text-xs text-white placeholder-white/40 focus:border-rose-500 outline-none resize-none"
+              />
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setMessagePendingReport(null)}
+                className="flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitMessageReport}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-colors shadow-lg shadow-rose-600/30 flex items-center justify-center gap-1.5"
+              >
+                <Flag className="w-3.5 h-3.5" />
+                <span>Submit Report</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

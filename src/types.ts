@@ -199,6 +199,7 @@ export interface Community {
   description: string;
   avatar: string;
   coverImage?: string;
+  themeColor?: string; // Custom visual theme accent
   category: string;
   accessType: 'public' | 'moderated'; // 'public': anyone can join instantly; 'moderated': requires moderator approval
   moderatorId: string;

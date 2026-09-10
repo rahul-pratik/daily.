@@ -30,6 +30,10 @@ import {
   Image as ImageIcon,
   Camera,
   Upload,
+  Search,
+  Bell,
+  BellOff,
+  LogOut,
 } from 'lucide-react';
 import { Community, User, Post, CommunityDiscussionThread, CommunityDiscussionComment } from '../types';
 import { DailyStorageService } from '../services/storage';
@@ -87,6 +91,28 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
   const [selectedFlair, setSelectedFlair] = useState<DiscussionFlairFilter>('All');
   const [copyToast, setCopyToast] = useState<string | null>(null);
 
+  // Search in header to quickly find previous community posts
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+
+  // Mute community notifications state
+  const [isMuted, setIsMuted] = useState<boolean>(() =>
+    DailyStorageService.isCommunityMuted(community?.id || '')
+  );
+
+  // Leave Community Confirmation modal state
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+
+  // Report community discussion/comment state
+  const [contentPendingReport, setContentPendingReport] = useState<{
+    type: 'thread' | 'comment';
+    id: string;
+    title?: string;
+    author?: string;
+  } | null>(null);
+  const [communityReportReason, setCommunityReportReason] = useState('Harassment, bullying, or hate speech');
+  const [communityReportDetails, setCommunityReportDetails] = useState('');
+
   // New Discussion Form State
   const [newTitle, setNewTitle] = useState('');
   const [newContent, setNewContent] = useState('');
@@ -102,6 +128,7 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
     if (community?.id) {
       const loaded = DailyStorageService.getCommunityDiscussions(community.id);
       setThreads(loaded);
+      setIsMuted(DailyStorageService.isCommunityMuted(community.id));
     }
   }, [community?.id]);
 
@@ -110,6 +137,45 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
   const isMember = (community.memberIds || []).includes(currentUser.id);
   const isPending = (community.pendingRequestUserIds || []).includes(currentUser.id);
   const isModerator = community.moderatorId === currentUser.id;
+
+  const handleToggleMuteCommunity = () => {
+    vibrateLight();
+    const nowMuted = DailyStorageService.toggleMuteCommunity(community.id);
+    setIsMuted(nowMuted);
+    setCopyToast(
+      nowMuted
+        ? `Notifications silenced for ${community.name}`
+        : `Notifications enabled for ${community.name}`
+    );
+    setTimeout(() => setCopyToast(null), 2500);
+  };
+
+  const handleLeaveCommunity = () => {
+    vibrateStreakMilestone();
+    setShowLeaveConfirm(false);
+    setShowHeaderMenu(false);
+    DailyStorageService.leaveCommunity(community.id);
+    onToggleJoin(community.id);
+    setCopyToast(`You left ${community.name}`);
+    setTimeout(() => setCopyToast(null), 2500);
+  };
+
+  const handleSubmitCommunityReport = () => {
+    if (!contentPendingReport) return;
+    vibrateStreakMilestone();
+    DailyStorageService.reportCommunityDiscussion({
+      communityId: community.id,
+      threadId: contentPendingReport.id,
+      title: contentPendingReport.title || 'Discussion Content',
+      authorUsername: contentPendingReport.author,
+      reason: communityReportReason,
+      details: communityReportDetails.trim(),
+    });
+    setContentPendingReport(null);
+    setCommunityReportDetails('');
+    setCopyToast('Report submitted to moderators. Thank you.');
+    setTimeout(() => setCopyToast(null), 2500);
+  };
 
   const handleVote = (threadId: string, direction: 'up' | 'down') => {
     vibrateLight();
@@ -211,8 +277,19 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
 
   // Filter and sort discussions
   const filteredThreads = threads.filter((t) => {
-    if (selectedFlair === 'All') return true;
-    return t.flair === selectedFlair;
+    if (selectedFlair !== 'All' && t.flair !== selectedFlair) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      const matchTitle = t.title?.toLowerCase().includes(q);
+      const matchContent = t.content?.toLowerCase().includes(q);
+      const matchAuthor =
+        t.authorName?.toLowerCase().includes(q) ||
+        t.authorUsername?.toLowerCase().includes(q);
+      const matchTags = t.tags?.some((tag) => tag.toLowerCase().includes(q));
+      const matchFlair = t.flair?.toLowerCase().includes(q);
+      return matchTitle || matchContent || matchAuthor || matchTags || matchFlair;
+    }
+    return true;
   });
 
   const sortedThreads = [...filteredThreads].sort((a, b) => {
@@ -248,13 +325,13 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
           </div>
         )}
 
-        {/* TOP HEADER: Community Name clickable with Dropdown Arrow */}
-        <header className="px-4 py-3 border-b border-white/10 bg-[#141418] flex items-center justify-between shrink-0 select-none">
+        {/* TOP HEADER: Community Name, Search Bar, Mute Button, & Guidelines */}
+        <header className="px-4 py-3 border-b border-white/10 bg-[#141418] flex items-center justify-between shrink-0 select-none gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
             <button
               id="community-hub-back-btn"
               onClick={onClose}
-              className="p-2 rounded-full hover:bg-white/10 text-white/70 hover:text-white transition-colors"
+              className="p-2 rounded-full hover:bg-white/10 text-white/70 hover:text-white transition-colors shrink-0"
               aria-label="Back"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -267,7 +344,7 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
                 vibrateLight();
                 setShowHeaderMenu(!showHeaderMenu);
               }}
-              className="flex items-center gap-2.5 px-3 py-1.5 rounded-2xl hover:bg-white/5 border border-transparent hover:border-white/10 transition-all text-left max-w-full group"
+              className="flex items-center gap-2.5 px-3 py-1.5 rounded-2xl hover:bg-white/5 border border-transparent hover:border-white/10 transition-all text-left max-w-full group min-w-0"
               title="Click for Community Options & Guidelines"
             >
               <img
@@ -298,21 +375,96 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
             </button>
           </div>
 
+          {/* Search bar in header to quickly find previous community posts */}
           <div className="flex items-center gap-1.5 shrink-0">
+            <div className={`relative transition-all duration-200 ${isSearchExpanded ? 'w-44 sm:w-60' : 'hidden sm:block sm:w-44'}`}>
+              <Search className="w-3.5 h-3.5 text-white/40 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search previous posts..."
+                className="w-full pl-8 pr-7 py-1.5 bg-white/5 focus:bg-white/10 border border-white/10 focus:border-[#2F6FED] rounded-xl text-xs text-white placeholder-white/40 outline-none transition-all"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
+                  title="Clear search"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
+            {/* Search toggle button on small screens */}
+            <button
+              type="button"
+              onClick={() => {
+                vibrateLight();
+                setIsSearchExpanded(!isSearchExpanded);
+                if (isSearchExpanded) setSearchQuery('');
+              }}
+              className={`sm:hidden p-2 rounded-xl border transition-colors ${
+                isSearchExpanded || searchQuery
+                  ? 'bg-[#2F6FED] border-[#2F6FED] text-white'
+                  : 'bg-white/5 hover:bg-white/10 border-white/10 text-white/70 hover:text-white'
+              }`}
+              title="Search community posts"
+              aria-label="Search posts"
+            >
+              <Search className="w-4 h-4" />
+            </button>
+
+            {/* Mute functionality for community */}
+            <button
+              type="button"
+              onClick={handleToggleMuteCommunity}
+              className={`p-2 rounded-xl border transition-colors flex items-center gap-1 text-xs ${
+                isMuted
+                  ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                  : 'bg-white/5 hover:bg-white/10 border-white/10 text-white/70 hover:text-white'
+              }`}
+              title={isMuted ? 'Unmute community notifications' : 'Silence notifications for this high-traffic community'}
+              aria-label="Toggle mute"
+            >
+              {isMuted ? <BellOff className="w-4 h-4 text-amber-300" /> : <Bell className="w-4 h-4" />}
+            </button>
+
             <button
               id="community-guidelines-header-btn"
               onClick={() => {
                 vibrateLight();
                 setShowHeaderMenu(true);
               }}
-              className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-all"
+              className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-all"
               title="Community Guidelines & Options"
             >
               <BookOpen className="w-3.5 h-3.5 text-[#2F6FED]" />
-              <span className="hidden sm:inline">Guidelines</span>
+              <span className="hidden md:inline">Guidelines</span>
             </button>
           </div>
         </header>
+
+        {/* Active Search Filter Banner */}
+        {searchQuery && (
+          <div className="px-4 py-2 bg-[#2F6FED]/15 border-b border-[#2F6FED]/25 flex items-center justify-between text-xs text-white shrink-0 animate-in fade-in duration-150">
+            <div className="flex items-center gap-2">
+              <Search className="w-3.5 h-3.5 text-[#2F6FED] shrink-0" />
+              <span>
+                Found <strong>{sortedThreads.length}</strong> previous post{sortedThreads.length === 1 ? '' : 's'} matching &ldquo;{searchQuery}&rdquo;
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="text-[11px] font-bold text-[#2F6FED] hover:underline"
+            >
+              Clear
+            </button>
+          </div>
+        )}
 
         {/* CLICKABLE HEADER DROPDOWN / MODAL: Community Options & Guidelines */}
         {showHeaderMenu && (
@@ -326,6 +478,37 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
               className="w-full max-w-md bg-[#16161c] border border-white/15 rounded-3xl p-5 shadow-2xl text-white space-y-4 animate-in zoom-in-95 duration-150"
               onClick={(e) => e.stopPropagation()}
             >
+              {/* Community Banner / Theme Header */}
+              <div
+                className="h-20 w-full rounded-2xl overflow-hidden relative border border-white/10"
+                style={
+                  community.coverImage
+                    ? undefined
+                    : {
+                        background: `linear-gradient(135deg, ${community.themeColor || '#2F6FED'}44 0%, rgba(20, 20, 28, 0.95) 100%)`,
+                      }
+                }
+              >
+                {community.coverImage ? (
+                  <img
+                    src={community.coverImage}
+                    alt={community.name}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full relative overflow-hidden flex items-center px-4">
+                    <div
+                      className="absolute -right-6 -bottom-6 w-28 h-28 rounded-full blur-xl opacity-30 pointer-events-none"
+                      style={{ backgroundColor: community.themeColor || '#2F6FED' }}
+                    />
+                    <span className="text-[10px] font-bold text-white/60 uppercase tracking-widest">
+                      Visual Theme • {community.category}
+                    </span>
+                  </div>
+                )}
+              </div>
+
               {/* Header Info */}
               <div className="flex items-start justify-between pb-3 border-b border-white/10">
                 <div className="flex items-center gap-3">
@@ -333,7 +516,8 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
                     src={community.avatar}
                     alt={community.name}
                     referrerPolicy="no-referrer"
-                    className="w-12 h-12 rounded-2xl object-cover ring-2 ring-[#2F6FED]/30 shrink-0"
+                    className="w-12 h-12 rounded-2xl object-cover ring-2 shrink-0 -mt-6 shadow-lg bg-black"
+                    style={{ '--tw-ring-color': community.themeColor || '#2F6FED' } as React.CSSProperties}
                   />
                   <div>
                     <h2 className="text-base font-bold text-white">{community.name}</h2>
@@ -353,40 +537,67 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
                 {community.description || 'Welcome to our focused accountability community.'}
               </p>
 
-              {/* Action 1: Join / Group Joined Toggle */}
+              {/* Notification Settings */}
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-3 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className={`p-2 rounded-xl ${isMuted ? 'bg-amber-500/20 text-amber-300' : 'bg-white/10 text-white/70'}`}>
+                    {isMuted ? <BellOff className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-white">Mute Community</h4>
+                    <p className="text-[10px] text-white/40">
+                      {isMuted ? 'Notifications silenced' : 'Silence updates from this community'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleToggleMuteCommunity}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    isMuted
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                      : 'bg-white/10 hover:bg-white/15 text-white/80'
+                  }`}
+                >
+                  {isMuted ? 'Muted' : 'Mute'}
+                </button>
+              </div>
+
+              {/* Membership Actions (Join / Leave Community) */}
               <div className="space-y-2">
                 <div className="text-[11px] font-semibold text-white/50 uppercase tracking-wider">
                   Membership Status
                 </div>
-                <button
-                  id="community-toggle-join-btn"
-                  onClick={() => {
-                    vibrateLight();
-                    onToggleJoin(community.id);
-                  }}
-                  className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
-                    isMember
-                      ? 'bg-white/10 hover:bg-red-500/20 text-emerald-400 hover:text-red-300 border border-white/10'
-                      : 'bg-[#2F6FED] hover:bg-[#2F6FED]/90 text-white shadow-lg shadow-[#2F6FED]/20'
-                  }`}
-                >
-                  {isMember ? (
-                    <>
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                      <span>Group Joined (Click to Leave)</span>
-                    </>
-                  ) : isPending ? (
-                    <>
-                      <Clock className="w-4 h-4 text-amber-400" />
-                      <span>Request Pending Approval</span>
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-4 h-4" />
-                      <span>Join Group</span>
-                    </>
-                  )}
-                </button>
+                {isMember ? (
+                  <button
+                    id="community-leave-btn"
+                    onClick={() => {
+                      vibrateLight();
+                      setShowLeaveConfirm(true);
+                    }}
+                    className="w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30"
+                  >
+                    <LogOut className="w-4 h-4 text-rose-400" />
+                    <span>Leave Community</span>
+                  </button>
+                ) : isPending ? (
+                  <div className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center justify-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    <span>Request Pending Approval</span>
+                  </div>
+                ) : (
+                  <button
+                    id="community-join-btn"
+                    onClick={() => {
+                      vibrateStreakMilestone();
+                      onToggleJoin(community.id);
+                    }}
+                    className="w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 bg-[#2F6FED] hover:bg-[#2F6FED]/90 text-white shadow-lg shadow-[#2F6FED]/20"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Join Community</span>
+                  </button>
+                )}
               </div>
 
               {/* Action 2: Community Guidelines */}
@@ -718,7 +929,7 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
                         )}
 
                         {/* Actions Row */}
-                        <div className="flex items-center gap-3 pt-2 text-xs text-white/60">
+                        <div className="flex items-center gap-2 sm:gap-3 pt-2 text-xs text-white/60">
                           <button
                             onClick={() => {
                               vibrateLight();
@@ -736,6 +947,25 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
                           >
                             <Share2 className="w-3.5 h-3.5" />
                             <span>Share</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              vibrateLight();
+                              setContentPendingReport({
+                                type: 'thread',
+                                id: thread.id,
+                                title: thread.title,
+                                author: thread.authorUsername,
+                              });
+                            }}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-rose-500/15 text-white/50 hover:text-rose-300 font-medium transition-colors"
+                            title="Report discussion thread"
+                          >
+                            <Flag className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Report</span>
                           </button>
                         </div>
                       </div>
@@ -1045,6 +1275,24 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
                       <Share2 className="w-3.5 h-3.5" />
                       <span>Share</span>
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        vibrateLight();
+                        setContentPendingReport({
+                          type: 'thread',
+                          id: activeThread.id,
+                          title: activeThread.title,
+                          author: activeThread.authorUsername,
+                        });
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-rose-500/15 text-white/50 hover:text-rose-300 text-xs font-medium flex items-center gap-1.5 transition-colors"
+                      title="Report thread"
+                    >
+                      <Flag className="w-3.5 h-3.5" />
+                      <span>Report</span>
+                    </button>
                   </div>
                 </div>
 
@@ -1077,6 +1325,23 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
                               <span className="text-xs font-bold text-white">{comment.authorName}</span>
                               <span className="text-[10px] text-white/40">{comment.createdAt}</span>
                             </div>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                vibrateLight();
+                                setContentPendingReport({
+                                  type: 'comment',
+                                  id: comment.id,
+                                  title: `Comment: "${comment.content.slice(0, 40)}..."`,
+                                  author: comment.authorName,
+                                });
+                              }}
+                              className="p-1 rounded text-white/30 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                              title="Report comment"
+                            >
+                              <Flag className="w-3 h-3" />
+                            </button>
                           </div>
                           <p className="text-xs text-white/80 leading-relaxed pl-7">
                             {comment.content}
@@ -1116,6 +1381,137 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
                   <Send className="w-4 h-4" />
                 </button>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* LEAVE COMMUNITY CONFIRMATION MODAL */}
+        {showLeaveConfirm && (
+          <div
+            className="fixed inset-0 z-[95] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
+            onClick={() => setShowLeaveConfirm(false)}
+          >
+            <div
+              className="w-full max-w-sm bg-[#16161c] border border-white/10 rounded-2xl p-5 text-white space-y-4 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto">
+                <LogOut className="w-5 h-5" />
+              </div>
+              <div className="text-center space-y-1">
+                <h3 className="text-base font-bold text-white">Leave Community?</h3>
+                <p className="text-xs text-white/60">
+                  Are you sure you want to exit <strong>{community.name}</strong>? You will no longer receive updates in your joined spaces.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowLeaveConfirm(false)}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-white/80 font-bold text-xs transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLeaveCommunity}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition-colors shadow-lg shadow-rose-600/20"
+                >
+                  Leave Community
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* REPORT CONTENT MODAL (THREADS / COMMENTS) */}
+        {contentPendingReport && (
+          <div
+            className="fixed inset-0 z-[95] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
+            onClick={() => setContentPendingReport(null)}
+          >
+            <div
+              className="w-full max-w-md bg-[#16161c] border border-white/10 rounded-2xl p-5 text-white space-y-4 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-rose-500/20 text-rose-400">
+                    <Flag className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">
+                      Report {contentPendingReport.type === 'thread' ? 'Discussion' : 'Comment'}
+                    </h3>
+                    <p className="text-[10px] text-white/40 truncate max-w-[240px]">
+                      {contentPendingReport.title || `By @${contentPendingReport.author}`}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setContentPendingReport(null)}
+                  className="p-1 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-white/70">Reason for reporting</label>
+                  <div className="space-y-1.5">
+                    {[
+                      'Harassment, bullying, or hate speech',
+                      'Spam, advertising, or unsolicited promotion',
+                      'Inappropriate, explicit, or offensive content',
+                      'Misleading information or scam',
+                      'Breach of community rules',
+                    ].map((reason) => (
+                      <button
+                        key={reason}
+                        type="button"
+                        onClick={() => setCommunityReportReason(reason)}
+                        className={`w-full text-left px-3 py-2 rounded-xl text-xs transition-colors flex items-center justify-between ${
+                          communityReportReason === reason
+                            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 font-semibold'
+                            : 'bg-white/5 text-white/70 hover:bg-white/10 border border-white/5'
+                        }`}
+                      >
+                        <span>{reason}</span>
+                        {communityReportReason === reason && <Check className="w-3.5 h-3.5 text-rose-400 shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-white/70">Additional details (optional)</label>
+                  <textarea
+                    value={communityReportDetails}
+                    onChange={(e) => setCommunityReportDetails(e.target.value)}
+                    placeholder="Provide extra context to help moderators evaluate..."
+                    className="w-full h-20 p-2.5 rounded-xl bg-black/40 border border-white/10 text-xs text-white placeholder-white/30 resize-none outline-none focus:border-rose-500/50"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setContentPendingReport(null)}
+                  className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-white/80 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSubmitCommunityReport}
+                  className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-xs font-bold text-white transition-colors shadow-lg shadow-rose-600/20"
+                >
+                  Submit Report
+                </button>
+              </div>
             </div>
           </div>
         )}
