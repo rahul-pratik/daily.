@@ -21,6 +21,7 @@ import {
   Pause,
   Trash2,
   Volume2,
+  Smile,
 } from 'lucide-react';
 import { User, Message, Group } from '../types';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
@@ -30,6 +31,8 @@ import { VoiceMessageWaveformVisualizer } from './VoiceMessageWaveformVisualizer
 import { createSyntheticAudioDataUrl } from '../utils/audio';
 
 export type MessageSortOption = 'all' | 'groups' | 'direct';
+
+export const EMOJI_REACTIONS = ['❤️', '👍', '🔥', '😂', '👏', '😮', '🎉', '💪'];
 
 interface DirectMessagesScreenProps {
   currentUser: User;
@@ -44,6 +47,7 @@ interface DirectMessagesScreenProps {
     audioUrl?: string;
     audioDuration?: number;
   }) => void;
+  onToggleReaction?: (messageId: string, emoji: string) => void;
   onGroupsUpdated?: () => void;
   initialChatUserId?: string | null;
   initialGroupId?: string | null;
@@ -80,6 +84,7 @@ interface UnifiedConversationItem {
   lastMessage: Message;
   sortTimestamp: number;
   unreadCount: number;
+  matchingSnippet?: string;
 }
 
 export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
@@ -88,6 +93,7 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
   allGroups,
   messages,
   onSendMessage,
+  onToggleReaction,
   onGroupsUpdated,
   initialChatUserId,
   initialGroupId,
@@ -110,6 +116,16 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
   const [showPhotoPicker, setShowPhotoPicker] = useState(false);
   const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
+
+  // In-Chat Search & Filter State
+  const [isChatSearchOpen, setIsChatSearchOpen] = useState(false);
+  const [chatSearchQuery, setChatSearchQuery] = useState('');
+
+  // Long-press and Emoji Reaction State
+  const [reactingMessageId, setReactingMessageId] = useState<string | null>(null);
+  const longPressTimerRef = useRef<any>(null);
+  const isLongPressTriggeredRef = useRef<boolean>(false);
+  const touchStartPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   // Group Details & Management Screen State
   const [isGroupDetailsOpen, setIsGroupDetailsOpen] = useState(false);
@@ -178,9 +194,10 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Clean up recording timer on unmount
+  // Clean up recording timer and long-press timer on unmount
   useEffect(() => {
     return () => {
+      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
       if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
         mediaRecorderRef.current.stop();
@@ -331,15 +348,37 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
       filtered = items.filter((item) => item.type === 'direct');
     }
 
-    // Filter by search query if active
+    // Filter by search query if active (filter by keyword or contact name)
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       filtered = filtered.filter((item) => {
-        return (
+        const contactMatch =
           item.title.toLowerCase().includes(q) ||
-          item.subtitle.toLowerCase().includes(q) ||
-          item.lastMessage.text.toLowerCase().includes(q)
-        );
+          item.subtitle.toLowerCase().includes(q);
+
+        const lastMsgMatch = item.lastMessage.text?.toLowerCase().includes(q);
+
+        // Check entire conversation history for keyword match
+        let matchingSnippet: string | undefined = undefined;
+        if (item.type === 'direct' && item.user) {
+          const directMsgs = directMap.get(item.user.id)?.msgs || [];
+          const found = directMsgs.find((m) => m.text?.toLowerCase().includes(q));
+          if (found) {
+            matchingSnippet = found.text;
+          }
+        } else if (item.group) {
+          const grpMsgs = messages.filter((m) => m.groupId === item.group?.id);
+          const found = grpMsgs.find((m) => m.text?.toLowerCase().includes(q));
+          if (found) {
+            matchingSnippet = found.text;
+          }
+        }
+
+        if (matchingSnippet) {
+          item.matchingSnippet = matchingSnippet;
+        }
+
+        return contactMatch || lastMsgMatch || !!matchingSnippet;
       });
     }
 
@@ -348,19 +387,108 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
   }, [messages, allUsers, allGroups, currentUser, sortOption, searchQuery]);
 
   // Active chat message stream
-  const currentChatMessages = messages.filter((m) => {
-    if (activeGroupId) {
-      return m.groupId === activeGroupId;
+  const currentChatMessages = useMemo(() => {
+    return messages.filter((m) => {
+      if (activeGroupId) {
+        return m.groupId === activeGroupId;
+      }
+      if (activeUserId) {
+        return (
+          !m.groupId &&
+          ((m.senderId === currentUser.id && m.receiverId === activeUserId) ||
+            (m.senderId === activeUserId && m.receiverId === currentUser.id))
+        );
+      }
+      return false;
+    });
+  }, [messages, activeGroupId, activeUserId, currentUser.id]);
+
+  // Messages filtered by in-chat keyword/sender search query
+  const displayedChatMessages = useMemo(() => {
+    if (!chatSearchQuery.trim()) return currentChatMessages;
+    const q = chatSearchQuery.toLowerCase().trim();
+    return currentChatMessages.filter((m) => {
+      const textMatches = m.text?.toLowerCase().includes(q);
+      const sender = allUsers.find((u) => u.id === m.senderId);
+      const senderMatches =
+        sender?.name.toLowerCase().includes(q) ||
+        sender?.username.toLowerCase().includes(q);
+      const voiceMatches = (q === 'voice' || q === 'audio') && !!m.audioUrl;
+      const photoMatches = (q === 'photo' || q === 'image') && !!m.imageUrl;
+      return textMatches || senderMatches || voiceMatches || photoMatches;
+    });
+  }, [currentChatMessages, chatSearchQuery, allUsers]);
+
+  // Toggle emoji reaction on message
+  const handleToggleReaction = (msgId: string, emoji: string) => {
+    vibrateLight();
+    setReactingMessageId(null);
+    if (onToggleReaction) {
+      onToggleReaction(msgId, emoji);
+    } else {
+      DailyStorageService.toggleMessageReaction(msgId, emoji, currentUser.id);
     }
-    if (activeUserId) {
-      return (
-        !m.groupId &&
-        ((m.senderId === currentUser.id && m.receiverId === activeUserId) ||
-          (m.senderId === activeUserId && m.receiverId === currentUser.id))
-      );
+  };
+
+  // Long press event handlers for mobile touch
+  const handleTouchStart = (msgId: string, e: React.TouchEvent) => {
+    isLongPressTriggeredRef.current = false;
+    touchStartPosRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+    };
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = setTimeout(() => {
+      isLongPressTriggeredRef.current = true;
+      vibrateStreakMilestone();
+      setReactingMessageId(msgId);
+    }, 400);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!longPressTimerRef.current) return;
+    const curX = e.touches[0].clientX;
+    const curY = e.touches[0].clientY;
+    if (
+      Math.abs(curX - touchStartPosRef.current.x) > 10 ||
+      Math.abs(curY - touchStartPosRef.current.y) > 10
+    ) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
     }
-    return false;
-  });
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  // Mouse hold long press for desktop
+  const handleMouseDown = (msgId: string, e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    isLongPressTriggeredRef.current = false;
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = setTimeout(() => {
+      isLongPressTriggeredRef.current = true;
+      vibrateLight();
+      setReactingMessageId(msgId);
+    }, 450);
+  };
+
+  const handleMouseUp = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handleContextMenu = (msgId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    vibrateLight();
+    setReactingMessageId(msgId);
+  };
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
@@ -468,25 +596,34 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
           audioDuration: duration,
         });
       }
+      setTimeout(() => scrollToBottom(true), 150);
     };
 
-    if (
-      mediaRecorderRef.current &&
-      mediaRecorderRef.current.state !== 'inactive' &&
-      audioChunksRef.current.length > 0
-    ) {
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== 'inactive') {
       try {
-        mediaRecorderRef.current.onstop = () => {
-          const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            const dataUrl = typeof reader.result === 'string' ? reader.result : '';
-            deliverVoiceMessage(dataUrl || createSyntheticAudioDataUrl(duration));
-          };
-          reader.readAsDataURL(blob);
-          mediaRecorderRef.current?.stream.getTracks().forEach((t) => t.stop());
+        recorder.onstop = () => {
+          if (audioChunksRef.current.length > 0) {
+            const blob = new Blob(audioChunksRef.current, {
+              type: recorder.mimeType || 'audio/webm',
+            });
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const dataUrl =
+                typeof reader.result === 'string' && reader.result.startsWith('data:audio')
+                  ? reader.result
+                  : createSyntheticAudioDataUrl(duration);
+              deliverVoiceMessage(dataUrl);
+            };
+            reader.readAsDataURL(blob);
+          } else {
+            deliverVoiceMessage(createSyntheticAudioDataUrl(duration));
+          }
+          try {
+            recorder.stream.getTracks().forEach((t) => t.stop());
+          } catch {}
         };
-        mediaRecorderRef.current.stop();
+        recorder.stop();
       } catch {
         deliverVoiceMessage(createSyntheticAudioDataUrl(duration));
       }
@@ -614,25 +751,6 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                 )}
               </div>
 
-              {/* Search Toggle Button (Beside Create Group) */}
-              <button
-                type="button"
-                onClick={() => {
-                  vibrateLight();
-                  setIsSearchActive(!isSearchActive);
-                  if (isSearchActive) setSearchQuery('');
-                }}
-                className={`p-2 rounded-xl border transition-all ${
-                  isSearchActive
-                    ? 'bg-[#2F6FED] border-[#2F6FED] text-white shadow-md'
-                    : 'bg-white/5 hover:bg-white/10 border-white/10 text-white/80 hover:text-white'
-                }`}
-                title={isSearchActive ? 'Close search' : 'Search conversations'}
-                aria-label="Search conversations"
-              >
-                <Search className="w-4 h-4" />
-              </button>
-
               {/* Create Group Button */}
               {onOpenCreateGroup && (
                 <button
@@ -652,41 +770,30 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
             </div>
           </div>
 
-          {/* Toggleable Search Bar */}
-          {isSearchActive && (
-            <div className="px-4 py-2.5 bg-[#0e0e12] border-b border-white/10 flex items-center gap-2 animate-in slide-in-from-top-2 duration-150">
-              <div className="relative flex-1">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search chats, groups, messages..."
-                  className="w-full pl-9 pr-8 py-2 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-white/40 focus:border-[#2F6FED] outline-none transition-colors"
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSearchActive(false);
-                  setSearchQuery('');
-                }}
-                className="text-xs text-white/60 hover:text-white font-semibold px-1 py-1"
-              >
-                Cancel
-              </button>
+          {/* Permanent Search Bar - Filter messages by keyword or contact name */}
+          <div className="px-4 py-2.5 bg-[#0a0a0d] border-b border-white/10">
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Filter messages by keyword or contact name..."
+                className="w-full pl-9 pr-8 py-2 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-white/40 focus:border-[#2F6FED] outline-none transition-colors"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white p-0.5 rounded-full"
+                  title="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
-          )}
+          </div>
 
           {/* Conversation Stream */}
           <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-white/5">
@@ -776,9 +883,15 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                           item.unreadCount > 0 ? 'text-white font-semibold' : 'text-white/50'
                         }`}
                       >
-                        {item.lastMessage.audioUrl
-                          ? '🎤 Voice message'
-                          : item.lastMessage.text || 'Photo attachment'}
+                        {item.matchingSnippet ? (
+                          <span className="text-[#2F6FED]">
+                            Keyword match: &ldquo;{item.matchingSnippet}&rdquo;
+                          </span>
+                        ) : item.lastMessage.audioUrl ? (
+                          '🎤 Voice message'
+                        ) : (
+                          item.lastMessage.text || 'Photo attachment'
+                        )}
                       </p>
                       {item.unreadCount > 0 && (
                         <span className="px-2 py-0.5 rounded-full bg-[#2F6FED] text-white font-black text-[10px] shrink-0 shadow-md">
@@ -890,6 +1003,25 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
 
             {/* Header Right Actions */}
             <div className="flex items-center gap-1.5 shrink-0">
+              {/* In-Chat Filter / Search Toggle */}
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateLight();
+                  setIsChatSearchOpen(!isChatSearchOpen);
+                  if (isChatSearchOpen) setChatSearchQuery('');
+                }}
+                className={`p-2 rounded-xl border transition-all ${
+                  isChatSearchOpen
+                    ? 'bg-[#2F6FED] border-[#2F6FED] text-white shadow-md'
+                    : 'bg-white/5 hover:bg-white/10 border-white/10 text-white/70 hover:text-white'
+                }`}
+                title={isChatSearchOpen ? 'Close in-chat search' : 'Filter messages by keyword or sender'}
+                aria-label="Filter messages by keyword or sender"
+              >
+                <Search className="w-4 h-4" />
+              </button>
+
               {activeGroup && (
                 <button
                   type="button"
@@ -921,30 +1053,83 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
             </div>
           </div>
 
+          {/* In-Chat Search Bar */}
+          {isChatSearchOpen && (
+            <div className="shrink-0 z-20 px-4 py-2 bg-[#0d0d11] border-b border-white/10 flex items-center gap-2 animate-in slide-in-from-top-2 duration-150">
+              <div className="relative flex-1">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
+                <input
+                  type="text"
+                  value={chatSearchQuery}
+                  onChange={(e) => setChatSearchQuery(e.target.value)}
+                  placeholder="Filter messages in this chat by keyword or sender..."
+                  className="w-full pl-9 pr-8 py-1.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-white/40 focus:border-[#2F6FED] outline-none transition-colors"
+                  autoFocus
+                />
+                {chatSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setChatSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+              {chatSearchQuery && (
+                <span className="text-[10px] font-mono text-white/50 shrink-0">
+                  {displayedChatMessages.length} {displayedChatMessages.length === 1 ? 'match' : 'matches'}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsChatSearchOpen(false);
+                  setChatSearchQuery('');
+                }}
+                className="text-xs text-white/60 hover:text-white font-semibold px-1 py-1 shrink-0"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+
           {/* Messages Stream with Constrained Scrolling */}
           <div
             ref={messagesContainerRef}
             onScroll={handleScrollMessages}
             className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 space-y-3.5 scroll-smooth"
           >
-            {currentChatMessages.length === 0 ? (
+            {displayedChatMessages.length === 0 ? (
               <div className="py-16 text-center space-y-2 text-white/40">
                 <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-white/30">
-                  <MessageSquare className="w-6 h-6" />
+                  {chatSearchQuery ? <Search className="w-6 h-6" /> : <MessageSquare className="w-6 h-6" />}
                 </div>
                 <p className="text-xs font-semibold text-white/70">
-                  No messages yet. Send a message, photo, or voice note to get started!
+                  {chatSearchQuery
+                    ? `No messages matching "${chatSearchQuery}"`
+                    : 'No messages yet. Send a message, photo, or voice note to get started!'}
                 </p>
+                {chatSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setChatSearchQuery('')}
+                    className="text-xs text-[#2F6FED] hover:underline font-bold"
+                  >
+                    Clear filter
+                  </button>
+                )}
               </div>
             ) : (
-              currentChatMessages.map((msg) => {
+              displayedChatMessages.map((msg) => {
                 const isMe = msg.senderId === currentUser.id;
                 const sender = allUsers.find((u) => u.id === msg.senderId);
+                const isReacting = reactingMessageId === msg.id;
 
                 return (
                   <div
                     key={msg.id}
-                    className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
+                    className={`flex flex-col relative group/msg ${isMe ? 'items-end' : 'items-start'}`}
                   >
                     {/* In group chat, show sender info if not current user */}
                     {!isMe && activeGroup && sender && (
@@ -961,56 +1146,177 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                       </div>
                     )}
 
+                    {/* Floating Emoji Reaction Popover */}
+                    {isReacting && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-40"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setReactingMessageId(null);
+                          }}
+                        />
+                        <div
+                          className={`absolute -top-11 ${
+                            isMe ? 'right-0' : 'left-0'
+                          } z-50 flex items-center gap-1 p-1 bg-[#16161c] border border-white/20 rounded-full shadow-2xl backdrop-blur-md animate-in fade-in zoom-in-90 duration-150`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {EMOJI_REACTIONS.map((emoji) => {
+                            const reaction = msg.reactions?.find((r) => r.emoji === emoji);
+                            const hasReacted = reaction?.userIds.includes(currentUser.id);
+                            return (
+                              <button
+                                key={emoji}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleReaction(msg.id, emoji);
+                                }}
+                                className={`w-7 h-7 rounded-full flex items-center justify-center text-base hover:scale-125 transition-transform active:scale-95 ${
+                                  hasReacted ? 'bg-[#2F6FED]/30 scale-110' : 'hover:bg-white/10'
+                                }`}
+                                title={`React ${emoji}`}
+                              >
+                                {emoji}
+                              </button>
+                            );
+                          })}
+                          <button
+                            type="button"
+                            onClick={() => setReactingMessageId(null)}
+                            className="w-6 h-6 rounded-full flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 ml-0.5"
+                            title="Close"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </>
+                    )}
+
+                    {/* Message Row with Bubble and Action Button */}
                     <div
-                      className={`max-w-[85%] sm:max-w-[75%] rounded-2xl p-3 shadow-md ${
-                        isMe
-                          ? 'bg-[#2F6FED] text-white rounded-br-xs'
-                          : 'bg-[#141418] border border-white/10 text-white rounded-bl-xs'
+                      className={`flex items-center gap-1.5 max-w-[88%] sm:max-w-[78%] ${
+                        isMe ? 'flex-row-reverse' : 'flex-row'
                       }`}
                     >
-                      {/* Attached Photo */}
-                      {msg.imageUrl && (
-                        <div
-                          className="mb-2 rounded-xl overflow-hidden cursor-pointer border border-white/10 relative group"
-                          onClick={() => {
-                            vibrateLight();
-                            setExpandedPhoto(msg.imageUrl!);
-                          }}
-                        >
-                          <img
-                            src={msg.imageUrl}
-                            alt="Chat attachment"
-                            referrerPolicy="no-referrer"
-                            className="w-full max-h-64 object-cover group-hover:scale-105 transition-transform duration-200"
-                          />
-                        </div>
-                      )}
-
-                      {/* Attached Voice Message with Interactive Waveform Visualizer */}
-                      {msg.audioUrl ? (
-                        <VoiceMessageWaveformVisualizer
-                          audioUrl={msg.audioUrl}
-                          duration={msg.audioDuration}
-                          isCurrentUser={isMe}
-                          messageId={msg.id}
-                        />
-                      ) : (
-                        msg.text && (
-                          <p className="text-xs sm:text-sm whitespace-pre-wrap break-words leading-relaxed">
-                            {msg.text}
-                          </p>
-                        )
-                      )}
-
                       <div
-                        className={`flex items-center justify-end gap-1 mt-1 text-[9px] font-mono ${
-                          isMe ? 'text-white/70' : 'text-white/40'
+                        onTouchStart={(e) => handleTouchStart(msg.id, e)}
+                        onTouchMove={handleTouchMove}
+                        onTouchEnd={handleTouchEnd}
+                        onTouchCancel={handleTouchEnd}
+                        onMouseDown={(e) => handleMouseDown(msg.id, e)}
+                        onMouseUp={handleMouseUp}
+                        onMouseLeave={handleMouseUp}
+                        onContextMenu={(e) => handleContextMenu(msg.id, e)}
+                        className={`rounded-2xl p-3 shadow-md select-none transition-transform active:scale-[0.99] cursor-pointer ${
+                          isMe
+                            ? 'bg-[#2F6FED] text-white rounded-br-xs'
+                            : 'bg-[#141418] border border-white/10 text-white rounded-bl-xs'
+                        }`}
+                        title="Long-press to add emoji reaction"
+                      >
+                        {/* Attached Photo */}
+                        {msg.imageUrl && (
+                          <div
+                            className="mb-2 rounded-xl overflow-hidden cursor-pointer border border-white/10 relative group"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              vibrateLight();
+                              setExpandedPhoto(msg.imageUrl!);
+                            }}
+                          >
+                            <img
+                              src={msg.imageUrl}
+                              alt="Chat attachment"
+                              referrerPolicy="no-referrer"
+                              className="w-full max-h-64 object-cover group-hover:scale-105 transition-transform duration-200"
+                            />
+                          </div>
+                        )}
+
+                        {/* Attached Voice Message with Interactive Waveform Visualizer */}
+                        {msg.audioUrl ? (
+                          <VoiceMessageWaveformVisualizer
+                            audioUrl={msg.audioUrl}
+                            duration={msg.audioDuration}
+                            isCurrentUser={isMe}
+                            messageId={msg.id}
+                          />
+                        ) : (
+                          msg.text && (
+                            <p className="text-xs sm:text-sm whitespace-pre-wrap break-words leading-relaxed">
+                              {msg.text}
+                            </p>
+                          )
+                        )}
+
+                        <div
+                          className={`flex items-center justify-end gap-1 mt-1 text-[9px] font-mono ${
+                            isMe ? 'text-white/70' : 'text-white/40'
+                          }`}
+                        >
+                          <span>{msg.timestamp}</span>
+                          {isMe && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                        </div>
+                      </div>
+
+                      {/* Hover/Touch Smiley Reaction Trigger */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          vibrateLight();
+                          setReactingMessageId(isReacting ? null : msg.id);
+                        }}
+                        className="opacity-0 group-hover/msg:opacity-100 transition-opacity p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white/60 hover:text-white shrink-0 active:scale-95"
+                        title="Add emoji reaction"
+                        aria-label="Add reaction"
+                      >
+                        <Smile className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {/* Persisted Emoji Reactions Display */}
+                    {msg.reactions && msg.reactions.length > 0 && (
+                      <div
+                        className={`flex flex-wrap items-center gap-1 mt-1 px-1 z-10 ${
+                          isMe ? 'justify-end' : 'justify-start'
                         }`}
                       >
-                        <span>{msg.timestamp}</span>
-                        {isMe && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                        {msg.reactions.map((reaction) => {
+                          const hasReacted = reaction.userIds.includes(currentUser.id);
+                          const names = reaction.userIds.map((uid) => {
+                            if (uid === currentUser.id) return 'You';
+                            const u = allUsers.find((user) => user.id === uid);
+                            return u ? u.name : 'Someone';
+                          });
+                          const title = `${names.join(', ')} reacted with ${reaction.emoji}`;
+
+                          return (
+                            <button
+                              key={reaction.emoji}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleReaction(msg.id, reaction.emoji);
+                              }}
+                              title={title}
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold transition-all active:scale-95 border ${
+                                hasReacted
+                                  ? 'bg-[#2F6FED]/25 border-[#2F6FED]/60 text-blue-200 shadow-xs ring-1 ring-[#2F6FED]/30'
+                                  : 'bg-white/10 hover:bg-white/15 border-white/15 text-white/80'
+                              }`}
+                            >
+                              <span className="leading-none">{reaction.emoji}</span>
+                              <span className="text-[10px] font-mono font-bold leading-none">
+                                {reaction.userIds.length}
+                              </span>
+                            </button>
+                          );
+                        })}
                       </div>
-                    </div>
+                    )}
                   </div>
                 );
               })

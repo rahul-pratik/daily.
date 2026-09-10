@@ -68,14 +68,15 @@ export const VoiceMessageWaveformVisualizer: React.FC<VoiceMessageWaveformVisual
     const onEnded = () => {
       setIsPlaying(false);
       setCurrentTime(0);
+      try {
+        audio.currentTime = 0;
+      } catch {}
     };
 
     const onError = () => {
-      // If audio fails to load, attempt synthetic fallback
-      if (!audioSrc.startsWith('blob:') && !audioSrc.startsWith('data:')) {
-        const fallbackUrl = createSyntheticAudioDataUrl(duration || 4);
-        setAudioSrc(fallbackUrl);
-      }
+      // Re-generate robust playable synthetic fallback
+      const fallbackUrl = createSyntheticAudioDataUrl(duration || 4);
+      setAudioSrc(fallbackUrl);
     };
 
     audio.addEventListener('loadedmetadata', onLoadedMetadata);
@@ -118,7 +119,7 @@ export const VoiceMessageWaveformVisualizer: React.FC<VoiceMessageWaveformVisual
     };
   }, [isPlaying]);
 
-  // Toggle Play / Pause
+  // Toggle Play / Pause - with full replay support to play once again after finishing
   const togglePlay = () => {
     vibrateLight();
     const audio = audioRef.current;
@@ -128,6 +129,15 @@ export const VoiceMessageWaveformVisualizer: React.FC<VoiceMessageWaveformVisual
       audio.pause();
       setIsPlaying(false);
     } else {
+      // If audio completed or is near the end, rewind to start so it can be played once again!
+      if (
+        audio.ended ||
+        audio.currentTime >= (audio.duration || totalDuration) - 0.1 ||
+        Math.abs(audio.currentTime - (audio.duration || totalDuration)) < 0.2
+      ) {
+        audio.currentTime = 0;
+        setCurrentTime(0);
+      }
       audio.playbackRate = playbackRate;
       const playPromise = audio.play();
       if (playPromise !== undefined) {
@@ -135,20 +145,31 @@ export const VoiceMessageWaveformVisualizer: React.FC<VoiceMessageWaveformVisual
           .then(() => {
             setIsPlaying(true);
           })
-          .catch(() => {
+          .catch((err) => {
+            console.warn('Audio play error, falling back:', err);
             // Autoplay policy or corrupt media: recreate synthetic audio and play
             const fallback = createSyntheticAudioDataUrl(totalDuration || 4);
             setAudioSrc(fallback);
+            setTimeout(() => {
+              if (audioRef.current) {
+                audioRef.current.currentTime = 0;
+                audioRef.current.playbackRate = playbackRate;
+                audioRef.current
+                  .play()
+                  .then(() => setIsPlaying(true))
+                  .catch(() => setIsPlaying(false));
+              }
+            }, 60);
           });
       }
     }
   };
 
-  // Toggle Playback Rate (1x -> 1.5x -> 2x -> 1x)
+  // Toggle Playback Rate (1x -> 2x -> 1.5x -> 1x)
   const togglePlaybackRate = (e: React.MouseEvent) => {
     e.stopPropagation();
     vibrateLight();
-    const nextRate = playbackRate === 1 ? 1.5 : playbackRate === 1.5 ? 2 : 1;
+    const nextRate = playbackRate === 1 ? 2 : playbackRate === 2 ? 1.5 : 1;
     setPlaybackRate(nextRate);
     if (audioRef.current) {
       audioRef.current.playbackRate = nextRate;
@@ -305,16 +326,16 @@ export const VoiceMessageWaveformVisualizer: React.FC<VoiceMessageWaveformVisual
           })}
         </div>
 
-        {/* Playback Rate Badge (1x / 1.5x / 2x) */}
+        {/* Playback Rate (1x / 2x Speed Button) */}
         <button
           type="button"
           onClick={togglePlaybackRate}
-          className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold shrink-0 transition-all border ${
+          className={`px-2 py-1 rounded-lg text-[11px] font-mono font-black shrink-0 transition-all border shadow-xs active:scale-95 ${
             isCurrentUser
-              ? 'bg-white/20 hover:bg-white/30 text-white border-white/30'
-              : 'bg-white/5 hover:bg-white/10 text-white/80 border-white/10'
-          }`}
-          title="Change playback speed"
+              ? 'bg-white/25 hover:bg-white/35 text-white border-white/40'
+              : 'bg-white/10 hover:bg-white/15 text-white border-white/15'
+          } ${playbackRate !== 1 ? 'ring-1 ring-amber-400/60 text-amber-300' : ''}`}
+          title="Toggle voice message speed (1x, 2x)"
           aria-label={`Playback speed: ${playbackRate}x`}
         >
           {playbackRate}x

@@ -3,13 +3,32 @@
  */
 
 /**
- * Creates a synthetic playable audio WAV data URL or blob URL.
- * Generates a warm, gentle voice-like melodic frequency cadence.
+ * Encodes an ArrayBuffer into a base64 string safely without call-stack limits.
+ */
+function bufferToBase64(buffer: ArrayBuffer): string {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  const chunkSize = 0x8000; // 32768
+  for (let i = 0; i < len; i += chunkSize) {
+    const chunk = bytes.subarray(i, Math.min(i + chunkSize, len));
+    for (let j = 0; j < chunk.length; j++) {
+      binary += String.fromCharCode(chunk[j]);
+    }
+  }
+  return btoa(binary);
+}
+
+/**
+ * Creates a synthetic playable audio WAV base64 data URL.
+ * Generates a warm, human speech-like harmonic formant cadence.
+ * Returns a permanent, self-contained data URL that persists in storage.
  */
 export const createSyntheticAudioDataUrl = (durationSec: number = 4): string => {
   try {
+    const safeDuration = Math.max(1, Math.min(60, durationSec));
     const sampleRate = 8000;
-    const numSamples = Math.floor(sampleRate * durationSec);
+    const numSamples = Math.floor(sampleRate * safeDuration);
     const buffer = new ArrayBuffer(44 + numSamples * 2);
     const view = new DataView(buffer);
 
@@ -35,16 +54,27 @@ export const createSyntheticAudioDataUrl = (durationSec: number = 4): string => 
 
     for (let i = 0; i < numSamples; i++) {
       const t = i / sampleRate;
-      // Synthesize harmonic formant tones mimicking vocal inflections
-      const f1 = 280 + Math.sin(t * 5) * 45;
-      const f2 = 560 + Math.sin(t * 3.5) * 60;
-      const envelope = Math.min(1, Math.min(t * 5, (durationSec - t) * 5));
-      const sample = (Math.sin(2 * Math.PI * f1 * t) * 0.2 + Math.sin(2 * Math.PI * f2 * t) * 0.1) * envelope;
-      view.setInt16(44 + i * 2, sample < 0 ? sample * 0x7fff : sample * 0x7fff, true);
+      // Synthesize vocal formants mimicking speech cadence with intonation
+      const pitch = 220 + Math.sin(t * 3.8) * 35 + Math.sin(t * 8.5) * 15;
+      const formant1 = pitch * 2;
+      const formant2 = pitch * 3;
+      // Speech envelope with pauses mimicking words
+      const cadence = 0.5 + 0.5 * Math.sin(t * 4.2);
+      const attackDecay = Math.min(1, Math.min(t * 8, (safeDuration - t) * 8));
+      const envelope = cadence * attackDecay;
+
+      const sample =
+        (Math.sin(2 * Math.PI * pitch * t) * 0.45 +
+          Math.sin(2 * Math.PI * formant1 * t) * 0.25 +
+          Math.sin(2 * Math.PI * formant2 * t) * 0.15) *
+        envelope;
+
+      const clamped = Math.max(-1, Math.min(1, sample));
+      view.setInt16(44 + i * 2, clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff, true);
     }
 
-    const blob = new Blob([buffer], { type: 'audio/wav' });
-    return URL.createObjectURL(blob);
+    const base64 = bufferToBase64(buffer);
+    return `data:audio/wav;base64,${base64}`;
   } catch {
     return '';
   }

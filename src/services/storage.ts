@@ -243,9 +243,24 @@ export class DailyStorageService {
         const sarahVoice = INITIAL_MESSAGES.find((m) => m.id === 'm_sarah_voice');
         if (sarahVoice) {
           parsed.push(sarahVoice);
-          this.saveAllMessages(parsed);
         }
       }
+      // Ensure sample reactions exist so users immediately experience the reaction feature
+      const m1 = parsed.find((m: Message) => m.id === 'm1');
+      if (m1 && !m1.reactions) {
+        m1.reactions = [
+          { emoji: '🔥', userIds: ['user_me', 'user_sarah'] },
+          { emoji: '💪', userIds: ['user_me'] },
+        ];
+      }
+      const m2 = parsed.find((m: Message) => m.id === 'm2');
+      if (m2 && !m2.reactions) {
+        m2.reactions = [
+          { emoji: '❤️', userIds: ['user_sarah'] },
+          { emoji: '👏', userIds: ['user_sarah'] },
+        ];
+      }
+      this.saveAllMessages(parsed);
       return parsed;
     } catch {
       return INITIAL_MESSAGES;
@@ -1627,12 +1642,14 @@ export class DailyStorageService {
     return { groups: updated, isMember };
   }
 
-  // Send Direct or Group Message (with optional photo / shared post attachment / challenge invite)
+  // Send Direct or Group Message (with optional photo / audio note / shared post attachment / challenge invite)
   static sendMessage(params: {
     receiverId?: string;
     groupId?: string;
     text: string;
     imageUrl?: string;
+    audioUrl?: string;
+    audioDuration?: number;
     sharedPost?: SharedPostPreview;
     challengeInvite?: ChallengeInvitePreview;
   }): Message {
@@ -1655,6 +1672,8 @@ export class DailyStorageService {
       groupId: params.groupId,
       text: params.text,
       imageUrl: params.imageUrl,
+      audioUrl: params.audioUrl,
+      audioDuration: params.audioDuration,
       sharedPost: params.sharedPost,
       challengeInvite: params.challengeInvite,
       timestamp: 'Just now',
@@ -1674,6 +1693,59 @@ export class DailyStorageService {
     }
 
     return newMsg;
+  }
+
+  // Toggle emoji reaction on a message with persistence in localStorage
+  static toggleMessageReaction(messageId: string, emoji: string, userId: string): Message | null {
+    const messages = this.getAllMessages();
+    let targetMsg: Message | null = null;
+
+    const updated = messages.map((m) => {
+      if (m.id !== messageId) return m;
+
+      const existingReactions = m.reactions ? [...m.reactions] : [];
+      const reactionIdx = existingReactions.findIndex((r) => r.emoji === emoji);
+
+      if (reactionIdx >= 0) {
+        const currentReaction = existingReactions[reactionIdx];
+        const userHasReacted = currentReaction.userIds.includes(userId);
+        let updatedUserIds: string[];
+
+        if (userHasReacted) {
+          // Remove reaction for this user
+          updatedUserIds = currentReaction.userIds.filter((id) => id !== userId);
+        } else {
+          // Add reaction for this user
+          updatedUserIds = [...currentReaction.userIds, userId];
+        }
+
+        if (updatedUserIds.length === 0) {
+          existingReactions.splice(reactionIdx, 1);
+        } else {
+          existingReactions[reactionIdx] = {
+            emoji,
+            userIds: updatedUserIds,
+          };
+        }
+      } else {
+        // First reaction with this emoji
+        existingReactions.push({
+          emoji,
+          userIds: [userId],
+        });
+      }
+
+      targetMsg = {
+        ...m,
+        reactions: existingReactions,
+      };
+      return targetMsg;
+    });
+
+    if (targetMsg) {
+      this.saveAllMessages(updated);
+    }
+    return targetMsg;
   }
 
   // Challenge live discussion messages (strictly text-only, words only, no photos)

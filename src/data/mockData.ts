@@ -989,6 +989,10 @@ export const INITIAL_MESSAGES: Message[] = [
     text: 'Hey Alex! Saw your post today, congrats on reaching 7 days streak 🔥',
     timestamp: '11:20 AM',
     isRead: true,
+    reactions: [
+      { emoji: '🔥', userIds: ['user_me', 'user_sarah'] },
+      { emoji: '💪', userIds: ['user_me'] },
+    ],
   },
   {
     id: 'm2',
@@ -998,6 +1002,10 @@ export const INITIAL_MESSAGES: Message[] = [
     text: 'Thanks Sarah! Your 21-day run is seriously motivating me to stay locked in.',
     timestamp: '11:25 AM',
     isRead: true,
+    reactions: [
+      { emoji: '❤️', userIds: ['user_sarah'] },
+      { emoji: '👏', userIds: ['user_sarah'] },
+    ],
   },
   {
     id: 'm3',

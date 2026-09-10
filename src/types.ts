@@ -410,6 +410,11 @@ export interface ChallengeLeaderboard {
   };
 }
 
+export interface MessageReaction {
+  emoji: string;
+  userIds: string[];
+}
+
 export interface Message {
   id: string;
   conversationId: string;
@@ -425,6 +430,7 @@ export interface Message {
   challengeInvite?: ChallengeInvitePreview;
   timestamp: string;
   isRead: boolean;
+  reactions?: MessageReaction[];
 }
 
 export interface Conversation {

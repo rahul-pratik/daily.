@@ -334,6 +334,14 @@ export default function App() {
     }
   };
 
+  // Toggle emoji reaction on message and persist
+  const handleToggleReaction = (messageId: string, emoji: string) => {
+    const updated = DailyStorageService.toggleMessageReaction(messageId, emoji, currentUser.id);
+    if (updated) {
+      setMessages((prev) => prev.map((m) => (m.id === messageId ? updated : m)));
+    }
+  };
+
   // Create Private Group Chat (in DMs)
   const handleCreateGroup = (params: {
     name: string;
@@ -854,6 +862,7 @@ export default function App() {
               allGroups={groups}
               messages={messages}
               onSendMessage={handleSendMessage}
+              onToggleReaction={handleToggleReaction}
               onGroupsUpdated={() => setGroups(DailyStorageService.getAllGroups())}
               initialChatUserId={activeChatUserId}
               initialGroupId={activeGroupId}
