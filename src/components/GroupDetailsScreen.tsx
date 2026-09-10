@@ -27,6 +27,7 @@ interface GroupDetailsScreenProps {
   onRemoveMember: (memberId: string) => void;
   onToggleAdmin: (memberId: string) => void;
   onExpandPhoto: (photoUrl: string) => void;
+  onTogglePinMessage?: (messageId: string) => void;
   onViewUser?: (user: {
     id: string;
     name: string;
@@ -46,6 +47,7 @@ export const GroupDetailsScreen: React.FC<GroupDetailsScreenProps> = ({
   onRemoveMember,
   onToggleAdmin,
   onExpandPhoto,
+  onTogglePinMessage,
   onViewUser,
 }) => {
   const [isAddMembersOpen, setIsAddMembersOpen] = useState(false);
@@ -96,10 +98,14 @@ export const GroupDetailsScreen: React.FC<GroupDetailsScreenProps> = ({
   });
 
   // Photos uploaded in this group
-  const groupPhotos: string[] = [];
+  const groupPhotos: { url: string; messageId: string; isPinned: boolean }[] = [];
   messages.forEach((m) => {
     if (m.groupId === group.id && m.imageUrl) {
-      groupPhotos.push(m.imageUrl);
+      groupPhotos.push({
+        url: m.imageUrl,
+        messageId: m.id,
+        isPinned: Boolean(m.isPinned),
+      });
     }
   });
 
@@ -246,26 +252,65 @@ export const GroupDetailsScreen: React.FC<GroupDetailsScreenProps> = ({
 
           {groupPhotos.length > 0 ? (
             <div className="grid grid-cols-3 gap-2 pt-1">
-              {groupPhotos.map((imgUrl, idx) => (
-                <button
+              {groupPhotos.map((photo, idx) => (
+                <div
                   key={idx}
-                  type="button"
-                  onClick={() => {
-                    vibrateLight();
-                    onExpandPhoto(imgUrl);
-                  }}
-                  className="aspect-square rounded-2xl overflow-hidden border border-white/10 bg-black/50 relative group transition-transform active:scale-95"
+                  className="aspect-square rounded-2xl overflow-hidden border border-white/10 bg-black/50 relative group"
                 >
-                  <img
-                    src={imgUrl}
-                    alt={`Group photo ${idx + 1}`}
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                  />
-                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vibrateLight();
+                      onExpandPhoto(photo.url);
+                    }}
+                    className="w-full h-full block"
+                  >
+                    <img
+                      src={photo.url}
+                      alt={`Group photo ${idx + 1}`}
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                    />
+                  </button>
+
+                  {/* Pin badge if pinned */}
+                  {photo.isPinned && (
+                    <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-black/70 backdrop-blur-md border border-amber-500/50 text-amber-300 text-[9px] font-bold flex items-center gap-1 shadow-md">
+                      <Pin className="w-2.5 h-2.5 fill-amber-300" />
+                      <span>Pinned</span>
+                    </div>
+                  )}
+
+                  {/* Admin toggle pin button */}
+                  {isCurrentUserAdmin && onTogglePinMessage && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        vibrateLight();
+                        onTogglePinMessage(photo.messageId);
+                      }}
+                      className={`absolute top-2 right-2 p-1.5 rounded-lg backdrop-blur-md transition-all ${
+                        photo.isPinned
+                          ? 'bg-amber-500/90 text-black shadow-md'
+                          : 'bg-black/60 opacity-0 group-hover:opacity-100 text-white hover:bg-black/80'
+                      }`}
+                      title={photo.isPinned ? 'Unpin photo' : 'Pin photo'}
+                    >
+                      <Pin className={`w-3 h-3 ${photo.isPinned ? 'fill-black' : ''}`} />
+                    </button>
+                  )}
+
+                  <div
+                    onClick={() => {
+                      vibrateLight();
+                      onExpandPhoto(photo.url);
+                    }}
+                    className="absolute inset-x-0 bottom-0 py-1 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold cursor-pointer"
+                  >
                     View
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           ) : (

@@ -342,6 +342,14 @@ export default function App() {
     }
   };
 
+  // Toggle pin on message or photo and persist
+  const handleTogglePinMessage = (messageId: string) => {
+    const updated = DailyStorageService.togglePinMessage(messageId, currentUser.id);
+    if (updated) {
+      setMessages((prev) => prev.map((m) => (m.id === messageId ? updated : m)));
+    }
+  };
+
   // Create Private Group Chat (in DMs)
   const handleCreateGroup = (params: {
     name: string;
@@ -863,6 +871,7 @@ export default function App() {
               messages={messages}
               onSendMessage={handleSendMessage}
               onToggleReaction={handleToggleReaction}
+              onTogglePinMessage={handleTogglePinMessage}
               onGroupsUpdated={() => setGroups(DailyStorageService.getAllGroups())}
               initialChatUserId={activeChatUserId}
               initialGroupId={activeGroupId}

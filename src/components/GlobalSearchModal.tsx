@@ -18,7 +18,7 @@ import {
   CheckCircle2,
   Calendar,
 } from 'lucide-react';
-import { User, Community, Post } from '../types';
+import { User, Community, Post, Group } from '../types';
 import { vibrateLight } from '../services/haptics';
 
 interface GlobalSearchModalProps {
@@ -26,14 +26,30 @@ interface GlobalSearchModalProps {
   onClose: () => void;
   users: User[];
   communities: Community[];
+  groups?: Group[];
   posts: Post[];
   currentUser?: User;
   onToggleFollow?: (userId: string) => void;
   onSelectUser: (user: User) => void;
   onSelectCommunity: (community: Community) => void;
+  onSelectGroup?: (group: Group) => void;
   onSelectPost?: (post: Post) => void;
   onSelectTag: (tag: string) => void;
 }
+
+const renderEntityAvatar = (avatar?: string, fallback: string = '🌐') => {
+  if (avatar && (avatar.startsWith('http') || avatar.startsWith('data:'))) {
+    return (
+      <img
+        src={avatar}
+        alt="Avatar"
+        referrerPolicy="no-referrer"
+        className="w-full h-full object-cover rounded-xl"
+      />
+    );
+  }
+  return <span className="text-lg">{avatar || fallback}</span>;
+};
 
 type SearchWish = 'all' | 'users' | 'posts' | 'tags' | 'communities';
 
@@ -42,11 +58,13 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
   onClose,
   users,
   communities,
+  groups = [],
   posts,
   currentUser,
   onToggleFollow,
   onSelectUser,
   onSelectCommunity,
+  onSelectGroup,
   onSelectPost,
   onSelectTag,
 }) => {
@@ -515,7 +533,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
               )}
 
               {/* Accountability Squads */}
-              {(activeTab === 'all' || activeTab === 'communities') && communities.length > 0 && (
+              {(activeTab === 'all' || activeTab === 'communities') && (communities.length > 0 || groups.length > 0) && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -528,7 +546,41 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {communities.slice(0, 4).map((comm) => (
+                    {/* Featured Group Squads (if any) */}
+                    {groups.slice(0, 2).map((group) => (
+                      <div
+                        key={group.id}
+                        onClick={() => {
+                          vibrateLight();
+                          if (onSelectGroup) {
+                            onSelectGroup(group);
+                            onClose();
+                          }
+                        }}
+                        className="p-3 rounded-2xl bg-white/[0.03] hover:bg-emerald-600/10 border border-white/10 hover:border-emerald-500/40 transition-all cursor-pointer flex items-center gap-3 group"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-black/60 border border-white/10 flex items-center justify-center text-xl shrink-0 overflow-hidden">
+                          {renderEntityAvatar(group.avatar, '👥')}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <h4 className="text-xs font-black text-white truncate group-hover:text-emerald-400 transition-colors">
+                              {group.name}
+                            </h4>
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-300 shrink-0">
+                              Squad
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-white/50 truncate mt-0.5">
+                            {group.memberCount || group.memberIds?.length || 1} members • {group.category}
+                          </p>
+                        </div>
+                        <ArrowRight className="w-3.5 h-3.5 text-white/20 group-hover:text-white transition-all" />
+                      </div>
+                    ))}
+
+                    {/* Featured Communities */}
+                    {communities.slice(0, groups.length > 0 ? 4 : 6).map((comm) => (
                       <div
                         key={comm.id}
                         onClick={() => {
@@ -538,15 +590,20 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                         }}
                         className="p-3 rounded-2xl bg-white/[0.03] hover:bg-blue-600/10 border border-white/10 hover:border-blue-500/40 transition-all cursor-pointer flex items-center gap-3 group"
                       >
-                        <div className="w-10 h-10 rounded-xl bg-black/60 border border-white/10 flex items-center justify-center text-xl shrink-0">
-                          {comm.avatar || '🌐'}
+                        <div className="w-10 h-10 rounded-xl bg-black/60 border border-white/10 flex items-center justify-center shrink-0 overflow-hidden">
+                          {renderEntityAvatar(comm.avatar, '🌐')}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <h4 className="text-xs font-black text-white truncate group-hover:text-blue-400 transition-colors">
-                            {comm.name}
-                          </h4>
+                          <div className="flex items-center gap-1.5">
+                            <h4 className="text-xs font-black text-white truncate group-hover:text-blue-400 transition-colors">
+                              {comm.name}
+                            </h4>
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-blue-500/15 text-blue-300 shrink-0">
+                              {comm.category}
+                            </span>
+                          </div>
                           <p className="text-[10px] text-white/50 truncate mt-0.5">
-                            {comm.memberCount || 1} members • {comm.category}
+                            {comm.memberCount ? `${comm.memberCount.toLocaleString()} members` : 'Active community'}
                           </p>
                         </div>
                         <ArrowRight className="w-3.5 h-3.5 text-white/20 group-hover:text-white transition-all" />
@@ -802,8 +859,8 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                         }}
                         className="p-3 rounded-2xl bg-white/[0.03] hover:bg-blue-600/10 border border-white/10 hover:border-blue-500/40 transition-all cursor-pointer flex items-center gap-3 group"
                       >
-                        <div className="w-10 h-10 rounded-xl bg-black/60 border border-white/10 flex items-center justify-center text-xl shrink-0">
-                          {comm.avatar || '🌐'}
+                        <div className="w-10 h-10 rounded-xl bg-black/60 border border-white/10 flex items-center justify-center shrink-0 overflow-hidden">
+                          {renderEntityAvatar(comm.avatar, '🌐')}
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5">

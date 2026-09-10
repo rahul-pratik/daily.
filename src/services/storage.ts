@@ -1748,6 +1748,56 @@ export class DailyStorageService {
     return targetMsg;
   }
 
+  // Toggle Pin for a Message or Photo
+  static togglePinMessage(messageId: string, userId: string): Message | null {
+    const messages = this.getAllMessages();
+    let targetMsg: Message | null = null;
+
+    const updated = messages.map((m) => {
+      if (m.id !== messageId) return m;
+      const nextPinned = !m.isPinned;
+      targetMsg = {
+        ...m,
+        isPinned: nextPinned,
+        pinnedAt: nextPinned ? Date.now() : undefined,
+        pinnedBy: nextPinned ? userId : undefined,
+      };
+      return targetMsg;
+    });
+
+    if (targetMsg) {
+      this.saveAllMessages(updated);
+    }
+    return targetMsg;
+  }
+
+  // Pinned Chats (Direct conversations or Groups pinned to top of conversation list)
+  static getPinnedChatIds(): string[] {
+    try {
+      const raw = localStorage.getItem('daily_pinned_chats_v1');
+      if (!raw) return ['user_sarah']; // Seed Sarah pinned by default
+      return JSON.parse(raw);
+    } catch {
+      return ['user_sarah'];
+    }
+  }
+
+  static togglePinChat(chatId: string): string[] {
+    const current = this.getPinnedChatIds();
+    let next: string[];
+    if (current.includes(chatId)) {
+      next = current.filter((id) => id !== chatId);
+    } else {
+      next = [chatId, ...current];
+    }
+    try {
+      localStorage.setItem('daily_pinned_chats_v1', JSON.stringify(next));
+    } catch {
+      // ignore
+    }
+    return next;
+  }
+
   // Challenge live discussion messages (strictly text-only, words only, no photos)
   static getChallengeMessages(challengeId: string): Message[] {
     const messages = this.getAllMessages();

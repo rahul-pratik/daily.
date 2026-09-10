@@ -16,6 +16,8 @@ import {
   BookOpen,
   ArrowRight,
   Filter,
+  SlidersHorizontal,
+  ChevronDown,
 } from 'lucide-react';
 import { User, Community, AVAILABLE_INTERESTS, AVAILABLE_HABITS } from '../types';
 import { PullToRefresh } from './PullToRefresh';
@@ -53,6 +55,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilterTag, setActiveFilterTag] = useState<string | null>(null);
   const [entityFilter, setEntityFilter] = useState<EntityTypeFilter>('all');
+  const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
 
   // Calculate match percentage for a user based on overlapping interests and habits
   const calculateMatchScore = (otherUser: User): number => {
@@ -175,35 +178,115 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
             </div>
           </div>
 
-          {onCreateCommunity && (
-            <button
-              onClick={onCreateCommunity}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black transition-all shadow-md shadow-blue-500/20"
-            >
-              <PlusCircle className="w-3.5 h-3.5" />
-              <span>Create Community</span>
-            </button>
-          )}
-        </div>
+          <div className="flex items-center gap-2">
+            {/* Sort by Option: All, Communities, Creators */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateLight();
+                  setIsSortMenuOpen(!isSortMenuOpen);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-white/80 hover:text-white transition-all shadow-sm"
+                title="Sort / filter by category"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5 text-[#2F6FED]" />
+                <span>
+                  {entityFilter === 'all'
+                    ? 'All'
+                    : entityFilter === 'communities'
+                    ? 'Communities'
+                    : 'Creators'}
+                </span>
+                <ChevronDown
+                  className={`w-3 h-3 text-white/40 transition-transform duration-200 ${
+                    isSortMenuOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
 
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="w-4 h-4 text-white/40 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search communities, builders, habits, or tags..."
-            className="w-full pl-10 pr-9 py-2.5 bg-white/5 border border-white/10 focus:border-blue-500 rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-all"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-white/40 hover:text-white"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
+              {isSortMenuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-30"
+                    onClick={() => setIsSortMenuOpen(false)}
+                  />
+                  <div className="absolute right-0 mt-1.5 w-44 rounded-2xl bg-[#141418] border border-white/10 shadow-2xl p-1.5 z-40 space-y-0.5 animate-in fade-in zoom-in-95 duration-150 backdrop-blur-md">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        vibrateLight();
+                        setEntityFilter('all');
+                        setIsSortMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors ${
+                        entityFilter === 'all'
+                          ? 'bg-[#2F6FED] text-white'
+                          : 'text-white/70 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Compass className="w-3.5 h-3.5" />
+                        <span>All ({totalMatches})</span>
+                      </div>
+                      {entityFilter === 'all' && <Check className="w-3.5 h-3.5" />}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        vibrateLight();
+                        setEntityFilter('communities');
+                        setIsSortMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors ${
+                        entityFilter === 'communities'
+                          ? 'bg-[#2F6FED] text-white'
+                          : 'text-white/70 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Globe2 className="w-3.5 h-3.5" />
+                        <span>Communities ({filteredCommunities.length})</span>
+                      </div>
+                      {entityFilter === 'communities' && <Check className="w-3.5 h-3.5" />}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        vibrateLight();
+                        setEntityFilter('people');
+                        setIsSortMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors ${
+                        entityFilter === 'people'
+                          ? 'bg-[#2F6FED] text-white'
+                          : 'text-white/70 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Users className="w-3.5 h-3.5" />
+                        <span>Creators ({filteredUsers.length})</span>
+                      </div>
+                      {entityFilter === 'people' && <Check className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {onCreateCommunity && (
+              <button
+                onClick={onCreateCommunity}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black transition-all shadow-md shadow-blue-500/20"
+              >
+                <PlusCircle className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Create Community</span>
+                <span className="sm:hidden">Create</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Horizontal Filter Chips */}

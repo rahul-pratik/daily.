@@ -431,6 +431,9 @@ export interface Message {
   timestamp: string;
   isRead: boolean;
   reactions?: MessageReaction[];
+  isPinned?: boolean;
+  pinnedAt?: number;
+  pinnedBy?: string;
 }
 
 export interface Conversation {

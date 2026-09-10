@@ -993,6 +993,9 @@ export const INITIAL_MESSAGES: Message[] = [
       { emoji: '🔥', userIds: ['user_me', 'user_sarah'] },
       { emoji: '💪', userIds: ['user_me'] },
     ],
+    isPinned: true,
+    pinnedAt: 1720000000000,
+    pinnedBy: 'user_sarah',
   },
   {
     id: 'm2',

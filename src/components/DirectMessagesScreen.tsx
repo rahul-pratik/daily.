@@ -48,6 +48,7 @@ interface DirectMessagesScreenProps {
     audioDuration?: number;
   }) => void;
   onToggleReaction?: (messageId: string, emoji: string) => void;
+  onTogglePinMessage?: (messageId: string) => void;
   onGroupsUpdated?: () => void;
   initialChatUserId?: string | null;
   initialGroupId?: string | null;
@@ -94,6 +95,7 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
   messages,
   onSendMessage,
   onToggleReaction,
+  onTogglePinMessage,
   onGroupsUpdated,
   initialChatUserId,
   initialGroupId,
@@ -224,6 +226,58 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
 
   const activeUser = allUsers.find((u) => u.id === activeUserId);
   const activeGroup = allGroups.find((g) => g.id === activeGroupId);
+
+  // Group admin check: for groups, only admins can pin messages/photos; for 1-on-1 DMs, anyone can pin
+  const isGroupAdmin = activeGroup
+    ? Boolean(
+        (activeGroup.adminIds && activeGroup.adminIds.includes(currentUser.id)) ||
+        activeGroup.createdBy === currentUser.id
+      )
+    : false;
+  const canPinInCurrentChat = activeGroup ? isGroupAdmin : true;
+
+  // Pinned chats management (persisted in storage)
+  const [pinnedChatIds, setPinnedChatIds] = useState<string[]>(() =>
+    DailyStorageService.getPinnedChatIds()
+  );
+
+  const handleTogglePinChat = (chatId: string) => {
+    vibrateLight();
+    const updated = DailyStorageService.togglePinChat(chatId);
+    setPinnedChatIds(updated);
+  };
+
+  // Pinned banner navigation & scroll-to-message
+  const [activePinnedIndex, setActivePinnedIndex] = useState(0);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const [pinPermissionToast, setPinPermissionToast] = useState<string | null>(null);
+
+  const handleTogglePinMessage = (msg: Message) => {
+    vibrateLight();
+    if (activeGroup && !isGroupAdmin) {
+      setPinPermissionToast('Only group admins can pin messages or photos in this group.');
+      setTimeout(() => setPinPermissionToast(null), 3500);
+      return;
+    }
+    if (onTogglePinMessage) {
+      onTogglePinMessage(msg.id);
+    } else {
+      DailyStorageService.togglePinMessage(msg.id, currentUser.id);
+    }
+    setReactingMessageId(null);
+  };
+
+  const scrollToMessage = (messageId: string) => {
+    vibrateLight();
+    const el = document.getElementById(`msg-${messageId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightedMessageId(messageId);
+      setTimeout(() => {
+        setHighlightedMessageId((curr) => (curr === messageId ? null : curr));
+      }, 2500);
+    }
+  };
 
   // Helper to extract numeric sorting timestamp from a message
   const getMessageTimestampScore = (msg: Message | undefined, defaultOrder: number = 0): number => {
@@ -382,9 +436,15 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
       });
     }
 
-    // Sort strictly by the time the most recent message was sent (descending)
-    return filtered.sort((a, b) => b.sortTimestamp - a.sortTimestamp);
-  }, [messages, allUsers, allGroups, currentUser, sortOption, searchQuery]);
+    // Sort pinned chats first, then descending by the time the most recent message was sent
+    return filtered.sort((a, b) => {
+      const aPinned = pinnedChatIds.includes(a.id);
+      const bPinned = pinnedChatIds.includes(b.id);
+      if (aPinned && !bPinned) return -1;
+      if (!aPinned && bPinned) return 1;
+      return b.sortTimestamp - a.sortTimestamp;
+    });
+  }, [messages, allUsers, allGroups, currentUser, sortOption, searchQuery, pinnedChatIds]);
 
   // Active chat message stream
   const currentChatMessages = useMemo(() => {
@@ -402,6 +462,19 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
       return false;
     });
   }, [messages, activeGroupId, activeUserId, currentUser.id]);
+
+  // Pinned messages & photos in the active chat
+  const pinnedMessages = useMemo(() => {
+    return currentChatMessages.filter((m) => m.isPinned);
+  }, [currentChatMessages]);
+
+  const currentPinnedMsg = pinnedMessages[activePinnedIndex] || pinnedMessages[0];
+
+  useEffect(() => {
+    if (activePinnedIndex >= pinnedMessages.length && pinnedMessages.length > 0) {
+      setActivePinnedIndex(0);
+    }
+  }, [pinnedMessages.length, activePinnedIndex]);
 
   // Messages filtered by in-chat keyword/sender search query
   const displayedChatMessages = useMemo(() => {
@@ -821,87 +894,122 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                 )}
               </div>
             ) : (
-              unifiedConversations.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => {
-                    vibrateLight();
-                    if (item.type === 'group' && item.group) {
-                      setActiveGroupId(item.group.id);
-                      setActiveUserId(null);
-                      onActiveChatChange?.(null, item.group.id);
-                    } else if (item.user) {
-                      setActiveUserId(item.user.id);
-                      setActiveGroupId(null);
-                      onActiveChatChange?.(item.user.id, null);
-                    }
-                    setIsGroupDetailsOpen(false);
-                  }}
-                  className="w-full p-3.5 flex items-center gap-3.5 text-left hover:bg-white/[0.04] active:bg-white/[0.08] transition-colors"
-                >
-                  <div className="relative shrink-0">
-                    <img
-                      src={item.avatar}
-                      alt={item.title}
-                      referrerPolicy="no-referrer"
-                      className={`w-12 h-12 object-cover border border-white/10 ${
-                        item.type === 'group' ? 'rounded-2xl' : 'rounded-full'
-                      }`}
-                    />
-                    {item.type === 'group' && (
-                      <div className="absolute -bottom-1 -right-1 p-1 bg-emerald-500 rounded-lg text-black">
-                        <Users className="w-2.5 h-2.5" />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-1 mb-0.5">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <h4 className="font-bold text-xs sm:text-sm text-white truncate">
-                          {item.title}
-                        </h4>
-                        <span
-                          className={`text-[9px] px-1.5 py-0.2 rounded font-mono shrink-0 ${
-                            item.type === 'group'
-                              ? 'bg-emerald-500/20 text-emerald-300'
-                              : 'bg-white/10 text-white/60'
+              unifiedConversations.map((item) => {
+                const isPinned = pinnedChatIds.includes(item.id);
+                return (
+                  <div
+                    key={item.id}
+                    className={`relative flex items-center group transition-colors ${
+                      isPinned ? 'bg-amber-500/[0.04]' : ''
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        vibrateLight();
+                        if (item.type === 'group' && item.group) {
+                          setActiveGroupId(item.group.id);
+                          setActiveUserId(null);
+                          onActiveChatChange?.(null, item.group.id);
+                        } else if (item.user) {
+                          setActiveUserId(item.user.id);
+                          setActiveGroupId(null);
+                          onActiveChatChange?.(item.user.id, null);
+                        }
+                        setIsGroupDetailsOpen(false);
+                      }}
+                      className="flex-1 p-3.5 flex items-center gap-3.5 text-left hover:bg-white/[0.04] active:bg-white/[0.08] transition-colors min-w-0"
+                    >
+                      <div className="relative shrink-0">
+                        <img
+                          src={item.avatar}
+                          alt={item.title}
+                          referrerPolicy="no-referrer"
+                          className={`w-12 h-12 object-cover border border-white/10 ${
+                            item.type === 'group' ? 'rounded-2xl' : 'rounded-full'
                           }`}
-                        >
-                          {item.type === 'group' ? 'Group' : 'Direct'}
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-white/40 font-mono shrink-0">
-                        {item.lastMessage.timestamp}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-2">
-                      <p
-                        className={`text-xs truncate ${
-                          item.unreadCount > 0 ? 'text-white font-semibold' : 'text-white/50'
-                        }`}
-                      >
-                        {item.matchingSnippet ? (
-                          <span className="text-[#2F6FED]">
-                            Keyword match: &ldquo;{item.matchingSnippet}&rdquo;
-                          </span>
-                        ) : item.lastMessage.audioUrl ? (
-                          '🎤 Voice message'
-                        ) : (
-                          item.lastMessage.text || 'Photo attachment'
+                        />
+                        {item.type === 'group' && (
+                          <div className="absolute -bottom-1 -right-1 p-1 bg-emerald-500 rounded-lg text-black">
+                            <Users className="w-2.5 h-2.5" />
+                          </div>
                         )}
-                      </p>
-                      {item.unreadCount > 0 && (
-                        <span className="px-2 py-0.5 rounded-full bg-[#2F6FED] text-white font-black text-[10px] shrink-0 shadow-md">
-                          {item.unreadCount}
-                        </span>
-                      )}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1 mb-0.5">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <h4 className="font-bold text-xs sm:text-sm text-white truncate">
+                              {item.title}
+                            </h4>
+                            {isPinned && (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-0.5 shrink-0 font-bold">
+                                <Pin className="w-2 h-2 fill-amber-300" />
+                                Pinned
+                              </span>
+                            )}
+                            <span
+                              className={`text-[9px] px-1.5 py-0.2 rounded font-mono shrink-0 ${
+                                item.type === 'group'
+                                  ? 'bg-emerald-500/20 text-emerald-300'
+                                  : 'bg-white/10 text-white/60'
+                              }`}
+                            >
+                              {item.type === 'group' ? 'Group' : 'Direct'}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-white/40 font-mono shrink-0">
+                            {item.lastMessage.timestamp}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2">
+                          <p
+                            className={`text-xs truncate ${
+                              item.unreadCount > 0 ? 'text-white font-semibold' : 'text-white/50'
+                            }`}
+                          >
+                            {item.matchingSnippet ? (
+                              <span className="text-[#2F6FED]">
+                                Keyword match: &ldquo;{item.matchingSnippet}&rdquo;
+                              </span>
+                            ) : item.lastMessage.audioUrl ? (
+                              '🎤 Voice message'
+                            ) : (
+                              item.lastMessage.text || 'Photo attachment'
+                            )}
+                          </p>
+                          {item.unreadCount > 0 && (
+                            <span className="px-2 py-0.5 rounded-full bg-[#2F6FED] text-white font-black text-[10px] shrink-0 shadow-md">
+                              {item.unreadCount}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+
+                    {/* Quick Pin / Unpin Chat Action Button */}
+                    <div className="pr-3 pl-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleTogglePinChat(item.id);
+                        }}
+                        className={`p-1.5 rounded-xl border transition-all ${
+                          isPinned
+                            ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                            : 'opacity-40 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-white/10 border-white/10 text-white/50 hover:text-white'
+                        }`}
+                        title={isPinned ? 'Unpin chat from top' : 'Pin chat to top'}
+                        aria-label={isPinned ? 'Unpin chat from top' : 'Pin chat to top'}
+                      >
+                        <Pin className={`w-3.5 h-3.5 ${isPinned ? 'fill-amber-300' : ''}`} />
+                      </button>
                     </div>
                   </div>
-                </button>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -917,6 +1025,10 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
           onRemoveMember={handleRemoveMemberFromGroup}
           onToggleAdmin={handleToggleAdminInGroup}
           onExpandPhoto={(photoUrl: string) => setExpandedPhoto(photoUrl)}
+          onTogglePinMessage={(msgId) => {
+            const targetMsg = messages.find((m) => m.id === msgId);
+            if (targetMsg) handleTogglePinMessage(targetMsg);
+          }}
           onViewUser={onViewUser}
         />
       ) : (
@@ -1094,6 +1206,114 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
             </div>
           )}
 
+          {/* Sticky Pinned Messages & Photos Banner */}
+          {pinnedMessages.length > 0 && currentPinnedMsg && (
+            <div className="shrink-0 z-10 px-4 py-2 bg-[#121218] border-b border-amber-500/20 flex items-center justify-between gap-3 text-xs animate-in slide-in-from-top-1 duration-150">
+              <div
+                onClick={() => scrollToMessage(currentPinnedMsg.id)}
+                className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer group select-none"
+                title="Click to jump to pinned item"
+              >
+                <div className="w-7 h-7 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0 group-hover:scale-105 transition-transform">
+                  <Pin className="w-3.5 h-3.5 fill-amber-400" />
+                </div>
+                {currentPinnedMsg.imageUrl ? (
+                  <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 border border-amber-500/30">
+                    <img
+                      src={currentPinnedMsg.imageUrl}
+                      alt="Pinned photo"
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : null}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-amber-300 text-[11px] flex items-center gap-1">
+                      Pinned {currentPinnedMsg.imageUrl ? 'Photo' : 'Message'}
+                    </span>
+                    {pinnedMessages.length > 1 && (
+                      <span className="text-[10px] font-mono text-white/40">
+                        ({activePinnedIndex + 1}/{pinnedMessages.length})
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-white/70 truncate">
+                    {currentPinnedMsg.imageUrl
+                      ? currentPinnedMsg.text || '📷 Photo attachment'
+                      : currentPinnedMsg.text || (currentPinnedMsg.audioUrl ? '🎤 Voice message' : 'Message')}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1 shrink-0">
+                {pinnedMessages.length > 1 && (
+                  <div className="flex items-center gap-0.5 mr-1">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        vibrateLight();
+                        setActivePinnedIndex((prev) =>
+                          prev > 0 ? prev - 1 : pinnedMessages.length - 1
+                        );
+                      }}
+                      className="p-1 rounded-md hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+                      title="Previous pinned item"
+                    >
+                      <ChevronDown className="w-3.5 h-3.5 rotate-180" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        vibrateLight();
+                        setActivePinnedIndex((prev) =>
+                          prev < pinnedMessages.length - 1 ? prev + 1 : 0
+                        );
+                      }}
+                      className="p-1 rounded-md hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+                      title="Next pinned item"
+                    >
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
+                {canPinInCurrentChat && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleTogglePinMessage(currentPinnedMsg);
+                    }}
+                    className="p-1 rounded-md hover:bg-white/10 text-white/40 hover:text-amber-300 transition-colors"
+                    title={currentPinnedMsg.imageUrl ? 'Unpin photo' : 'Unpin message'}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Admin restriction toast if non-admin attempts to pin */}
+          {pinPermissionToast && (
+            <div className="shrink-0 z-20 px-4 py-2 bg-amber-500/15 border-b border-amber-500/30 text-amber-200 text-xs flex items-center justify-between animate-in fade-in duration-150">
+              <span className="font-semibold flex items-center gap-1.5">
+                <Pin className="w-3.5 h-3.5 fill-amber-300" />
+                {pinPermissionToast}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPinPermissionToast(null)}
+                className="text-amber-300 hover:text-white p-1"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
           {/* Messages Stream with Constrained Scrolling */}
           <div
             ref={messagesContainerRef}
@@ -1129,7 +1349,14 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                 return (
                   <div
                     key={msg.id}
-                    className={`flex flex-col relative group/msg ${isMe ? 'items-end' : 'items-start'}`}
+                    id={`msg-${msg.id}`}
+                    className={`flex flex-col relative group/msg transition-all duration-300 rounded-2xl ${
+                      isMe ? 'items-end' : 'items-start'
+                    } ${
+                      highlightedMessageId === msg.id
+                        ? 'ring-2 ring-amber-400 bg-amber-500/10 p-1.5'
+                        : ''
+                    }`}
                   >
                     {/* In group chat, show sender info if not current user */}
                     {!isMe && activeGroup && sender && (
@@ -1146,7 +1373,7 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                       </div>
                     )}
 
-                    {/* Floating Emoji Reaction Popover */}
+                    {/* Floating Emoji Reaction & Pin Popover */}
                     {isReacting && (
                       <>
                         <div
@@ -1182,6 +1409,34 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                               </button>
                             );
                           })}
+
+                          {/* Pin / Unpin Button inside popover */}
+                          <div className="h-4 w-px bg-white/20 mx-0.5" />
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleTogglePinMessage(msg);
+                            }}
+                            className={`px-2 py-1 rounded-full flex items-center gap-1 text-[11px] font-bold transition-all ${
+                              msg.isPinned
+                                ? 'bg-amber-500/25 text-amber-300'
+                                : 'hover:bg-white/10 text-white/70 hover:text-white'
+                            }`}
+                            title={
+                              !canPinInCurrentChat
+                                ? 'Only group admins can pin messages or photos'
+                                : msg.isPinned
+                                ? (msg.imageUrl ? 'Unpin photo' : 'Unpin message')
+                                : (msg.imageUrl ? 'Pin photo' : 'Pin message')
+                            }
+                          >
+                            <Pin className={`w-3.5 h-3.5 ${msg.isPinned ? 'fill-amber-300 text-amber-300' : ''}`} />
+                            <span className="hidden sm:inline">
+                              {msg.isPinned ? 'Unpin' : msg.imageUrl ? 'Pin Photo' : 'Pin'}
+                            </span>
+                          </button>
+
                           <button
                             type="button"
                             onClick={() => setReactingMessageId(null)}
@@ -1213,9 +1468,17 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                           isMe
                             ? 'bg-[#2F6FED] text-white rounded-br-xs'
                             : 'bg-[#141418] border border-white/10 text-white rounded-bl-xs'
-                        }`}
-                        title="Long-press to add emoji reaction"
+                        } ${msg.isPinned ? 'border border-amber-500/40 shadow-amber-500/10' : ''}`}
+                        title="Long-press to add emoji reaction or pin message/photo"
                       >
+                        {/* Pinned Indicator on Message Bubble */}
+                        {msg.isPinned && (
+                          <div className="flex items-center gap-1 pb-1.5 mb-1.5 border-b border-amber-500/30 text-amber-300 text-[10px] font-bold">
+                            <Pin className="w-2.5 h-2.5 fill-amber-300 shrink-0" />
+                            <span>Pinned {msg.imageUrl ? 'Photo' : 'Message'}</span>
+                          </div>
+                        )}
+
                         {/* Attached Photo */}
                         {msg.imageUrl && (
                           <div
@@ -1261,20 +1524,45 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                         </div>
                       </div>
 
-                      {/* Hover/Touch Smiley Reaction Trigger */}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          vibrateLight();
-                          setReactingMessageId(isReacting ? null : msg.id);
-                        }}
-                        className="opacity-0 group-hover/msg:opacity-100 transition-opacity p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white/60 hover:text-white shrink-0 active:scale-95"
-                        title="Add emoji reaction"
-                        aria-label="Add reaction"
-                      >
-                        <Smile className="w-3.5 h-3.5" />
-                      </button>
+                      {/* Message Action Triggers: Reaction & Pin */}
+                      <div className="flex items-center gap-0.5">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            vibrateLight();
+                            setReactingMessageId(isReacting ? null : msg.id);
+                          }}
+                          className="opacity-0 group-hover/msg:opacity-100 transition-opacity p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white/60 hover:text-white shrink-0 active:scale-95"
+                          title="Add emoji reaction"
+                          aria-label="Add reaction"
+                        >
+                          <Smile className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleTogglePinMessage(msg);
+                          }}
+                          className={`p-1.5 rounded-full transition-opacity shrink-0 active:scale-95 ${
+                            msg.isPinned
+                              ? 'text-amber-300 bg-amber-500/20 opacity-100 hover:bg-amber-500/30'
+                              : 'opacity-0 group-hover/msg:opacity-100 bg-white/10 hover:bg-white/20 text-white/60 hover:text-white'
+                          }`}
+                          title={
+                            !canPinInCurrentChat
+                              ? 'Only group admins can pin messages or photos'
+                              : msg.isPinned
+                              ? (msg.imageUrl ? 'Unpin photo' : 'Unpin message')
+                              : (msg.imageUrl ? 'Pin photo' : 'Pin message')
+                          }
+                          aria-label={msg.isPinned ? 'Unpin item' : 'Pin item'}
+                        >
+                          <Pin className={`w-3.5 h-3.5 ${msg.isPinned ? 'fill-amber-300' : ''}`} />
+                        </button>
+                      </div>
                     </div>
 
                     {/* Persisted Emoji Reactions Display */}
