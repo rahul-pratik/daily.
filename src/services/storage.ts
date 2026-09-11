@@ -152,6 +152,17 @@ export class DailyStorageService {
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
   }
 
+  static getUserById(userId: string): User | undefined {
+    if (userId === 'user_me') {
+      return this.getCurrentUser();
+    }
+    const current = this.getCurrentUser();
+    if (current && current.id === userId) {
+      return current;
+    }
+    return this.getAllUsers().find((u) => u.id === userId);
+  }
+
   static ensurePostEngagement(post: Post): Post {
     const defaultViews = Math.max((post.likesCount || 0) * 6 + (post.comments?.length || 0) * 8 + 35, 12);
     const defaultShares = Math.max(Math.floor((post.likesCount || 0) * 0.25), 1);

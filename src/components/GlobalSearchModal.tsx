@@ -228,7 +228,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={placeholderText}
-              className="w-full pl-10 pr-20 py-3 rounded-2xl bg-white/5 border border-white/10 text-white placeholder-white/40 text-sm font-medium focus:outline-none focus:border-[#2F6FED] focus:bg-white/[0.08] transition-all"
+              className="w-full pl-10 pr-10 py-3 rounded-2xl bg-white/5 border border-white/10 text-white placeholder-white/40 text-sm font-medium focus:outline-none focus:border-[#2F6FED] focus:bg-white/[0.08] transition-all"
             />
             {query && (
               <button
@@ -237,17 +237,12 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                   setQuery('');
                   inputRef.current?.focus();
                 }}
-                className="absolute right-12 p-1 text-white/40 hover:text-white hover:bg-white/10 rounded-full transition-colors"
+                className="absolute right-3 p-1 text-white/40 hover:text-white hover:bg-white/10 rounded-full transition-colors"
                 title="Clear query"
               >
                 <X className="w-4 h-4" />
               </button>
             )}
-            <div className="absolute right-3 hidden sm:flex items-center pointer-events-none">
-              <span className="text-[10px] font-mono text-white/40 bg-white/5 px-1.5 py-0.5 rounded border border-white/10">
-                ESC
-              </span>
-            </div>
           </div>
 
           {/* User Search Wish Switcher Tabs */}
@@ -895,7 +890,6 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
             <span>•</span>
             <span className="text-purple-400 font-bold">Tags</span>
           </div>
-          <span className="hidden sm:inline">Press Esc to exit</span>
         </div>
       </div>
     </div>

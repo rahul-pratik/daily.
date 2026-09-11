@@ -1,8 +1,8 @@
 import React from 'react';
-import { Sparkles, Compass, MessageSquare, PlusCircle, Search, Filter, Flame, Users, Bookmark } from 'lucide-react';
+import { Sparkles, Compass, MessageSquare, PlusCircle, Search, Filter, Flame, Users, Bookmark, Globe, Trophy } from 'lucide-react';
 
 interface EmptyStateIllustrationProps {
-  type: 'feed' | 'following' | 'interests' | 'messages' | 'search' | 'saved' | 'collections';
+  type: 'feed' | 'following' | 'interests' | 'messages' | 'search' | 'saved' | 'collections' | 'community' | 'challenges';
   title: string;
   description: string;
   primaryAction?: {
@@ -93,6 +93,32 @@ export const EmptyStateIllustration: React.FC<EmptyStateIllustrationProps> = ({
                 📁
               </div>
               <span className="text-[9px] font-bold text-white/50 mt-1 uppercase tracking-wider">Proof Box</span>
+            </div>
+          </div>
+        );
+
+      case 'community':
+        return (
+          <div className="relative w-24 h-24 mx-auto mb-4 flex items-center justify-center">
+            <div className="absolute inset-0 rounded-full bg-blue-500/10 blur-xl animate-pulse" />
+            <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-br from-white/10 to-white/[0.02] border border-white/15 p-4 flex flex-col items-center justify-center shadow-2xl">
+              <div className="w-10 h-10 rounded-2xl bg-blue-500/15 border border-blue-500/40 flex items-center justify-center text-blue-400">
+                <Globe className="w-5 h-5" />
+              </div>
+              <span className="text-[9px] font-bold text-white/50 mt-1 uppercase tracking-wider">Community</span>
+            </div>
+          </div>
+        );
+
+      case 'challenges':
+        return (
+          <div className="relative w-24 h-24 mx-auto mb-4 flex items-center justify-center">
+            <div className="absolute inset-0 rounded-full bg-amber-500/10 blur-xl animate-pulse" />
+            <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-br from-white/10 to-white/[0.02] border border-white/15 p-4 flex flex-col items-center justify-center shadow-2xl">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                <Trophy className="w-5 h-5" />
+              </div>
+              <span className="text-[9px] font-bold text-white/50 mt-1 uppercase tracking-wider">Challenges</span>
             </div>
           </div>
         );

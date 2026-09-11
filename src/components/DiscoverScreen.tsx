@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   Compass,
-  Search,
   UserPlus,
   Check,
   MessageSquare,
@@ -431,26 +430,6 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
               </button>
             )}
           </div>
-        </div>
-
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search communities, creators, topics..."
-            className="w-full pl-9 pr-9 py-2.5 bg-white/5 border border-white/10 rounded-2xl text-xs text-white placeholder-white/30 focus:border-blue-500 focus:bg-white/[0.07] outline-none transition-all"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
         </div>
 
         {/* Filter Chips Carousel */}

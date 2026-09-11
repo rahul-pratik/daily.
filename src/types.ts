@@ -115,6 +115,8 @@ export interface Post {
   postDate?: string; // YYYY-MM-DD format
   communityId?: string; // Optional community target
   communityName?: string; // Community name display
+  challengeId?: string; // Optional challenge target
+  challengeName?: string; // Challenge name display
   isMainPost?: boolean; // Whether this is user's 1 Main Post for the day
   isCollage?: boolean; // If generated via multi-post collab photo stitch
   isReported?: boolean;
