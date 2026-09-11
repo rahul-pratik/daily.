@@ -67,6 +67,7 @@ export default function App() {
   const [activeCommunityHub, setActiveCommunityHub] = useState<Community | null>(null);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [activeProfileUser, setActiveProfileUser] = useState<User | null>(null);
+  const [activeDossierUser, setActiveDossierUser] = useState<User | null>(null);
   const [activeDraftToEdit, setActiveDraftToEdit] = useState<PostDraft | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>(() => DailyStorageService.getTheme());
 
@@ -852,7 +853,11 @@ export default function App() {
                   }
                 }
               }}
-              onOpenDossier={() => setCurrentTab('dossier')}
+              onOpenDossier={() => {
+                setActiveDossierUser(currentUser);
+                setCurrentTab('dossier');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
               onUserUpdated={(u) => setCurrentUser(u)}
               onOpenNotifications={() => setIsNotificationsOpen(true)}
             />
@@ -860,7 +865,25 @@ export default function App() {
 
           {currentTab === 'dossier' && (
             <PersonProfileDossierScreen
-              onBack={() => setCurrentTab('profile')}
+              targetUser={activeDossierUser || currentUser}
+              currentUser={currentUser}
+              onBack={() => {
+                if (activeDossierUser && activeDossierUser.id !== currentUser.id) {
+                  setActiveProfileUser(activeDossierUser);
+                  setActiveDossierUser(null);
+                } else {
+                  setCurrentTab('profile');
+                }
+              }}
+              onSendMessage={(target) => {
+                handleStartDMWithUser({
+                  id: target.id,
+                  name: target.name,
+                  username: target.username,
+                  avatar: target.avatar,
+                  streak: target.currentStreak || 0,
+                });
+              }}
               onOpenCreatePost={() => setIsCreateOpen(true)}
             />
           )}
@@ -1022,9 +1045,11 @@ export default function App() {
           onSendDM={handleStartDMWithUser}
           onToggleLike={handleToggleLike}
           onOpenComments={(post) => setCommentsPost(post)}
-          onOpenDossier={() => {
+          onOpenDossier={(targetUser) => {
+            setActiveDossierUser(targetUser || activeProfileUser || currentUser);
             setActiveProfileUser(null);
             setCurrentTab('dossier');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
         />
 

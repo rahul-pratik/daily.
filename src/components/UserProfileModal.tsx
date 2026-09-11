@@ -31,7 +31,7 @@ interface UserProfileModalProps {
   onOpenComments: (post: Post) => void;
   onToggleBlock?: (userId: string) => void;
   isBlocked?: boolean;
-  onOpenDossier?: () => void;
+  onOpenDossier?: (user: User) => void;
 }
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
@@ -41,8 +41,10 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   isOpen,
   onClose,
   onToggleFollow,
+  onSendDM,
   onToggleLike,
   onOpenComments,
+  onOpenDossier,
 }) => {
   const [activeTab, setActiveTab] = useState<'proofs' | 'collections'>('proofs');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -170,33 +172,77 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             </div>
           </div>
 
-          {/* Follow Button (Prominent & Clean) */}
-          {!isMe && (
-            <div className="pt-1">
-              <button
-                type="button"
-                id="profile-follow-toggle-btn"
-                onClick={handleFollowClick}
-                className={`w-full py-2.5 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-2 ${
-                  isFollowing
-                    ? 'bg-white/10 text-white/90 hover:bg-white/15 border border-white/15 shadow-sm'
-                    : 'bg-[#2F6FED] hover:bg-blue-600 text-white shadow-lg shadow-[#2F6FED]/25'
-                }`}
-              >
-                {isFollowing ? (
-                  <>
-                    <Check className="w-4 h-4 stroke-[3]" />
-                    <span>Following</span>
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="w-4 h-4 stroke-[2.5]" />
-                    <span>Follow</span>
-                  </>
-                )}
-              </button>
-            </div>
-          )}
+          {/* Action Row: Follow, Message, and Person Dossier */}
+          <div className="pt-1 flex items-center gap-2">
+            {!isMe && (
+              <>
+                <button
+                  type="button"
+                  id="profile-follow-toggle-btn"
+                  onClick={handleFollowClick}
+                  className={`flex-1 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+                    isFollowing
+                      ? 'bg-white/10 text-white/90 hover:bg-white/15 border border-white/15 shadow-sm'
+                      : 'bg-[#2F6FED] hover:bg-blue-600 text-white shadow-lg shadow-[#2F6FED]/25'
+                  }`}
+                >
+                  {isFollowing ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 stroke-[3]" />
+                      <span>Following</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span>Follow</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  id="profile-direct-message-btn"
+                  onClick={() => {
+                    vibrateLight();
+                    onClose();
+                    if (onSendDM) {
+                      onSendDM({
+                        id: user.id,
+                        name: user.name,
+                        username: user.username,
+                        avatar: user.avatar,
+                        streak: user.currentStreak || 0,
+                      });
+                    }
+                  }}
+                  className="flex-1 py-2.5 rounded-2xl text-xs font-black bg-white/10 hover:bg-white/15 text-white border border-white/15 transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
+                  title={`Direct message @${user.username}`}
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-[#2F6FED]" />
+                  <span>Message</span>
+                </button>
+              </>
+            )}
+
+            <button
+              type="button"
+              id="profile-view-dossier-btn"
+              onClick={() => {
+                vibrateLight();
+                onClose();
+                if (onOpenDossier) {
+                  onOpenDossier(user);
+                }
+              }}
+              className={`${
+                isMe ? 'w-full' : 'px-4'
+              } py-2.5 rounded-2xl text-xs font-black bg-white/10 hover:bg-white/15 text-white/90 border border-white/15 hover:border-[#2F6FED]/40 transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95 shrink-0`}
+              title={`View ${user.name}'s Person Dossier & challenge history`}
+            >
+              <Layers className="w-3.5 h-3.5 text-[#2F6FED]" />
+              <span>Dossier</span>
+            </button>
+          </div>
 
           {/* Stats Row: Proofs, Followers, Following */}
           <div className="grid grid-cols-3 gap-2 p-3 bg-white/[0.04] border border-white/10 rounded-2xl text-center">

@@ -23,6 +23,7 @@ import {
 import { User as UserType, Post, PostDraft } from '../types';
 import { DailyStorageService } from '../services/storage';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
+import { StreakFreezeCard } from './StreakFreezeCard';
 
 interface ProfileSettingsModalProps {
   isOpen: boolean;
@@ -37,6 +38,8 @@ interface ProfileSettingsModalProps {
   onOpenSaved: () => void;
   onOpenDrafts: () => void;
   onResetData: () => void;
+  onUserUpdated?: (user: UserType) => void;
+  onOpenNotifications?: () => void;
 }
 
 export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
@@ -52,6 +55,8 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
   onOpenSaved,
   onOpenDrafts,
   onResetData,
+  onUserUpdated,
+  onOpenNotifications,
 }) => {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [themeMode, setThemeMode] = useState<'system' | 'dark' | 'light'>(() => DailyStorageService.getThemeMode());
@@ -134,6 +139,22 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
               <Edit3 className="w-3.5 h-3.5" />
               <span>Edit Profile</span>
             </button>
+          </div>
+
+          {/* Streak Freeze Protection (Moved from Challenges Tab) */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-white/40 flex items-center gap-1.5">
+                <Flame className="w-3 h-3 text-orange-400 fill-current" />
+                <span>Streak Freeze Protection</span>
+              </span>
+              <span className="text-[9px] font-mono text-[#2F6FED]">Profile Security</span>
+            </div>
+            <StreakFreezeCard
+              currentUser={currentUser}
+              onUserUpdated={onUserUpdated}
+              onOpenNotifications={onOpenNotifications}
+            />
           </div>
 
           {/* Theme Mode Toggle (System Auto / Dark / Light) */}

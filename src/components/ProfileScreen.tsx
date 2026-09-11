@@ -1239,29 +1239,19 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         onOpenDrafts={() => setActiveHubView('drafts')}
         onOpenDossier={() => setIsDossierModalOpen(true)}
         onResetData={onResetData}
+        onUserUpdated={onUserUpdated}
+        onOpenNotifications={onOpenNotifications}
       />
 
       {/* PERSON DOSSIER FULLSCREEN MODAL (Opened from Settings) */}
       {isDossierModalOpen && (
         <div className="fixed inset-0 z-50 bg-black overflow-y-auto animate-in fade-in duration-200">
-          <div className="max-w-lg mx-auto p-4 pt-6 min-h-screen">
-            <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-4 sticky top-0 bg-black/90 backdrop-blur-md z-10">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#2F6FED]" />
-                <h2 className="text-base font-black text-white">Person Dossier</h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsDossierModalOpen(false)}
-                className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors"
-                title="Close Dossier"
-                aria-label="Close Dossier"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <PersonProfileDossierScreen onOpenCreatePost={onOpenCreatePost} />
-          </div>
+          <PersonProfileDossierScreen
+            currentUser={currentUser}
+            targetUser={currentUser}
+            onBack={() => setIsDossierModalOpen(false)}
+            onOpenCreatePost={onOpenCreatePost}
+          />
         </div>
       )}
 
