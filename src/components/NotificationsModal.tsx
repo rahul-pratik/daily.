@@ -19,6 +19,7 @@ import {
 import { AppNotification, NotificationType, User, Post } from '../types';
 import { vibrateLight, vibrateSuccess } from '../services/haptics';
 import { DailyStorageService } from '../services/storage';
+import { DummySquadInviteNotification } from './DummySquadInviteNotification';
 
 interface NotificationsModalProps {
   isOpen: boolean;
@@ -152,6 +153,12 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
     }
   };
 
+  const handleDeclineSquadInvite = (n: AppNotification) => {
+    vibrateLight();
+    DailyStorageService.declineSquadInvite(n.id);
+    onMarkAsRead(n.id);
+  };
+
   const handleNotificationClick = (n: AppNotification) => {
     vibrateLight();
     if (!n.isRead) {
@@ -250,6 +257,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
           {[
             { id: 'all', label: 'All', count: notifications.length },
             { id: 'unread', label: 'Unread', count: unreadCount },
+            { id: 'challenge', label: 'Squads & Invites ⚔️' },
             { id: 'like', label: 'Likes ❤️' },
             { id: 'comment', label: 'Comments 💬' },
             { id: 'follow', label: 'Follows 👥' },
@@ -351,17 +359,36 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                             <Check className="w-3.5 h-3.5 stroke-[2.5]" />
                             <span>Joined Squad</span>
                           </span>
+                        ) : n.inviteStatus === 'declined' ? (
+                          <span className="text-[10px] font-bold text-white/50 bg-white/5 px-2.5 py-1 rounded-xl border border-white/10 flex items-center gap-1.5">
+                            <X className="w-3.5 h-3.5" />
+                            <span>Invite Declined</span>
+                          </span>
                         ) : (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleAcceptSquadInvite(n);
-                            }}
-                            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-black text-[11px] shadow-md shadow-amber-500/20 flex items-center gap-1.5 active:scale-95 transition-all"
-                          >
-                            <Users className="w-3.5 h-3.5" />
-                            <span>Join Squad</span>
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAcceptSquadInvite(n);
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-black text-[11px] shadow-md shadow-amber-500/20 flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+                            >
+                              <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                              <span>Accept</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeclineSquadInvite(n);
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-red-500/15 text-white/70 hover:text-red-400 border border-white/10 hover:border-red-500/30 font-bold text-[11px] flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                              <span>Decline</span>
+                            </button>
+                          </>
                         )}
                         {(n.challengeId || n.targetId) && onOpenChallenge && (
                           <button
@@ -409,6 +436,27 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                   ? 'All caught up! You have zero unread notifications.'
                   : 'When people like your proofs, comment, or start following you, updates will show up here.'}
               </p>
+            </div>
+          )}
+
+          {/* Dummy Squad Invite Notification Component appended to visualize invitations */}
+          {(activeFilter === 'all' || activeFilter === 'challenge') && (
+            <div className="pt-2 border-t border-white/10 mt-3">
+              <DummySquadInviteNotification
+                onOpenChallenge={(cid) => {
+                  if (onOpenChallenge) {
+                    onOpenChallenge(cid);
+                    onClose();
+                  }
+                }}
+                onAccept={() => {
+                  try {
+                    DailyStorageService.joinChallengeTeam('challenge_trio_spartan', 'team_spartan_strike');
+                  } catch {
+                    // ignore
+                  }
+                }}
+              />
             </div>
           )}
         </div>

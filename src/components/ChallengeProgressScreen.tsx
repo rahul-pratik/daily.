@@ -69,9 +69,22 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
   initialTab = 'proofs',
   onOpenGroupChat,
 }) => {
+  const isGroupChallenge = initialChallenge.challengeType === 'group';
   const [challenge, setChallenge] = useState<Challenge>(initialChallenge);
-  const [challengeTab, setChallengeTab] = useState<'proofs' | 'leaderboard' | 'squads' | 'chat'>(initialTab);
+  const [challengeTab, setChallengeTab] = useState<'proofs' | 'leaderboard' | 'squads' | 'chat'>(() => {
+    if (initialTab === 'squads' && !isGroupChallenge) {
+      return 'proofs';
+    }
+    return initialTab;
+  });
   const [chatChannel, setChatChannel] = useState<'cohort' | 'squad'>('cohort');
+
+  // Fallback to proofs tab if challenge is not a group challenge
+  useEffect(() => {
+    if (!isGroupChallenge && challengeTab === 'squads') {
+      setChallengeTab('proofs');
+    }
+  }, [isGroupChallenge, challengeTab]);
   const [progressPosts, setProgressPosts] = useState<ChallengeProgressPost[]>([]);
   const [chatMessages, setChatMessages] = useState<Message[]>([]);
   const [squadMessages, setSquadMessages] = useState<Message[]>([]);
@@ -83,6 +96,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
   const [showPresets, setShowPresets] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showLeaveSquadConfirm, setShowLeaveSquadConfirm] = useState(false);
   const [selectedPhotoPreview, setSelectedPhotoPreview] = useState<string | null>(null);
   const [selectedDayProof, setSelectedDayProof] = useState<ChallengeProgressPost | null>(null);
 
@@ -160,7 +174,6 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
 
   const today = getTodayDateString();
   const isJoined = (challenge.participantIds || []).includes(currentUser.id);
-  const isGroupChallenge = challenge.challengeType === 'group';
 
   // Calculate days completed & duration
   const daysCompleted = userProgress.daysCompleted;
@@ -236,11 +249,20 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
     onChallengeUpdated(result.challenge);
   };
 
-  const handleLeaveSquad = () => {
+  const handleOpenLeaveSquadConfirm = () => {
     vibrateLight();
-    const result = DailyStorageService.leaveChallengeTeam(challenge.id, mySquad?.id);
+    setShowLeaveSquadConfirm(true);
+  };
+
+  const handleConfirmLeaveSquad = () => {
+    vibrateLight();
+    if (!mySquad) return;
+    const squadName = mySquad.name;
+    const result = DailyStorageService.leaveChallengeTeam(challenge.id, mySquad.id);
     setChallenge(result.challenge);
     onChallengeUpdated(result.challenge);
+    setShowLeaveSquadConfirm(false);
+    showToast(`You have left squad "${squadName}".`);
   };
 
   const handleInviteUserToSquad = (userToInvite: User) => {
@@ -445,6 +467,17 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                 <span className="px-2.5 py-0.5 rounded-full bg-[#2F6FED]/10 border border-[#2F6FED]/30 text-[10px] font-black text-[#2F6FED] uppercase tracking-wider">
                   #{challenge.tag || challenge.category}
                 </span>
+                {isGroupChallenge ? (
+                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-[10px] font-black text-amber-300 uppercase tracking-wider flex items-center gap-1">
+                    <Users className="w-2.5 h-2.5" />
+                    <span>Squad Challenge ({challenge.teamSize || 2}/Team)</span>
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-[10px] font-black text-cyan-300 uppercase tracking-wider flex items-center gap-1">
+                    <UserIcon className="w-2.5 h-2.5" />
+                    <span>Solo Challenge</span>
+                  </span>
+                )}
                 <span className="text-[10px] text-white/40 flex items-center gap-1">
                   <Clock className="w-3 h-3 text-[#2F6FED]" />
                   Ends {challenge.deadlineDate}
@@ -480,26 +513,30 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
           </div>
         </div>
 
-        {/* Top Action Buttons: Find Squad Members & Leave Challenge */}
+        {/* Top Action Buttons: Find Squad Members (Group only) & Leave Challenge */}
         <div className="flex items-center justify-between gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              vibrateLight();
-              setIsFindSquadModalOpen(true);
-            }}
-            className="flex-1 py-2.5 px-3 rounded-2xl bg-[#2F6FED]/15 hover:bg-[#2F6FED]/25 text-[#2F6FED] border border-[#2F6FED]/30 font-bold text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
-            title="Find other participants to form a squad"
-          >
-            <UserPlus className="w-3.5 h-3.5" />
-            <span>Find Squad Members</span>
-          </button>
+          {isGroupChallenge && (
+            <button
+              type="button"
+              onClick={() => {
+                vibrateLight();
+                setIsFindSquadModalOpen(true);
+              }}
+              className="flex-1 py-2.5 px-3 rounded-2xl bg-[#2F6FED]/15 hover:bg-[#2F6FED]/25 text-[#2F6FED] border border-[#2F6FED]/30 font-bold text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
+              title="Find other participants to form a squad"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>Find Squad Members</span>
+            </button>
+          )}
 
           {isJoined ? (
             <button
               type="button"
               onClick={() => setShowLeaveConfirm(true)}
-              className="py-2.5 px-3 rounded-2xl bg-white/5 hover:bg-red-500/10 text-white/60 hover:text-red-400 border border-white/10 font-bold text-xs transition-colors flex items-center gap-1.5 shrink-0 active:scale-95"
+              className={`${
+                isGroupChallenge ? '' : 'w-full'
+              } py-2.5 px-3 rounded-2xl bg-white/5 hover:bg-red-500/10 text-white/60 hover:text-red-400 border border-white/10 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 shrink-0 active:scale-95`}
             >
               <LogOut className="w-3.5 h-3.5" />
               <span>Leave Challenge</span>
@@ -508,7 +545,9 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
             <button
               type="button"
               onClick={handleToggleJoin}
-              className="py-2.5 px-4 rounded-2xl bg-[#2F6FED] hover:bg-[#255bd1] text-white font-black text-xs transition-all shadow-sm flex items-center gap-1.5 shrink-0 active:scale-95"
+              className={`${
+                isGroupChallenge ? '' : 'w-full'
+              } py-2.5 px-4 rounded-2xl bg-[#2F6FED] hover:bg-[#255bd1] text-white font-black text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 shrink-0 active:scale-95`}
             >
               <Trophy className="w-3.5 h-3.5" />
               <span>Join Challenge</span>
@@ -548,20 +587,22 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
             <span>Leaderboard</span>
           </button>
 
-          <button
-            onClick={() => {
-              vibrateLight();
-              setChallengeTab('squads');
-            }}
-            className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-              challengeTab === 'squads'
-                ? 'bg-amber-400 text-black font-black shadow-md shadow-amber-400/20'
-                : 'text-white/60 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            <Users className="w-3.5 h-3.5" />
-            <span>Squads</span>
-          </button>
+          {isGroupChallenge && (
+            <button
+              onClick={() => {
+                vibrateLight();
+                setChallengeTab('squads');
+              }}
+              className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                challengeTab === 'squads'
+                  ? 'bg-amber-400 text-black font-black shadow-md shadow-amber-400/20'
+                  : 'text-white/60 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Squads</span>
+            </button>
+          )}
 
           <button
             onClick={() => {
@@ -799,81 +840,83 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                       </span>
                     </button>
 
-                    {/* Option 3: Squad Proofs */}
-                    <div className="pt-1 border-t border-white/10 space-y-1">
-                      <button
-                        onClick={() => {
-                          vibrateLight();
-                          setProofsFilter('squad');
-                          setSquadProofMode('all_members');
-                          setSelectedSquadMemberId(null);
-                          setIsSortDropdownOpen(false);
-                        }}
-                        className={`w-full p-2.5 rounded-xl text-left font-bold flex items-center justify-between transition-colors ${
-                          proofsFilter === 'squad' && squadProofMode === 'all_members'
-                            ? 'bg-amber-400 text-black'
-                            : 'text-amber-300 hover:bg-amber-400/10'
-                        }`}
-                      >
-                        <span className="flex items-center gap-2">
-                          <Users className="w-3.5 h-3.5" />
-                          <span>Squad — All Squad Members</span>
-                        </span>
-                        <span className="text-[10px] opacity-70">
-                          {mySquad ? mySquad.name : 'Squad'}
-                        </span>
-                      </button>
+                    {/* Option 3: Squad Proofs (Group challenges only) */}
+                    {isGroupChallenge && (
+                      <div className="pt-1 border-t border-white/10 space-y-1">
+                        <button
+                          onClick={() => {
+                            vibrateLight();
+                            setProofsFilter('squad');
+                            setSquadProofMode('all_members');
+                            setSelectedSquadMemberId(null);
+                            setIsSortDropdownOpen(false);
+                          }}
+                          className={`w-full p-2.5 rounded-xl text-left font-bold flex items-center justify-between transition-colors ${
+                            proofsFilter === 'squad' && squadProofMode === 'all_members'
+                              ? 'bg-amber-400 text-black'
+                              : 'text-amber-300 hover:bg-amber-400/10'
+                          }`}
+                        >
+                          <span className="flex items-center gap-2">
+                            <Users className="w-3.5 h-3.5" />
+                            <span>Squad — All Squad Members</span>
+                          </span>
+                          <span className="text-[10px] opacity-70">
+                            {mySquad ? mySquad.name : 'Squad'}
+                          </span>
+                        </button>
 
-                      {/* Sub-option: Proof of an Individual */}
-                      <div className="pl-3 pr-1 pt-1 space-y-1">
-                        <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider block">
-                          Proof of an Individual:
-                        </span>
+                        {/* Sub-option: Proof of an Individual */}
+                        <div className="pl-3 pr-1 pt-1 space-y-1">
+                          <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider block">
+                            Proof of an Individual:
+                          </span>
 
-                        {squadMembersList.length === 0 ? (
-                          <div className="text-[10px] text-white/40 italic p-1">
-                            No squad members registered yet
-                          </div>
-                        ) : (
-                          <div className="space-y-1 max-h-36 overflow-y-auto no-scrollbar">
-                            {squadMembersList.map((member) => {
-                              const isSelected =
-                                proofsFilter === 'squad' &&
-                                squadProofMode === 'individual' &&
-                                selectedSquadMemberId === member.userId;
-                              return (
-                                <button
-                                  key={member.userId}
-                                  onClick={() => {
-                                    vibrateLight();
-                                    setProofsFilter('squad');
-                                    setSquadProofMode('individual');
-                                    setSelectedSquadMemberId(member.userId);
-                                    setIsSortDropdownOpen(false);
-                                  }}
-                                  className={`w-full p-1.5 rounded-lg text-left text-xs flex items-center gap-2 transition-colors ${
-                                    isSelected
-                                      ? 'bg-amber-400 text-black font-bold'
-                                      : 'text-white/80 hover:bg-white/10'
-                                  }`}
-                                >
-                                  <img
-                                    src={member.userAvatar}
-                                    alt={member.userName}
-                                    referrerPolicy="no-referrer"
-                                    className="w-5 h-5 rounded-full object-cover border border-white/20"
-                                  />
-                                  <span className="truncate flex-1">
-                                    {member.userName} {member.userId === currentUser.id && '(You)'}
-                                  </span>
-                                  {isSelected && <Check className="w-3 h-3" />}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
+                          {squadMembersList.length === 0 ? (
+                            <div className="text-[10px] text-white/40 italic p-1">
+                              No squad members registered yet
+                            </div>
+                          ) : (
+                            <div className="space-y-1 max-h-36 overflow-y-auto no-scrollbar">
+                              {squadMembersList.map((member) => {
+                                const isSelected =
+                                  proofsFilter === 'squad' &&
+                                  squadProofMode === 'individual' &&
+                                  selectedSquadMemberId === member.userId;
+                                return (
+                                  <button
+                                    key={member.userId}
+                                    onClick={() => {
+                                      vibrateLight();
+                                      setProofsFilter('squad');
+                                      setSquadProofMode('individual');
+                                      setSelectedSquadMemberId(member.userId);
+                                      setIsSortDropdownOpen(false);
+                                    }}
+                                    className={`w-full p-1.5 rounded-lg text-left text-xs flex items-center gap-2 transition-colors ${
+                                      isSelected
+                                        ? 'bg-amber-400 text-black font-bold'
+                                        : 'text-white/80 hover:bg-white/10'
+                                    }`}
+                                  >
+                                    <img
+                                      src={member.userAvatar}
+                                      alt={member.userName}
+                                      referrerPolicy="no-referrer"
+                                      className="w-5 h-5 rounded-full object-cover border border-white/20"
+                                    />
+                                    <span className="truncate flex-1">
+                                      {member.userName} {member.userId === currentUser.id && '(You)'}
+                                    </span>
+                                    {isSelected && <Check className="w-3 h-3" />}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -991,8 +1034,8 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
           <ChallengeLeaderboardView challenge={challenge} currentUser={currentUser} />
         )}
 
-        {/* TAB 3: SQUADS (Squad roster, squad creation, find members) */}
-        {challengeTab === 'squads' && (
+        {/* TAB 3: SQUADS (Squad roster, squad creation, find members - Group challenges only) */}
+        {isGroupChallenge && challengeTab === 'squads' && (
           <div className="space-y-4">
             {/* User Squad Status */}
             {mySquad ? (
@@ -1134,10 +1177,13 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                   </button>
 
                   <button
-                    onClick={handleLeaveSquad}
-                    className="text-xs font-bold text-red-400 hover:text-red-300 transition-colors"
+                    id="leave-squad-btn"
+                    type="button"
+                    onClick={handleOpenLeaveSquadConfirm}
+                    className="py-1.5 px-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 border border-red-500/30 text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer shadow-xs"
                   >
-                    Leave Squad
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Leave Squad</span>
                   </button>
                 </div>
               </div>
@@ -1358,27 +1404,31 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                 </div>
                 <div>
                   <h3 className="text-xs font-black uppercase tracking-wider text-white">
-                    {chatChannel === 'squad' && mySquad
+                    {isGroupChallenge && chatChannel === 'squad' && mySquad
                       ? `Squad Chat: ${mySquad.name}`
-                      : 'Cohort Discussion Room'}
+                      : isGroupChallenge
+                      ? 'Cohort Discussion Room'
+                      : 'Solo Challenge Discussion'}
                   </h3>
                   <p className="text-[10px] text-white/40">
-                    {chatChannel === 'squad'
+                    {isGroupChallenge && chatChannel === 'squad'
                       ? 'Private squad discussion with your team'
-                      : 'Cohort chat with all participants'}
+                      : isGroupChallenge
+                      ? 'Cohort chat with all participants'
+                      : 'Discussion room for builders tackling this solo challenge'}
                   </p>
                 </div>
               </div>
 
               <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                {chatChannel === 'squad' && mySquad
+                {isGroupChallenge && chatChannel === 'squad' && mySquad
                   ? `${mySquad.members.length} squad members`
                   : `${challenge.participantsCount || 1} online`}
               </span>
             </div>
 
-            {/* Squad vs Cohort Channel Selector */}
-            {mySquad && (
+            {/* Squad vs Cohort Channel Selector (Group challenges only) */}
+            {isGroupChallenge && mySquad && (
               <div className="flex items-center gap-1 p-1 bg-white/5 border border-white/10 rounded-2xl">
                 <button
                   type="button"
@@ -1413,7 +1463,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
             )}
 
             {/* Squad Progress Summary Card (Top of Squad Chat) */}
-            {chatChannel === 'squad' && mySquad && squadProofStats && (
+            {isGroupChallenge && chatChannel === 'squad' && mySquad && squadProofStats && (
               <div className="bg-gradient-to-br from-[#161616] to-[#101010] border border-amber-500/25 rounded-2xl p-3.5 space-y-3 shadow-lg shadow-black/50">
                 {/* Header Row: Collective Streak + Proofs Submitted */}
                 <div className="flex items-center justify-between gap-2.5">
@@ -1616,7 +1666,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
       </div>
 
       {/* FIND SQUAD MEMBERS & FORM SQUAD MODAL */}
-      {isFindSquadModalOpen && (
+      {isGroupChallenge && isFindSquadModalOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setIsFindSquadModalOpen(false)}
@@ -1778,7 +1828,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
       )}
 
       {/* CREATE SQUAD MODAL */}
-      {isCreateSquadOpen && (
+      {isGroupChallenge && isCreateSquadOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setIsCreateSquadOpen(false)}
@@ -2118,6 +2168,50 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                 className="py-2.5 px-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs shadow-md"
               >
                 Leave Challenge
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* LEAVE SQUAD CONFIRMATION MODAL */}
+      {showLeaveSquadConfirm && mySquad && (
+        <div
+          id="leave-squad-confirm-modal"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setShowLeaveSquadConfirm(false)}
+        >
+          <div
+            className="w-full max-w-sm bg-[#0D0D0D] border border-red-500/30 rounded-3xl p-5 shadow-2xl text-white space-y-4 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-400 flex items-center justify-center mx-auto">
+              <LogOut className="w-6 h-6" />
+            </div>
+
+            <div className="space-y-1.5">
+              <h4 className="font-black text-sm text-white">Leave squad "{mySquad.name}"?</h4>
+              <p className="text-xs text-white/60 leading-relaxed">
+                You will exit the private squad channel and your daily proof receipts will no longer contribute to this squad's streak. You will remain in the challenge as an individual participant.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                id="leave-squad-cancel-btn"
+                type="button"
+                onClick={() => setShowLeaveSquadConfirm(false)}
+                className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 font-bold text-xs border border-white/10 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                id="leave-squad-confirm-btn"
+                type="button"
+                onClick={handleConfirmLeaveSquad}
+                className="py-2.5 px-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs shadow-md transition-colors active:scale-95 cursor-pointer"
+              >
+                Leave Squad
               </button>
             </div>
           </div>

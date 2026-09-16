@@ -2566,16 +2566,48 @@ export class DailyStorageService {
   // --- NOTIFICATIONS SYSTEM ---
   static getAllNotifications(): AppNotification[] {
     const data = localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS);
+    let list: AppNotification[] = [];
     if (!data) {
-      this.saveAllNotifications(INITIAL_NOTIFICATIONS);
-      return INITIAL_NOTIFICATIONS;
+      list = [...INITIAL_NOTIFICATIONS];
+      this.saveAllNotifications(list);
+      return list;
     }
     try {
       const parsed = JSON.parse(data);
-      return Array.isArray(parsed) ? parsed : INITIAL_NOTIFICATIONS;
+      list = Array.isArray(parsed) ? parsed : [...INITIAL_NOTIFICATIONS];
     } catch {
-      return INITIAL_NOTIFICATIONS;
+      list = [...INITIAL_NOTIFICATIONS];
     }
+
+    // Ensure a squad invite notification is present so the user can immediately see and inspect it
+    const hasSquadInvite = list.some((n) => n.type === 'squad_invite');
+    if (!hasSquadInvite) {
+      const demoSquadInvite: AppNotification = {
+        id: 'notif_squad_invite_demo',
+        type: 'squad_invite',
+        actorId: 'user_sarah',
+        actorName: 'Sarah Chen',
+        actorUsername: 'sarahcodes',
+        actorAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80',
+        actorStreak: 21,
+        recipientId: 'user_me',
+        targetId: 'challenge_trio_spartan',
+        targetPreview: 'Spartan Strike Force',
+        squadId: 'team_spartan_strike',
+        squadName: 'Spartan Strike Force',
+        challengeId: 'challenge_trio_spartan',
+        challengeTitle: 'Trio 21-Day Spartan Conditioning',
+        inviteStatus: 'pending',
+        message: 'invited you to join squad "Spartan Strike Force" in challenge "Trio 21-Day Spartan Conditioning" 🛡️',
+        createdAt: 'Just now',
+        timestamp: Date.now(),
+        isRead: false,
+      };
+      list = [demoSquadInvite, ...list];
+      this.saveAllNotifications(list);
+    }
+
+    return list;
   }
 
   static saveAllNotifications(notifications: AppNotification[]): void {
@@ -2951,6 +2983,38 @@ export class DailyStorageService {
             createdAt: '2026-08-05',
             totalCheckinsCount: 29,
           },
+          {
+            id: 'team_spartan_strike',
+            challengeId: 'challenge_trio_spartan',
+            name: 'Spartan Strike Force',
+            motto: 'Strength through daily grit',
+            leaderId: 'user_sarah',
+            leaderName: 'Sarah Chen',
+            maxMembers: 3,
+            memberIds: ['user_sarah', 'user_david'],
+            members: [
+              {
+                userId: 'user_sarah',
+                userName: 'Sarah Chen',
+                userUsername: 'sarahcodes',
+                userAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80',
+                userStreak: 21,
+                joinedAt: '2026-08-05',
+                role: 'leader',
+              },
+              {
+                userId: 'user_david',
+                userName: 'David Kim',
+                userUsername: 'davidk_dev',
+                userAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
+                userStreak: 19,
+                joinedAt: '2026-08-05',
+                role: 'member',
+              },
+            ],
+            createdAt: '2026-08-05',
+            totalCheckinsCount: 24,
+          },
         ],
         userPostDates: {
           user_me: [
@@ -3163,18 +3227,60 @@ export class DailyStorageService {
 
   static getAllChallenges(): Challenge[] {
     const data = localStorage.getItem(STORAGE_KEYS.CHALLENGES);
+    let challenges: Challenge[] = [];
     if (!data) {
-      const initial = this.getInitialChallenges();
-      this.saveAllChallenges(initial);
-      return initial;
+      challenges = this.getInitialChallenges();
+      this.saveAllChallenges(challenges);
+      return challenges;
     }
     try {
-      return JSON.parse(data);
+      challenges = JSON.parse(data);
     } catch {
-      const initial = this.getInitialChallenges();
-      this.saveAllChallenges(initial);
-      return initial;
+      challenges = this.getInitialChallenges();
+      this.saveAllChallenges(challenges);
+      return challenges;
     }
+
+    // Ensure team_spartan_strike exists for squad invite
+    const trio = challenges.find((c) => c.id === 'challenge_trio_spartan');
+    if (trio && (!trio.teams || !trio.teams.some((t) => t.id === 'team_spartan_strike'))) {
+      if (!trio.teams) trio.teams = [];
+      trio.teams.push({
+        id: 'team_spartan_strike',
+        challengeId: 'challenge_trio_spartan',
+        name: 'Spartan Strike Force',
+        motto: 'Strength through daily grit',
+        leaderId: 'user_sarah',
+        leaderName: 'Sarah Chen',
+        maxMembers: 3,
+        memberIds: ['user_sarah', 'user_david'],
+        members: [
+          {
+            userId: 'user_sarah',
+            userName: 'Sarah Chen',
+            userUsername: 'sarahcodes',
+            userAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80',
+            userStreak: 21,
+            joinedAt: '2026-08-05',
+            role: 'leader',
+          },
+          {
+            userId: 'user_david',
+            userName: 'David Kim',
+            userUsername: 'davidk_dev',
+            userAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
+            userStreak: 19,
+            joinedAt: '2026-08-05',
+            role: 'member',
+          },
+        ],
+        createdAt: '2026-08-05',
+        totalCheckinsCount: 24,
+      });
+      this.saveAllChallenges(challenges);
+    }
+
+    return challenges;
   }
 
   static saveAllChallenges(challenges: Challenge[]): void {
@@ -3542,6 +3648,50 @@ export class DailyStorageService {
     });
 
     this.saveAllChallenges(updatedChallenges);
+
+    // Update the user's group association in DailyStorageService
+    try {
+      const rawGroups = this.getAllRawGroups();
+      let groupsModified = false;
+      const updatedGroups = rawGroups.map((g) => {
+        const matchesSquadGroup =
+          (teamId && g.id === `group_squad_${challengeId}_${teamId}`) ||
+          (g.challengeId === challengeId && (!teamId || g.teamId === teamId));
+
+        if (matchesSquadGroup && (g.memberIds || []).includes(currentUser.id)) {
+          groupsModified = true;
+          const nextMemberIds = (g.memberIds || []).filter((id) => id !== currentUser.id);
+          return {
+            ...g,
+            memberIds: nextMemberIds,
+            memberCount: Math.max(0, nextMemberIds.length),
+          };
+        }
+        return g;
+      });
+
+      if (groupsModified) {
+        this.saveAllGroups(updatedGroups);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('daily:group-updated', {
+              detail: { updatedGroups },
+            })
+          );
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('daily:challenge-updated', {
+          detail: { challengeId },
+        })
+      );
+    }
+
     const target = updatedChallenges.find((c) => c.id === challengeId)!;
     return { challenge: target };
   }
@@ -4530,6 +4680,36 @@ export class DailyStorageService {
       challenge: teamRes.challenge,
       joinedTeam: teamRes.team,
     };
+  }
+
+  static declineSquadInvite(notificationId: string): {
+    success: boolean;
+  } {
+    const notifs = this.getAllNotifications();
+    const notif = notifs.find((n) => n.id === notificationId);
+    if (!notif) return { success: false };
+
+    const updatedNotifs = notifs.map((n) =>
+      n.id === notificationId
+        ? {
+            ...n,
+            inviteStatus: 'declined' as const,
+            isRead: true,
+          }
+        : n
+    );
+
+    this.saveAllNotifications(updatedNotifs);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('daily:notification-updated', {
+          detail: { notificationId, inviteStatus: 'declined' },
+        })
+      );
+    }
+
+    return { success: true };
   }
 
   // --- CHALLENGE COMMITMENT CALENDAR HELPERS ---
