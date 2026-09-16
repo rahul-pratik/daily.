@@ -601,23 +601,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               }`}
             >
               <Folder className="w-3.5 h-3.5" />
-              <span>Collections ({collections.length})</span>
-            </button>
-
-            <button
-              onClick={() => {
-                vibrateLight();
-                setProfileTab('drafts');
-                setSelectedCollectionId(null);
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
-                profileTab === 'drafts'
-                  ? 'bg-white text-black shadow-sm font-black'
-                  : 'text-white/50 hover:text-white'
-              }`}
-            >
-              <FileText className="w-3.5 h-3.5 text-amber-400" />
-              <span>Drafts ({drafts.length})</span>
+              <span>Boxes ({collections.length})</span>
             </button>
           </div>
         </div>

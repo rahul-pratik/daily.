@@ -17,6 +17,8 @@ import {
   CheckSquare,
   Square,
   Layers,
+  Search,
+  Plus,
 } from 'lucide-react';
 import { Post, User, Challenge } from '../types';
 import { PostCard } from './PostCard';
@@ -45,6 +47,7 @@ interface HomeFeedProps {
   onOpenInsights?: (post: Post) => void;
   onDeletePost?: (postId: string) => void;
   onOpenAddToCollection?: (post: Post) => void;
+  onOpenCreateCommunity?: (tag?: string) => void;
 }
 
 export type FeedContentType = 'proofs' | 'tweets';
@@ -81,6 +84,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
   onOpenInsights,
   onDeletePost,
   onOpenAddToCollection,
+  onOpenCreateCommunity,
 }) => {
   // Multi-option Sort/Filter: each filter key is "type:category" (e.g. 'proofs:all', 'tweets:interests')
   const [selectedSortFilters, setSelectedSortFilters] = useState<string[]>([
@@ -466,14 +470,64 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
     });
   }, [multiFilteredPosts, searchQuery, activeTag]);
 
-  // Derive available tags directly from multiFilteredPosts
+  // Derive available tags directly from unblockedPosts, including user-made hashtags
   const availableTags = useMemo(() => {
     const tags = new Set<string>();
-    multiFilteredPosts.forEach((p) => {
-      (p.tags || []).forEach((t) => tags.add(t));
+    unblockedPosts.forEach((p) => {
+      (p.tags || []).forEach((t) => {
+        const clean = t.replace(/^#/, '').trim();
+        if (clean) tags.add(clean);
+      });
+      const matches = p.content.match(/#[a-zA-Z0-9_\u0080-\uFFFF]+/g);
+      if (matches) {
+        matches.forEach((m) => {
+          const clean = m.replace(/^#/, '').trim();
+          if (clean) tags.add(clean);
+        });
+      }
     });
-    return Array.from(tags).slice(0, 12);
-  }, [multiFilteredPosts]);
+    return Array.from(tags).filter(Boolean).slice(0, 24);
+  }, [unblockedPosts]);
+
+  // All communities for statistics
+  const allCommunities = useMemo(() => {
+    return DailyStorageService.getAllCommunities();
+  }, [feedRevision]);
+
+  // Active hashtag for insight computation
+  const activeSearchOrTag = searchQuery.trim() || (activeTag ? `#${activeTag}` : '');
+  const cleanTagQuery = activeSearchOrTag.replace(/^#/, '').trim().toLowerCase();
+
+  const hashtagStats = useMemo(() => {
+    if (!cleanTagQuery) return null;
+    const matchingCommunities = allCommunities.filter(
+      (c) =>
+        c.name.toLowerCase().includes(cleanTagQuery) ||
+        (c.tags || []).some((t) => t.toLowerCase().includes(cleanTagQuery)) ||
+        c.category.toLowerCase().includes(cleanTagQuery)
+    );
+
+    const matchingProofs = unblockedPosts.filter(
+      (p) =>
+        isPostProof(p) &&
+        ((p.tags || []).some((t) => t.toLowerCase().includes(cleanTagQuery)) ||
+          p.content.toLowerCase().includes(cleanTagQuery))
+    );
+
+    const matchingTweets = unblockedPosts.filter(
+      (p) =>
+        isPostTweet(p) &&
+        ((p.tags || []).some((t) => t.toLowerCase().includes(cleanTagQuery)) ||
+          p.content.toLowerCase().includes(cleanTagQuery))
+    );
+
+    return {
+      tag: cleanTagQuery,
+      communityCount: matchingCommunities.length,
+      proofsCount: matchingProofs.length,
+      tweetsCount: matchingTweets.length,
+    };
+  }, [cleanTagQuery, allCommunities, unblockedPosts]);
 
   const handleFeedRefresh = async () => {
     setFeedRevision((r) => r + 1);
@@ -530,19 +584,15 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
   const getSortButtonSummary = () => {
     const hasProofsAll = selectedSortFilters.includes('proofs:all');
     const hasTweetsAll = selectedSortFilters.includes('tweets:all');
-    const hasTweetsInterests = selectedSortFilters.includes('tweets:interests');
 
     if (selectedSortFilters.length === 2 && hasProofsAll && hasTweetsAll) {
-      return 'All (Proofs & Tweets)';
-    }
-    if (selectedSortFilters.length === 2 && hasProofsAll && hasTweetsInterests) {
-      return 'Proofs: All + Tweet: Interests';
+      return 'All Feed';
     }
     if (selectedSortFilters.length === 1 && hasProofsAll) {
-      return 'Proofs • All';
+      return 'Proofs Only';
     }
     if (selectedSortFilters.length === 1 && hasTweetsAll) {
-      return 'Tweets • All';
+      return 'Tweets Only';
     }
     if (selectedSortFilters.length === 1) {
       const [t, c] = selectedSortFilters[0].split(':');
@@ -558,7 +608,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
         })
         .join(' + ');
     }
-    return `${selectedSortFilters.length} Filters Active`;
+    return `${selectedSortFilters.length} Filters`;
   };
 
   return (
@@ -570,10 +620,35 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
       completedText="Feed updated • Just now"
     >
       <div className="w-full pb-24 pt-2 px-3 sm:px-4 max-w-lg mx-auto space-y-3">
-        {/* Sort / Filter By Option Button */}
+        {/* Search Bar & Sort By Option beside each other */}
         <div className="flex flex-col gap-2 border-b border-white/5 pb-2.5">
-          <div className="flex items-center justify-between gap-2">
-            <div className="relative" ref={sortDropdownRef}>
+          <div className="flex items-center gap-2">
+            {/* Search Input Bar */}
+            <div className="relative flex-1 min-w-0">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
+              <input
+                id="feed-search-input"
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search feed, proofs, tweets, #tags..."
+                className="w-full pl-8 pr-7 py-2 rounded-xl bg-white/5 hover:bg-white/[0.08] focus:bg-black/50 border border-white/10 text-white placeholder-white/40 text-xs font-medium focus:outline-none focus:border-[#2F6FED] transition-all"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white p-0.5"
+                  title="Clear search"
+                  aria-label="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Sort / Filter Option Beside Search Bar */}
+            <div className="relative shrink-0" ref={sortDropdownRef}>
               <button
                 id="feed-sort-by-button"
                 type="button"
@@ -581,13 +656,14 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                   vibrateLight();
                   setIsSortOpen((prev) => !prev);
                 }}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-white/90 transition-all shadow-sm active:scale-95 cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-white/90 transition-all shadow-sm active:scale-95 cursor-pointer"
                 aria-expanded={isSortOpen}
                 aria-haspopup="dialog"
+                title="Sort & Filter Feed"
               >
                 <ArrowUpDown className="w-3.5 h-3.5 text-[#2F6FED]" />
-                <span className="text-white/50 font-normal">Sort:</span>
-                <span className="font-bold text-white flex items-center gap-1.5 max-w-[210px] sm:max-w-none truncate">
+                <span className="hidden sm:inline text-white/50 font-normal">Sort:</span>
+                <span className="font-bold text-white max-w-[110px] truncate">
                   {getSortButtonSummary()}
                 </span>
                 <ChevronDown
@@ -601,7 +677,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
               {isSortOpen && (
                 <div
                   id="feed-sort-by-menu"
-                  className="absolute left-0 top-full mt-2 w-[340px] sm:w-[420px] max-w-[calc(100vw-24px)] bg-[#12141c] border border-white/10 rounded-2xl shadow-2xl shadow-black/90 backdrop-blur-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-150 space-y-3 max-h-[85vh] overflow-y-auto no-scrollbar"
+                  className="absolute right-0 sm:left-auto top-full mt-2 w-[340px] sm:w-[400px] max-w-[calc(100vw-24px)] bg-[#12141c] border border-white/10 rounded-2xl shadow-2xl shadow-black/90 backdrop-blur-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-150 space-y-3 max-h-[85vh] overflow-y-auto no-scrollbar"
                 >
                   {/* Header */}
                   <div className="flex items-center justify-between border-b border-white/10 pb-2">
@@ -618,67 +694,54 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                       onClick={resetFilters}
                       className="text-[11px] font-bold text-white/60 hover:text-white px-2 py-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
                     >
-                      Reset to All
+                      Reset to All Feed
                     </button>
                   </div>
 
-                  {/* Quick Presets */}
+                  {/* Quick Filters: Proofs Only & Tweets Only */}
                   <div className="space-y-1">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-white/40">
-                      Quick Combinations
+                      Quick Filter
                     </span>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <button
                         type="button"
-                        onClick={() => applyPreset(['proofs:all', 'tweets:interests'])}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all border flex items-center gap-1 cursor-pointer ${
-                          selectedSortFilters.length === 2 &&
-                          selectedSortFilters.includes('proofs:all') &&
-                          selectedSortFilters.includes('tweets:interests')
-                            ? 'bg-[#2F6FED] text-white border-[#2F6FED] shadow-sm'
-                            : 'bg-white/5 text-white/80 border-white/10 hover:bg-white/10 hover:text-white'
-                        }`}
-                      >
-                        <Sparkles className="w-3 h-3 text-amber-300" />
-                        <span>Proofs All + Tweet Interests</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => applyPreset(['proofs:all', 'tweets:all'])}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all border cursor-pointer ${
-                          selectedSortFilters.length === 2 &&
-                          selectedSortFilters.includes('proofs:all') &&
-                          selectedSortFilters.includes('tweets:all')
-                            ? 'bg-white text-black border-white shadow-sm'
-                            : 'bg-white/5 text-white/80 border-white/10 hover:bg-white/10 hover:text-white'
-                        }`}
-                      >
-                        All Feed
-                      </button>
-
-                      <button
-                        type="button"
                         onClick={() => applyPreset(['proofs:all'])}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all border cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border cursor-pointer flex items-center gap-1.5 ${
                           selectedSortFilters.length === 1 && selectedSortFilters.includes('proofs:all')
                             ? 'bg-[#2F6FED] text-white border-[#2F6FED]'
                             : 'bg-white/5 text-white/80 border-white/10 hover:bg-white/10 hover:text-white'
                         }`}
                       >
-                        Proofs Only
+                        <Camera className="w-3 h-3 text-white" />
+                        <span>Proofs Only</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => applyPreset(['tweets:all'])}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all border cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border cursor-pointer flex items-center gap-1.5 ${
                           selectedSortFilters.length === 1 && selectedSortFilters.includes('tweets:all')
                             ? 'bg-sky-500 text-black border-sky-500'
                             : 'bg-white/5 text-white/80 border-white/10 hover:bg-white/10 hover:text-white'
                         }`}
                       >
-                        Tweets Only
+                        <MessageSquare className="w-3 h-3 text-sky-300" />
+                        <span>Tweets Only</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => applyPreset(['proofs:all', 'tweets:all'])}
+                        className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border cursor-pointer flex items-center gap-1.5 ${
+                          selectedSortFilters.length === 2 &&
+                          selectedSortFilters.includes('proofs:all') &&
+                          selectedSortFilters.includes('tweets:all')
+                            ? 'bg-white text-black border-white'
+                            : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10'
+                        }`}
+                      >
+                        <span>All (Default)</span>
                       </button>
                     </div>
                   </div>
@@ -825,6 +888,67 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                   </span>
                 );
               })}
+            </div>
+          )}
+
+          {/* Hashtag Insights Banner */}
+          {hashtagStats && (
+            <div
+              id="feed-hashtag-insights"
+              className="p-3 rounded-2xl bg-[#2F6FED]/10 border border-[#2F6FED]/25 space-y-2 mt-1 animate-in fade-in zoom-in-95 duration-150"
+            >
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="w-2 h-2 rounded-full bg-[#2F6FED] animate-pulse shrink-0" />
+                  <span className="font-mono text-xs font-black text-[#5B8DEF] truncate">
+                    #{hashtagStats.tag}
+                  </span>
+                  <span className="text-[10px] text-white/50 font-medium">Activity Stats</span>
+                </div>
+
+                {onOpenCreateCommunity && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vibrateLight();
+                      onOpenCreateCommunity(hashtagStats.tag);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-[#2F6FED] hover:bg-blue-600 active:scale-95 text-white text-[11px] font-bold transition-all flex items-center gap-1 shadow-sm cursor-pointer shrink-0"
+                    title={`Create squad from #${hashtagStats.tag}`}
+                  >
+                    <Plus className="w-3 h-3 stroke-[3]" />
+                    <span>Create Squad from #{hashtagStats.tag}</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Counts: Communities, Proofs, and Tweets */}
+              <div className="grid grid-cols-3 gap-2 bg-black/40 p-2 rounded-xl border border-white/5 text-center">
+                <div className="py-1">
+                  <span className="text-sm font-black font-mono text-white block">
+                    {hashtagStats.communityCount}
+                  </span>
+                  <span className="text-[9px] font-bold text-white/50 uppercase tracking-wider block">
+                    Communities Made
+                  </span>
+                </div>
+                <div className="py-1 border-x border-white/5">
+                  <span className="text-sm font-black font-mono text-[#5B8DEF] block">
+                    {hashtagStats.proofsCount}
+                  </span>
+                  <span className="text-[9px] font-bold text-white/50 uppercase tracking-wider block">
+                    Proofs Made
+                  </span>
+                </div>
+                <div className="py-1">
+                  <span className="text-sm font-black font-mono text-sky-400 block">
+                    {hashtagStats.tweetsCount}
+                  </span>
+                  <span className="text-[9px] font-bold text-white/50 uppercase tracking-wider block">
+                    Tweets Made
+                  </span>
+                </div>
+              </div>
             </div>
           )}
         </div>

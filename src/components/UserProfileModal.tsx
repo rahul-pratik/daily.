@@ -159,16 +159,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               </div>
             </div>
 
-            {/* Name, Handle, Bio */}
+            {/* Name, Handle */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
                 <h2 className="text-lg font-black text-white truncate">{user.name}</h2>
                 <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0" />
               </div>
               <p className="text-xs text-white/50 font-mono mt-0.5">@{user.username}</p>
-              {user.bio && (
-                <p className="text-xs text-white/80 mt-2 leading-relaxed break-words">{user.bio}</p>
-              )}
             </div>
           </div>
 
@@ -244,19 +241,62 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             </button>
           </div>
 
-          {/* Stats Row: Proofs, Followers, Following */}
-          <div className="grid grid-cols-3 gap-2 p-3 bg-white/[0.04] border border-white/10 rounded-2xl text-center">
+          {/* Stats Row: Proofs, Tweets, Boxes, Followers, Following */}
+          <div className="grid grid-cols-5 gap-1 p-2.5 bg-white/[0.04] border border-white/10 rounded-2xl text-center">
             <div>
-              <span className="text-base font-black text-white block">{userPosts.length}</span>
-              <span className="text-[10px] uppercase tracking-wider text-white/50 font-bold">Proofs</span>
+              <span className="text-sm font-black text-white block">
+                {userPosts.filter((p) => Boolean(p.imageUrl && p.imageUrl.trim() !== '')).length}
+              </span>
+              <span className="text-[9px] uppercase tracking-wider text-white/50 font-bold">Proofs</span>
             </div>
             <div>
-              <span className="text-base font-black text-white block">{user.followersCount}</span>
-              <span className="text-[10px] uppercase tracking-wider text-white/50 font-bold">Followers</span>
+              <span className="text-sm font-black text-white block">
+                {userPosts.filter((p) => !p.imageUrl || p.imageUrl.trim() === '').length}
+              </span>
+              <span className="text-[9px] uppercase tracking-wider text-sky-400/80 font-bold">Tweets</span>
             </div>
             <div>
-              <span className="text-base font-black text-white block">{user.followingCount}</span>
-              <span className="text-[10px] uppercase tracking-wider text-white/50 font-bold">Following</span>
+              <span className="text-sm font-black text-white block">{userCollections.length}</span>
+              <span className="text-[9px] uppercase tracking-wider text-white/50 font-bold">Boxes</span>
+            </div>
+            <div>
+              <span className="text-sm font-black text-white block">{user.followersCount}</span>
+              <span className="text-[9px] uppercase tracking-wider text-white/50 font-bold">Followers</span>
+            </div>
+            <div>
+              <span className="text-sm font-black text-white block">{user.followingCount}</span>
+              <span className="text-[9px] uppercase tracking-wider text-white/50 font-bold">Following</span>
+            </div>
+          </div>
+
+          {/* Biography & Focus rendered directly under the proofs, followers bar */}
+          <div className="p-3 rounded-2xl bg-white/[0.02] border border-white/10 space-y-1 text-left">
+            <div className="text-xs text-white/90 leading-relaxed font-medium">
+              {(() => {
+                const rawBio = user.bio || 'Building daily momentum and verified receipts';
+                const text = rawBio.toLowerCase().includes('focus:') ? rawBio : `Focus: ${rawBio}`;
+                const parts = text.split(/(@[a-zA-Z0-9_]+|🏆[^\n]+)/g);
+                return parts.map((part, i) => {
+                  if (part.startsWith('@')) {
+                    return (
+                      <span key={i} className="text-sky-400 font-bold font-mono">
+                        {part}
+                      </span>
+                    );
+                  }
+                  if (part.startsWith('🏆')) {
+                    return (
+                      <span
+                        key={i}
+                        className="inline-flex items-center gap-0.5 px-2 py-0.5 ml-1 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-bold"
+                      >
+                        {part}
+                      </span>
+                    );
+                  }
+                  return part;
+                });
+              })()}
             </div>
           </div>
 

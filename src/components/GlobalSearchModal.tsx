@@ -17,6 +17,7 @@ import {
   Compass,
   CheckCircle2,
   Calendar,
+  Plus,
 } from 'lucide-react';
 import { User, Community, Post, Group } from '../types';
 import { vibrateLight } from '../services/haptics';
@@ -35,6 +36,7 @@ interface GlobalSearchModalProps {
   onSelectGroup?: (group: Group) => void;
   onSelectPost?: (post: Post) => void;
   onSelectTag: (tag: string) => void;
+  onCreateCommunity?: (tag: string) => void;
 }
 
 const renderEntityAvatar = (avatar?: string, fallback: string = '🌐') => {
@@ -67,6 +69,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
   onSelectGroup,
   onSelectPost,
   onSelectTag,
+  onCreateCommunity,
 }) => {
   const [query, setQuery] = useState('');
   const [activeTab, setActiveTab] = useState<SearchWish>('all');
@@ -170,6 +173,39 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
     (activeTab === 'all' || activeTab === 'communities' ? filteredCommunities.length : 0) +
     (activeTab === 'all' || activeTab === 'users' ? filteredUsers.length : 0) +
     (activeTab === 'all' || activeTab === 'tags' ? filteredTags.length : 0);
+
+  // Hashtag insight for search query
+  const searchedTagInsights = useMemo(() => {
+    if (!rawTagQuery) return null;
+
+    const matchingComms = communities.filter(
+      (c) =>
+        c.name.toLowerCase().includes(rawTagQuery) ||
+        (c.tags || []).some((t) => t.toLowerCase().includes(rawTagQuery)) ||
+        c.category.toLowerCase().includes(rawTagQuery)
+    );
+
+    const matchingProofs = posts.filter(
+      (p) =>
+        Boolean(p.imageUrl && p.imageUrl.trim() !== '') &&
+        ((p.tags || []).some((t) => t.toLowerCase().includes(rawTagQuery)) ||
+          p.content.toLowerCase().includes(rawTagQuery))
+    );
+
+    const matchingTweets = posts.filter(
+      (p) =>
+        (!p.imageUrl || p.imageUrl.trim() === '') &&
+        ((p.tags || []).some((t) => t.toLowerCase().includes(rawTagQuery)) ||
+          p.content.toLowerCase().includes(rawTagQuery))
+    );
+
+    return {
+      tag: rawTagQuery,
+      communitiesCount: matchingComms.length,
+      proofsCount: matchingProofs.length,
+      tweetsCount: matchingTweets.length,
+    };
+  }, [rawTagQuery, communities, posts]);
 
   const placeholderText =
     activeTab === 'users'
@@ -613,6 +649,63 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
           {/* ACTIVE SEARCH RESULTS */}
           {cleanQuery && (
             <div className="space-y-6">
+              {/* Hashtag Analytics Card */}
+              {searchedTagInsights && (
+                <div className="p-3.5 rounded-2xl bg-[#2F6FED]/10 border border-[#2F6FED]/25 space-y-2.5">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#2F6FED] animate-pulse" />
+                      <span className="font-mono text-xs font-black text-[#5B8DEF]">
+                        #{searchedTagInsights.tag}
+                      </span>
+                      <span className="text-[11px] text-white/50">Hashtag Breakdown</span>
+                    </div>
+
+                    {onCreateCommunity && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateLight();
+                          onCreateCommunity(searchedTagInsights.tag);
+                          onClose();
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-[#2F6FED] hover:bg-blue-600 active:scale-95 text-white text-[11px] font-bold transition-all flex items-center gap-1 shadow-sm cursor-pointer shrink-0"
+                      >
+                        <Plus className="w-3 h-3 stroke-[3]" />
+                        <span>Create Squad from #{searchedTagInsights.tag}</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 bg-black/40 p-2 rounded-xl border border-white/5 text-center">
+                    <div className="py-1">
+                      <span className="text-base font-black font-mono text-white block">
+                        {searchedTagInsights.communitiesCount}
+                      </span>
+                      <span className="text-[9px] font-bold text-white/50 uppercase tracking-wider block">
+                        Communities Made
+                      </span>
+                    </div>
+                    <div className="py-1 border-x border-white/5">
+                      <span className="text-base font-black font-mono text-[#5B8DEF] block">
+                        {searchedTagInsights.proofsCount}
+                      </span>
+                      <span className="text-[9px] font-bold text-white/50 uppercase tracking-wider block">
+                        Proofs Made
+                      </span>
+                    </div>
+                    <div className="py-1">
+                      <span className="text-base font-black font-mono text-sky-400 block">
+                        {searchedTagInsights.tweetsCount}
+                      </span>
+                      <span className="text-[9px] font-bold text-white/50 uppercase tracking-wider block">
+                        Tweets Made
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Empty Results State */}
               {totalResults === 0 && (
                 <div className="py-16 text-center space-y-3">

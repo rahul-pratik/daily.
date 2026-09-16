@@ -22,6 +22,8 @@ interface CreateCommunityModalProps {
   isOpen: boolean;
   currentUser: User;
   onClose: () => void;
+  initialName?: string;
+  initialTag?: string;
   onCreateCommunity: (params: {
     name: string;
     description: string;
@@ -58,12 +60,29 @@ export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({
   isOpen,
   currentUser,
   onClose,
+  initialName = '',
+  initialTag = '',
   onCreateCommunity,
 }) => {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
+  const [name, setName] = useState(initialName || (initialTag ? `#${initialTag.replace(/^#/, '')}` : ''));
+  const [description, setDescription] = useState(
+    initialTag ? `Community focused on #${initialTag.replace(/^#/, '')} momentum and daily proofs.` : ''
+  );
   const [category, setCategory] = useState<string>('Coding');
   const [accessType, setAccessType] = useState<'public' | 'moderated'>('public');
+
+  // Sync when initialName/initialTag changes or modal opens
+  React.useEffect(() => {
+    if (isOpen) {
+      if (initialName) {
+        setName(initialName);
+      } else if (initialTag) {
+        const cleanTag = initialTag.replace(/^#/, '');
+        setName(`${cleanTag.charAt(0).toUpperCase() + cleanTag.slice(1)} Builders`);
+        setDescription(`Daily accountability and proof-of-work community for #${cleanTag}.`);
+      }
+    }
+  }, [isOpen, initialName, initialTag]);
 
   // Custom Visual Theme
   const [themeColor, setThemeColor] = useState<string>('#2F6FED');
@@ -133,7 +152,13 @@ export const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({
       coverImage: customBanner.trim() ? customBanner.trim() : undefined,
       themeColor,
       rules: parsedRules.length > 0 ? parsedRules : ['Be respectful and post daily progress'],
-      tags: [category, accessType === 'public' ? 'Open' : 'Moderated'],
+      tags: Array.from(
+        new Set(
+          [category, accessType === 'public' ? 'Open' : 'Moderated', initialTag ? initialTag.replace(/^#/, '') : ''].filter(
+            Boolean
+          )
+        )
+      ),
     });
 
     setName('');

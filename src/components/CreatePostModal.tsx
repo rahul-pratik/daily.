@@ -111,6 +111,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const [extraPhotosToAppend, setExtraPhotosToAppend] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>(['Building']);
   const [photoCaptions, setPhotoCaptions] = useState<string[]>([]);
+  const [customTagInput, setCustomTagInput] = useState<string>('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isCollageGenerated, setIsCollageGenerated] = useState(false);
   const [allowDraftingAfterPost, setAllowDraftingAfterPost] = useState(false);
@@ -434,15 +435,30 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
 
   const toggleTag = (tag: string) => {
     vibrateLight();
-    if (selectedTags.includes(tag)) {
+    const clean = tag.replace(/^#/, '').trim();
+    if (selectedTags.includes(clean)) {
       if (selectedTags.length > 1) {
-        setSelectedTags(selectedTags.filter((t) => t !== tag));
+        setSelectedTags(selectedTags.filter((t) => t !== clean));
       }
     } else {
-      if (selectedTags.length < 4) {
-        setSelectedTags([...selectedTags, tag]);
-      }
+      setSelectedTags([...selectedTags, clean]);
     }
+  };
+
+  const handleAddCustomTag = (tagToAdd?: string) => {
+    const raw = tagToAdd || customTagInput;
+    const clean = raw.replace(/^#/, '').trim().replace(/\s+/g, '_');
+    if (clean && !selectedTags.includes(clean)) {
+      vibrateLight();
+      setSelectedTags([...selectedTags, clean]);
+      setCustomTagInput('');
+    }
+  };
+
+  const extractHashtagsFromText = (text: string): string[] => {
+    const matches = text.match(/#[a-zA-Z0-9_\u0080-\uFFFF]+/g);
+    if (!matches) return [];
+    return matches.map((m) => m.replace(/^#/, '').trim()).filter(Boolean);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -696,12 +712,14 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
 
     vibrateStreakMilestone();
     const primaryImg = imageUrls[coverIndex] || imageUrls[0] || imageUrl.trim() || undefined;
+    const contentHashtags = extractHashtagsFromText(content);
+    const mergedTags = Array.from(new Set([...selectedTags, ...contentHashtags]));
     onSubmitPost({
       content: content.trim(),
       imageUrl: primaryImg,
       imageUrls: imageUrls.length > 0 ? imageUrls : (primaryImg ? [primaryImg] : undefined),
       photoCaptions: photoCaptions.some((c) => c && c.trim()) ? photoCaptions : undefined,
-      tags: selectedTags.length > 0 ? selectedTags : ['DailyProof'],
+      tags: mergedTags.length > 0 ? mergedTags : ['DailyProof'],
       isMainPost: true,
       isCollage: isCollageGenerated,
     });
@@ -1111,6 +1129,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                 <div className="flex flex-wrap gap-1.5">
                   {Array.from(
                     new Set([
+                      ...selectedTags,
                       ...(currentUser.interests || []),
                       ...(currentUser.habits || []),
                       'Building',
@@ -1121,7 +1140,6 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                       'Run',
                       'Reading',
                       'Design',
-                      'Gardening',
                       'Mindset',
                       'DailyProof',
                     ])
@@ -1143,6 +1161,35 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                       </button>
                     );
                   })}
+                </div>
+
+                {/* Create Custom Hashtag Input */}
+                <div className="flex items-center gap-2 pt-1.5">
+                  <div className="relative flex-1">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 font-mono font-bold text-xs">#</span>
+                    <input
+                      type="text"
+                      value={customTagInput}
+                      onChange={(e) => setCustomTagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddCustomTag();
+                        }
+                      }}
+                      placeholder="Type custom hashtag (e.g. buildinpublic, 5amclub)..."
+                      className="w-full pl-7 pr-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 text-xs font-medium focus:outline-none focus:border-[#2F6FED] transition-all"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleAddCustomTag()}
+                    disabled={!customTagInput.trim()}
+                    className="px-3 py-2 rounded-xl bg-[#2F6FED] hover:bg-blue-600 disabled:opacity-40 disabled:pointer-events-none text-white font-bold text-xs transition-all active:scale-95 shrink-0 flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                    <span>Add Tag</span>
+                  </button>
                 </div>
               </div>
 

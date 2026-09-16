@@ -64,6 +64,7 @@ export default function App() {
   const [postPendingDelete, setPostPendingDelete] = useState<Post | null>(null);
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
   const [isCreateCommunityOpen, setIsCreateCommunityOpen] = useState(false);
+  const [communityInitialTag, setCommunityInitialTag] = useState<string>('');
   const [activeCommunityHub, setActiveCommunityHub] = useState<Community | null>(null);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [activeProfileUser, setActiveProfileUser] = useState<User | null>(null);
@@ -772,6 +773,10 @@ export default function App() {
               onOpenInsights={handleOpenInsights}
               onDeletePost={handleRequestDeletePost}
               onOpenAddToCollection={(post) => setSelectedPostForCollection(post)}
+              onOpenCreateCommunity={(tag) => {
+                setCommunityInitialTag(tag || '');
+                setIsCreateCommunityOpen(true);
+              }}
             />
           )}
 
@@ -1013,8 +1018,13 @@ export default function App() {
         <CreateCommunityModal
           isOpen={isCreateCommunityOpen}
           currentUser={currentUser}
-          onClose={() => setIsCreateCommunityOpen(false)}
+          onClose={() => {
+            setIsCreateCommunityOpen(false);
+            setCommunityInitialTag('');
+          }}
           onCreateCommunity={handleCreateCommunity}
+          initialTag={communityInitialTag}
+          initialName={communityInitialTag ? `${communityInitialTag.charAt(0).toUpperCase() + communityInitialTag.slice(1)} Club` : ''}
         />
 
         {/* Explore Community Hub Modal */}
@@ -1143,6 +1153,10 @@ export default function App() {
           }}
           onSelectTag={(tag) => {
             setCurrentTab('discover');
+          }}
+          onCreateCommunity={(tag) => {
+            setCommunityInitialTag(tag || '');
+            setIsCreateCommunityOpen(true);
           }}
         />
 
