@@ -16,7 +16,7 @@ import {
   Medal,
   Check,
 } from 'lucide-react';
-import { Challenge, ChallengeLeaderboard, User } from '../types';
+import { Challenge, ChallengeLeaderboard, ChallengeTeam, User } from '../types';
 import { DailyStorageService } from '../services/storage';
 import { vibrateLight } from '../services/haptics';
 
@@ -25,6 +25,7 @@ interface ChallengeLeaderboardViewProps {
   currentUser: User;
   onOpenInvite?: () => void;
   onViewUser?: (user: { id: string; name: string; username: string; avatar: string; streak: number }) => void;
+  onSelectSquad?: (squad: ChallengeTeam) => void;
 }
 
 export const ChallengeLeaderboardView: React.FC<ChallengeLeaderboardViewProps> = ({
@@ -32,6 +33,7 @@ export const ChallengeLeaderboardView: React.FC<ChallengeLeaderboardViewProps> =
   currentUser,
   onOpenInvite,
   onViewUser,
+  onSelectSquad,
 }) => {
   const [leaderboardTab, setLeaderboardTab] = useState<'individuals' | 'squads'>(
     challenge.challengeType === 'group' ? 'squads' : 'individuals'
@@ -191,10 +193,16 @@ export const ChallengeLeaderboardView: React.FC<ChallengeLeaderboardViewProps> =
             leaderboard.squads.map((squad) => (
               <div
                 key={squad.teamId}
-                className={`p-3.5 sm:p-4 rounded-2xl border transition-all ${
+                onClick={() => {
+                  vibrateLight();
+                  if (onSelectSquad && squad.team) {
+                    onSelectSquad(squad.team);
+                  }
+                }}
+                className={`p-3.5 sm:p-4 rounded-2xl border transition-all cursor-pointer ${
                   squad.isUserSquad
-                    ? 'bg-amber-500/10 border-amber-500/50 shadow-lg shadow-amber-500/10'
-                    : 'bg-[#111111] hover:bg-[#161616] border-white/10'
+                    ? 'bg-amber-500/10 border-amber-500/50 shadow-lg shadow-amber-500/10 hover:border-amber-400'
+                    : 'bg-[#111111] hover:bg-[#161616] border-white/10 hover:border-amber-500/40'
                 }`}
               >
                 <div className="flex items-center justify-between gap-3">

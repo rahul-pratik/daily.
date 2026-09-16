@@ -32,6 +32,7 @@ import { User, Challenge, ChallengeProgressPost, Message, ChallengeTeam } from '
 import { DailyStorageService, getTodayDateString } from '../services/storage';
 import { vibrateLight, vibrateSuccess, vibrateStreakMilestone } from '../services/haptics';
 import { ChallengeLeaderboardView } from './ChallengeLeaderboardView';
+import { SquadDetailsModal } from './SquadDetailsModal';
 
 interface ChallengeProgressScreenProps {
   challenge: Challenge;
@@ -107,6 +108,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
 
   // Squad / Team management states
+  const [inspectedSquad, setInspectedSquad] = useState<ChallengeTeam | null>(null);
   const [isCreateSquadOpen, setIsCreateSquadOpen] = useState(false);
   const [squadNameInput, setSquadNameInput] = useState('');
   const [squadMottoInput, setSquadMottoInput] = useState('');
@@ -1031,7 +1033,11 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
 
         {/* TAB 2: LEADERBOARD */}
         {challengeTab === 'leaderboard' && (
-          <ChallengeLeaderboardView challenge={challenge} currentUser={currentUser} />
+          <ChallengeLeaderboardView
+            challenge={challenge}
+            currentUser={currentUser}
+            onSelectSquad={(squad) => setInspectedSquad(squad)}
+          />
         )}
 
         {/* TAB 3: SQUADS (Squad roster, squad creation, find members - Group challenges only) */}
@@ -1040,14 +1046,23 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
             {/* User Squad Status */}
             {mySquad ? (
               <div className="bg-[#0F0F0F] border border-amber-500/30 rounded-3xl p-5 shadow-xl space-y-3">
-                <div className="flex items-center justify-between">
+                <div
+                  onClick={() => {
+                    vibrateLight();
+                    setInspectedSquad(mySquad);
+                  }}
+                  className="flex items-center justify-between cursor-pointer group"
+                  title="Click to view squad activity & proofs"
+                >
                   <div className="flex items-center gap-2.5">
-                    <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                    <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 group-hover:bg-amber-500/25 transition-colors">
                       <Users className="w-5 h-5" />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-black text-white">{mySquad.name}</h3>
+                        <h3 className="text-sm font-black text-white group-hover:text-amber-300 transition-colors">
+                          {mySquad.name}
+                        </h3>
                         <span className="text-[10px] font-bold text-amber-400 bg-amber-500/20 px-2 py-0.5 rounded-full">
                           Your Squad
                         </span>
@@ -1075,7 +1090,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                     {mySquad.members.length < mySquad.maxMembers && (
                       <button
                         onClick={() => setIsFindSquadModalOpen(true)}
-                        className="text-[11px] font-bold text-[#2F6FED] hover:underline flex items-center gap-1"
+                        className="text-[11px] font-bold text-[#2F6FED] hover:underline flex items-center gap-1 cursor-pointer"
                       >
                         <UserPlus className="w-3 h-3" />
                         <span>Invite Teammate</span>
@@ -1086,15 +1101,19 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {mySquad.members.map((m) => {
                       const isCreator = m.userId === mySquad.leaderId || m.role === 'leader';
-                      const isOnline = isMemberOnline(m.userId);
                       return (
                         <div
                           key={m.userId}
-                          className={`p-2.5 rounded-2xl border flex items-center gap-2.5 ${
+                          onClick={() => {
+                            vibrateLight();
+                            setInspectedSquad(mySquad);
+                          }}
+                          className={`p-2.5 rounded-2xl border flex items-center gap-2.5 cursor-pointer hover:border-amber-500/40 transition-colors ${
                             m.userId === currentUser.id
                               ? 'bg-amber-500/10 border-amber-500/30'
                               : 'bg-white/5 border-white/10'
                           }`}
+                          title="Click to view squad activity and member proofs"
                         >
                           <div className="relative shrink-0">
                             <img
@@ -1113,15 +1132,6 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                                 <Crown className="w-2.5 h-2.5 text-black fill-black" />
                               </span>
                             )}
-                            {/* Online/Offline Status Indicator on Avatar */}
-                            <span
-                              className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#0A0A0A] ${
-                                isOnline
-                                  ? 'bg-emerald-500 ring-2 ring-emerald-500/30'
-                                  : 'bg-zinc-500'
-                              }`}
-                              title={isOnline ? 'Online / Active now' : 'Offline'}
-                            />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 flex-wrap">
@@ -1139,21 +1149,6 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                               <span className="text-[10px] text-blue-400 font-bold">
                                 {m.checkinsCount || 0} receipts
                               </span>
-                              <span className="text-white/20 text-[10px]">•</span>
-                              <span className="inline-flex items-center gap-1 text-[10px]">
-                                <span
-                                  className={`w-1.5 h-1.5 rounded-full ${
-                                    isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-500'
-                                  }`}
-                                />
-                                <span
-                                  className={`font-semibold ${
-                                    isOnline ? 'text-emerald-400' : 'text-white/40'
-                                  }`}
-                                >
-                                  {isOnline ? 'Active now' : 'Offline'}
-                                </span>
-                              </span>
                             </div>
                           </div>
                         </div>
@@ -1164,17 +1159,30 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
 
                 {/* Squad Actions */}
                 <div className="flex items-center justify-between pt-2 border-t border-white/10 text-xs flex-wrap gap-2">
-                  <button
-                    onClick={() => {
-                      vibrateLight();
-                      setChallengeTab('chat');
-                      setChatChannel('squad');
-                    }}
-                    className="py-1.5 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm shadow-amber-500/10"
-                  >
-                    <MessageCircle className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Go to Team Chat</span>
-                  </button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      onClick={() => {
+                        vibrateLight();
+                        setInspectedSquad(mySquad);
+                      }}
+                      className="py-1.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                      <span>View Activity & Proofs</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        vibrateLight();
+                        setChallengeTab('chat');
+                        setChatChannel('squad');
+                      }}
+                      className="py-1.5 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm shadow-amber-500/10 cursor-pointer"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Go to Team Chat</span>
+                    </button>
+                  </div>
 
                   <button
                     id="leave-squad-btn"
@@ -1281,20 +1289,27 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                     return (
                       <div
                         key={team.id}
-                        className={`bg-[#0F0F0F] border rounded-3xl p-4 shadow-xl space-y-3 transition-all ${
+                        onClick={() => {
+                          vibrateLight();
+                          setInspectedSquad(team);
+                        }}
+                        className={`bg-[#0F0F0F] border rounded-3xl p-4 shadow-xl space-y-3 transition-all cursor-pointer group hover:border-amber-500/40 hover:bg-white/[0.02] ${
                           isMember
                             ? 'border-amber-500/40 bg-amber-500/[0.03]'
                             : 'border-white/10 hover:border-white/20'
                         }`}
+                        title="Click to view squad activity, members, and proofs"
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-start gap-3 min-w-0">
-                            <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-300 font-black text-sm shrink-0">
+                            <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-300 font-black text-sm shrink-0 group-hover:bg-amber-500/20 transition-colors">
                               #{idx + 1}
                             </div>
                             <div className="min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <h4 className="text-sm font-black text-white">{team.name}</h4>
+                                <h4 className="text-sm font-black text-white group-hover:text-amber-300 transition-colors">
+                                  {team.name}
+                                </h4>
                                 {isMember && (
                                   <span className="text-[10px] font-bold text-amber-400 bg-amber-500/20 px-2 py-0.2 rounded-full">
                                     Your Squad
@@ -1329,7 +1344,6 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                             <div className="flex -space-x-2 overflow-hidden items-center">
                               {team.members.map((m) => {
                                 const isCreator = m.userId === team.leaderId || m.role === 'leader';
-                                const isOnline = isMemberOnline(m.userId);
                                 return (
                                   <div key={m.userId} className="relative group/avatar">
                                     <img
@@ -1339,18 +1353,13 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                                       className={`w-7 h-7 rounded-full object-cover border-2 ${
                                         isCreator ? 'border-amber-400 ring-1 ring-amber-400/50' : 'border-[#0F0F0F]'
                                       }`}
-                                      title={`${m.userName}${isCreator ? ' (Leader/Owner)' : ''} (${isOnline ? 'Online' : 'Offline'} • ${m.checkinsCount || 0} receipts)`}
+                                      title={`${m.userName}${isCreator ? ' (Leader/Owner)' : ''} (${m.checkinsCount || 0} receipts)`}
                                     />
                                     {isCreator && (
                                       <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-500 border border-black flex items-center justify-center shadow-xs z-10">
                                         <Crown className="w-2 h-2 text-black fill-black" />
                                       </span>
                                     )}
-                                    <span
-                                      className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-[#0F0F0F] ${
-                                        isOnline ? 'bg-emerald-400' : 'bg-zinc-500'
-                                      }`}
-                                    />
                                   </div>
                                 );
                               })}
@@ -1360,31 +1369,52 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                             </span>
                           </div>
 
-                          {isMember ? (
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <button
-                              onClick={() => {
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 vibrateLight();
-                                setChallengeTab('chat');
-                                setChatChannel('squad');
+                                setInspectedSquad(team);
                               }}
-                              className="py-1.5 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-xs transition-all flex items-center gap-1 border border-amber-500/30"
+                              className="py-1.5 px-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/80 hover:text-white font-bold text-xs transition-all flex items-center gap-1 border border-white/10 cursor-pointer"
                             >
-                              <MessageCircle className="w-3.5 h-3.5 text-amber-400" />
-                              <span>Team Chat</span>
+                              <Sparkles className="w-3 h-3 text-amber-400" />
+                              <span>View Activity</span>
                             </button>
-                          ) : !mySquad && !isFull ? (
-                            <button
-                              onClick={() => handleJoinSquad(team.id)}
-                              className="py-1.5 px-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-black text-xs transition-all flex items-center gap-1 shadow-sm"
-                            >
-                              <UserPlus className="w-3.5 h-3.5" />
-                              <span>Join Squad</span>
-                            </button>
-                          ) : isFull ? (
-                            <span className="text-[11px] font-bold text-white/30 px-2 py-1 rounded-lg bg-white/5">
-                              Squad Full
-                            </span>
-                          ) : null}
+
+                            {isMember ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  vibrateLight();
+                                  setChallengeTab('chat');
+                                  setChatChannel('squad');
+                                }}
+                                className="py-1.5 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-xs transition-all flex items-center gap-1 border border-amber-500/30 cursor-pointer"
+                              >
+                                <MessageCircle className="w-3.5 h-3.5 text-amber-400" />
+                                <span>Team Chat</span>
+                              </button>
+                            ) : !mySquad && !isFull ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleJoinSquad(team.id);
+                                }}
+                                className="py-1.5 px-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-black text-xs transition-all flex items-center gap-1 shadow-sm cursor-pointer"
+                              >
+                                <UserPlus className="w-3.5 h-3.5" />
+                                <span>Join Squad</span>
+                              </button>
+                            ) : isFull ? (
+                              <span className="text-[11px] font-bold text-white/30 px-2 py-1 rounded-lg bg-white/5">
+                                Squad Full
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
                     );
@@ -1525,12 +1555,11 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {mySquad.members.map((m) => {
                       const isSubmitted = squadProofStats.submittedMembers.some((sm) => sm.userId === m.userId);
-                      const isOnline = isMemberOnline(m.userId);
                       return (
                         <div
                           key={m.userId}
                           className="flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-xl px-2 py-1"
-                          title={`${m.userName} (${isOnline ? 'Online' : 'Offline'} • ${isSubmitted ? 'Proof submitted today' : 'Proof pending'})`}
+                          title={`${m.userName} (${isSubmitted ? 'Proof submitted today' : 'Proof pending'})`}
                         >
                           <div className="relative shrink-0">
                             <img
@@ -1538,11 +1567,6 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                               alt={m.userName}
                               referrerPolicy="no-referrer"
                               className="w-5 h-5 rounded-full object-cover border border-white/20"
-                            />
-                            <span
-                              className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-black ${
-                                isOnline ? 'bg-emerald-400 ring-1 ring-emerald-400/40' : 'bg-zinc-500'
-                              }`}
                             />
                           </div>
                           <span className="text-[10px] font-semibold text-white/90 truncate max-w-[75px]">
@@ -2217,6 +2241,24 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
           </div>
         </div>
       )}
+
+      {/* SQUAD DETAILS & ACTIVITY MODAL */}
+      <SquadDetailsModal
+        isOpen={inspectedSquad !== null}
+        onClose={() => setInspectedSquad(null)}
+        squad={inspectedSquad}
+        challenge={challenge}
+        currentUser={currentUser}
+        onOpenSquadChat={() => {
+          setInspectedSquad(null);
+          setChallengeTab('chat');
+          setChatChannel('squad');
+        }}
+        onJoinSquad={(sid) => {
+          handleJoinSquad(sid);
+          setInspectedSquad(null);
+        }}
+      />
 
       {/* FULL PHOTO ZOOM MODAL */}
       {selectedPhotoPreview && (

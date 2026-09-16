@@ -30,6 +30,9 @@ import {
   Eye,
   Activity,
   Zap,
+  MessageSquare,
+  MessageCircle,
+  Heart,
 } from 'lucide-react';
 import { User, Post, ProofCollection, PostDraft } from '../types';
 import { PostCard } from './PostCard';
@@ -47,7 +50,7 @@ interface ProfileScreenProps {
   posts: Post[];
   savedPostIds?: string[];
   reportedPostIds?: string[];
-  initialTab?: 'dossier' | 'proofs' | 'collections' | 'drafts';
+  initialTab?: 'dossier' | 'proofs' | 'tweets' | 'collections' | 'drafts';
   onToggleLike: (postId: string) => void;
   onOpenComments: (post: Post) => void;
   onOpenEditProfile: () => void;
@@ -101,9 +104,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onUserUpdated,
   onOpenNotifications,
 }) => {
-  // Clean profile tabs: Proofs, Collections, and Drafts
-  const [profileTab, setProfileTab] = useState<'proofs' | 'collections' | 'drafts'>(
-    initialTab === 'drafts' ? 'drafts' : initialTab === 'collections' ? 'collections' : 'proofs'
+  // Clean profile tabs: Proofs, Tweets, Collections, and Drafts
+  const [profileTab, setProfileTab] = useState<'proofs' | 'tweets' | 'collections' | 'drafts'>(
+    initialTab === 'drafts'
+      ? 'drafts'
+      : initialTab === 'collections'
+      ? 'collections'
+      : initialTab === 'tweets'
+      ? 'tweets'
+      : 'proofs'
   );
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
@@ -174,6 +183,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   // Filter posts created by current user
   const userPosts = posts.filter((p) => p.userId === currentUser.id);
+
+  // Split into Proofs (posts with attached proof photo receipts) and Tweets (text-only posts)
+  const userProofPosts = userPosts.filter((p) => Boolean(p.imageUrl && p.imageUrl.trim() !== ''));
+  const userTextPosts = userPosts.filter((p) => !p.imageUrl || p.imageUrl.trim() === '');
 
   // Filter saved posts
   const savedPosts = posts.filter((p) => savedPostIds.includes(p.id));
@@ -307,8 +320,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </div>
         </div>
 
-        {/* Stats Row: Proofs, Collections, Drafts, Followers, Following */}
-        <div className="grid grid-cols-5 gap-1 sm:gap-2 mt-5 pt-4 border-t border-white/5 text-center">
+        {/* Stats Row: Proofs, Tweets, Collections, Drafts, Followers, Following */}
+        <div className="grid grid-cols-6 gap-1 sm:gap-1.5 mt-5 pt-4 border-t border-white/5 text-center">
           <button
             type="button"
             onClick={() => {
@@ -317,12 +330,28 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               setSelectedCollectionId(null);
             }}
             className="group p-1 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
-            title="View Proofs"
+            title="View Proofs (with receipts)"
           >
             <span className="text-base font-black text-white group-hover:text-[#2F6FED] transition-colors block">
-              {userPosts.length}
+              {userProofPosts.length}
             </span>
             <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-white/40 group-hover:text-white/70 font-semibold transition-colors">Proofs</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              vibrateLight();
+              setProfileTab('tweets');
+              setSelectedCollectionId(null);
+            }}
+            className="group p-1 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
+            title="View Tweets & Text-only Posts"
+          >
+            <span className="text-base font-black text-white group-hover:text-sky-400 transition-colors block">
+              {userTextPosts.length}
+            </span>
+            <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-white/40 group-hover:text-sky-400/80 font-semibold transition-colors">Tweets</span>
           </button>
 
           <button
@@ -338,7 +367,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <span className="text-base font-black text-white group-hover:text-blue-400 transition-colors block">
               {collections.length}
             </span>
-            <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-white/40 group-hover:text-white/70 font-semibold transition-colors">Collections</span>
+            <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-white/40 group-hover:text-white/70 font-semibold transition-colors">Boxes</span>
           </button>
 
           <button
@@ -518,14 +547,30 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 setProfileTab('proofs');
                 setSelectedCollectionId(null);
               }}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                 profileTab === 'proofs'
                   ? 'bg-white text-black shadow-sm font-black'
                   : 'text-white/50 hover:text-white'
               }`}
             >
               <Flame className="w-3.5 h-3.5 text-[#2F6FED]" />
-              <span>Proofs ({userPosts.length})</span>
+              <span>Proofs ({userProofPosts.length})</span>
+            </button>
+
+            <button
+              onClick={() => {
+                vibrateLight();
+                setProfileTab('tweets');
+                setSelectedCollectionId(null);
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                profileTab === 'tweets'
+                  ? 'bg-white text-black shadow-sm font-black'
+                  : 'text-white/50 hover:text-white'
+              }`}
+            >
+              <MessageSquare className="w-3.5 h-3.5 text-sky-400" />
+              <span>Tweets ({userTextPosts.length})</span>
             </button>
 
             <button
@@ -534,7 +579,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 setProfileTab('collections');
                 setSelectedCollectionId(null);
               }}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                 profileTab === 'collections'
                   ? 'bg-white text-black shadow-sm font-black'
                   : 'text-white/50 hover:text-white'
@@ -550,7 +595,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 setProfileTab('drafts');
                 setSelectedCollectionId(null);
               }}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                 profileTab === 'drafts'
                   ? 'bg-white text-black shadow-sm font-black'
                   : 'text-white/50 hover:text-white'
@@ -561,7 +606,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             </button>
           </div>
 
-          {/* Grid vs List View Selector (when viewing Proofs) or New Collection Button or New Draft Button */}
+          {/* Grid vs List View Selector (when viewing Proofs) or New Tweet / Collection / Draft Button */}
           {profileTab === 'proofs' || selectedCollectionId ? (
             <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/5 shrink-0">
               <button
@@ -585,6 +630,18 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 <List className="w-4 h-4" />
               </button>
             </div>
+          ) : profileTab === 'tweets' ? (
+            <button
+              onClick={() => {
+                vibrateLight();
+                if (onOpenCreatePost) onOpenCreatePost();
+                else if (onOpenCreateDraft) onOpenCreateDraft();
+              }}
+              className="px-3 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-black font-black text-xs flex items-center gap-1 shadow-md shadow-sky-500/20 active:scale-95 whitespace-nowrap shrink-0 min-h-[36px] cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[3]" />
+              <span>New Tweet</span>
+            </button>
           ) : profileTab === 'collections' ? (
             <button
               onClick={() => {
@@ -628,13 +685,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         </div>
       )}
 
-      {/* TAB 1: PROOFS TAB */}
+      {/* TAB 1: PROOFS TAB (Only posts with photo receipts - no text-only posts here) */}
       {profileTab === 'proofs' && (
         <div className="space-y-4 animate-in fade-in">
-          {userPosts.length > 0 ? (
+          {userProofPosts.length > 0 ? (
             viewMode === 'grid' ? (
               <div className="grid grid-cols-3 gap-2">
-                {userPosts.map((post) => (
+                {userProofPosts.map((post) => (
                   <div
                     key={post.id}
                     onClick={() => {
@@ -646,22 +703,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                     }}
                     className="group relative aspect-square rounded-2xl overflow-hidden bg-white/5 border border-white/5 hover:border-white/20 cursor-pointer"
                   >
-                    {post.imageUrl ? (
-                      <img
-                        src={post.imageUrl}
-                        alt="Proof thumbnail"
-                        referrerPolicy="no-referrer"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                      />
-                    ) : (
-                      <div className="w-full h-full p-2.5 flex flex-col justify-between bg-white/[0.03]">
-                        <span className="text-[10px] text-[#2F6FED] font-bold">🔥 Proof</span>
-                        <p className="text-[10px] text-white/70 line-clamp-4 leading-tight">
-                          {post.content}
-                        </p>
-                        <span className="text-[8px] text-white/40">{post.createdAt}</span>
-                      </div>
-                    )}
+                    <img
+                      src={post.imageUrl}
+                      alt="Proof thumbnail"
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                    />
 
                     {/* Multi-photo indicator when post has a group of photos */}
                     {post.imageUrls && post.imageUrls.length > 1 && (
@@ -684,7 +731,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                             vibrateLight();
                             onOpenAddToCollection(post);
                           }}
-                          className="text-[9px] px-2 py-0.5 rounded-full bg-white/10 hover:bg-[#2F6FED] hover:text-white border border-white/20 transition-colors flex items-center gap-1 mt-1"
+                          className="text-[9px] px-2 py-0.5 rounded-full bg-white/10 hover:bg-[#2F6FED] hover:text-white border border-white/20 transition-colors flex items-center gap-1 mt-1 cursor-pointer"
                         >
                           <FolderPlus className="w-3 h-3" /> Add to Box
                         </button>
@@ -695,7 +742,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               </div>
             ) : (
               <div className="space-y-4">
-                {userPosts.map((post) => (
+                {userProofPosts.map((post) => (
                   <PostCard
                     key={post.id}
                     post={post}
@@ -719,8 +766,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           ) : (
             <EmptyStateIllustration
               type="feed"
-              title="No proof updates posted yet"
-              description="Start your streak! Post your first proof of work for today."
+              title="No proof receipts posted yet"
+              description="Start your streak! Post your first proof with photo evidence for today."
               primaryAction={{
                 label: 'Post Proof',
                 onClick: () => {
@@ -730,6 +777,177 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 icon: <Plus className="w-4 h-4" />,
               }}
             />
+          )}
+        </div>
+      )}
+
+      {/* TAB 2: TWEETS / TEXT-ONLY POSTS TAB (Like tweets online) */}
+      {profileTab === 'tweets' && (
+        <div className="space-y-3 animate-in fade-in">
+          {userTextPosts.length > 0 ? (
+            <div className="space-y-3">
+              {userTextPosts.map((post) => {
+                const isSaved = savedPostIds.includes(post.id);
+                return (
+                  <div
+                    key={post.id}
+                    className="p-4 sm:p-5 rounded-2xl bg-[#111111] hover:bg-[#141414] border border-white/10 hover:border-white/20 transition-all space-y-3 shadow-lg group"
+                  >
+                    {/* Tweet Author Header */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <img
+                          src={currentUser.avatar}
+                          alt={currentUser.name}
+                          referrerPolicy="no-referrer"
+                          className="w-10 h-10 rounded-full object-cover border border-white/20 shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-sm font-black text-white truncate">
+                              {currentUser.name}
+                            </span>
+                            <CheckCircle2 className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                            <span className="text-xs text-white/50 font-mono">
+                              @{currentUser.username}
+                            </span>
+                            <span className="text-white/25 text-xs">•</span>
+                            <span className="text-xs text-white/40">
+                              {post.createdAt}
+                            </span>
+                          </div>
+                          {post.tags && post.tags.length > 0 && (
+                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                              {post.tags.map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="text-[10px] font-bold text-sky-400/90 hover:underline cursor-pointer"
+                                >
+                                  #{tag.replace(/^#/, '')}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        {onOpenAddToCollection && (
+                          <button
+                            onClick={() => {
+                              vibrateLight();
+                              onOpenAddToCollection(post);
+                            }}
+                            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+                            title="Add to Collection Box"
+                          >
+                            <FolderPlus className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {onDeletePost && (
+                          <button
+                            onClick={() => {
+                              vibrateLight();
+                              onDeletePost(post.id);
+                            }}
+                            className="p-1.5 rounded-lg text-white/30 hover:text-red-400 hover:bg-white/5 transition-colors cursor-pointer"
+                            title="Delete Tweet"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Tweet Body Content */}
+                    <p className="text-sm sm:text-base text-white/95 leading-relaxed font-sans whitespace-pre-line select-text">
+                      {post.content}
+                    </p>
+
+                    {/* Tweet Interaction Bar (Like, Comment, Share, Save) */}
+                    <div className="flex items-center justify-between pt-2 border-t border-white/5 text-xs text-white/60">
+                      {/* Like button */}
+                      <button
+                        onClick={() => {
+                          vibrateLight();
+                          onToggleLike(post.id);
+                        }}
+                        className={`flex items-center gap-1.5 py-1 px-2.5 rounded-xl hover:bg-rose-500/10 transition-colors cursor-pointer group/like ${
+                          post.likesCount > 0 ? 'text-rose-400' : 'hover:text-rose-400'
+                        }`}
+                      >
+                        <Heart
+                          className={`w-4 h-4 transition-transform group-active/like:scale-125 ${
+                            post.likesCount > 0 ? 'fill-rose-500 text-rose-500' : ''
+                          }`}
+                        />
+                        <span className="font-bold text-xs">{post.likesCount || 0}</span>
+                      </button>
+
+                      {/* Comment button */}
+                      <button
+                        onClick={() => {
+                          vibrateLight();
+                          onOpenComments(post);
+                        }}
+                        className="flex items-center gap-1.5 py-1 px-2.5 rounded-xl hover:bg-sky-500/10 hover:text-sky-400 transition-colors cursor-pointer"
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                        <span className="font-bold text-xs">{post.comments?.length || 0}</span>
+                      </button>
+
+                      {/* Share button */}
+                      <button
+                        onClick={() => {
+                          vibrateLight();
+                          if (onSharePost) onSharePost(post);
+                        }}
+                        className="flex items-center gap-1.5 py-1 px-2.5 rounded-xl hover:bg-emerald-500/10 hover:text-emerald-400 transition-colors cursor-pointer"
+                        title="Share Tweet"
+                      >
+                        <Share2 className="w-4 h-4" />
+                      </button>
+
+                      {/* Save / Bookmark button */}
+                      <button
+                        onClick={() => {
+                          vibrateLight();
+                          if (onToggleSave) onToggleSave(post.id);
+                        }}
+                        className={`flex items-center gap-1.5 py-1 px-2.5 rounded-xl hover:bg-amber-500/10 transition-colors cursor-pointer ${
+                          isSaved ? 'text-amber-400' : 'hover:text-amber-400'
+                        }`}
+                        title={isSaved ? 'Saved' : 'Save bookmark'}
+                      >
+                        <Bookmark
+                          className={`w-4 h-4 ${isSaved ? 'fill-amber-400 text-amber-400' : ''}`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="p-8 text-center rounded-3xl bg-white/[0.02] border border-white/5 space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-sky-400 flex items-center justify-center mx-auto">
+                <MessageSquare className="w-6 h-6" />
+              </div>
+              <h4 className="text-sm font-black text-white">No tweets posted yet</h4>
+              <p className="text-xs text-white/50 max-w-sm mx-auto leading-relaxed">
+                Post short thoughts, lessons, reflections, or daily updates online without attaching photo receipts.
+              </p>
+              <button
+                onClick={() => {
+                  vibrateLight();
+                  if (onOpenCreatePost) onOpenCreatePost();
+                }}
+                className="mt-2 py-2 px-4 rounded-xl bg-sky-500 hover:bg-sky-400 text-black font-black text-xs inline-flex items-center gap-1.5 transition-all shadow-md shadow-sky-500/20 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                <span>Post Your First Tweet</span>
+              </button>
+            </div>
           )}
         </div>
       )}

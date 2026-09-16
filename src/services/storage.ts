@@ -2579,31 +2579,10 @@ export class DailyStorageService {
       list = [...INITIAL_NOTIFICATIONS];
     }
 
-    // Ensure a squad invite notification is present so the user can immediately see and inspect it
-    const hasSquadInvite = list.some((n) => n.type === 'squad_invite');
-    if (!hasSquadInvite) {
-      const demoSquadInvite: AppNotification = {
-        id: 'notif_squad_invite_demo',
-        type: 'squad_invite',
-        actorId: 'user_sarah',
-        actorName: 'Sarah Chen',
-        actorUsername: 'sarahcodes',
-        actorAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80',
-        actorStreak: 21,
-        recipientId: 'user_me',
-        targetId: 'challenge_trio_spartan',
-        targetPreview: 'Spartan Strike Force',
-        squadId: 'team_spartan_strike',
-        squadName: 'Spartan Strike Force',
-        challengeId: 'challenge_trio_spartan',
-        challengeTitle: 'Trio 21-Day Spartan Conditioning',
-        inviteStatus: 'pending',
-        message: 'invited you to join squad "Spartan Strike Force" in challenge "Trio 21-Day Spartan Conditioning" 🛡️',
-        createdAt: 'Just now',
-        timestamp: Date.now(),
-        isRead: false,
-      };
-      list = [demoSquadInvite, ...list];
+    // Clean up any legacy or hardcoded notif_squad_invite_demo notification
+    const cleaned = list.filter((n) => n.id !== 'notif_squad_invite_demo');
+    if (cleaned.length !== list.length) {
+      list = cleaned;
       this.saveAllNotifications(list);
     }
 
