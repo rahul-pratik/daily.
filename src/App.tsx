@@ -166,9 +166,15 @@ export default function App() {
       setIsStreakFreezeAlertOpen(true);
     };
 
+    const handleNotificationsUpdated = () => {
+      setNotifications(DailyStorageService.getAllNotifications());
+    };
+
     window.addEventListener('daily:streak-freeze-used', handleFreezeUsed);
+    window.addEventListener('daily:notification-added', handleNotificationsUpdated);
     return () => {
       window.removeEventListener('daily:streak-freeze-used', handleFreezeUsed);
+      window.removeEventListener('daily:notification-added', handleNotificationsUpdated);
     };
   }, []);
 
@@ -946,6 +952,7 @@ export default function App() {
           onMarkAllAsRead={handleMarkAllNotificationsAsRead}
           onClearAll={handleClearAllNotifications}
           onOpenStreakFreezeAlert={() => setIsStreakFreezeAlertOpen(true)}
+          onOpenChallenge={handleOpenChallenge}
         />
 
         {/* Create Proof Collection Modal */}

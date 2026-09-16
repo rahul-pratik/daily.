@@ -504,6 +504,7 @@ export type NotificationType =
   | 'community_approved'
   | 'streak_milestone'
   | 'challenge_invite'
+  | 'squad_invite'
   | 'group_invite'
   | 'cheer'
   | 'streak_freeze_earned'
@@ -518,9 +519,15 @@ export interface AppNotification {
   actorUsername: string;
   actorAvatar: string;
   actorStreak?: number;
-  targetId?: string; // postId or communityId
-  targetPreview?: string; // post content snippet or community name
+  recipientId?: string; // target user who should see or receive this notification
+  targetId?: string; // postId, communityId, or challengeId
+  targetPreview?: string; // post content snippet, community name, or squad name
   targetImage?: string; // post thumbnail
+  squadId?: string;
+  squadName?: string;
+  challengeId?: string;
+  challengeTitle?: string;
+  inviteStatus?: 'pending' | 'accepted' | 'declined';
   message: string;
   createdAt: string; // e.g. "5m ago"
   timestamp?: number;

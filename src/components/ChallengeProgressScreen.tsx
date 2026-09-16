@@ -1,16 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
   ChevronLeft,
-  ChevronRight,
+  ChevronDown,
   Flame,
   Calendar as CalendarIcon,
   CheckCircle2,
   Clock,
   Users,
   Trophy,
-  Upload,
   Camera,
-  Image as ImageIcon,
   Sparkles,
   Heart,
   Send,
@@ -19,25 +17,21 @@ import {
   Check,
   Award,
   X,
-  Layers,
-  MessageSquare,
   MessageCircle,
   ThumbsUp,
-  Share2,
-  Hourglass,
-  Flag,
   UserPlus,
-  Shield,
   Crown,
   Plus,
   Target,
+  ArrowUpDown,
+  Search,
+  User as UserIcon,
+  Zap,
 } from 'lucide-react';
-import { User, Challenge, ChallengeProgressPost, Message, ChallengeTeam, ChallengeWeeklyRecap } from '../types';
+import { User, Challenge, ChallengeProgressPost, Message, ChallengeTeam } from '../types';
 import { DailyStorageService, getTodayDateString } from '../services/storage';
 import { vibrateLight, vibrateSuccess, vibrateStreakMilestone } from '../services/haptics';
 import { ChallengeLeaderboardView } from './ChallengeLeaderboardView';
-import { ChallengeWeeklyRecapModal } from './ChallengeWeeklyRecapModal';
-import { ChallengeDailyProofProgressBar } from './ChallengeDailyProofProgressBar';
 
 interface ChallengeProgressScreenProps {
   challenge: Challenge;
@@ -78,7 +72,6 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
   const [challenge, setChallenge] = useState<Challenge>(initialChallenge);
   const [challengeTab, setChallengeTab] = useState<'proofs' | 'leaderboard' | 'squads' | 'chat'>(initialTab);
   const [chatChannel, setChatChannel] = useState<'cohort' | 'squad'>('cohort');
-  const [isRecapModalOpen, setIsRecapModalOpen] = useState(false);
   const [progressPosts, setProgressPosts] = useState<ChallengeProgressPost[]>([]);
   const [chatMessages, setChatMessages] = useState<Message[]>([]);
   const [squadMessages, setSquadMessages] = useState<Message[]>([]);
@@ -93,14 +86,63 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
   const [selectedPhotoPreview, setSelectedPhotoPreview] = useState<string | null>(null);
   const [selectedDayProof, setSelectedDayProof] = useState<ChallengeProgressPost | null>(null);
 
+  // Proofs Sort By state
+  const [proofsFilter, setProofsFilter] = useState<'all' | 'my_proofs' | 'squad'>('all');
+  const [squadProofMode, setSquadProofMode] = useState<'all_members' | 'individual'>('all_members');
+  const [selectedSquadMemberId, setSelectedSquadMemberId] = useState<string | null>(null);
+  const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
+
   // Squad / Team management states
   const [isCreateSquadOpen, setIsCreateSquadOpen] = useState(false);
   const [squadNameInput, setSquadNameInput] = useState('');
   const [squadMottoInput, setSquadMottoInput] = useState('');
   const [squadError, setSquadError] = useState<string | null>(null);
+  const [squadTargetUserToInvite, setSquadTargetUserToInvite] = useState<User | null>(null);
+
+  // Find Squad Members search & recruit modal
+  const [isFindSquadModalOpen, setIsFindSquadModalOpen] = useState(false);
+  const [squadMemberSearchQuery, setSquadMemberSearchQuery] = useState('');
+  const [squadSearchQuery, setSquadSearchQuery] = useState('');
+  const [invitedUserIds, setInvitedUserIds] = useState<string[]>(() => {
+    const notifs = DailyStorageService.getAllNotifications();
+    return notifs
+      .filter((n) => (n.type === 'squad_invite' || n.type === 'challenge_invite') && n.targetId === challenge.id && n.recipientId)
+      .map((n) => n.recipientId as string);
+  });
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
 
   const userProgress = DailyStorageService.getChallengeUserProgress(challenge.id, currentUser.id);
-  const mySquad = userProgress.userTeam;
+  const mySquad =
+    userProgress.userTeam ||
+    (challenge.teams || []).find((t) => (t.memberIds || []).includes(currentUser.id));
+
+  const squadProofStats = mySquad
+    ? DailyStorageService.getChallengeTodayProofStats(challenge.id, mySquad.id)
+    : null;
+  const squadStreak = mySquad
+    ? DailyStorageService.getSquadCollectiveStreak(challenge.id, mySquad.id)
+    : 0;
+
+  const isMemberOnline = (userId: string) => {
+    if (userId === currentUser.id) return true;
+    if (DailyStorageService.isUserOnline(userId)) return true;
+    return squadMessages.some((m) => m.senderId === userId);
+  };
+
+  const handleNudgeSquad = () => {
+    if (!mySquad) return;
+    vibrateLight();
+    const nudgeText = `⚡ Accountability check-in: Let's lock in our daily proofs to protect our ${squadStreak}-day collective squad streak! 🎯📸`;
+    DailyStorageService.sendChallengeSquadTextMessage(challenge.id, mySquad.id, nudgeText);
+    const updatedMsgs = DailyStorageService.getChallengeSquadMessages(challenge.id, mySquad.id);
+    setSquadMessages(updatedMsgs);
+    showToast(`Nudged ${mySquad.name} in squad chat!`);
+  };
 
   // Load progress posts, cohort chat messages, and squad chat messages
   useEffect(() => {
@@ -115,14 +157,16 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
       setSquadMessages(sMsgs);
     }
   }, [challenge.id, mySquad?.id]);
+
   const today = getTodayDateString();
   const isJoined = (challenge.participantIds || []).includes(currentUser.id);
   const isGroupChallenge = challenge.challengeType === 'group';
 
-  // Calculate countdown days remaining
+  // Calculate days completed & duration
   const daysCompleted = userProgress.daysCompleted;
   const totalDays = challenge.durationDays || 30;
   const remainingDays = Math.max(0, totalDays - daysCompleted);
+  const percentComplete = Math.min(100, Math.round((daysCompleted / totalDays) * 100));
 
   // Compute countdown to deadline
   const calculateDeadlineCountdown = () => {
@@ -162,12 +206,26 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
       squadMottoInput.trim() || undefined
     );
 
+    let updatedChallenge = result.challenge;
+
+    // If an invited user was queued up, send them a squad invite notification
+    if (squadTargetUserToInvite) {
+      DailyStorageService.sendSquadInvite({
+        challengeId: challenge.id,
+        squadId: result.team.id,
+        targetUser: squadTargetUserToInvite,
+      });
+      setInvitedUserIds((prev) => Array.from(new Set([...prev, squadTargetUserToInvite.id])));
+      showToast(`Squad created & invite sent to @${squadTargetUserToInvite.username}!`);
+    }
+
     vibrateSuccess();
-    setChallenge(result.challenge);
-    onChallengeUpdated(result.challenge);
+    setChallenge(updatedChallenge);
+    onChallengeUpdated(updatedChallenge);
     setSquadNameInput('');
     setSquadMottoInput('');
     setSquadError(null);
+    setSquadTargetUserToInvite(null);
     setIsCreateSquadOpen(false);
   };
 
@@ -180,30 +238,62 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
 
   const handleLeaveSquad = () => {
     vibrateLight();
-    const result = DailyStorageService.leaveChallengeTeam(challenge.id);
+    const result = DailyStorageService.leaveChallengeTeam(challenge.id, mySquad?.id);
     setChallenge(result.challenge);
     onChallengeUpdated(result.challenge);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (typeof reader.result === 'string') {
-          setPostPhotoUrl(reader.result);
-          setPhotoError(null);
-          setShowPresets(false);
-        }
-      };
-      reader.readAsDataURL(file);
+  const handleInviteUserToSquad = (userToInvite: User) => {
+    vibrateLight();
+    if (mySquad) {
+      // Trigger in-app notification to the selected user to join requester's squad
+      DailyStorageService.sendSquadInvite({
+        challengeId: challenge.id,
+        squadId: mySquad.id,
+        targetUser: userToInvite,
+      });
+      vibrateSuccess();
+      setInvitedUserIds((prev) => Array.from(new Set([...prev, userToInvite.id])));
+      showToast(`Squad invite sent to ${userToInvite.name} (@${userToInvite.username})!`);
+    } else {
+      // Prompt user to name their squad and include userToInvite
+      setSquadTargetUserToInvite(userToInvite);
+      setSquadNameInput(`${currentUser.name.split(' ')[0]} & ${userToInvite.name.split(' ')[0]}'s Squad`);
+      setIsFindSquadModalOpen(false);
+      setIsCreateSquadOpen(true);
     }
+  };
+
+  const handleSelectPresetPhoto = (url: string) => {
+    vibrateLight();
+    setPostPhotoUrl(url);
+    setPhotoError(null);
+    setShowPresets(false);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setPhotoError('Please select a valid image file (PNG, JPG, WebP).');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPostPhotoUrl(reader.result as string);
+      setPhotoError(null);
+    };
+    reader.onerror = () => {
+      setPhotoError('Failed to read image file. Please try a different photo.');
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSubmitProgress = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // PHOTO IS MANDATORY: "either only photo or both photo and text, no only text, say user insert a photo as as your achievement"
     if (!postPhotoUrl || !postPhotoUrl.trim()) {
       setPhotoError('Please insert a photo as your achievement proof before submitting.');
       vibrateLight();
@@ -274,11 +364,57 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
     }
   };
 
-  const percentComplete = Math.min(100, Math.round((daysCompleted / totalDays) * 100));
+  // Squad members list for individual proof filtering
+  const squadMembersList = mySquad?.members && mySquad.members.length > 0
+    ? mySquad.members
+    : (challenge.teams || []).flatMap((t) => t.members || []);
 
+  const selectedMember = squadMembersList.find((m) => m.userId === selectedSquadMemberId);
+
+  // Filter progress posts according to Sort By option
+  const filteredProgressPosts = progressPosts.filter((post) => {
+    if (proofsFilter === 'my_proofs') {
+      return post.userId === currentUser.id;
+    }
+    if (proofsFilter === 'squad') {
+      if (squadProofMode === 'individual' && selectedSquadMemberId) {
+        return post.userId === selectedSquadMemberId;
+      }
+      // All squad member proofs
+      if (mySquad) {
+        const squadMemberIds = (mySquad.memberIds || []).concat((mySquad.members || []).map((m) => m.userId));
+        return squadMemberIds.includes(post.userId);
+      }
+      // If user is not in a squad, match any team member
+      const allTeamMemberIds = (challenge.teams || []).flatMap((t) => t.memberIds || []);
+      return allTeamMemberIds.includes(post.userId);
+    }
+    return true; // 'all'
+  });
+
+  // All users for squad member finder
+  const allUsers = DailyStorageService.getAllUsers();
+  const searchResultsUsers = allUsers.filter((u) => {
+    if (u.id === currentUser.id) return false;
+    if (!squadMemberSearchQuery.trim()) return true;
+    const q = squadMemberSearchQuery.toLowerCase().trim();
+    return (
+      u.name.toLowerCase().includes(q) ||
+      u.username.toLowerCase().includes(q) ||
+      (u.bio || '').toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div className="w-full min-h-screen bg-[#050505] text-white flex flex-col pb-24 animate-in fade-in duration-200">
+      {/* Toast Notification Banner */}
+      {toastMessage && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-[#161616] text-white border border-amber-500/50 shadow-2xl px-4 py-2.5 rounded-2xl flex items-center gap-2.5 text-xs font-bold animate-in fade-in slide-in-from-top-2">
+          <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       {/* Top Sticky Header */}
       <div className="sticky top-0 z-30 bg-[#0A0A0A]/95 backdrop-blur-md border-b border-white/10 px-4 py-3 flex items-center justify-between">
         <button
@@ -290,35 +426,9 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
         </button>
 
         <div className="flex items-center gap-2">
-          {/* Weekly Summary & MVP Button */}
-          <button
-            type="button"
-            onClick={() => {
-              vibrateLight();
-              setIsRecapModalOpen(true);
-            }}
-            className="text-[11px] font-bold text-amber-300 hover:text-amber-200 px-2.5 py-1 rounded-lg bg-gradient-to-r from-amber-500/20 to-amber-600/10 hover:from-amber-500/30 hover:to-amber-600/20 border border-amber-500/40 transition-all flex items-center gap-1 shadow-sm shadow-amber-500/10"
-            title="Generate Weekly Challenge Recap & MVP Spotlight"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden sm:inline">Weekly Recap</span>
-            <span className="sm:hidden">Recap</span>
-          </button>
-
-          {isJoined && (
-            <button
-              onClick={() => setShowLeaveConfirm(true)}
-              className="text-[11px] font-bold text-white/50 hover:text-red-400 px-2.5 py-1 rounded-lg hover:bg-red-500/10 transition-colors flex items-center gap-1"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Leave</span>
-            </button>
-          )}
-
-          <div className="flex items-center gap-1 text-[11px] font-black text-[#2F6FED] bg-[#2F6FED]/10 px-2.5 py-1 rounded-full border border-[#2F6FED]/30">
-            <Trophy className="w-3.5 h-3.5" />
-            <span>{totalDays} Days</span>
-          </div>
+          <span className="text-xs font-black text-[#2F6FED] truncate max-w-[180px]">
+            {challenge.title}
+          </span>
         </div>
       </div>
 
@@ -349,7 +459,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
             </div>
           </div>
 
-          {/* Participants bar & Actions */}
+          {/* Participants bar & Status */}
           <div className="flex items-center justify-between pt-3 border-t border-white/10 text-xs">
             <div className="flex items-center gap-1.5 text-white/60">
               <Users className="w-3.5 h-3.5 text-[#2F6FED]" />
@@ -359,212 +469,68 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
               <span>participants</span>
             </div>
 
-            {!isJoined ? (
-              <button
-                onClick={handleToggleJoin}
-                className="py-2 px-4 rounded-xl bg-[#2F6FED] hover:bg-[#e5c158] text-black font-black text-xs transition-all shadow-md shadow-[#2F6FED]/25 flex items-center gap-1.5"
-              >
-                <Trophy className="w-3.5 h-3.5" />
-                <span>Join Challenge</span>
-              </button>
-            ) : (
-              <div className="flex items-center gap-1.5 text-[11px] font-bold text-blue-400 bg-blue-500/10 px-2.5 py-1 rounded-full border border-blue-500/30">
+            {isJoined ? (
+              <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/30">
                 <Check className="w-3.5 h-3.5" />
-                <span>Joined</span>
+                <span>Joined Challenge</span>
               </div>
+            ) : (
+              <span className="text-[11px] text-white/40">Not joined yet</span>
             )}
           </div>
         </div>
 
-        {/* VISUAL GROUP MEMBERS DAILY PROOF ACCOUNTABILITY PROGRESS BAR */}
-        {isJoined && (challenge.challengeType === 'group' || (challenge.teams && challenge.teams.length > 0)) && (
-          <ChallengeDailyProofProgressBar
-            challengeId={challenge.id}
-            teamId={mySquad?.id}
-            onOpenSubmitProof={() => setIsPostModalOpen(true)}
-            onOpenGroupChat={onOpenGroupChat}
-          />
-        )}
+        {/* Top Action Buttons: Find Squad Members & Leave Challenge */}
+        <div className="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              vibrateLight();
+              setIsFindSquadModalOpen(true);
+            }}
+            className="flex-1 py-2.5 px-3 rounded-2xl bg-[#2F6FED]/15 hover:bg-[#2F6FED]/25 text-[#2F6FED] border border-[#2F6FED]/30 font-bold text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
+            title="Find other participants to form a squad"
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            <span>Find Squad Members</span>
+          </button>
 
-        {/* VISUAL 30-DAY DAY-BY-DAY PROGRESS TRACKER & COUNTDOWN */}
-        {isJoined && (
-          <div className="bg-[#0F0F0F] border border-white/15 rounded-3xl p-5 shadow-xl space-y-4">
-            {/* Header with Title and Countdown */}
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-lg bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-400">
-                    <Flame className="w-3.5 h-3.5 fill-blue-400" />
-                  </div>
-                  <h3 className="text-xs font-black uppercase tracking-wider text-white">
-                    {totalDays}-Day Progress Tracker
-                  </h3>
-                </div>
-                <p className="text-[10px] text-white/40 mt-0.5">
-                  Tap any completed day to view its proof receipt
-                </p>
-              </div>
+          {isJoined ? (
+            <button
+              type="button"
+              onClick={() => setShowLeaveConfirm(true)}
+              className="py-2.5 px-3 rounded-2xl bg-white/5 hover:bg-red-500/10 text-white/60 hover:text-red-400 border border-white/10 font-bold text-xs transition-colors flex items-center gap-1.5 shrink-0 active:scale-95"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Leave Challenge</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleToggleJoin}
+              className="py-2.5 px-4 rounded-2xl bg-[#2F6FED] hover:bg-[#255bd1] text-white font-black text-xs transition-all shadow-sm flex items-center gap-1.5 shrink-0 active:scale-95"
+            >
+              <Trophy className="w-3.5 h-3.5" />
+              <span>Join Challenge</span>
+            </button>
+          )}
+        </div>
 
-              {/* Remaining Duration Countdown Pill */}
-              <div className="text-right">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-black">
-                  <Hourglass className="w-3.5 h-3.5 animate-pulse" />
-                  <span>{remainingDays} Days Left</span>
-                </div>
-                <div className="text-[9px] text-white/40 mt-0.5 font-bold">
-                  {deadlineDaysLeft}d until {challenge.deadlineDate}
-                </div>
-              </div>
-            </div>
-
-            {/* Visual Progress Stats Bar */}
-            <div className="space-y-1.5">
-              <div className="h-3 w-full bg-white/10 rounded-full overflow-hidden p-0.5 border border-white/5">
-                <div
-                  className="h-full bg-gradient-to-r from-[#2F6FED] via-amber-400 to-blue-500 rounded-full transition-all duration-500"
-                  style={{ width: `${percentComplete}%` }}
-                />
-              </div>
-              <div className="flex items-center justify-between text-[10px] text-white/50 font-bold">
-                <span>Day 1</span>
-                <span className="text-[#2F6FED] font-black">{daysCompleted} of {totalDays} Completed ({percentComplete}%)</span>
-                <span>Day {totalDays} 🏁</span>
-              </div>
-            </div>
-
-            {/* Visual Day-by-Day Matrix (30-Day Window Grid) */}
-            <div className="pt-2">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] text-white/40 uppercase font-bold tracking-wider">
-                  30-Day Window Tracker:
-                </span>
-                <div className="flex items-center gap-2 text-[9px] text-white/40">
-                  <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded bg-blue-600 inline-block" /> Completed
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded border border-[#2F6FED] inline-block" /> Target
-                  </span>
-                </div>
-              </div>
-
-              {/* Day cells matrix */}
-              <div className="grid grid-cols-6 sm:grid-cols-10 gap-1.5">
-                {Array.from({ length: totalDays }).map((_, idx) => {
-                  const dayNum = idx + 1;
-                  const isChecked = dayNum <= daysCompleted;
-                  const isCurrentTarget = dayNum === daysCompleted + 1 && !userProgress.isCompleted;
-                  const isMilestone = [7, 14, 21, 30].includes(dayNum);
-                  const postForDay = getProgressPostForDay(dayNum);
-
-                  return (
-                    <button
-                      key={dayNum}
-                      type="button"
-                      onClick={() => handleDayClick(dayNum)}
-                      className={`h-10 rounded-xl flex flex-col items-center justify-center text-[10px] font-bold transition-all border relative cursor-pointer ${
-                        isChecked
-                          ? 'bg-blue-600 border-blue-400 text-white shadow-md shadow-blue-500/25 hover:scale-105 active:scale-95'
-                          : isCurrentTarget
-                          ? 'bg-[#2F6FED]/15 border-2 border-[#2F6FED] text-[#2F6FED] shadow-lg shadow-[#2F6FED]/20 hover:scale-105 animate-pulse'
-                          : 'bg-white/5 border-white/10 text-white/30 hover:bg-white/10 hover:text-white/60'
-                      }`}
-                      title={
-                        isChecked
-                          ? `Day ${dayNum} Completed - Click to view proof`
-                          : isCurrentTarget
-                          ? `Day ${dayNum} (Today's Target) - Click to post proof`
-                          : `Day ${dayNum} - ${remainingDays} days left`
-                      }
-                    >
-                      {isChecked ? (
-                        <>
-                          <Check className="w-3.5 h-3.5 stroke-[3] text-white" />
-                          <span className="text-[8px] font-black text-white/90 leading-none">D{dayNum}</span>
-                        </>
-                      ) : isCurrentTarget ? (
-                        <>
-                          <span className="text-[9px] font-black text-[#2F6FED] leading-none">{dayNum}</span>
-                          <span className="text-[7px] font-bold text-[#2F6FED] uppercase leading-none mt-0.5">Now</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>{dayNum}</span>
-                          {isMilestone && (
-                            <span className="w-1 h-1 rounded-full bg-white/40 absolute top-1 right-1" />
-                          )}
-                        </>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Countdown Milestone Progress & Status Actions */}
-            <div className="pt-3 border-t border-white/10">
-              {userProgress.isCompleted ? (
-                /* 30 DAYS OVER / COMPLETED STATE */
-                <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-center space-y-2">
-                  <div className="flex items-center justify-center gap-2 text-blue-400 font-black text-sm">
-                    <Award className="w-5 h-5" />
-                    <span>🎉 Challenge Completed! ({totalDays}/{totalDays} Days)</span>
-                  </div>
-                  <p className="text-xs text-white/70 leading-relaxed">
-                    You have tracked all {totalDays} days of this challenge! Posting is now closed. You can continue viewing other cohort members' proofs or leave the group whenever you wish.
-                  </p>
-                  <button
-                    onClick={() => setShowLeaveConfirm(true)}
-                    className="mt-1 text-xs font-bold text-red-400 hover:text-red-300 underline"
-                  >
-                    Leave Challenge Group
-                  </button>
-                </div>
-              ) : userProgress.hasPostedToday ? (
-                /* TODAY ALREADY LOGGED */
-                <div className="p-3.5 rounded-2xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2 text-blue-300">
-                    <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0" />
-                    <span>
-                      <strong>Day {daysCompleted} proof logged!</strong> Return tomorrow for Day {daysCompleted + 1}.
-                    </span>
-                  </div>
-                  <span className="text-[10px] text-white/40 font-bold">
-                    {remainingDays}d countdown active
-                  </span>
-                </div>
-              ) : (
-                /* ACTIVE POST PROOF BUTTON (Golden Theme) */
-                <button
-                  onClick={() => {
-                    vibrateLight();
-                    setIsPostModalOpen(true);
-                  }}
-                  className="w-full py-3.5 px-4 rounded-2xl bg-[#2F6FED] hover:bg-[#e5c158] text-black font-black text-xs transition-all shadow-lg shadow-[#2F6FED]/25 flex items-center justify-center gap-2 hover:scale-[1.01]"
-                >
-                  <Camera className="w-4 h-4 text-black" />
-                  <span>Post Day {daysCompleted + 1} Progress Proof</span>
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Challenge Section Switcher: Photo Proofs vs Leaderboard vs Squads vs Text-Only Cohort Chat */}
-        <div className="flex items-center gap-1.5 bg-[#0F0F0F] p-1.5 rounded-2xl border border-white/10 flex-wrap">
+        {/* PRIMARY NAVIGATION BAR (Present at the Top, below buttons) */}
+        <div className="flex items-center gap-1 bg-[#0F0F0F] p-1.5 rounded-2xl border border-white/10">
           <button
             onClick={() => {
               vibrateLight();
               setChallengeTab('proofs');
             }}
-            className={`flex-1 min-w-[70px] py-2 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+            className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
               challengeTab === 'proofs'
                 ? 'bg-[#2F6FED] text-white font-black shadow-md shadow-[#2F6FED]/20'
                 : 'text-white/60 hover:text-white hover:bg-white/5'
             }`}
           >
             <Camera className="w-3.5 h-3.5" />
-            <span>Proofs ({progressPosts.length})</span>
+            <span>Proofs</span>
           </button>
 
           <button
@@ -572,7 +538,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
               vibrateLight();
               setChallengeTab('leaderboard');
             }}
-            className={`flex-1 min-w-[70px] py-2 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+            className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
               challengeTab === 'leaderboard'
                 ? 'bg-amber-400 text-black font-black shadow-md shadow-amber-400/20'
                 : 'text-white/60 hover:text-white hover:bg-white/5'
@@ -582,237 +548,591 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
             <span>Leaderboard</span>
           </button>
 
-          {isGroupChallenge && (
-            <button
-              onClick={() => {
-                vibrateLight();
-                setChallengeTab('squads');
-              }}
-              className={`flex-1 min-w-[70px] py-2 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                challengeTab === 'squads'
-                  ? 'bg-amber-400 text-black font-black shadow-md shadow-amber-400/20'
-                  : 'text-white/60 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <Users className="w-3.5 h-3.5" />
-              <span>Squads ({challenge.teams?.length || 0})</span>
-            </button>
-          )}
+          <button
+            onClick={() => {
+              vibrateLight();
+              setChallengeTab('squads');
+            }}
+            className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              challengeTab === 'squads'
+                ? 'bg-amber-400 text-black font-black shadow-md shadow-amber-400/20'
+                : 'text-white/60 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span>Squads</span>
+          </button>
 
           <button
             onClick={() => {
               vibrateLight();
               setChallengeTab('chat');
             }}
-            className={`flex-1 min-w-[70px] py-2 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+            className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
               challengeTab === 'chat'
                 ? 'bg-white text-black font-black shadow-md'
                 : 'text-white/60 hover:text-white hover:bg-white/5'
             }`}
           >
             <MessageCircle className="w-3.5 h-3.5" />
-            <span>Chat ({chatMessages.length})</span>
+            <span>Chat</span>
           </button>
         </div>
 
-        {/* Tab 1: Cohort Progress Proofs Feed */}
+        {/* TAB 1: PROOFS (With Progress Calendar & Sort By Button) */}
         {challengeTab === 'proofs' && (
-          <div className="space-y-3 pt-1">
-            <div className="flex items-center justify-between px-1">
-              <h2 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-[#2F6FED]" />
-                <span>{isGroupChallenge ? 'Squad & Cohort Proofs' : 'Cohort Member Proofs'} ({progressPosts.length})</span>
-              </h2>
-              <span className="text-[10px] text-white/40">Photo receipts mandatory</span>
-            </div>
-
-            {progressPosts.length === 0 ? (
-              <div className="bg-[#0F0F0F] border border-white/10 rounded-2xl p-8 text-center space-y-2">
-                <Camera className="w-8 h-8 text-white/30 mx-auto" />
-                <p className="text-xs font-bold text-white/80">No progress proofs posted yet</p>
-                <p className="text-[11px] text-white/40">
-                  Be the first to post your daily achievement photo!
-                </p>
-              </div>
-            ) : (
-              progressPosts.map((post) => (
-                <div
-                  key={post.id}
-                  className="bg-[#0F0F0F] border border-white/15 rounded-3xl p-4 sm:p-5 shadow-xl space-y-3 relative"
-                >
-                  {/* Header */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <img
-                        src={post.userAvatar}
-                        alt={post.userName}
-                        referrerPolicy="no-referrer"
-                        className="w-9 h-9 rounded-full object-cover border border-white/20"
-                      />
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-xs text-white">{post.userName}</span>
-                          <span className="text-[10px] text-white/40">@{post.userUsername}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <div className="flex items-center gap-1 text-[10px] text-blue-400 font-bold">
-                            <Flame className="w-3 h-3 fill-blue-400" />
-                            <span>{post.userStreak}d Streak</span>
-                          </div>
-                          {post.teamName && (
-                            <span className="text-[10px] font-bold text-amber-300 bg-amber-500/15 px-2 py-0.2 rounded-md border border-amber-500/30 flex items-center gap-1">
-                              <Users className="w-2.5 h-2.5" />
-                              <span>{post.teamName}</span>
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Day Badge */}
-                    <div className="px-2.5 py-1 rounded-full bg-[#2F6FED]/10 border border-[#2F6FED]/30 text-[#2F6FED] font-black text-[10px] uppercase tracking-wider">
-                      Day {post.dayNumber} of {totalDays}
-                    </div>
-                  </div>
-
-                  {/* Mandatory Photo Achievement */}
-                  <div
-                    className="rounded-2xl overflow-hidden border border-white/15 bg-black/60 aspect-video relative group cursor-pointer"
-                    onClick={() => setSelectedPhotoPreview(post.imageUrl)}
-                  >
-                    <img
-                      src={post.imageUrl}
-                      alt={`Day ${post.dayNumber} progress`}
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-sm text-white text-[9px] font-bold flex items-center gap-1">
-                      <Camera className="w-3 h-3 text-[#2F6FED]" />
-                      <span>Receipt Photo</span>
-                    </div>
-                  </div>
-
-                  {/* Optional Reflection */}
-                  {post.text && (
-                    <p className="text-xs text-white/90 leading-relaxed font-sans px-1">
-                      {post.text}
-                    </p>
-                  )}
-
-                  {/* Footer: Cheers & Time */}
-                  <div className="flex items-center justify-between pt-2 border-t border-white/10 text-xs">
-                    <span className="text-[10px] text-white/40">{post.createdAt}</span>
-
-                    <button
-                      onClick={() => handleToggleCheer(post.id)}
-                      className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all min-h-[32px] ${
-                        post.cheeredByMe
-                          ? 'bg-[#2F6FED] text-white font-black shadow-md shadow-[#2F6FED]/25'
-                          : 'bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/10'
-                      }`}
-                    >
-                      <span>👏</span>
-                      <span>{post.cheersCount}</span>
-                      <span className="text-[10px] opacity-80">{post.cheeredByMe ? 'Cheered' : 'Cheer'}</span>
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-
-        {/* Tab 2: Squads & Teams Management (for Group Challenges) */}
-        {challengeTab === 'squads' && isGroupChallenge && (
-          <div className="space-y-4 pt-1">
-            {/* My Squad Card */}
-            {mySquad ? (
-              <div className="bg-[#0F0F0F] border border-amber-500/30 rounded-3xl p-5 shadow-2xl space-y-4 relative overflow-hidden bg-gradient-to-br from-amber-500/10 via-[#0F0F0F] to-[#0F0F0F]">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
+          <div className="space-y-4">
+            {/* PROGRESS CALENDAR CARD (Where people can post about their challenges) */}
+            {isJoined && (
+              <div className="bg-[#0F0F0F] border border-white/15 rounded-3xl p-5 shadow-xl space-y-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
                     <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-[10px] font-black text-amber-300 uppercase tracking-wider flex items-center gap-1">
-                        <Crown className="w-3 h-3 text-amber-400" />
-                        <span>My Squad</span>
-                      </span>
-                      <span className="text-[10px] text-white/50">
-                        {mySquad.members.length}/{mySquad.maxMembers} Members
-                      </span>
+                      <div className="w-7 h-7 rounded-lg bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                        <CalendarIcon className="w-4 h-4" />
+                      </div>
+                      <h3 className="text-sm font-black text-white">Progress Calendar</h3>
                     </div>
-                    <h3 className="text-base font-black text-white">{mySquad.name}</h3>
-                    {mySquad.motto && (
-                      <p className="text-xs text-white/70 italic">"{mySquad.motto}"</p>
-                    )}
+                    <p className="text-[11px] text-white/50 mt-0.5">
+                      Post daily receipts and track challenge consistency
+                    </p>
                   </div>
 
                   <div className="text-right">
-                    <span className="text-lg font-black text-amber-400">{mySquad.totalCheckinsCount || 0}</span>
+                    <span className="text-xs font-bold text-blue-400">
+                      {remainingDays} Days Left
+                    </span>
+                    <p className="text-[9px] text-white/40">{deadlineDaysLeft}d until deadline</p>
+                  </div>
+                </div>
+
+                {/* Progress bar */}
+                <div className="space-y-1.5">
+                  <div className="h-2.5 w-full bg-white/10 rounded-full overflow-hidden p-0.5 border border-white/5">
+                    <div
+                      className="h-full bg-gradient-to-r from-[#2F6FED] via-amber-400 to-emerald-400 rounded-full transition-all duration-500"
+                      style={{ width: `${percentComplete}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-white/50 font-bold">
+                    <span>Day 1</span>
+                    <span className="text-[#2F6FED] font-black">
+                      {daysCompleted} of {totalDays} Completed ({percentComplete}%)
+                    </span>
+                    <span>Day {totalDays} 🏁</span>
+                  </div>
+                </div>
+
+                {/* Calendar Days Matrix */}
+                <div className="pt-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] text-white/40 uppercase font-bold tracking-wider">
+                      Consistency Days:
+                    </span>
+                    <div className="flex items-center gap-2 text-[9px] text-white/40">
+                      <span className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded bg-blue-600 inline-block" /> Completed
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded border border-[#2F6FED] inline-block" /> Target
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-6 sm:grid-cols-10 gap-1.5">
+                    {Array.from({ length: totalDays }, (_, i) => {
+                      const dayNum = i + 1;
+                      const isCompletedDay = dayNum <= daysCompleted;
+                      const isNextTarget = dayNum === daysCompleted + 1 && !userProgress.hasPostedToday;
+                      const isFuture = dayNum > daysCompleted + 1;
+                      const postForDay = getProgressPostForDay(dayNum);
+
+                      return (
+                        <button
+                          key={dayNum}
+                          onClick={() => handleDayClick(dayNum)}
+                          disabled={isFuture}
+                          className={`aspect-square rounded-xl text-xs font-black flex flex-col items-center justify-center relative transition-all ${
+                            isCompletedDay
+                              ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-sm border border-blue-400/40 cursor-pointer'
+                              : isNextTarget
+                              ? 'border-2 border-[#2F6FED] bg-[#2F6FED]/15 text-[#2F6FED] animate-pulse cursor-pointer hover:bg-[#2F6FED]/25'
+                              : 'bg-white/5 border border-white/10 text-white/30 cursor-not-allowed'
+                          }`}
+                          title={
+                            isCompletedDay
+                              ? `Day ${dayNum} Completed - Click to view proof`
+                              : isNextTarget
+                              ? `Day ${dayNum} Target - Click to submit proof`
+                              : `Day ${dayNum}`
+                          }
+                        >
+                          <span className="text-[10px] leading-none">{dayNum}</span>
+                          {isCompletedDay && (
+                            <Check className="w-2.5 h-2.5 mt-0.5 text-white stroke-[3]" />
+                          )}
+                          {postForDay && (
+                            <span className="w-1 h-1 rounded-full bg-amber-300 absolute bottom-1" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Status and Post Action */}
+                <div className="pt-2 border-t border-white/10">
+                  {userProgress.isCompleted ? (
+                    <div className="p-3 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-center space-y-1">
+                      <div className="flex items-center justify-center gap-1.5 text-blue-400 font-bold text-xs">
+                        <Award className="w-4 h-4" />
+                        <span>Challenge Completed! ({totalDays}/{totalDays} Days)</span>
+                      </div>
+                      <p className="text-[11px] text-white/60">
+                        You have tracked all days of this challenge. Great consistency!
+                      </p>
+                    </div>
+                  ) : userProgress.hasPostedToday ? (
+                    <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2 text-emerald-300">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span>
+                          <strong>Day {daysCompleted} proof logged!</strong> Return tomorrow for Day {daysCompleted + 1}.
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        vibrateLight();
+                        setIsPostModalOpen(true);
+                      }}
+                      className="w-full py-3 px-4 rounded-2xl bg-[#2F6FED] hover:bg-[#255bd1] text-white font-bold text-xs transition-all shadow-md flex items-center justify-center gap-2 active:scale-95"
+                    >
+                      <Camera className="w-4 h-4" />
+                      <span>Post Day {daysCompleted + 1} Progress Proof</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Proofs Feed Header with SORT BY BUTTON */}
+            <div className="flex items-center justify-between gap-2 px-1 pt-1">
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-[#2F6FED]" />
+                  <span>Proof Receipts ({filteredProgressPosts.length})</span>
+                </h3>
+                <p className="text-[10px] text-white/40">
+                  {proofsFilter === 'all'
+                    ? 'Showing all cohort member proofs'
+                    : proofsFilter === 'my_proofs'
+                    ? "Showing only your own proofs"
+                    : squadProofMode === 'all_members'
+                    ? 'Showing all squad member proofs'
+                    : `Showing individual proof for ${selectedMember?.userName || 'Member'}`}
+                </p>
+              </div>
+
+              {/* SORT BY DROPDOWN BUTTON: squad-(all squad member or proof of individual), all, my proofs */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsSortDropdownOpen((prev) => !prev)}
+                  className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-xs font-bold text-white flex items-center gap-1.5 transition-all shadow-sm"
+                >
+                  <ArrowUpDown className="w-3.5 h-3.5 text-[#2F6FED]" />
+                  <span>
+                    {proofsFilter === 'all'
+                      ? 'Sort: All'
+                      : proofsFilter === 'my_proofs'
+                      ? 'Sort: My Proofs'
+                      : squadProofMode === 'all_members'
+                      ? 'Sort: Squad'
+                      : `Sort: ${selectedMember?.userName?.split(' ')[0] || 'Individual'}`}
+                  </span>
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isSortDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isSortDropdownOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-72 bg-[#121212] border border-white/15 rounded-2xl shadow-2xl p-2 z-30 space-y-1 text-xs">
+                    {/* Option 1: All */}
+                    <button
+                      onClick={() => {
+                        vibrateLight();
+                        setProofsFilter('all');
+                        setIsSortDropdownOpen(false);
+                      }}
+                      className={`w-full p-2.5 rounded-xl text-left font-bold flex items-center justify-between transition-colors ${
+                        proofsFilter === 'all'
+                          ? 'bg-[#2F6FED] text-white'
+                          : 'text-white/80 hover:bg-white/10'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>All Proofs</span>
+                      </span>
+                      <span className="text-[10px] opacity-70">({progressPosts.length})</span>
+                    </button>
+
+                    {/* Option 2: My Proofs */}
+                    <button
+                      onClick={() => {
+                        vibrateLight();
+                        setProofsFilter('my_proofs');
+                        setIsSortDropdownOpen(false);
+                      }}
+                      className={`w-full p-2.5 rounded-xl text-left font-bold flex items-center justify-between transition-colors ${
+                        proofsFilter === 'my_proofs'
+                          ? 'bg-[#2F6FED] text-white'
+                          : 'text-white/80 hover:bg-white/10'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <UserIcon className="w-3.5 h-3.5" />
+                        <span>My Proofs</span>
+                      </span>
+                      <span className="text-[10px] opacity-70">
+                        ({progressPosts.filter((p) => p.userId === currentUser.id).length})
+                      </span>
+                    </button>
+
+                    {/* Option 3: Squad Proofs */}
+                    <div className="pt-1 border-t border-white/10 space-y-1">
+                      <button
+                        onClick={() => {
+                          vibrateLight();
+                          setProofsFilter('squad');
+                          setSquadProofMode('all_members');
+                          setSelectedSquadMemberId(null);
+                          setIsSortDropdownOpen(false);
+                        }}
+                        className={`w-full p-2.5 rounded-xl text-left font-bold flex items-center justify-between transition-colors ${
+                          proofsFilter === 'squad' && squadProofMode === 'all_members'
+                            ? 'bg-amber-400 text-black'
+                            : 'text-amber-300 hover:bg-amber-400/10'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <Users className="w-3.5 h-3.5" />
+                          <span>Squad — All Squad Members</span>
+                        </span>
+                        <span className="text-[10px] opacity-70">
+                          {mySquad ? mySquad.name : 'Squad'}
+                        </span>
+                      </button>
+
+                      {/* Sub-option: Proof of an Individual */}
+                      <div className="pl-3 pr-1 pt-1 space-y-1">
+                        <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider block">
+                          Proof of an Individual:
+                        </span>
+
+                        {squadMembersList.length === 0 ? (
+                          <div className="text-[10px] text-white/40 italic p-1">
+                            No squad members registered yet
+                          </div>
+                        ) : (
+                          <div className="space-y-1 max-h-36 overflow-y-auto no-scrollbar">
+                            {squadMembersList.map((member) => {
+                              const isSelected =
+                                proofsFilter === 'squad' &&
+                                squadProofMode === 'individual' &&
+                                selectedSquadMemberId === member.userId;
+                              return (
+                                <button
+                                  key={member.userId}
+                                  onClick={() => {
+                                    vibrateLight();
+                                    setProofsFilter('squad');
+                                    setSquadProofMode('individual');
+                                    setSelectedSquadMemberId(member.userId);
+                                    setIsSortDropdownOpen(false);
+                                  }}
+                                  className={`w-full p-1.5 rounded-lg text-left text-xs flex items-center gap-2 transition-colors ${
+                                    isSelected
+                                      ? 'bg-amber-400 text-black font-bold'
+                                      : 'text-white/80 hover:bg-white/10'
+                                  }`}
+                                >
+                                  <img
+                                    src={member.userAvatar}
+                                    alt={member.userName}
+                                    referrerPolicy="no-referrer"
+                                    className="w-5 h-5 rounded-full object-cover border border-white/20"
+                                  />
+                                  <span className="truncate flex-1">
+                                    {member.userName} {member.userId === currentUser.id && '(You)'}
+                                  </span>
+                                  {isSelected && <Check className="w-3 h-3" />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Proofs List */}
+            <div className="space-y-3 pt-1">
+              {filteredProgressPosts.length === 0 ? (
+                <div className="bg-[#0F0F0F] border border-white/10 rounded-2xl p-8 text-center space-y-2">
+                  <Camera className="w-8 h-8 text-white/30 mx-auto" />
+                  <p className="text-xs font-bold text-white/80">No progress proofs found</p>
+                  <p className="text-[11px] text-white/40">
+                    {proofsFilter !== 'all'
+                      ? 'No proofs match the selected filter. Try switching back to All Proofs.'
+                      : 'Be the first to post your daily achievement photo!'}
+                  </p>
+                  {proofsFilter !== 'all' && (
+                    <button
+                      onClick={() => setProofsFilter('all')}
+                      className="py-1 px-3 rounded-lg bg-white/10 text-xs font-bold text-white hover:bg-white/15 mt-1"
+                    >
+                      Show All Proofs
+                    </button>
+                  )}
+                </div>
+              ) : (
+                filteredProgressPosts.map((post) => (
+                  <div
+                    key={post.id}
+                    className="bg-[#0F0F0F] border border-white/15 rounded-3xl p-4 sm:p-5 shadow-xl space-y-3 relative"
+                  >
+                    {/* Header */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <img
+                          src={post.userAvatar}
+                          alt={post.userName}
+                          referrerPolicy="no-referrer"
+                          className="w-9 h-9 rounded-full object-cover border border-white/20"
+                        />
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-xs text-white">{post.userName}</span>
+                            <span className="text-[10px] text-white/40">@{post.userUsername}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <div className="flex items-center gap-1 text-[10px] text-blue-400 font-bold">
+                              <Flame className="w-3 h-3 fill-blue-400" />
+                              <span>{post.userStreak}d Streak</span>
+                            </div>
+                            {post.teamName && (
+                              <span className="text-[10px] font-bold text-amber-300 bg-amber-500/15 px-2 py-0.2 rounded-md border border-amber-500/30 flex items-center gap-1">
+                                <Users className="w-2.5 h-2.5" />
+                                <span>{post.teamName}</span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Day Badge */}
+                      <div className="px-2.5 py-1 rounded-full bg-[#2F6FED]/10 border border-[#2F6FED]/30 text-[#2F6FED] font-black text-[10px] uppercase tracking-wider">
+                        Day {post.dayNumber}
+                      </div>
+                    </div>
+
+                    {/* Mandatory Photo Achievement */}
+                    <div
+                      className="rounded-2xl overflow-hidden border border-white/15 bg-black/60 aspect-video relative group cursor-pointer"
+                      onClick={() => setSelectedPhotoPreview(post.imageUrl)}
+                    >
+                      <img
+                        src={post.imageUrl}
+                        alt={`Day ${post.dayNumber} progress`}
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-sm text-white text-[9px] font-bold flex items-center gap-1">
+                        <Camera className="w-3 h-3 text-[#2F6FED]" />
+                        <span>Receipt Photo</span>
+                      </div>
+                    </div>
+
+                    {/* Optional Reflection */}
+                    {post.text && (
+                      <p className="text-xs text-white/90 leading-relaxed font-sans px-1">
+                        {post.text}
+                      </p>
+                    )}
+
+                    {/* Cheer and date footer */}
+                    <div className="flex items-center justify-between pt-2 border-t border-white/10 text-xs text-white/40">
+                      <span>{post.createdAt}</span>
+                      <button
+                        onClick={() => handleToggleCheer(post.id)}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition-colors ${
+                          post.cheeredByMe
+                            ? 'text-amber-400 bg-amber-500/15 font-bold'
+                            : 'hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        <ThumbsUp className="w-3.5 h-3.5" />
+                        <span>{post.cheersCount || 0} Cheers</span>
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 2: LEADERBOARD */}
+        {challengeTab === 'leaderboard' && (
+          <ChallengeLeaderboardView challenge={challenge} currentUser={currentUser} />
+        )}
+
+        {/* TAB 3: SQUADS (Squad roster, squad creation, find members) */}
+        {challengeTab === 'squads' && (
+          <div className="space-y-4">
+            {/* User Squad Status */}
+            {mySquad ? (
+              <div className="bg-[#0F0F0F] border border-amber-500/30 rounded-3xl p-5 shadow-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                      <Users className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-black text-white">{mySquad.name}</h3>
+                        <span className="text-[10px] font-bold text-amber-400 bg-amber-500/20 px-2 py-0.5 rounded-full">
+                          Your Squad
+                        </span>
+                      </div>
+                      {mySquad.motto && (
+                        <p className="text-xs text-white/60 italic mt-0.5">"{mySquad.motto}"</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <span className="text-sm font-black text-amber-400">
+                      {mySquad.totalCheckinsCount || 0}
+                    </span>
                     <p className="text-[9px] uppercase font-bold text-white/40">Total Receipts</p>
                   </div>
                 </div>
 
                 {/* Squad Members */}
                 <div className="space-y-2 pt-2 border-t border-white/10">
-                  <span className="text-[10px] font-black text-white/50 uppercase tracking-wider">
-                    Squad Teammates ({mySquad.members.length}/{mySquad.maxMembers})
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {mySquad.members.map((m) => (
-                      <div
-                        key={m.userId}
-                        className={`p-2.5 rounded-2xl border flex items-center gap-2.5 ${
-                          m.userId === currentUser.id
-                            ? 'bg-amber-500/10 border-amber-500/30'
-                            : 'bg-white/5 border-white/10'
-                        }`}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black text-white/50 uppercase tracking-wider">
+                      Squad Teammates ({mySquad.members.length}/{mySquad.maxMembers})
+                    </span>
+                    {mySquad.members.length < mySquad.maxMembers && (
+                      <button
+                        onClick={() => setIsFindSquadModalOpen(true)}
+                        className="text-[11px] font-bold text-[#2F6FED] hover:underline flex items-center gap-1"
                       >
-                        <img
-                          src={m.userAvatar}
-                          alt={m.userName}
-                          referrerPolicy="no-referrer"
-                          className="w-8 h-8 rounded-full object-cover border border-white/20"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1">
-                            <span className="text-xs font-bold text-white truncate">
-                              {m.userName} {m.userId === currentUser.id && '(You)'}
-                            </span>
-                            {m.role === 'leader' && (
-                              <Crown className="w-3 h-3 text-amber-400 shrink-0" />
+                        <UserPlus className="w-3 h-3" />
+                        <span>Invite Teammate</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {mySquad.members.map((m) => {
+                      const isCreator = m.userId === mySquad.leaderId || m.role === 'leader';
+                      const isOnline = isMemberOnline(m.userId);
+                      return (
+                        <div
+                          key={m.userId}
+                          className={`p-2.5 rounded-2xl border flex items-center gap-2.5 ${
+                            m.userId === currentUser.id
+                              ? 'bg-amber-500/10 border-amber-500/30'
+                              : 'bg-white/5 border-white/10'
+                          }`}
+                        >
+                          <div className="relative shrink-0">
+                            <img
+                              src={m.userAvatar}
+                              alt={m.userName}
+                              referrerPolicy="no-referrer"
+                              className={`w-9 h-9 rounded-full object-cover border ${
+                                isCreator ? 'border-amber-400 ring-1 ring-amber-400/50' : 'border-white/20'
+                              }`}
+                            />
+                            {isCreator && (
+                              <span
+                                className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-400 border border-black flex items-center justify-center shadow-xs z-10"
+                                title="Squad Creator & Leader"
+                              >
+                                <Crown className="w-2.5 h-2.5 text-black fill-black" />
+                              </span>
                             )}
+                            {/* Online/Offline Status Indicator on Avatar */}
+                            <span
+                              className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#0A0A0A] ${
+                                isOnline
+                                  ? 'bg-emerald-500 ring-2 ring-emerald-500/30'
+                                  : 'bg-zinc-500'
+                              }`}
+                              title={isOnline ? 'Online / Active now' : 'Offline'}
+                            />
                           </div>
-                          <span className="text-[10px] text-blue-400 font-bold">
-                            {m.checkinsCount || 0} receipts posted
-                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs font-bold text-white truncate">
+                                {m.userName} {m.userId === currentUser.id && '(You)'}
+                              </span>
+                              {isCreator && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-amber-500/25 text-amber-300 border border-amber-500/40 shadow-sm shrink-0">
+                                  <Crown className="w-2.5 h-2.5 text-amber-400 fill-amber-400" />
+                                  <span>Leader</span>
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                              <span className="text-[10px] text-blue-400 font-bold">
+                                {m.checkinsCount || 0} receipts
+                              </span>
+                              <span className="text-white/20 text-[10px]">•</span>
+                              <span className="inline-flex items-center gap-1 text-[10px]">
+                                <span
+                                  className={`w-1.5 h-1.5 rounded-full ${
+                                    isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-500'
+                                  }`}
+                                />
+                                <span
+                                  className={`font-semibold ${
+                                    isOnline ? 'text-emerald-400' : 'text-white/40'
+                                  }`}
+                                >
+                                  {isOnline ? 'Active now' : 'Offline'}
+                                </span>
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
+                {/* Squad Actions */}
                 <div className="flex items-center justify-between pt-2 border-t border-white/10 text-xs flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        vibrateLight();
-                        setChallengeTab('chat');
-                      }}
-                      className="py-1.5 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm shadow-amber-500/10"
-                    >
-                      <MessageCircle className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Go to Team Chat</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        vibrateLight();
-                        setIsRecapModalOpen(true);
-                      }}
-                      className="py-1.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 font-bold text-xs flex items-center gap-1.5 transition-all"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Weekly Recap</span>
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => {
+                      vibrateLight();
+                      setChallengeTab('chat');
+                      setChatChannel('squad');
+                    }}
+                    className="py-1.5 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm shadow-amber-500/10"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Go to Team Chat</span>
+                  </button>
+
                   <button
                     onClick={handleLeaveSquad}
                     className="text-xs font-bold text-red-400 hover:text-red-300 transition-colors"
@@ -828,110 +1148,173 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                 </div>
                 <h3 className="text-sm font-black text-white">You're not in a squad yet</h3>
                 <p className="text-xs text-white/60 max-w-sm mx-auto leading-relaxed">
-                  Join an open squad below or create your own squad to conquer this {challenge.durationDays}-day challenge together!
+                  Find fellow participants or create your own squad to stay accountable and conquer this challenge together!
                 </p>
-                <button
-                  onClick={() => {
-                    vibrateLight();
-                    setIsCreateSquadOpen(true);
-                  }}
-                  className="py-2.5 px-4 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-black text-xs transition-all shadow-md shadow-amber-400/20 inline-flex items-center gap-1.5"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Create a Squad (Max {challenge.teamSize || 3})</span>
-                </button>
+                <div className="flex items-center justify-center gap-2 pt-1 flex-wrap">
+                  <button
+                    onClick={() => {
+                      vibrateLight();
+                      setIsFindSquadModalOpen(true);
+                    }}
+                    className="py-2 px-3.5 rounded-xl bg-[#2F6FED] hover:bg-[#255bd1] text-white font-bold text-xs transition-all flex items-center gap-1.5 shadow-sm"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    <span>Find Squad Members</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      vibrateLight();
+                      setIsCreateSquadOpen(true);
+                    }}
+                    className="py-2 px-3.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-black text-xs transition-all flex items-center gap-1.5 shadow-sm"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Create a Squad</span>
+                  </button>
+                </div>
               </div>
             )}
 
-            {/* Squads Leaderboard / Roster */}
-            <div className="space-y-3">
+            {/* Squads Search & Directory */}
+            <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between px-1">
                 <h3 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
                   <Trophy className="w-3.5 h-3.5 text-amber-400" />
                   <span>All Active Squads ({challenge.teams?.length || 0})</span>
                 </h3>
-                <button
-                  onClick={() => {
-                    vibrateLight();
-                    setIsCreateSquadOpen(true);
-                  }}
-                  className="text-xs font-bold text-amber-400 hover:underline flex items-center gap-1"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>New Squad</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setIsFindSquadModalOpen(true)}
+                    className="text-xs font-bold text-[#2F6FED] hover:underline flex items-center gap-1"
+                  >
+                    <UserPlus className="w-3 h-3" />
+                    <span>Find Members</span>
+                  </button>
+                  <button
+                    onClick={() => setIsCreateSquadOpen(true)}
+                    className="text-xs font-bold text-amber-400 hover:underline flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>New Squad</span>
+                  </button>
+                </div>
               </div>
 
+              {/* Minimal Squad Search */}
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
+                <input
+                  type="text"
+                  value={squadSearchQuery}
+                  onChange={(e) => setSquadSearchQuery(e.target.value)}
+                  placeholder="Search squads by name or motto..."
+                  className="w-full bg-[#111] border border-white/15 focus:border-amber-400 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-white/30 focus:outline-none transition-colors"
+                />
+              </div>
+
+              {/* Squads List */}
               {(!challenge.teams || challenge.teams.length === 0) ? (
                 <div className="p-6 rounded-2xl bg-[#0F0F0F] border border-white/10 text-center text-xs text-white/40">
-                  No squads created yet. Be the first squad leader!
+                  No squads created yet. Click "Find Squad Members" or "New Squad" to begin!
                 </div>
               ) : (
-                challenge.teams.map((team, idx) => {
-                  const isMember = team.members.some((m) => m.userId === currentUser.id);
-                  const isFull = team.members.length >= team.maxMembers;
+                challenge.teams
+                  .filter((team) => {
+                    if (!squadSearchQuery.trim()) return true;
+                    const q = squadSearchQuery.toLowerCase().trim();
+                    return (
+                      team.name.toLowerCase().includes(q) ||
+                      (team.motto || '').toLowerCase().includes(q)
+                    );
+                  })
+                  .map((team, idx) => {
+                    const isMember = team.members.some((m) => m.userId === currentUser.id);
+                    const isFull = team.members.length >= team.maxMembers;
 
-                  return (
-                    <div
-                      key={team.id}
-                      className={`bg-[#0F0F0F] border rounded-3xl p-4 shadow-xl space-y-3 transition-all ${
-                        isMember
-                          ? 'border-amber-500/40 bg-amber-500/[0.03]'
-                          : 'border-white/10 hover:border-white/20'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-start gap-3 min-w-0">
-                          <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-300 font-black text-sm shrink-0">
-                            #{idx + 1}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h4 className="text-sm font-black text-white">{team.name}</h4>
-                              {isMember && (
-                                <span className="text-[10px] font-bold text-amber-400 bg-amber-500/20 px-2 py-0.2 rounded-full">
-                                  Your Squad
-                                </span>
+                    return (
+                      <div
+                        key={team.id}
+                        className={`bg-[#0F0F0F] border rounded-3xl p-4 shadow-xl space-y-3 transition-all ${
+                          isMember
+                            ? 'border-amber-500/40 bg-amber-500/[0.03]'
+                            : 'border-white/10 hover:border-white/20'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-start gap-3 min-w-0">
+                            <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-300 font-black text-sm shrink-0">
+                              #{idx + 1}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h4 className="text-sm font-black text-white">{team.name}</h4>
+                                {isMember && (
+                                  <span className="text-[10px] font-bold text-amber-400 bg-amber-500/20 px-2 py-0.2 rounded-full">
+                                    Your Squad
+                                  </span>
+                                )}
+                                {team.leaderName && (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                    <Crown className="w-2.5 h-2.5 text-amber-400 fill-amber-400" />
+                                    <span>Leader: {team.leaderName === currentUser.name ? 'You' : team.leaderName}</span>
+                                  </span>
+                                )}
+                              </div>
+                              {team.motto && (
+                                <p className="text-xs text-white/60 italic mt-0.5 line-clamp-1">
+                                  "{team.motto}"
+                                </p>
                               )}
                             </div>
-                            {team.motto && (
-                              <p className="text-xs text-white/60 italic mt-0.5 line-clamp-1">
-                                "{team.motto}"
-                              </p>
-                            )}
+                          </div>
+
+                          <div className="text-right shrink-0">
+                            <span className="text-sm font-black text-amber-400">
+                              {team.totalCheckinsCount || 0}
+                            </span>
+                            <p className="text-[9px] text-white/40 uppercase font-bold">Receipts</p>
                           </div>
                         </div>
 
-                        <div className="text-right shrink-0">
-                          <span className="text-sm font-black text-amber-400">
-                            {team.totalCheckinsCount || 0}
-                          </span>
-                          <p className="text-[9px] text-white/40 uppercase font-bold">Receipts</p>
-                        </div>
-                      </div>
-
-                      {/* Teammates List & Join Action */}
-                      <div className="flex items-center justify-between pt-2 border-t border-white/10 text-xs">
-                        <div className="flex items-center gap-2">
-                          <div className="flex -space-x-2 overflow-hidden">
-                            {team.members.map((m) => (
-                              <img
-                                key={m.userId}
-                                src={m.userAvatar}
-                                alt={m.userName}
-                                referrerPolicy="no-referrer"
-                                className="w-7 h-7 rounded-full object-cover border-2 border-[#0F0F0F]"
-                                title={`${m.userName} (${m.checkinsCount} receipts)`}
-                              />
-                            ))}
+                        {/* Teammates List & Join Action */}
+                        <div className="flex items-center justify-between pt-2 border-t border-white/10 text-xs">
+                          <div className="flex items-center gap-2">
+                            <div className="flex -space-x-2 overflow-hidden items-center">
+                              {team.members.map((m) => {
+                                const isCreator = m.userId === team.leaderId || m.role === 'leader';
+                                const isOnline = isMemberOnline(m.userId);
+                                return (
+                                  <div key={m.userId} className="relative group/avatar">
+                                    <img
+                                      src={m.userAvatar}
+                                      alt={m.userName}
+                                      referrerPolicy="no-referrer"
+                                      className={`w-7 h-7 rounded-full object-cover border-2 ${
+                                        isCreator ? 'border-amber-400 ring-1 ring-amber-400/50' : 'border-[#0F0F0F]'
+                                      }`}
+                                      title={`${m.userName}${isCreator ? ' (Leader/Owner)' : ''} (${isOnline ? 'Online' : 'Offline'} • ${m.checkinsCount || 0} receipts)`}
+                                    />
+                                    {isCreator && (
+                                      <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-500 border border-black flex items-center justify-center shadow-xs z-10">
+                                        <Crown className="w-2 h-2 text-black fill-black" />
+                                      </span>
+                                    )}
+                                    <span
+                                      className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-[#0F0F0F] ${
+                                        isOnline ? 'bg-emerald-400' : 'bg-zinc-500'
+                                      }`}
+                                    />
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <span className="text-[11px] text-white/60">
+                              {team.members.length}/{team.maxMembers} members
+                            </span>
                           </div>
-                          <span className="text-[11px] text-white/60">
-                            {team.members.length}/{team.maxMembers} members
-                          </span>
-                        </div>
 
-                        {isMember && (
-                          <div className="flex items-center gap-1.5 flex-wrap">
+                          {isMember ? (
                             <button
                               onClick={() => {
                                 vibrateLight();
@@ -943,53 +1326,31 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                               <MessageCircle className="w-3.5 h-3.5 text-amber-400" />
                               <span>Team Chat</span>
                             </button>
-
-                            {onOpenGroupChat && (
-                              <button
-                                onClick={() => {
-                                  vibrateLight();
-                                  const squadGroupId = `group_squad_${challenge.id}_${team.id}`;
-                                  DailyStorageService.ensureChallengeSquadGroup(challenge.id, team.id);
-                                  onOpenGroupChat(squadGroupId);
-                                }}
-                                className="py-1.5 px-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white/90 hover:text-white font-bold text-xs transition-all flex items-center gap-1 border border-white/15"
-                                title="Open squad chat in DM section"
-                              >
-                                <span>Go to Group Chat in DMs</span>
-                                <ChevronRight className="w-3 h-3 text-white/50" />
-                              </button>
-                            )}
-                          </div>
-                        )}
-
-                        {!isMember && !mySquad && !isFull && (
-                          <button
-                            onClick={() => handleJoinSquad(team.id)}
-                            className="py-1.5 px-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-black text-xs transition-all flex items-center gap-1 shadow-sm"
-                          >
-                            <UserPlus className="w-3.5 h-3.5" />
-                            <span>Join Squad</span>
-                          </button>
-                        )}
-
-                        {!isMember && isFull && (
-                          <span className="text-[11px] font-bold text-white/30 px-2 py-1 rounded-lg bg-white/5">
-                            Squad Full
-                          </span>
-                        )}
+                          ) : !mySquad && !isFull ? (
+                            <button
+                              onClick={() => handleJoinSquad(team.id)}
+                              className="py-1.5 px-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-black text-xs transition-all flex items-center gap-1 shadow-sm"
+                            >
+                              <UserPlus className="w-3.5 h-3.5" />
+                              <span>Join Squad</span>
+                            </button>
+                          ) : isFull ? (
+                            <span className="text-[11px] font-bold text-white/30 px-2 py-1 rounded-lg bg-white/5">
+                              Squad Full
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })
+                    );
+                  })
               )}
             </div>
           </div>
         )}
 
-        {/* Tab 2: Live Text-Only Discussion (Cohort Chat + Squad Chat Channel Switcher) */}
+        {/* TAB 4: CHAT (Cohort Discussion + Squad Channel) */}
         {challengeTab === 'chat' && (
           <div className="bg-[#0F0F0F] border border-white/15 rounded-3xl p-4 sm:p-5 shadow-2xl space-y-4">
-            {/* Header */}
             <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center text-white">
@@ -1003,8 +1364,8 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                   </h3>
                   <p className="text-[10px] text-white/40">
                     {chatChannel === 'squad'
-                      ? 'Private squad discussion • Specific to your team'
-                      : 'Text-only chat • Pure words & accountability with all participants'}
+                      ? 'Private squad discussion with your team'
+                      : 'Cohort chat with all participants'}
                   </p>
                 </div>
               </div>
@@ -1016,68 +1377,182 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
               </span>
             </div>
 
-            {/* Squad vs Cohort Channel Selector (when user belongs to a squad) */}
+            {/* Squad vs Cohort Channel Selector */}
             {mySquad && (
-              <div className="flex items-center justify-between gap-2 p-1.5 bg-white/5 border border-white/10 rounded-2xl">
-                <div className="flex items-center gap-1 flex-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      vibrateLight();
-                      setChatChannel('cohort');
-                    }}
-                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                      chatChannel === 'cohort'
-                        ? 'bg-white text-black shadow-sm'
-                        : 'text-white/60 hover:text-white hover:bg-white/5'
-                    }`}
-                  >
-                    <span>🌐 Cohort (All Members)</span>
-                  </button>
+              <div className="flex items-center gap-1 p-1 bg-white/5 border border-white/10 rounded-2xl">
+                <button
+                  type="button"
+                  onClick={() => {
+                    vibrateLight();
+                    setChatChannel('cohort');
+                  }}
+                  className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                    chatChannel === 'cohort'
+                      ? 'bg-white text-black shadow-sm'
+                      : 'text-white/60 hover:text-white'
+                  }`}
+                >
+                  <span>🌐 Cohort Discussion</span>
+                </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      vibrateLight();
-                      setChatChannel('squad');
-                    }}
-                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                      chatChannel === 'squad'
-                        ? 'bg-amber-400 text-black font-black shadow-sm'
-                        : 'text-white/60 hover:text-white hover:bg-white/5'
-                    }`}
-                  >
-                    <span>⚔️ {mySquad.name} Squad</span>
-                  </button>
-                </div>
-
-                {onOpenGroupChat && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      vibrateLight();
-                      const squadGroupId = `group_squad_${challenge.id}_${mySquad.id}`;
-                      DailyStorageService.ensureChallengeSquadGroup(challenge.id, mySquad.id);
-                      onOpenGroupChat(squadGroupId);
-                    }}
-                    className="py-1.5 px-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 font-bold text-[11px] border border-amber-500/30 flex items-center gap-1 transition-all shrink-0"
-                    title="Open this group chat in Direct Messages"
-                  >
-                    <MessageSquare className="w-3 h-3 text-amber-400" />
-                    <span className="hidden sm:inline">Go to Group Chat in DMs</span>
-                    <span className="sm:hidden">In DMs</span>
-                    <ChevronRight className="w-3 h-3 text-amber-400" />
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    vibrateLight();
+                    setChatChannel('squad');
+                  }}
+                  className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                    chatChannel === 'squad'
+                      ? 'bg-amber-400 text-black font-black shadow-sm'
+                      : 'text-white/60 hover:text-white'
+                  }`}
+                >
+                  <span>⚔️ {mySquad.name}</span>
+                </button>
               </div>
             )}
 
-            {/* Chat message feed: displays squadMessages or chatMessages */}
-            <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1 no-scrollbar min-h-[160px]">
+            {/* Squad Progress Summary Card (Top of Squad Chat) */}
+            {chatChannel === 'squad' && mySquad && squadProofStats && (
+              <div className="bg-gradient-to-br from-[#161616] to-[#101010] border border-amber-500/25 rounded-2xl p-3.5 space-y-3 shadow-lg shadow-black/50">
+                {/* Header Row: Collective Streak + Proofs Submitted */}
+                <div className="flex items-center justify-between gap-2.5">
+                  {/* Collective Streak */}
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
+                      <Flame className="w-4 h-4 text-amber-400 fill-amber-400" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-black text-white">
+                          {squadStreak} {squadStreak === 1 ? 'Day' : 'Days'}
+                        </span>
+                        <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          Streak
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-white/50 font-medium">Collective Squad Streak</p>
+                    </div>
+                  </div>
+
+                  {/* Proofs submitted today */}
+                  <div className="text-right shrink-0">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <span className="text-xs font-mono font-bold text-white">
+                        <span className="text-[#2F6FED]">{squadProofStats.submittedCount}</span>
+                        <span className="text-white/40">/{squadProofStats.totalMembers}</span>
+                      </span>
+                      {squadProofStats.allSubmitted ? (
+                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 rounded-md">
+                          <Check className="w-2.5 h-2.5 stroke-[3]" /> Locked In
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 rounded-md">
+                          <Clock className="w-2.5 h-2.5" /> {squadProofStats.totalMembers - squadProofStats.submittedCount} Pending
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-white/50 font-medium mt-0.5">
+                      {squadProofStats.percentage}% submitted proof today
+                    </p>
+                  </div>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="relative h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ease-out ${
+                      squadProofStats.allSubmitted
+                        ? 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                        : 'bg-gradient-to-r from-[#2F6FED] to-blue-400'
+                    }`}
+                    style={{ width: `${Math.max(6, squadProofStats.percentage)}%` }}
+                  />
+                </div>
+
+                {/* Teammates Status Row (Avatars + Online/Offline + Submitted/Pending) */}
+                <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/10 flex-wrap">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {mySquad.members.map((m) => {
+                      const isSubmitted = squadProofStats.submittedMembers.some((sm) => sm.userId === m.userId);
+                      const isOnline = isMemberOnline(m.userId);
+                      return (
+                        <div
+                          key={m.userId}
+                          className="flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-xl px-2 py-1"
+                          title={`${m.userName} (${isOnline ? 'Online' : 'Offline'} • ${isSubmitted ? 'Proof submitted today' : 'Proof pending'})`}
+                        >
+                          <div className="relative shrink-0">
+                            <img
+                              src={m.userAvatar}
+                              alt={m.userName}
+                              referrerPolicy="no-referrer"
+                              className="w-5 h-5 rounded-full object-cover border border-white/20"
+                            />
+                            <span
+                              className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-black ${
+                                isOnline ? 'bg-emerald-400 ring-1 ring-emerald-400/40' : 'bg-zinc-500'
+                              }`}
+                            />
+                          </div>
+                          <span className="text-[10px] font-semibold text-white/90 truncate max-w-[75px]">
+                            {m.userId === currentUser.id ? 'You' : m.userName.split(' ')[0]}
+                          </span>
+                          {isSubmitted ? (
+                            <span className="text-[9px] font-bold text-emerald-400 flex items-center" title="Proof submitted today">
+                              <Check className="w-2.5 h-2.5 stroke-[3]" />
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-bold text-amber-400" title="Proof pending">
+                              <Clock className="w-2.5 h-2.5" />
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Contextual Action: Submit Proof or Nudge Squad */}
+                  <div className="shrink-0 ml-auto">
+                    {!squadProofStats.hasCurrentUserSubmitted ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateLight();
+                          setIsPostModalOpen(true);
+                        }}
+                        className="py-1 px-2.5 rounded-xl bg-[#2F6FED] hover:bg-[#255bd1] text-white font-bold text-[11px] flex items-center gap-1 transition-all shadow-sm active:scale-95"
+                      >
+                        <Camera className="w-3 h-3" />
+                        <span>Submit Proof</span>
+                      </button>
+                    ) : !squadProofStats.allSubmitted ? (
+                      <button
+                        type="button"
+                        onClick={handleNudgeSquad}
+                        className="py-1 px-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-bold text-[11px] flex items-center gap-1 transition-all active:scale-95"
+                        title="Send accountability reminder to squad chat"
+                      >
+                        <Zap className="w-3 h-3 text-amber-400" />
+                        <span>Nudge Squad</span>
+                      </button>
+                    ) : (
+                      <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>All Verified</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Chat Messages Feed */}
+            <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1 no-scrollbar min-h-[180px]">
               {(chatChannel === 'squad' ? squadMessages : chatMessages).length === 0 ? (
-                <div className="py-8 text-center text-white/40 text-xs">
+                <div className="py-10 text-center text-white/40 text-xs">
                   {chatChannel === 'squad'
-                    ? `No squad messages yet. Say hi to your team in "${mySquad?.name}"!`
+                    ? `No squad messages yet. Say hello to your team in "${mySquad?.name}"!`
                     : 'No messages yet. Say hello and encourage your cohort!'}
                 </div>
               ) : (
@@ -1101,12 +1576,10 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                         <span className="text-[9px] text-white/30">{msg.timestamp}</span>
                       </div>
                       <div
-                        className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-xs leading-relaxed ${
+                        className={`max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed ${
                           isMe
-                            ? chatChannel === 'squad'
-                              ? 'bg-amber-400 text-black font-medium rounded-tr-sm shadow-md'
-                              : 'bg-[#2F6FED] text-white font-medium rounded-tr-sm shadow-md'
-                            : 'bg-white/10 text-white rounded-tl-sm border border-white/10'
+                            ? 'bg-[#2F6FED] text-white rounded-tr-none'
+                            : 'bg-white/10 text-white rounded-tl-none'
                         }`}
                       >
                         {msg.text}
@@ -1117,343 +1590,189 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
               )}
             </div>
 
-            {/* Text-Only Input Bar (No Photo Upload in this chat section) */}
-            {isJoined ? (
-              <form onSubmit={handleSendChatMessage} className="flex items-center gap-2 pt-2 border-t border-white/10">
-                <input
-                  type="text"
-                  value={chatInputText}
-                  onChange={(e) => setChatInputText(e.target.value)}
-                  placeholder={
-                    chatChannel === 'squad' && mySquad
-                      ? `Message ${mySquad.name} squad members...`
-                      : 'Send a text message to cohort members...'
-                  }
-                  className="flex-1 px-4 py-2.5 bg-white/5 border border-white/15 focus:border-[#2F6FED] rounded-xl text-xs text-white placeholder-white/35 outline-none transition-colors"
-                />
-                <button
-                  type="submit"
-                  disabled={!chatInputText.trim()}
-                  className="p-2.5 rounded-xl bg-[#2F6FED] hover:bg-[#e0be48] text-black font-black transition-all disabled:opacity-40 shadow-md min-w-[40px] flex items-center justify-center"
-                  title="Send Text Message"
-                >
-                  <Send className="w-4 h-4" />
-                </button>
-              </form>
-            ) : (
-              <div className="p-3 bg-white/5 border border-white/10 rounded-2xl text-center text-xs text-white/50">
-                Join this challenge to participate in the text-only discussion room.
-              </div>
-            )}
+            {/* Input form */}
+            <form onSubmit={handleSendChatMessage} className="flex items-center gap-2 pt-2 border-t border-white/10">
+              <input
+                type="text"
+                value={chatInputText}
+                onChange={(e) => setChatInputText(e.target.value)}
+                placeholder={
+                  chatChannel === 'squad'
+                    ? `Message your squad (${mySquad?.name})...`
+                    : 'Post a message to cohort...'
+                }
+                className="flex-1 bg-white/5 border border-white/15 focus:border-[#2F6FED] rounded-2xl px-3.5 py-2.5 text-xs text-white placeholder-white/30 focus:outline-none transition-colors"
+              />
+              <button
+                type="submit"
+                disabled={!chatInputText.trim()}
+                className="p-2.5 rounded-2xl bg-[#2F6FED] hover:bg-[#255bd1] text-white disabled:opacity-40 transition-all shadow-md shrink-0"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </form>
           </div>
         )}
-
-        {/* Tab: Challenge Leaderboard */}
-        {challengeTab === 'leaderboard' && (
-          <div className="pt-1">
-            <ChallengeLeaderboardView
-              challenge={challenge}
-              currentUser={currentUser}
-            />
-          </div>
-        )}
-
       </div>
 
-      {/* POST PROGRESS MODAL (Photo is MANDATORY) */}
-      {isPostModalOpen && (
+      {/* FIND SQUAD MEMBERS & FORM SQUAD MODAL */}
+      {isFindSquadModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200"
-          onClick={() => setIsPostModalOpen(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setIsFindSquadModalOpen(false)}
         >
           <div
-            className="w-full max-w-md bg-[#0D0D0D] border border-white/15 rounded-[32px] p-5 sm:p-6 shadow-2xl relative text-white my-auto max-h-[92vh] flex flex-col animate-in zoom-in-95 duration-200"
+            className="w-full max-w-md bg-[#0D0D0D] border border-white/15 rounded-[32px] p-6 shadow-2xl text-white space-y-4 max-h-[85vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-3.5 border-b border-white/10">
-              <div>
-                <h3 className="font-black text-sm text-white flex items-center gap-1.5">
-                  <Camera className="w-4 h-4 text-[#2F6FED]" />
-                  Log Day {daysCompleted + 1} Progress
-                </h3>
-                <p className="text-[10px] text-white/50">{challenge.title}</p>
+            <div className="flex items-center justify-between pb-3 border-b border-white/10 shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-[#2F6FED]/15 border border-[#2F6FED]/30 flex items-center justify-center text-[#2F6FED]">
+                  <UserPlus className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white">Find Squad Members</h3>
+                  <p className="text-[10px] text-white/50">
+                    Search participants to team up and form an accountability squad
+                  </p>
+                </div>
               </div>
-
               <button
-                onClick={() => setIsPostModalOpen(false)}
-                className="p-1.5 rounded-full text-white/40 hover:text-white hover:bg-white/10 transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
+                onClick={() => setIsFindSquadModalOpen(false)}
+                className="p-1 rounded-full text-white/40 hover:text-white"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmitProgress} className="flex-1 overflow-y-auto space-y-4 py-3.5 pr-1">
-              {/* Photo Requirement Notice */}
-              <div className="p-3 bg-[#2F6FED]/10 border border-[#2F6FED]/30 rounded-2xl text-xs text-[#2F6FED] flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-[#2F6FED] shrink-0 mt-0.5" />
-                <span className="leading-relaxed text-white/90">
-                  <strong className="text-[#2F6FED]">Photo proof is mandatory:</strong> Please insert a photo as your achievement (photo only, or photo + text reflection).
-                </span>
-              </div>
-
-              {photoError && (
-                <div className="p-2.5 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-300 flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-                  <span>{photoError}</span>
-                </div>
-              )}
-
-              {/* Photo Proof Box */}
-              <div>
-                <label className="block text-[11px] font-bold text-white/70 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                  <span>Achievement Photo Proof *</span>
-                  <button
-                    type="button"
-                    onClick={() => setShowPresets(!showPresets)}
-                    className="text-xs text-[#2F6FED] hover:underline font-bold lowercase flex items-center gap-1"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    {showPresets ? 'hide presets' : 'sample receipts'}
-                  </button>
-                </label>
-
-                {postPhotoUrl ? (
-                  <div className="relative rounded-2xl overflow-hidden border border-white/20 aspect-video bg-black/40">
-                    <img
-                      src={postPhotoUrl}
-                      alt="Achievement Proof"
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setPostPhotoUrl('')}
-                      className="absolute top-2 right-2 p-1.5 rounded-full bg-black/70 hover:bg-black text-white"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-2">
-                    <label className="border-2 border-dashed border-white/15 hover:border-[#2F6FED]/50 rounded-2xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer bg-white/[0.02] hover:bg-white/[0.04] transition-all text-center">
-                      <Upload className="w-5 h-5 text-[#2F6FED]" />
-                      <span className="text-xs font-semibold text-white">Upload Photo</span>
-                      <span className="text-[10px] text-white/40">Required proof</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                      />
-                    </label>
-
-                    <label className="border-2 border-dashed border-white/15 hover:border-[#2F6FED]/50 rounded-2xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer bg-white/[0.02] hover:bg-white/[0.04] transition-all text-center">
-                      <Camera className="w-5 h-5 text-[#2F6FED]" />
-                      <span className="text-xs font-semibold text-white">Camera Snap</span>
-                      <span className="text-[10px] text-white/40">Live snapshot</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
-                )}
-
-                {/* Presets */}
-                {showPresets && !postPhotoUrl && (
-                  <div className="mt-2 p-2.5 bg-black/40 border border-white/10 rounded-2xl">
-                    <p className="text-[10px] text-white/50 font-bold mb-2 uppercase">
-                      Select a sample achievement photo:
-                    </p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {SAMPLE_ACHIEVEMENTS.map((item) => (
-                        <button
-                          key={item.title}
-                          type="button"
-                          onClick={() => {
-                            vibrateLight();
-                            setPostPhotoUrl(item.url);
-                            setPhotoError(null);
-                            setShowPresets(false);
-                          }}
-                          className="relative rounded-xl overflow-hidden border border-white/10 aspect-video group text-left hover:border-[#2F6FED]"
-                        >
-                          <img
-                            src={item.url}
-                            alt={item.title}
-                            referrerPolicy="no-referrer"
-                            className="w-full h-full object-cover opacity-70 group-hover:opacity-100"
-                          />
-                          <span className="absolute bottom-1 left-1 text-[9px] font-bold text-white bg-black/80 px-1 py-0.5 rounded">
-                            {item.title}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Optional Text Reflection */}
-              <div>
-                <label className="block text-[11px] font-bold text-white/70 uppercase tracking-wider mb-1.5">
-                  Reflection / Notes (Optional)
-                </label>
-                <textarea
-                  value={postReflection}
-                  onChange={(e) => setPostReflection(e.target.value)}
-                  placeholder="Notes on what you accomplished, obstacles, or lessons..."
-                  rows={3}
-                  className="w-full bg-[#141414] border border-white/15 focus:border-[#2F6FED] rounded-2xl p-3 text-xs text-white placeholder-white/30 focus:outline-none transition-colors resize-none leading-relaxed"
-                />
-              </div>
-
-              {/* Submit Button (Golden Theme) */}
-              <div className="pt-2">
+            {/* Search Bar (just like the search bar in challenge cohort discussions) */}
+            <div className="relative shrink-0">
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
+              <input
+                type="text"
+                value={squadMemberSearchQuery}
+                onChange={(e) => setSquadMemberSearchQuery(e.target.value)}
+                placeholder="Search people by name or username to make a squad..."
+                className="w-full bg-[#141414] border border-white/15 focus:border-[#2F6FED] rounded-2xl pl-10 pr-8 py-2.5 text-xs text-white placeholder-white/40 focus:outline-none transition-colors"
+              />
+              {squadMemberSearchQuery && (
                 <button
-                  type="submit"
-                  disabled={!postPhotoUrl || isSubmitting}
-                  className={`w-full py-3.5 px-4 rounded-2xl font-black text-xs transition-all shadow-lg flex items-center justify-center gap-2 min-h-[44px] ${
-                    postPhotoUrl
-                      ? 'bg-[#2F6FED] hover:bg-[#e5c158] text-black shadow-[#2F6FED]/25 hover:scale-[1.01]'
-                      : 'bg-white/10 text-white/30 cursor-not-allowed'
-                  }`}
+                  onClick={() => setSquadMemberSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
                 >
-                  <Trophy className="w-4 h-4 text-black" />
-                  <span>Submit Day {daysCompleted + 1} Achievement</span>
+                  <X className="w-3.5 h-3.5" />
                 </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+              )}
+            </div>
 
-      {/* CLICKED DAY PROOF DETAIL MODAL */}
-      {selectedDayProof && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200"
-          onClick={() => setSelectedDayProof(null)}
-        >
-          <div
-            className="w-full max-w-md bg-[#0D0D0D] border border-white/15 rounded-[32px] p-5 shadow-2xl text-white space-y-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between pb-3 border-b border-white/10">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 font-black text-xs">
-                  D{selectedDayProof.dayNumber}
+            {/* Results List */}
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 no-scrollbar min-h-[200px]">
+              {searchResultsUsers.length === 0 ? (
+                <div className="text-center py-8 text-xs text-white/40">
+                  No users found matching "{squadMemberSearchQuery}".
                 </div>
-                <div>
-                  <h4 className="text-sm font-black text-white">
-                    Day {selectedDayProof.dayNumber} Verified Proof
-                  </h4>
-                  <span className="text-[10px] text-white/40">{selectedDayProof.createdAt}</span>
-                </div>
-              </div>
-              <button
-                onClick={() => setSelectedDayProof(null)}
-                className="p-1.5 rounded-full text-white/40 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              ) : (
+                searchResultsUsers.map((user) => {
+                  // Check if user is already in a squad in this challenge
+                  const userSquad = (challenge.teams || []).find((t) =>
+                    (t.memberIds || []).includes(user.id)
+                  );
+                  const isUserInMySquad = mySquad && (mySquad.memberIds || []).includes(user.id);
+
+                  return (
+                    <div
+                      key={user.id}
+                      className="p-3 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-white/20 transition-all flex items-center justify-between gap-3"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <img
+                          src={user.avatar}
+                          alt={user.name}
+                          referrerPolicy="no-referrer"
+                          className="w-9 h-9 rounded-full object-cover border border-white/20 shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-xs text-white truncate">{user.name}</span>
+                            <span className="text-[10px] text-white/40">@{user.username}</span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5 text-[10px] text-white/50">
+                            <span className="flex items-center gap-1 text-orange-400">
+                              <Flame className="w-3 h-3 fill-orange-400" />
+                              {user.currentStreak || 0}d streak
+                            </span>
+                            {userSquad && (
+                              <span className="text-amber-300 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20 truncate">
+                                {userSquad.name}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="shrink-0">
+                        {isUserInMySquad ? (
+                          <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1.5 rounded-xl border border-emerald-500/30 flex items-center gap-1">
+                            <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                            <span>In Squad</span>
+                          </span>
+                        ) : invitedUserIds.includes(user.id) ? (
+                          <span className="text-[10px] font-bold text-blue-400 bg-blue-500/15 px-2.5 py-1.5 rounded-xl border border-blue-500/30 flex items-center gap-1.5 shadow-sm">
+                            <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                            <span>Invite Sent</span>
+                          </span>
+                        ) : mySquad ? (
+                          mySquad.members.length < mySquad.maxMembers ? (
+                            <button
+                              onClick={() => handleInviteUserToSquad(user)}
+                              className="py-1.5 px-3 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-black text-xs transition-all shadow-md shadow-amber-500/20 flex items-center gap-1.5 active:scale-95"
+                            >
+                              <Send className="w-3 h-3" />
+                              <span>Send Invite</span>
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-white/30 font-bold px-2 py-1 rounded-lg bg-white/5">
+                              Squad Full
+                            </span>
+                          )
+                        ) : (
+                          <button
+                            onClick={() => handleInviteUserToSquad(user)}
+                            className="py-1.5 px-3 rounded-xl bg-[#2F6FED] hover:bg-[#255bd1] text-white font-bold text-xs transition-all shadow-sm flex items-center gap-1.5 active:scale-95"
+                          >
+                            <Send className="w-3 h-3" />
+                            <span>Send Invite</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
 
-            {selectedDayProof.imageUrl && (
-              <div className="rounded-2xl overflow-hidden border border-white/15 aspect-video bg-black/60">
-                <img
-                  src={selectedDayProof.imageUrl}
-                  alt={`Day ${selectedDayProof.dayNumber}`}
-                  referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            )}
-
-            {selectedDayProof.text && (
-              <p className="text-xs text-white/90 leading-relaxed font-sans">
-                {selectedDayProof.text}
-              </p>
-            )}
-
-            <div className="pt-2 border-t border-white/10 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-1 text-blue-400 font-bold text-[11px]">
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Verified Achievement</span>
-              </div>
-              <button
-                onClick={() => setSelectedDayProof(null)}
-                className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* LEAVE CHALLENGE CONFIRMATION MODAL */}
-      {showLeaveConfirm && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
-          onClick={() => setShowLeaveConfirm(false)}
-        >
-          <div
-            className="w-full max-w-sm bg-[#0D0D0D] border border-white/15 rounded-3xl p-5 shadow-2xl text-white space-y-4 text-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-400 flex items-center justify-center mx-auto">
-              <LogOut className="w-6 h-6" />
-            </div>
-
-            <div className="space-y-1">
-              <h4 className="font-black text-sm text-white">Leave {challenge.title}?</h4>
-              <p className="text-xs text-white/60 leading-relaxed">
-                You can browse as an observer or rejoin anytime. {userProgress.isCompleted && 'Note: Completed challenges remain in read-only mode if you rejoin.'}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 pt-1">
+            {/* Bottom Actions */}
+            <div className="pt-3 border-t border-white/10 flex items-center justify-between shrink-0">
               <button
                 type="button"
-                onClick={() => setShowLeaveConfirm(false)}
-                className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 font-bold text-xs border border-white/10"
+                onClick={() => {
+                  setIsFindSquadModalOpen(false);
+                  setIsCreateSquadOpen(true);
+                }}
+                className="text-xs font-bold text-amber-400 hover:underline flex items-center gap-1"
               >
-                Cancel
+                <Plus className="w-3.5 h-3.5" />
+                <span>Create squad from scratch</span>
               </button>
+
               <button
                 type="button"
-                onClick={handleToggleJoin}
-                className="py-2.5 px-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs shadow-md"
+                onClick={() => setIsFindSquadModalOpen(false)}
+                className="py-1.5 px-3 rounded-xl bg-white/10 text-white text-xs font-bold hover:bg-white/15"
               >
-                Leave Group
+                Done
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* FULL PHOTO ZOOM MODAL */}
-      {selectedPhotoPreview && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/95 backdrop-blur-md animate-in fade-in duration-200"
-          onClick={() => setSelectedPhotoPreview(null)}
-        >
-          <div className="relative max-w-2xl w-full max-h-[90vh] flex flex-col items-center">
-            <button
-              onClick={() => setSelectedPhotoPreview(null)}
-              className="absolute top-2 right-2 z-10 p-2 rounded-full bg-black/80 text-white hover:bg-black"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <img
-              src={selectedPhotoPreview}
-              alt="Proof full view"
-              referrerPolicy="no-referrer"
-              className="max-h-[85vh] w-auto max-w-full rounded-2xl object-contain border border-white/20"
-            />
           </div>
         </div>
       )}
@@ -1485,6 +1804,20 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {squadTargetUserToInvite && (
+              <div className="p-2.5 rounded-xl bg-[#2F6FED]/15 border border-[#2F6FED]/30 text-xs text-white flex items-center gap-2">
+                <img
+                  src={squadTargetUserToInvite.avatar}
+                  alt={squadTargetUserToInvite.name}
+                  referrerPolicy="no-referrer"
+                  className="w-6 h-6 rounded-full object-cover"
+                />
+                <span>
+                  Teaming up with <strong>{squadTargetUserToInvite.name}</strong>
+                </span>
+              </div>
+            )}
 
             {squadError && (
               <div className="p-2.5 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-300 flex items-center gap-2">
@@ -1550,22 +1883,268 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
         </div>
       )}
 
-      {/* Challenge Weekly Recap & MVP Modal */}
-      {isRecapModalOpen && (
-        <ChallengeWeeklyRecapModal
-          isOpen={isRecapModalOpen}
-          onClose={() => setIsRecapModalOpen(false)}
-          challenge={challenge}
-          currentUser={currentUser}
-          onGoToTeamChat={() => {
-            setChallengeTab('chat');
-          }}
-          onRecapPublished={(publishedRecap) => {
-            // refresh messages
-            const msgs = DailyStorageService.getChallengeMessages(challenge.id);
-            setChatMessages(msgs);
-          }}
-        />
+      {/* POST PROOF MODAL */}
+      {isPostModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setIsPostModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-md bg-[#0D0D0D] border border-white/15 rounded-[32px] p-6 shadow-2xl text-white space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-[#2F6FED]/15 border border-[#2F6FED]/30 flex items-center justify-center text-[#2F6FED]">
+                  <Camera className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white">
+                    Submit Day {daysCompleted + 1} Progress Proof
+                  </h3>
+                  <p className="text-[10px] text-white/50">Verifiable photo receipt required</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsPostModalOpen(false)}
+                className="p-1 rounded-full text-white/40 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {photoError && (
+              <div className="p-2.5 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-300 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                <span>{photoError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmitProgress} className="space-y-4">
+              {/* Photo Upload or Preset Preview */}
+              <div>
+                <label className="block text-[11px] font-bold text-white/70 uppercase tracking-wider mb-1.5">
+                  Achievement Receipt Photo *
+                </label>
+
+                {postPhotoUrl ? (
+                  <div className="relative rounded-2xl overflow-hidden border border-white/20 aspect-video group">
+                    <img
+                      src={postPhotoUrl}
+                      alt="Achievement Proof Preview"
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setPostPhotoUrl('')}
+                      className="absolute top-2 right-2 p-1.5 rounded-full bg-black/70 text-white hover:bg-black transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <label className="border-2 border-dashed border-white/20 hover:border-[#2F6FED] rounded-2xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors bg-white/[0.02]">
+                      <Camera className="w-6 h-6 text-[#2F6FED]" />
+                      <div className="text-center">
+                        <span className="text-xs font-bold text-white block">
+                          Upload Photo Receipt
+                        </span>
+                        <span className="text-[10px] text-white/40">
+                          Click to select image file from your device
+                        </span>
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                    </label>
+
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-[10px] text-white/40">Or use a sample proof:</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowPresets(!showPresets)}
+                        className="text-[10px] font-bold text-[#2F6FED] hover:underline"
+                      >
+                        {showPresets ? 'Hide presets' : 'Browse sample receipts'}
+                      </button>
+                    </div>
+
+                    {showPresets && (
+                      <div className="grid grid-cols-2 gap-2 pt-1 animate-in fade-in">
+                        {SAMPLE_ACHIEVEMENTS.map((item, idx) => (
+                          <div
+                            key={idx}
+                            onClick={() => handleSelectPresetPhoto(item.url)}
+                            className="rounded-xl overflow-hidden border border-white/15 bg-black cursor-pointer group hover:border-[#2F6FED] transition-all relative aspect-video"
+                          >
+                            <img
+                              src={item.url}
+                              alt={item.title}
+                              referrerPolicy="no-referrer"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            />
+                            <div className="absolute inset-x-0 bottom-0 p-1 bg-black/70 text-[9px] font-bold text-white truncate text-center">
+                              {item.title}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Optional Text Reflection */}
+              <div>
+                <label className="block text-[11px] font-bold text-white/70 uppercase tracking-wider mb-1">
+                  Daily Notes & Reflection (Optional)
+                </label>
+                <textarea
+                  value={postReflection}
+                  onChange={(e) => setPostReflection(e.target.value)}
+                  placeholder="What was completed today? Any takeaways or metrics?"
+                  rows={3}
+                  className="w-full bg-[#141414] border border-white/15 focus:border-[#2F6FED] rounded-2xl p-3 text-xs text-white placeholder-white/30 focus:outline-none transition-colors"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsPostModalOpen(false)}
+                  className="flex-1 py-3 px-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white/70 font-bold text-xs border border-white/10"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!postPhotoUrl || isSubmitting}
+                  className="flex-1 py-3 px-4 rounded-2xl bg-[#2F6FED] hover:bg-[#255bd1] text-white font-black text-xs transition-all shadow-md shadow-[#2F6FED]/25 disabled:opacity-40"
+                >
+                  {isSubmitting ? 'Posting...' : 'Submit Daily Proof'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* DAY PROOF DETAIL VIEW MODAL */}
+      {selectedDayProof && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setSelectedDayProof(null)}
+        >
+          <div
+            className="w-full max-w-sm bg-[#0D0D0D] border border-white/15 rounded-3xl p-5 shadow-2xl text-white space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black text-[#2F6FED]">
+                  Day {selectedDayProof.dayNumber} Proof Receipt
+                </span>
+              </div>
+              <button
+                onClick={() => setSelectedDayProof(null)}
+                className="p-1 rounded-full text-white/40 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="rounded-2xl overflow-hidden border border-white/20 aspect-video">
+              <img
+                src={selectedDayProof.imageUrl}
+                alt="Day Proof"
+                referrerPolicy="no-referrer"
+                className="w-full h-full object-cover"
+              />
+            </div>
+
+            {selectedDayProof.text && (
+              <p className="text-xs text-white/80 leading-relaxed font-sans">
+                {selectedDayProof.text}
+              </p>
+            )}
+
+            <div className="flex items-center justify-between pt-2 border-t border-white/10 text-[10px] text-white/40">
+              <span>{selectedDayProof.createdAt}</span>
+              <span className="text-emerald-400 font-bold flex items-center gap-1">
+                <Check className="w-3 h-3" /> Verified Receipt
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* LEAVE CHALLENGE CONFIRMATION MODAL */}
+      {showLeaveConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setShowLeaveConfirm(false)}
+        >
+          <div
+            className="w-full max-w-sm bg-[#0D0D0D] border border-white/15 rounded-3xl p-5 shadow-2xl text-white space-y-4 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-400 flex items-center justify-center mx-auto">
+              <LogOut className="w-6 h-6" />
+            </div>
+
+            <div className="space-y-1">
+              <h4 className="font-black text-sm text-white">Leave {challenge.title}?</h4>
+              <p className="text-xs text-white/60 leading-relaxed">
+                You can browse as an observer or rejoin anytime.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowLeaveConfirm(false)}
+                className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 font-bold text-xs border border-white/10"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleToggleJoin}
+                className="py-2.5 px-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs shadow-md"
+              >
+                Leave Challenge
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FULL PHOTO ZOOM MODAL */}
+      {selectedPhotoPreview && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/95 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setSelectedPhotoPreview(null)}
+        >
+          <div className="relative max-w-2xl w-full max-h-[90vh] flex flex-col items-center">
+            <button
+              onClick={() => setSelectedPhotoPreview(null)}
+              className="absolute top-2 right-2 z-10 p-2 rounded-full bg-black/80 text-white hover:bg-black"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <img
+              src={selectedPhotoPreview}
+              alt="Proof full view"
+              referrerPolicy="no-referrer"
+              className="max-h-[85vh] w-auto max-w-full rounded-2xl object-contain border border-white/20"
+            />
+          </div>
+        </div>
       )}
     </div>
   );

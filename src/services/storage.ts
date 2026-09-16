@@ -3546,6 +3546,83 @@ export class DailyStorageService {
     return { challenge: target };
   }
 
+  static addMemberToChallengeTeam(
+    challengeId: string,
+    teamId: string,
+    userToAdd: User
+  ): { challenge: Challenge; team?: ChallengeTeam; added: boolean; error?: string } {
+    const all = this.getAllChallenges();
+    const target = all.find((c) => c.id === challengeId);
+    if (!target) return { challenge: all[0], added: false, error: 'Challenge not found' };
+
+    const targetTeam = (target.teams || []).find((t) => t.id === teamId);
+    if (!targetTeam) return { challenge: target, added: false, error: 'Squad not found' };
+
+    const memberIds = targetTeam.memberIds || [];
+    if (memberIds.includes(userToAdd.id)) {
+      return { challenge: target, team: targetTeam, added: true };
+    }
+    if (memberIds.length >= targetTeam.maxMembers) {
+      return {
+        challenge: target,
+        added: false,
+        error: `Squad is full! Max ${targetTeam.maxMembers} members reached.`,
+      };
+    }
+
+    let updatedTeam: ChallengeTeam | undefined;
+    const updatedChallenges = all.map((c) => {
+      if (c.id === challengeId) {
+        const cleanTeams = (c.teams || []).map((t) => {
+          if (t.id === teamId) {
+            const nextMembers = [
+              ...(t.members || []),
+              {
+                userId: userToAdd.id,
+                userName: userToAdd.name,
+                userUsername: userToAdd.username,
+                userAvatar: userToAdd.avatar,
+                userStreak: userToAdd.currentStreak,
+                joinedAt: getTodayDateString(),
+                role: 'member' as const,
+              },
+            ];
+            const nextMemberIds = [...(t.memberIds || []), userToAdd.id];
+            updatedTeam = {
+              ...t,
+              members: nextMembers,
+              memberIds: nextMemberIds,
+            };
+            return updatedTeam;
+          } else if ((t.memberIds || []).includes(userToAdd.id)) {
+            return {
+              ...t,
+              memberIds: t.memberIds.filter((id) => id !== userToAdd.id),
+              members: t.members.filter((m) => m.userId !== userToAdd.id),
+            };
+          }
+          return t;
+        }).filter((t) => (t.memberIds || []).length > 0);
+
+        const nextParticipants = Array.from(new Set([...(c.participantIds || []), userToAdd.id]));
+        return {
+          ...c,
+          participantIds: nextParticipants,
+          participantsCount: nextParticipants.length,
+          teams: cleanTeams,
+        };
+      }
+      return c;
+    });
+
+    this.saveAllChallenges(updatedChallenges);
+    const updated = updatedChallenges.find((c) => c.id === challengeId)!;
+    if (updatedTeam) {
+      this.ensureChallengeSquadGroup(challengeId, updatedTeam.id);
+    }
+    return { challenge: updated, team: updatedTeam, added: true };
+  }
+
   static getUserChallengeTeam(challengeId: string, userId?: string): ChallengeTeam | undefined {
     const targetUserId = userId || this.getCurrentUser().id;
     const challenge = this.getChallengeById(challengeId);
@@ -3752,13 +3829,14 @@ export class DailyStorageService {
 
     squadMembers.forEach((member) => {
       const post = submittedMap.get(member.userId);
-      if (post) {
+      const hasDateRecorded = Boolean(challenge.userPostDates?.[member.userId]?.includes(today));
+      if (post || hasDateRecorded) {
         submittedMembers.push({
           userId: member.userId,
           userName: member.userId === currentUser.id ? `${currentUser.name} (You)` : member.userName,
           userAvatar: member.userAvatar,
-          imageUrl: post.imageUrl,
-          timeAgo: post.createdAt || 'Today',
+          imageUrl: post?.imageUrl,
+          timeAgo: post?.createdAt || 'Today',
         });
       } else {
         pendingMembers.push({
@@ -3792,6 +3870,77 @@ export class DailyStorageService {
       challengeTitle: challenge.title,
       challengeIcon: challenge.icon,
     };
+  }
+
+  static getSquadCollectiveStreak(challengeId: string, teamId: string): number {
+    const challenge = this.getChallengeById(challengeId);
+    if (!challenge) return 0;
+    const team = (challenge.teams || []).find((t) => t.id === teamId);
+    if (!team || !team.members || team.members.length === 0) return 0;
+
+    const memberIds = team.memberIds || team.members.map((m) => m.userId);
+    const allPosts = this.getAllChallengeProgressPosts(challengeId).filter(
+      (p) => p.teamId === teamId || memberIds.includes(p.userId)
+    );
+
+    const datesWithProof = new Set<string>();
+    allPosts.forEach((p) => {
+      if (p.postDate) datesWithProof.add(p.postDate);
+    });
+    memberIds.forEach((mId) => {
+      const dates = challenge.userPostDates?.[mId] || [];
+      dates.forEach((d) => datesWithProof.add(d));
+    });
+
+    const today = getTodayDateString();
+    let streak = 0;
+    const hasToday = datesWithProof.has(today);
+
+    const d = new Date();
+    if (hasToday) {
+      streak = 1;
+      d.setDate(d.getDate() - 1);
+    } else {
+      d.setDate(d.getDate() - 1);
+    }
+
+    for (let i = 0; i < 365; i++) {
+      const dateStr = d.toISOString().split('T')[0];
+      if (datesWithProof.has(dateStr)) {
+        streak++;
+        d.setDate(d.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+
+    // Fallback: If streak is 0 but squad has logged checkins, estimate from average checkins
+    if (streak === 0 && (team.totalCheckinsCount || 0) > 0) {
+      const avgCheckins = Math.round(
+        (team.totalCheckinsCount || 0) / Math.max(1, team.members.length)
+      );
+      streak = Math.max(1, Math.min(challenge.durationDays, avgCheckins));
+    }
+
+    return streak;
+  }
+
+  static isUserOnline(userId: string): boolean {
+    const currentUser = this.getCurrentUser();
+    if (userId === currentUser.id) return true;
+
+    // Users who have posted proof today
+    const today = getTodayDateString();
+    const allPosts = this.getAllPosts();
+    if (allPosts.some((p) => p.userId === userId && (p.postDate === today || p.createdAt === 'Just now'))) return true;
+
+    // Users with challenge posts today
+    const challengePosts = this.getAllChallengeProgressPosts();
+    if (challengePosts.some((p) => p.userId === userId && p.postDate === today)) return true;
+
+    // Simulated active teammates in cohort
+    const activeCohort = ['user_marcus', 'user_sarah', 'user_1', 'user_alex', 'user_priya'];
+    return activeCohort.includes(userId);
   }
 
   static postChallengeProgress(
@@ -4246,6 +4395,141 @@ export class DailyStorageService {
     }
 
     return { challenge: joinResult.challenge, joinedTeam };
+  }
+
+  // --- DIRECT SQUAD INVITE WITH IN-APP NOTIFICATION ---
+  static sendSquadInvite(params: {
+    challengeId: string;
+    squadId: string;
+    targetUser: User;
+  }): { success: boolean; notification: AppNotification; challenge: Challenge } {
+    const currentUser = this.getCurrentUser();
+    const challenge = this.getChallengeById(params.challengeId);
+    if (!challenge) throw new Error('Challenge not found');
+
+    const targetTeam = (challenge.teams || []).find((t) => t.id === params.squadId);
+    if (!targetTeam) throw new Error('Squad not found');
+
+    const notifs = this.getAllNotifications();
+    const newNotif: AppNotification = {
+      id: `notif_squad_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      type: 'squad_invite',
+      actorId: currentUser.id,
+      actorName: currentUser.name,
+      actorUsername: currentUser.username,
+      actorAvatar: currentUser.avatar,
+      actorStreak: currentUser.currentStreak,
+      recipientId: params.targetUser.id,
+      targetId: challenge.id,
+      targetPreview: targetTeam.name,
+      squadId: targetTeam.id,
+      squadName: targetTeam.name,
+      challengeId: challenge.id,
+      challengeTitle: challenge.title,
+      inviteStatus: 'pending',
+      message: `invited you to join squad "${targetTeam.name}" in challenge "${challenge.title}"`,
+      createdAt: 'Just now',
+      timestamp: Date.now(),
+      isRead: false,
+    };
+
+    this.saveAllNotifications([newNotif, ...notifs]);
+
+    // Also dispatch a challenge invite message in DM
+    try {
+      this.sendMessage({
+        receiverId: params.targetUser.id,
+        text: `🎯 I've invited you to join our squad "${targetTeam.name}" in "${challenge.title}"! Let's conquer this challenge together.`,
+        challengeInvite: {
+          challengeId: challenge.id,
+          challengeTitle: challenge.title,
+          challengeIcon: challenge.icon,
+          challengeType: challenge.challengeType,
+          durationDays: challenge.durationDays,
+          category: challenge.category,
+          tag: challenge.tag,
+          deadlineDate: challenge.deadlineDate,
+          teamId: targetTeam.id,
+          teamName: targetTeam.name,
+          invitedByName: currentUser.name,
+          invitedByAvatar: currentUser.avatar,
+        },
+      });
+    } catch (e) {
+      console.warn('Failed to send DM for squad invite:', e);
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('daily:notification-added', {
+          detail: { notification: newNotif },
+        })
+      );
+    }
+
+    return { success: true, notification: newNotif, challenge };
+  }
+
+  static acceptSquadInvite(notificationId: string): {
+    success: boolean;
+    challenge?: Challenge;
+    joinedTeam?: ChallengeTeam;
+  } {
+    const notifs = this.getAllNotifications();
+    const notif = notifs.find((n) => n.id === notificationId);
+    if (!notif || !notif.challengeId || !notif.squadId) {
+      return { success: false };
+    }
+
+    const currentUser = this.getCurrentUser();
+    // 1. Join challenge if not already joined
+    this.toggleJoinChallenge(notif.challengeId);
+    // 2. Join squad team
+    const teamRes = this.joinChallengeTeam(notif.challengeId, notif.squadId);
+
+    // 3. Mark notification as accepted & read
+    const updatedNotifs = notifs.map((n) =>
+      n.id === notificationId ? { ...n, inviteStatus: 'accepted' as const, isRead: true } : n
+    );
+
+    // 4. Dispatch a confirmation notification to the squad leader/inviter
+    const confirmNotif: AppNotification = {
+      id: `notif_confirm_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      type: 'squad_invite',
+      actorId: currentUser.id,
+      actorName: currentUser.name,
+      actorUsername: currentUser.username,
+      actorAvatar: currentUser.avatar,
+      actorStreak: currentUser.currentStreak,
+      recipientId: notif.actorId,
+      targetId: notif.challengeId,
+      targetPreview: notif.squadName || 'Squad',
+      squadId: notif.squadId,
+      squadName: notif.squadName,
+      challengeId: notif.challengeId,
+      challengeTitle: notif.challengeTitle,
+      inviteStatus: 'accepted',
+      message: `accepted your invite and joined squad "${notif.squadName}"! 🎉`,
+      createdAt: 'Just now',
+      timestamp: Date.now(),
+      isRead: false,
+    };
+
+    this.saveAllNotifications([confirmNotif, ...updatedNotifs]);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('daily:notification-added', {
+          detail: { notification: confirmNotif },
+        })
+      );
+    }
+
+    return {
+      success: true,
+      challenge: teamRes.challenge,
+      joinedTeam: teamRes.team,
+    };
   }
 
   // --- CHALLENGE COMMITMENT CALENDAR HELPERS ---
