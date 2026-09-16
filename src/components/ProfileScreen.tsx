@@ -316,12 +316,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               {currentUser.name}
               <CheckCircle2 className="w-4 h-4 text-[#2F6FED]" />
             </h1>
-            <p className="text-xs text-white/70 mt-1 leading-relaxed">{currentUser.bio}</p>
+            <p className="text-[11px] text-white/40 font-mono mt-0.5">Member since {currentUser.joinedDate?.slice(0, 10) || '2026'}</p>
           </div>
         </div>
 
-        {/* Stats Row: Proofs, Tweets, Collections, Drafts, Followers, Following */}
-        <div className="grid grid-cols-6 gap-1 sm:gap-1.5 mt-5 pt-4 border-t border-white/5 text-center">
+        {/* Stats Row: Proofs, Tweets, Boxes, Followers, Following (Drafts deleted) */}
+        <div className="grid grid-cols-5 gap-1 sm:gap-1.5 mt-5 pt-4 border-t border-white/5 text-center">
           <button
             type="button"
             onClick={() => {
@@ -351,7 +351,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <span className="text-base font-black text-white group-hover:text-sky-400 transition-colors block">
               {userTextPosts.length}
             </span>
-            <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-white/40 group-hover:text-sky-400/80 font-semibold transition-colors">Tweets</span>
+            <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-sky-400/70 group-hover:text-sky-400 font-semibold transition-colors">Tweets</span>
           </button>
 
           <button
@@ -368,22 +368,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               {collections.length}
             </span>
             <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-white/40 group-hover:text-white/70 font-semibold transition-colors">Boxes</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              vibrateLight();
-              setProfileTab('drafts');
-              setSelectedCollectionId(null);
-            }}
-            className="group p-1 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
-            title="View Saved Drafts"
-          >
-            <span className="text-base font-black text-white group-hover:text-amber-400 transition-colors block">
-              {drafts.length}
-            </span>
-            <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-white/40 group-hover:text-amber-400/80 font-semibold transition-colors">Drafts</span>
           </button>
 
           <button
@@ -421,6 +405,37 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               Following
             </span>
           </button>
+        </div>
+
+        {/* Biography & Focus rendered directly under the proofs, followers bar */}
+        <div className="mt-4 pt-3.5 border-t border-white/10 space-y-2 text-left">
+          <div className="text-xs text-white/90 leading-relaxed font-medium">
+            {(() => {
+              const rawBio = currentUser.bio || 'Building daily momentum and verified receipts';
+              const text = rawBio.toLowerCase().includes('focus:') ? rawBio : `Focus: ${rawBio}`;
+              const parts = text.split(/(@[a-zA-Z0-9_]+|🏆[^\n]+)/g);
+              return parts.map((part, i) => {
+                if (part.startsWith('@')) {
+                  return (
+                    <span key={i} className="text-sky-400 font-bold font-mono">
+                      {part}
+                    </span>
+                  );
+                }
+                if (part.startsWith('🏆')) {
+                  return (
+                    <span
+                      key={i}
+                      className="inline-flex items-center gap-0.5 px-2 py-0.5 ml-1 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-bold"
+                    >
+                      {part}
+                    </span>
+                  );
+                }
+                return part;
+              });
+            })()}
+          </div>
         </div>
 
         {/* Focus Areas */}
@@ -605,67 +620,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               <span>Drafts ({drafts.length})</span>
             </button>
           </div>
-
-          {/* Grid vs List View Selector (when viewing Proofs) or New Tweet / Collection / Draft Button */}
-          {profileTab === 'proofs' || selectedCollectionId ? (
-            <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/5 shrink-0">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-2 rounded-lg transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center ${
-                  viewMode === 'grid' ? 'bg-white text-black' : 'text-white/40 hover:text-white'
-                }`}
-                title="Grid View"
-                aria-label="Grid View"
-              >
-                <Grid className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`p-2 rounded-lg transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center ${
-                  viewMode === 'list' ? 'bg-white text-black' : 'text-white/40 hover:text-white'
-                }`}
-                title="List View"
-                aria-label="List View"
-              >
-                <List className="w-4 h-4" />
-              </button>
-            </div>
-          ) : profileTab === 'tweets' ? (
-            <button
-              onClick={() => {
-                vibrateLight();
-                if (onOpenCreatePost) onOpenCreatePost();
-                else if (onOpenCreateDraft) onOpenCreateDraft();
-              }}
-              className="px-3 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-black font-black text-xs flex items-center gap-1 shadow-md shadow-sky-500/20 active:scale-95 whitespace-nowrap shrink-0 min-h-[36px] cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5 stroke-[3]" />
-              <span>New Tweet</span>
-            </button>
-          ) : profileTab === 'collections' ? (
-            <button
-              onClick={() => {
-                vibrateLight();
-                onOpenCreateCollection();
-              }}
-              className="px-3 py-1.5 rounded-xl bg-[#2F6FED] hover:bg-[#2861d6] text-white font-bold text-xs flex items-center gap-1 shadow-md shadow-[#2F6FED]/20 active:scale-95 whitespace-nowrap shrink-0 min-h-[36px]"
-            >
-              <Plus className="w-3.5 h-3.5 stroke-[3]" />
-              <span>New Box</span>
-            </button>
-          ) : (
-            <button
-              onClick={() => {
-                vibrateLight();
-                if (onOpenCreateDraft) onOpenCreateDraft();
-                else if (onOpenCreatePost) onOpenCreatePost();
-              }}
-              className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs flex items-center gap-1 shadow-md shadow-amber-500/20 active:scale-95 whitespace-nowrap shrink-0 min-h-[36px]"
-            >
-              <Plus className="w-3.5 h-3.5 stroke-[3]" />
-              <span>New Draft</span>
-            </button>
-          )}
         </div>
       </div>
 
@@ -689,80 +643,27 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       {profileTab === 'proofs' && (
         <div className="space-y-4 animate-in fade-in">
           {userProofPosts.length > 0 ? (
-            viewMode === 'grid' ? (
-              <div className="grid grid-cols-3 gap-2">
-                {userProofPosts.map((post) => (
-                  <div
-                    key={post.id}
-                    onClick={() => {
-                      if (onOpenInsights) {
-                        onOpenInsights(post);
-                      } else {
-                        onOpenComments(post);
-                      }
-                    }}
-                    className="group relative aspect-square rounded-2xl overflow-hidden bg-white/5 border border-white/5 hover:border-white/20 cursor-pointer"
-                  >
-                    <img
-                      src={post.imageUrl}
-                      alt="Proof thumbnail"
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                    />
-
-                    {/* Multi-photo indicator when post has a group of photos */}
-                    {post.imageUrls && post.imageUrls.length > 1 && (
-                      <div className="absolute top-2 right-2 z-10 px-1.5 py-0.5 rounded-md bg-black/70 backdrop-blur-sm border border-white/20 text-white flex items-center gap-1 shadow-sm pointer-events-none">
-                        <Layers className="w-2.5 h-2.5 text-white/90" />
-                        <span className="text-[9px] font-mono font-bold">{post.imageUrls.length}</span>
-                      </div>
-                    )}
-
-                    {/* Hover overlay */}
-                    <div className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 text-white text-xs font-bold p-1">
-                      <div className="flex items-center gap-2 text-[11px]">
-                        <span>❤️ {post.likesCount}</span>
-                        <span>💬 {post.comments?.length || 0}</span>
-                      </div>
-                      {onOpenAddToCollection && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            vibrateLight();
-                            onOpenAddToCollection(post);
-                          }}
-                          className="text-[9px] px-2 py-0.5 rounded-full bg-white/10 hover:bg-[#2F6FED] hover:text-white border border-white/20 transition-colors flex items-center gap-1 mt-1 cursor-pointer"
-                        >
-                          <FolderPlus className="w-3 h-3" /> Add to Box
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {userProofPosts.map((post) => (
-                  <PostCard
-                    key={post.id}
-                    post={post}
-                    currentUser={currentUser}
-                    onToggleLike={onToggleLike}
-                    onOpenComments={onOpenComments}
-                    onToggleFollow={onToggleFollow}
-                    onSendDM={onSendDM}
-                    isSaved={savedPostIds.includes(post.id)}
-                    onToggleSave={onToggleSave}
-                    onReportPost={onReportPost}
-                    isReported={reportedPostIds.includes(post.id)}
-                    onSharePost={onSharePost}
-                    onOpenInsights={onOpenInsights}
-                    onDeletePost={onDeletePost}
-                    onOpenAddToCollection={onOpenAddToCollection}
-                  />
-                ))}
-              </div>
-            )
+            <div className="space-y-4">
+              {userProofPosts.map((post) => (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  currentUser={currentUser}
+                  onToggleLike={onToggleLike}
+                  onOpenComments={onOpenComments}
+                  onToggleFollow={onToggleFollow}
+                  onSendDM={onSendDM}
+                  isSaved={savedPostIds.includes(post.id)}
+                  onToggleSave={onToggleSave}
+                  onReportPost={onReportPost}
+                  isReported={reportedPostIds.includes(post.id)}
+                  onSharePost={onSharePost}
+                  onOpenInsights={onOpenInsights}
+                  onDeletePost={onDeletePost}
+                  onOpenAddToCollection={onOpenAddToCollection}
+                />
+              ))}
+            </div>
           ) : (
             <EmptyStateIllustration
               type="feed"

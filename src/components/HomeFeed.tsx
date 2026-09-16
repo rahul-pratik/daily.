@@ -11,6 +11,12 @@ import {
   ArrowUpDown,
   ChevronDown,
   Check,
+  Camera,
+  MessageSquare,
+  X,
+  CheckSquare,
+  Square,
+  Layers,
 } from 'lucide-react';
 import { Post, User, Challenge } from '../types';
 import { PostCard } from './PostCard';
@@ -41,18 +47,19 @@ interface HomeFeedProps {
   onOpenAddToCollection?: (post: Post) => void;
 }
 
-type FeedCategoryFilter = 'all' | 'following' | 'interests' | 'community' | 'challenges';
+export type FeedContentType = 'proofs' | 'tweets';
+export type FeedCategory = 'all' | 'following' | 'interests' | 'communities' | 'challenges';
 
-const SORT_OPTIONS: {
-  value: FeedCategoryFilter;
+export const FEED_CATEGORIES: {
+  id: FeedCategory;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
 }[] = [
-  { value: 'all', label: 'All', icon: Sparkles },
-  { value: 'following', label: 'Following', icon: Users },
-  { value: 'interests', label: 'Interests', icon: Flame },
-  { value: 'community', label: 'Community', icon: Globe },
-  { value: 'challenges', label: 'Challenges', icon: Trophy },
+  { id: 'all', label: 'All', icon: Sparkles },
+  { id: 'following', label: 'Following', icon: Users },
+  { id: 'interests', label: 'Interests', icon: Flame },
+  { id: 'communities', label: 'Communities', icon: Globe },
+  { id: 'challenges', label: 'Challenges', icon: Trophy },
 ];
 
 export const HomeFeed: React.FC<HomeFeedProps> = ({
@@ -75,7 +82,11 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
   onDeletePost,
   onOpenAddToCollection,
 }) => {
-  const [feedFilter, setFeedFilter] = useState<FeedCategoryFilter>('all');
+  // Multi-option Sort/Filter: each filter key is "type:category" (e.g. 'proofs:all', 'tweets:interests')
+  const [selectedSortFilters, setSelectedSortFilters] = useState<string[]>([
+    'proofs:all',
+    'tweets:all',
+  ]);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -313,78 +324,156 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
     return list;
   }, [unblockedPosts, joinedChallenges, joinedChallengeIds, feedRevision, currentUser]);
 
-  // Apply Primary Feed Filter ('all' vs 'following' vs 'interests' vs 'community' vs 'challenges')
-  const categoryFilteredPosts = useMemo(() => {
-    if (feedFilter === 'following') {
-      return unblockedPosts.filter((post) => {
-        const isSelf = post.userId === currentUser.id || post.userId === 'user_me';
-        const isFollowing = currentUser.followedUserIds.includes(post.userId);
-        return isSelf || isFollowing;
-      });
-    }
+  // 1. Photo Proof check (contains photo)
+  const isPostProof = (post: Post): boolean => {
+    return Boolean(
+      (post.imageUrl && post.imageUrl.trim().length > 0) ||
+      (post.imageUrls && post.imageUrls.length > 0)
+    );
+  };
 
-    if (feedFilter === 'interests') {
-      const userInterests = (currentUser.interests || []).map((i) => i.toLowerCase());
-      return unblockedPosts.filter((post) => {
-        const postTags = (post.tags || []).map((t) => t.toLowerCase());
-        return postTags.some((tag) =>
-          userInterests.some((interest) => tag.includes(interest) || interest.includes(tag))
-        );
-      });
-    }
+  // 2. Text Tweet check (has no photo)
+  const isPostTweet = (post: Post): boolean => {
+    return !isPostProof(post);
+  };
 
-    if (feedFilter === 'community') {
-      return communityPostsAndTexts;
-    }
+  // Check following/me
+  const isFollowingOrMe = (post: Post): boolean => {
+    return (
+      post.userId === currentUser.id ||
+      post.userId === 'user_me' ||
+      (currentUser.followedUserIds || []).includes(post.userId)
+    );
+  };
 
-    if (feedFilter === 'challenges') {
-      return challengeUpdatesAndProofs;
-    }
+  // Check interests
+  const matchesInterests = (post: Post): boolean => {
+    const userInterests = (currentUser.interests || []).map((i) => i.toLowerCase());
+    if (userInterests.length === 0) return true;
+    const postTags = (post.tags || []).map((t) => t.toLowerCase());
+    return postTags.some((tag) =>
+      userInterests.some((interest) => tag.includes(interest) || interest.includes(tag))
+    );
+  };
 
-    return unblockedPosts;
-  }, [feedFilter, unblockedPosts, currentUser, communityPostsAndTexts, challengeUpdatesAndProofs]);
+  // Check communities
+  const matchesCommunities = (post: Post): boolean => {
+    if (post.id.startsWith('comm_thread_')) return true;
+    if (post.communityId && joinedCommunityIds.has(post.communityId)) return true;
+    if (
+      post.communityName &&
+      joinedCommunities.some(
+        (jc) => jc.name.toLowerCase() === post.communityName?.toLowerCase()
+      )
+    ) {
+      return true;
+    }
+    return false;
+  };
+
+  // Check challenges
+  const matchesChallenges = (post: Post): boolean => {
+    if (post.id.startsWith('ch_proof_') || post.id.startsWith('ch_msg_')) return true;
+    if (post.challengeId && joinedChallengeIds.has(post.challengeId)) return true;
+    if (
+      post.challengeName &&
+      joinedChallenges.some(
+        (jc) => jc.title.toLowerCase() === post.challengeName?.toLowerCase()
+      )
+    ) {
+      return true;
+    }
+    return false;
+  };
+
+  // Combined pool of all potential posts without duplicates
+  const allCandidatePosts = useMemo(() => {
+    const map = new Map<string, Post>();
+    unblockedPosts.forEach((p) => map.set(p.id, p));
+    communityPostsAndTexts.forEach((p) => {
+      if (!map.has(p.id)) map.set(p.id, p);
+    });
+    challengeUpdatesAndProofs.forEach((p) => {
+      if (!map.has(p.id)) map.set(p.id, p);
+    });
+    return Array.from(map.values());
+  }, [unblockedPosts, communityPostsAndTexts, challengeUpdatesAndProofs]);
+
+  // Test single post against a filter key like 'proofs:all', 'tweets:interests'
+  const doesPostMatchFilter = (post: Post, filterKey: string): boolean => {
+    const [type, category] = filterKey.split(':');
+
+    // Content type check
+    if (type === 'proofs' && !isPostProof(post)) return false;
+    if (type === 'tweets' && !isPostTweet(post)) return false;
+
+    // Category check
+    switch (category) {
+      case 'all':
+        return true;
+      case 'following':
+        return isFollowingOrMe(post);
+      case 'interests':
+        return matchesInterests(post);
+      case 'communities':
+        return matchesCommunities(post);
+      case 'challenges':
+        return matchesChallenges(post);
+      default:
+        return false;
+    }
+  };
+
+  // Multi-option filtering: post is kept if it matches ANY of the selected sort/filter options
+  const multiFilteredPosts = useMemo(() => {
+    if (selectedSortFilters.length === 0) {
+      return allCandidatePosts;
+    }
+    return allCandidatePosts.filter((post) =>
+      selectedSortFilters.some((key) => doesPostMatchFilter(post, key))
+    );
+  }, [
+    allCandidatePosts,
+    selectedSortFilters,
+    currentUser,
+    joinedCommunityIds,
+    joinedCommunities,
+    joinedChallengeIds,
+    joinedChallenges,
+  ]);
 
   // Apply Search and Tag Filters
-  const filteredPosts = categoryFilteredPosts.filter((post) => {
-    // Search query filter
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      const matchContent = post.content.toLowerCase().includes(q);
-      const matchName = post.name.toLowerCase().includes(q);
-      const matchUsername = post.username.toLowerCase().includes(q);
-      const matchTags = (post.tags || []).some((t) => t.toLowerCase().includes(q));
-      if (!matchContent && !matchName && !matchUsername && !matchTags) {
+  const filteredPosts = useMemo(() => {
+    return multiFilteredPosts.filter((post) => {
+      // Search query filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchContent = post.content.toLowerCase().includes(q);
+        const matchName = post.name.toLowerCase().includes(q);
+        const matchUsername = post.username.toLowerCase().includes(q);
+        const matchTags = (post.tags || []).some((t) => t.toLowerCase().includes(q));
+        if (!matchContent && !matchName && !matchUsername && !matchTags) {
+          return false;
+        }
+      }
+
+      // Active tag filter
+      if (activeTag && (!post.tags || !post.tags.includes(activeTag))) {
         return false;
       }
-    }
 
-    // Active tag filter
-    if (activeTag && (!post.tags || !post.tags.includes(activeTag))) {
-      return false;
-    }
+      return true;
+    });
+  }, [multiFilteredPosts, searchQuery, activeTag]);
 
-    return true;
-  });
-
-  // Extract available tags adaptively based on current feed tab
+  // Derive available tags directly from multiFilteredPosts
   const availableTags = useMemo(() => {
-    if (feedFilter === 'interests' && currentUser.interests && currentUser.interests.length > 0) {
-      return currentUser.interests;
-    }
-    if (feedFilter === 'community') {
-      const commTags = Array.from(
-        new Set(joinedCommunities.flatMap((c) => [c.name, ...(c.tags || [])]).filter(Boolean))
-      );
-      return commTags.slice(0, 10);
-    }
-    if (feedFilter === 'challenges') {
-      const challengeTags = Array.from(
-        new Set(joinedChallenges.flatMap((c) => [c.tag, c.category, c.title]).filter(Boolean))
-      );
-      return challengeTags.slice(0, 10);
-    }
-    return Array.from(new Set(unblockedPosts.flatMap((p) => p.tags || []))).slice(0, 12);
-  }, [feedFilter, currentUser.interests, joinedCommunities, joinedChallenges, unblockedPosts]);
+    const tags = new Set<string>();
+    multiFilteredPosts.forEach((p) => {
+      (p.tags || []).forEach((t) => tags.add(t));
+    });
+    return Array.from(tags).slice(0, 12);
+  }, [multiFilteredPosts]);
 
   const handleFeedRefresh = async () => {
     setFeedRevision((r) => r + 1);
@@ -415,9 +504,62 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
     onToggleLike(postId);
   };
 
-  const currentSortOption =
-    SORT_OPTIONS.find((opt) => opt.value === feedFilter) || SORT_OPTIONS[0];
-  const CurrentSortIcon = currentSortOption.icon;
+  const toggleSortFilter = (filterKey: string) => {
+    vibrateLight();
+    setSelectedSortFilters((prev) => {
+      if (prev.includes(filterKey)) {
+        const next = prev.filter((k) => k !== filterKey);
+        return next.length > 0 ? next : ['proofs:all', 'tweets:all'];
+      } else {
+        return [...prev, filterKey];
+      }
+    });
+  };
+
+  const applyPreset = (preset: string[]) => {
+    vibrateLight();
+    setSelectedSortFilters(preset);
+  };
+
+  const resetFilters = () => {
+    vibrateLight();
+    setSelectedSortFilters(['proofs:all', 'tweets:all']);
+    setActiveTag(null);
+  };
+
+  const getSortButtonSummary = () => {
+    const hasProofsAll = selectedSortFilters.includes('proofs:all');
+    const hasTweetsAll = selectedSortFilters.includes('tweets:all');
+    const hasTweetsInterests = selectedSortFilters.includes('tweets:interests');
+
+    if (selectedSortFilters.length === 2 && hasProofsAll && hasTweetsAll) {
+      return 'All (Proofs & Tweets)';
+    }
+    if (selectedSortFilters.length === 2 && hasProofsAll && hasTweetsInterests) {
+      return 'Proofs: All + Tweet: Interests';
+    }
+    if (selectedSortFilters.length === 1 && hasProofsAll) {
+      return 'Proofs • All';
+    }
+    if (selectedSortFilters.length === 1 && hasTweetsAll) {
+      return 'Tweets • All';
+    }
+    if (selectedSortFilters.length === 1) {
+      const [t, c] = selectedSortFilters[0].split(':');
+      const tLabel = t === 'proofs' ? 'Proofs' : 'Tweets';
+      const cLabel = c.charAt(0).toUpperCase() + c.slice(1);
+      return `${tLabel}: ${cLabel}`;
+    }
+    if (selectedSortFilters.length <= 2) {
+      return selectedSortFilters
+        .map((k) => {
+          const [t, c] = k.split(':');
+          return `${t === 'proofs' ? 'Proofs' : 'Tweets'} (${c})`;
+        })
+        .join(' + ');
+    }
+    return `${selectedSortFilters.length} Filters Active`;
+  };
 
   return (
     <PullToRefresh
@@ -428,73 +570,263 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
       completedText="Feed updated • Just now"
     >
       <div className="w-full pb-24 pt-2 px-3 sm:px-4 max-w-lg mx-auto space-y-3">
-        {/* Sort By Option Button (replaces horizontal category tabs & removes proof counter) */}
-        <div className="flex items-center justify-between gap-2 border-b border-white/5 pb-2.5">
-          <div className="relative" ref={sortDropdownRef}>
-            <button
-              id="feed-sort-by-button"
-              type="button"
-              onClick={() => {
-                vibrateLight();
-                setIsSortOpen((prev) => !prev);
-              }}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-white/90 transition-all shadow-sm active:scale-95 cursor-pointer"
-              aria-expanded={isSortOpen}
-              aria-haspopup="listbox"
-            >
-              <ArrowUpDown className="w-3.5 h-3.5 text-[#2F6FED]" />
-              <span className="text-white/50 font-normal">Sort by:</span>
-              <span className="font-bold text-white flex items-center gap-1.5">
-                <CurrentSortIcon className="w-3.5 h-3.5 text-[#2F6FED]" />
-                <span>{currentSortOption.label}</span>
-              </span>
-              <ChevronDown
-                className={`w-3.5 h-3.5 text-white/50 transition-transform duration-200 ${
-                  isSortOpen ? 'rotate-180 text-white' : ''
-                }`}
-              />
-            </button>
-
-            {/* Dropdown Menu */}
-            {isSortOpen && (
-              <div
-                id="feed-sort-by-menu"
-                className="absolute left-0 top-full mt-2 w-48 bg-[#141721] border border-white/10 rounded-2xl shadow-2xl shadow-black/80 backdrop-blur-xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150"
+        {/* Sort / Filter By Option Button */}
+        <div className="flex flex-col gap-2 border-b border-white/5 pb-2.5">
+          <div className="flex items-center justify-between gap-2">
+            <div className="relative" ref={sortDropdownRef}>
+              <button
+                id="feed-sort-by-button"
+                type="button"
+                onClick={() => {
+                  vibrateLight();
+                  setIsSortOpen((prev) => !prev);
+                }}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-white/90 transition-all shadow-sm active:scale-95 cursor-pointer"
+                aria-expanded={isSortOpen}
+                aria-haspopup="dialog"
               >
-                <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white/40">
-                  Sort By
-                </div>
-                {SORT_OPTIONS.map((opt) => {
-                  const isSelected = feedFilter === opt.value;
-                  const Icon = opt.icon;
-                  return (
+                <ArrowUpDown className="w-3.5 h-3.5 text-[#2F6FED]" />
+                <span className="text-white/50 font-normal">Sort:</span>
+                <span className="font-bold text-white flex items-center gap-1.5 max-w-[210px] sm:max-w-none truncate">
+                  {getSortButtonSummary()}
+                </span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-white/50 transition-transform duration-200 shrink-0 ${
+                    isSortOpen ? 'rotate-180 text-white' : ''
+                  }`}
+                />
+              </button>
+
+              {/* Dropdown / Multi-Select Popover */}
+              {isSortOpen && (
+                <div
+                  id="feed-sort-by-menu"
+                  className="absolute left-0 top-full mt-2 w-[340px] sm:w-[420px] max-w-[calc(100vw-24px)] bg-[#12141c] border border-white/10 rounded-2xl shadow-2xl shadow-black/90 backdrop-blur-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-150 space-y-3 max-h-[85vh] overflow-y-auto no-scrollbar"
+                >
+                  {/* Header */}
+                  <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                    <div>
+                      <h4 className="text-xs font-black text-white flex items-center gap-1.5">
+                        <ArrowUpDown className="w-3.5 h-3.5 text-[#2F6FED]" />
+                        <span>Filter & Sort Stream</span>
+                      </h4>
+                      <p className="text-[10px] text-white/50">
+                        Select multiple options for Proofs & Tweets
+                      </p>
+                    </div>
                     <button
-                      key={opt.value}
-                      id={`feed-sort-option-${opt.value}`}
+                      onClick={resetFilters}
+                      className="text-[11px] font-bold text-white/60 hover:text-white px-2 py-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                    >
+                      Reset to All
+                    </button>
+                  </div>
+
+                  {/* Quick Presets */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-white/40">
+                      Quick Combinations
+                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => applyPreset(['proofs:all', 'tweets:interests'])}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all border flex items-center gap-1 cursor-pointer ${
+                          selectedSortFilters.length === 2 &&
+                          selectedSortFilters.includes('proofs:all') &&
+                          selectedSortFilters.includes('tweets:interests')
+                            ? 'bg-[#2F6FED] text-white border-[#2F6FED] shadow-sm'
+                            : 'bg-white/5 text-white/80 border-white/10 hover:bg-white/10 hover:text-white'
+                        }`}
+                      >
+                        <Sparkles className="w-3 h-3 text-amber-300" />
+                        <span>Proofs All + Tweet Interests</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => applyPreset(['proofs:all', 'tweets:all'])}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all border cursor-pointer ${
+                          selectedSortFilters.length === 2 &&
+                          selectedSortFilters.includes('proofs:all') &&
+                          selectedSortFilters.includes('tweets:all')
+                            ? 'bg-white text-black border-white shadow-sm'
+                            : 'bg-white/5 text-white/80 border-white/10 hover:bg-white/10 hover:text-white'
+                        }`}
+                      >
+                        All Feed
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => applyPreset(['proofs:all'])}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all border cursor-pointer ${
+                          selectedSortFilters.length === 1 && selectedSortFilters.includes('proofs:all')
+                            ? 'bg-[#2F6FED] text-white border-[#2F6FED]'
+                            : 'bg-white/5 text-white/80 border-white/10 hover:bg-white/10 hover:text-white'
+                        }`}
+                      >
+                        Proofs Only
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => applyPreset(['tweets:all'])}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all border cursor-pointer ${
+                          selectedSortFilters.length === 1 && selectedSortFilters.includes('tweets:all')
+                            ? 'bg-sky-500 text-black border-sky-500'
+                            : 'bg-white/5 text-white/80 border-white/10 hover:bg-white/10 hover:text-white'
+                        }`}
+                      >
+                        Tweets Only
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Two Sections: Proofs (With Photo) and Tweets (No Photo) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    {/* SECTION 1: PROOFS */}
+                    <div className="space-y-1.5 p-2 rounded-xl bg-white/[0.02] border border-white/5">
+                      <div className="flex items-center justify-between pb-1 border-b border-white/5">
+                        <div className="flex items-center gap-1.5">
+                          <Camera className="w-3.5 h-3.5 text-[#2F6FED]" />
+                          <span className="text-xs font-black text-white">Proofs</span>
+                        </div>
+                        <span className="text-[9px] text-white/40 font-mono">With photo</span>
+                      </div>
+
+                      <div className="space-y-1">
+                        {FEED_CATEGORIES.map((cat) => {
+                          const key = `proofs:${cat.id}`;
+                          const isSelected = selectedSortFilters.includes(key);
+                          const Icon = cat.icon;
+                          return (
+                            <button
+                              key={key}
+                              id={`feed-sort-${key}`}
+                              type="button"
+                              onClick={() => toggleSortFilter(key)}
+                              className={`w-full flex items-center justify-between p-2 rounded-lg text-xs font-semibold transition-all border cursor-pointer ${
+                                isSelected
+                                  ? 'bg-[#2F6FED]/20 border-[#2F6FED] text-white shadow-sm'
+                                  : 'border-transparent text-white/70 hover:bg-white/5 hover:text-white'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <Icon className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-[#2F6FED]' : 'text-white/40'}`} />
+                                <span className="truncate">{cat.label}</span>
+                              </div>
+                              {isSelected ? (
+                                <CheckSquare className="w-3.5 h-3.5 text-[#2F6FED] shrink-0" />
+                              ) : (
+                                <Square className="w-3.5 h-3.5 text-white/20 shrink-0" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* SECTION 2: TWEETS */}
+                    <div className="space-y-1.5 p-2 rounded-xl bg-white/[0.02] border border-white/5">
+                      <div className="flex items-center justify-between pb-1 border-b border-white/5">
+                        <div className="flex items-center gap-1.5">
+                          <MessageSquare className="w-3.5 h-3.5 text-sky-400" />
+                          <span className="text-xs font-black text-white">Tweets</span>
+                        </div>
+                        <span className="text-[9px] text-white/40 font-mono">No photo</span>
+                      </div>
+
+                      <div className="space-y-1">
+                        {FEED_CATEGORIES.map((cat) => {
+                          const key = `tweets:${cat.id}`;
+                          const isSelected = selectedSortFilters.includes(key);
+                          const Icon = cat.icon;
+                          return (
+                            <button
+                              key={key}
+                              id={`feed-sort-${key}`}
+                              type="button"
+                              onClick={() => toggleSortFilter(key)}
+                              className={`w-full flex items-center justify-between p-2 rounded-lg text-xs font-semibold transition-all border cursor-pointer ${
+                                isSelected
+                                  ? 'bg-sky-500/20 border-sky-400 text-white shadow-sm'
+                                  : 'border-transparent text-white/70 hover:bg-white/5 hover:text-white'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <Icon className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-sky-400' : 'text-white/40'}`} />
+                                <span className="truncate">{cat.label}</span>
+                              </div>
+                              {isSelected ? (
+                                <CheckSquare className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                              ) : (
+                                <Square className="w-3.5 h-3.5 text-white/20 shrink-0" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dropdown Footer */}
+                  <div className="flex items-center justify-between pt-2 border-t border-white/10">
+                    <span className="text-[11px] text-white/60 font-medium">
+                      {selectedSortFilters.length} {selectedSortFilters.length === 1 ? 'filter' : 'filters'} active
+                    </span>
+                    <button
                       type="button"
                       onClick={() => {
                         vibrateLight();
-                        setFeedFilter(opt.value);
-                        setActiveTag(null);
                         setIsSortOpen(false);
                       }}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
-                        isSelected
-                          ? 'bg-[#2F6FED] text-white shadow-md shadow-[#2F6FED]/30'
-                          : 'text-white/80 hover:bg-white/5 hover:text-white'
-                      }`}
+                      className="px-3.5 py-1.5 rounded-xl bg-white text-black font-black text-xs hover:bg-white/90 transition-colors shadow-sm cursor-pointer"
                     >
-                      <div className="flex items-center gap-2">
-                        <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : 'text-white/50'}`} />
-                        <span>{opt.label}</span>
-                      </div>
-                      {isSelected && <Check className="w-3.5 h-3.5 text-white stroke-[2.5]" />}
+                      Done
                     </button>
-                  );
-                })}
-              </div>
-            )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* Active Filter Badges */}
+          {!(
+            selectedSortFilters.length === 2 &&
+            selectedSortFilters.includes('proofs:all') &&
+            selectedSortFilters.includes('tweets:all')
+          ) && (
+            <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+              <span className="text-[10px] text-white/40 font-bold uppercase tracking-wider">Active:</span>
+              {selectedSortFilters.map((key) => {
+                const [type, cat] = key.split(':');
+                const isProof = type === 'proofs';
+                return (
+                  <span
+                    key={key}
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-bold border transition-colors ${
+                      isProof
+                        ? 'bg-[#2F6FED]/15 border-[#2F6FED]/40 text-[#5B8DEF]'
+                        : 'bg-sky-500/15 border-sky-500/40 text-sky-400'
+                    }`}
+                  >
+                    <span>{isProof ? '📸 Proofs' : '💬 Tweets'}:</span>
+                    <span className="text-white capitalize">{cat}</span>
+                    <button
+                      type="button"
+                      onClick={() => toggleSortFilter(key)}
+                      className="hover:text-white ml-0.5 p-0.5 rounded hover:bg-white/10 cursor-pointer"
+                      title={`Remove ${key}`}
+                      aria-label={`Remove ${key}`}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Tag filter pills (Horizontally Scrollable) */}
@@ -514,13 +846,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                   : 'bg-white/5 text-white/60 border-white/10 hover:text-white hover:border-white/20'
               }`}
             >
-              {feedFilter === 'interests'
-                ? 'All Focus Areas'
-                : feedFilter === 'community'
-                ? 'All Communities'
-                : feedFilter === 'challenges'
-                ? 'All Challenges'
-                : 'All Tags'}
+              All Tags
             </button>
             {availableTags.map((tag) => (
               <button
@@ -571,111 +897,40 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
         ) : (
           /* Tailored Empty States with Professional Visuals and CTAs */
           <div className="pt-2">
-            {searchQuery ? (
+            {activeTag ? (
               <EmptyStateIllustration
                 type="search"
-                title={`No proofs matching "${searchQuery}"`}
+                title={`No posts found with tag #${activeTag}`}
+                description="Try selecting a different tag or clear the tag filter to see all matching stream posts."
+                primaryAction={{
+                  label: 'Clear Tag Filter',
+                  onClick: () => setActiveTag(null),
+                }}
+              />
+            ) : searchQuery ? (
+              <EmptyStateIllustration
+                type="search"
+                title={`No posts matching "${searchQuery}"`}
                 description="Try searching with a broader keyword, different habit name, or clear the search query."
                 primaryAction={{
                   label: 'Clear Search Query',
                   onClick: () => setSearchQuery(''),
                 }}
               />
-            ) : feedFilter === 'following' ? (
-              <EmptyStateIllustration
-                type="following"
-                title="No updates from creators you follow"
-                description="Creators you follow haven't posted their daily proof yet today, or you haven't followed any creators yet. Explore active builders to grow your circle!"
-                primaryAction={{
-                  label: 'Explore Active Creators',
-                  onClick: () => onSelectTab('discover'),
-                  icon: <Compass className="w-4 h-4" />,
-                }}
-                secondaryAction={{
-                  label: 'Switch to All Feed',
-                  onClick: () => setFeedFilter('all'),
-                }}
-              />
-            ) : feedFilter === 'interests' ? (
-              <EmptyStateIllustration
-                type="interests"
-                title="No proofs found for your focus areas"
-                description={`No recent posts matched your profile focus areas (${(currentUser.interests || []).join(', ')}). Be the first to share a proof in these categories!`}
-                primaryAction={{
-                  label: 'Share Proof in Your Interest',
-                  onClick: onOpenCreate,
-                  icon: <PlusCircle className="w-4 h-4" />,
-                }}
-                secondaryAction={{
-                  label: 'View All Feed',
-                  onClick: () => setFeedFilter('all'),
-                }}
-              />
-            ) : feedFilter === 'community' ? (
-              <EmptyStateIllustration
-                type="community"
-                title="No updates from your communities"
-                description={
-                  joinedCommunities.length === 0
-                    ? "You haven't joined any communities yet. Discover topics and habits that match your goals to see proofs, updates, and discussions here."
-                    : "Members of your joined communities haven't posted any proofs or discussions yet today. Start the momentum by posting your proof!"
-                }
-                primaryAction={{
-                  label: joinedCommunities.length === 0 ? 'Discover Communities' : 'Post Proof to Community',
-                  onClick: joinedCommunities.length === 0 ? () => onSelectTab('discover') : onOpenCreate,
-                  icon: joinedCommunities.length === 0 ? <Compass className="w-4 h-4" /> : <PlusCircle className="w-4 h-4" />,
-                }}
-                secondaryAction={
-                  joinedCommunities.length === 0
-                    ? {
-                        label: 'View All Feed',
-                        onClick: () => setFeedFilter('all'),
-                      }
-                    : {
-                        label: 'Discover More Communities',
-                        onClick: () => onSelectTab('discover'),
-                      }
-                }
-              />
-            ) : feedFilter === 'challenges' ? (
-              <EmptyStateIllustration
-                type="challenges"
-                title="No challenge updates yet"
-                description={
-                  joinedChallenges.length === 0
-                    ? "You're not currently participating in any active challenges. Join a sprint or habit streak to unlock daily cohort updates, receipts, and proofs."
-                    : "No participants have submitted proofs or updates for your joined challenges today yet. Submit your proof of work to lead the board!"
-                }
-                primaryAction={{
-                  label: joinedChallenges.length === 0 ? 'Browse Challenges' : 'Log Daily Proof',
-                  onClick: joinedChallenges.length === 0 ? () => onSelectTab('challenges') : onOpenCreate,
-                  icon: joinedChallenges.length === 0 ? <Trophy className="w-4 h-4" /> : <PlusCircle className="w-4 h-4" />,
-                }}
-                secondaryAction={
-                  joinedChallenges.length === 0
-                    ? {
-                        label: 'View All Feed',
-                        onClick: () => setFeedFilter('all'),
-                      }
-                    : {
-                        label: 'Explore Challenges',
-                        onClick: () => onSelectTab('challenges'),
-                      }
-                }
-              />
             ) : (
               <EmptyStateIllustration
                 type="feed"
-                title="No proofs published today"
-                description="Start the momentum! Share your first workout, code commit, study session, or project milestone."
+                title="No posts match your selected filters"
+                description={`No posts match the current filter selection (${getSortButtonSummary()}). Try adjusting your Proofs or Tweets options, or reset to view all posts.`}
                 primaryAction={{
-                  label: 'Post Proof of Work',
-                  onClick: onOpenCreate,
-                  icon: <Flame className="w-4 h-4 fill-black" />,
+                  label: 'Reset Filters to All',
+                  onClick: resetFilters,
+                  icon: <Sparkles className="w-4 h-4" />,
                 }}
                 secondaryAction={{
-                  label: 'Discover Communities',
-                  onClick: () => onSelectTab('discover'),
+                  label: 'Create New Post',
+                  onClick: onOpenCreate,
+                  icon: <PlusCircle className="w-4 h-4" />,
                 }}
               />
             )}
