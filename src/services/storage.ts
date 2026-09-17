@@ -55,6 +55,7 @@ const STORAGE_KEYS = {
   THEME: 'daily_app_theme_v1',
   THEME_MODE: 'daily_app_theme_mode_v1',
   HAPTICS_ENABLED: 'daily_app_haptics_enabled_v1',
+  CUSTOM_HASHTAGS: 'daily_app_custom_hashtags_v1',
 };
 
 // Current reference date (today in the app context)
@@ -239,6 +240,31 @@ export class DailyStorageService {
         } catch {}
       }
     }
+  }
+
+  static getCustomHashtags(): string[] {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.CUSTOM_HASHTAGS);
+      if (data) {
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  }
+
+  static addCustomHashtag(rawTag: string): string[] {
+    const clean = rawTag.replace(/^#/, '').trim().toLowerCase();
+    if (!clean) return this.getCustomHashtags();
+    const existing = this.getCustomHashtags();
+    if (!existing.includes(clean)) {
+      const updated = [clean, ...existing];
+      try {
+        localStorage.setItem(STORAGE_KEYS.CUSTOM_HASHTAGS, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    }
+    return existing;
   }
 
   static getAllMessages(): Message[] {

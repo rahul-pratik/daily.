@@ -349,6 +349,21 @@ export interface ChallengeInvitePreview {
   note?: string;
 }
 
+export interface CommunitySharePreview {
+  communityId: string;
+  communityName: string;
+  communityDescription?: string;
+  communityAvatar?: string;
+  communityCategory: string;
+  memberCount: number;
+  accessType?: 'public' | 'moderated' | 'private';
+  themeColor?: string;
+  sharedByName: string;
+  sharedByAvatar: string;
+  tags?: string[];
+  note?: string;
+}
+
 export interface ChallengeLeaderboardIndividual {
   rank: number;
   user: {
@@ -431,6 +446,7 @@ export interface Message {
   audioDuration?: number;
   sharedPost?: SharedPostPreview;
   challengeInvite?: ChallengeInvitePreview;
+  communityShare?: CommunitySharePreview;
   timestamp: string;
   isRead: boolean;
   reactions?: MessageReaction[];

@@ -316,7 +316,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               {currentUser.name}
               <CheckCircle2 className="w-4 h-4 text-[#2F6FED]" />
             </h1>
-            <p className="text-[11px] text-white/40 font-mono mt-0.5">Member since {currentUser.joinedDate?.slice(0, 10) || '2026'}</p>
+            <p className="text-xs text-white/50 font-mono mt-0.5">@{currentUser.username}</p>
           </div>
         </div>
 
@@ -407,12 +407,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </button>
         </div>
 
-        {/* Biography & Focus rendered directly under the proofs, followers bar */}
-        <div className="mt-4 pt-3.5 border-t border-white/10 space-y-2 text-left">
+        {/* Bio rendered directly under the proofs, followers bar */}
+        <div className="mt-4 pt-3.5 border-t border-white/10 space-y-1.5 text-left">
+          <span className="text-[10px] text-white/40 font-bold uppercase tracking-wider block">Bio</span>
           <div className="text-xs text-white/90 leading-relaxed font-medium">
             {(() => {
               const rawBio = currentUser.bio || 'Building daily momentum and verified receipts';
-              const text = rawBio.toLowerCase().includes('focus:') ? rawBio : `Focus: ${rawBio}`;
+              // Strip any legacy 'Focus:' prefix
+              const text = rawBio.replace(/^focus:\s*/i, '');
               const parts = text.split(/(@[a-zA-Z0-9_]+|🏆[^\n]+)/g);
               return parts.map((part, i) => {
                 if (part.startsWith('@')) {
@@ -442,7 +444,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         {currentUser.interests && currentUser.interests.length > 0 && (
           <div className="mt-4 pt-3 border-t border-white/5 flex flex-wrap gap-1.5 items-center">
             <span className="text-[10px] text-white/40 font-bold uppercase tracking-wider mr-1">
-              Focus:
+              Interests:
             </span>
             {currentUser.interests.map((interest) => (
               <span

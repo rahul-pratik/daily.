@@ -1068,6 +1068,10 @@ export default function App() {
             setCurrentTab('dossier');
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
+          onOpenCommunity={(community) => {
+            setActiveProfileUser(null);
+            setActiveCommunityHub(community);
+          }}
         />
 
         {/* Onboarding modal if not onboarded */}

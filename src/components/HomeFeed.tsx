@@ -93,6 +93,8 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
   ]);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [isCreatingTag, setIsCreatingTag] = useState(false);
+  const [newTagInput, setNewTagInput] = useState('');
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [feedRevision, setFeedRevision] = useState(0);
   const [isSortOpen, setIsSortOpen] = useState(false);
@@ -473,6 +475,11 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
   // Derive available tags directly from unblockedPosts, including user-made hashtags
   const availableTags = useMemo(() => {
     const tags = new Set<string>();
+    // First, include user-created custom hashtags
+    const customTags = DailyStorageService.getCustomHashtags();
+    customTags.forEach((t) => tags.add(t));
+
+    // Then extract all hashtags from candidate posts
     unblockedPosts.forEach((p) => {
       (p.tags || []).forEach((t) => {
         const clean = t.replace(/^#/, '').trim();
@@ -486,8 +493,20 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
         });
       }
     });
-    return Array.from(tags).filter(Boolean).slice(0, 24);
-  }, [unblockedPosts]);
+    return Array.from(tags).filter(Boolean);
+  }, [unblockedPosts, feedRevision]);
+
+  const handleCreateCustomTag = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const clean = newTagInput.replace(/^#/, '').trim().toLowerCase();
+    if (!clean) return;
+    vibrateLight();
+    DailyStorageService.addCustomHashtag(clean);
+    setNewTagInput('');
+    setIsCreatingTag(false);
+    setActiveTag(clean);
+    setFeedRevision((r) => r + 1);
+  };
 
   // All communities for statistics
   const allCommunities = useMemo(() => {
@@ -954,7 +973,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
         </div>
 
         {/* Tag filter pills (Horizontally Scrollable) */}
-        {availableTags.length > 0 && (
+        <div className="space-y-1.5">
           <div
             onWheel={handleHorizontalWheelScroll}
             className="w-full flex items-center gap-1.5 overflow-x-auto whitespace-nowrap flex-nowrap pb-1 no-scrollbar touch-pan-x overscroll-x-contain py-1"
@@ -964,7 +983,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                 vibrateLight();
                 setActiveTag(null);
               }}
-              className={`shrink-0 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all border ${
+              className={`shrink-0 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all border cursor-pointer ${
                 activeTag === null
                   ? 'bg-white text-black border-white font-black'
                   : 'bg-white/5 text-white/60 border-white/10 hover:text-white hover:border-white/20'
@@ -972,6 +991,25 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
             >
               All Tags
             </button>
+
+            {/* Make Custom Hashtag Button */}
+            <button
+              type="button"
+              onClick={() => {
+                vibrateLight();
+                setIsCreatingTag(!isCreatingTag);
+              }}
+              className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all border cursor-pointer flex items-center gap-1 ${
+                isCreatingTag
+                  ? 'bg-[#2F6FED] text-white border-[#2F6FED]'
+                  : 'bg-white/5 text-[#5B8DEF] border-[#2F6FED]/30 hover:bg-[#2F6FED]/10'
+              }`}
+              title="Create your own hashtag"
+            >
+              <Plus className="w-3 h-3 stroke-[3]" />
+              <span>Make Tag</span>
+            </button>
+
             {availableTags.map((tag) => (
               <button
                 key={tag}
@@ -979,9 +1017,9 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
                   vibrateLight();
                   setActiveTag(activeTag === tag ? null : tag);
                 }}
-                className={`shrink-0 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all border ${
+                className={`shrink-0 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all border cursor-pointer ${
                   activeTag === tag
-                    ? 'bg-[#2F6FED] text-white border-[#2F6FED] font-black'
+                    ? 'bg-[#2F6FED] text-white border-[#2F6FED] font-black shadow-sm'
                     : 'bg-white/5 text-white/60 border-white/10 hover:text-white hover:border-white/20'
                 }`}
               >
@@ -989,7 +1027,42 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
               </button>
             ))}
           </div>
-        )}
+
+          {/* Inline Custom Hashtag Creator */}
+          {isCreatingTag && (
+            <form
+              onSubmit={handleCreateCustomTag}
+              className="flex items-center gap-2 p-2 bg-white/5 border border-white/10 rounded-xl animate-in fade-in"
+            >
+              <span className="text-xs font-mono font-bold text-[#5B8DEF] pl-1">#</span>
+              <input
+                type="text"
+                value={newTagInput}
+                onChange={(e) => setNewTagInput(e.target.value)}
+                placeholder="type-new-hashtag (e.g. morningrun, indiehacker)..."
+                autoFocus
+                className="flex-1 bg-transparent text-xs text-white placeholder-white/40 focus:outline-none font-mono"
+              />
+              <button
+                type="submit"
+                disabled={!newTagInput.trim()}
+                className="px-3 py-1 rounded-lg bg-[#2F6FED] text-white text-[11px] font-bold hover:bg-blue-600 disabled:opacity-40 transition-all cursor-pointer"
+              >
+                Add Tag
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCreatingTag(false);
+                  setNewTagInput('');
+                }}
+                className="p-1 text-white/40 hover:text-white"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </form>
+          )}
+        </div>
 
         {/* Posts Stream / Empty State */}
         {filteredPosts.length > 0 ? (

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { User, Community, Post, Group } from '../types';
 import { vibrateLight } from '../services/haptics';
+import { DailyStorageService } from '../services/storage';
 
 interface GlobalSearchModalProps {
   isOpen: boolean;
@@ -53,7 +54,7 @@ const renderEntityAvatar = (avatar?: string, fallback: string = '🌐') => {
   return <span className="text-lg">{avatar || fallback}</span>;
 };
 
-type SearchWish = 'all' | 'users' | 'posts' | 'tags' | 'communities';
+type SearchWish = 'all' | 'users' | 'proofs' | 'tweets' | 'communities' | 'tags';
 
 export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
   isOpen,
@@ -75,9 +76,14 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
   const [activeTab, setActiveTab] = useState<SearchWish>('all');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Extract all unique popular tags with post counts
+  // Extract all unique popular tags with post counts, including custom hashtags
   const popularTags = useMemo(() => {
     const counts: Record<string, number> = {};
+    const customTags = DailyStorageService.getCustomHashtags();
+    customTags.forEach((t) => {
+      counts[t] = 0;
+    });
+
     posts.forEach((p) => {
       p.tags?.forEach((t) => {
         const clean = t.replace(/^#/, '').trim();
@@ -85,12 +91,21 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
           counts[clean] = (counts[clean] || 0) + 1;
         }
       });
+      const matches = p.content.match(/#[a-zA-Z0-9_\u0080-\uFFFF]+/g);
+      if (matches) {
+        matches.forEach((m) => {
+          const clean = m.replace(/^#/, '').trim();
+          if (clean) {
+            counts[clean] = (counts[clean] || 0) + 1;
+          }
+        });
+      }
     });
 
     return Object.entries(counts)
       .map(([tag, count]) => ({ tag, count }))
       .sort((a, b) => b.count - a.count);
-  }, [posts]);
+  }, [posts, isOpen]);
 
   // Featured inspiring accounts (sorted by streak or activity)
   const featuredAccounts = useMemo(() => {
@@ -129,8 +144,6 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
-
   const cleanQuery = query.trim().toLowerCase();
   const rawTagQuery = cleanQuery.replace(/^#/, '');
 
@@ -168,8 +181,19 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
       p.tags?.some((t) => t.toLowerCase().includes(rawTagQuery))
   );
 
+  const filteredProofs = filteredPosts.filter((p) =>
+    Boolean(p.imageUrl || (p.imageUrls && p.imageUrls.length > 0))
+  );
+
+  const filteredTweets = filteredPosts.filter(
+    (p) =>
+      !p.imageUrl &&
+      (!p.imageUrls || p.imageUrls.length === 0)
+  );
+
   const totalResults =
-    (activeTab === 'all' || activeTab === 'posts' ? filteredPosts.length : 0) +
+    (activeTab === 'all' || activeTab === 'proofs' ? filteredProofs.length : 0) +
+    (activeTab === 'all' || activeTab === 'tweets' ? filteredTweets.length : 0) +
     (activeTab === 'all' || activeTab === 'communities' ? filteredCommunities.length : 0) +
     (activeTab === 'all' || activeTab === 'users' ? filteredUsers.length : 0) +
     (activeTab === 'all' || activeTab === 'tags' ? filteredTags.length : 0);
@@ -187,14 +211,15 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
 
     const matchingProofs = posts.filter(
       (p) =>
-        Boolean(p.imageUrl && p.imageUrl.trim() !== '') &&
+        (p.imageUrl || (p.imageUrls && p.imageUrls.length > 0)) &&
         ((p.tags || []).some((t) => t.toLowerCase().includes(rawTagQuery)) ||
           p.content.toLowerCase().includes(rawTagQuery))
     );
 
     const matchingTweets = posts.filter(
       (p) =>
-        (!p.imageUrl || p.imageUrl.trim() === '') &&
+        !p.imageUrl &&
+        (!p.imageUrls || p.imageUrls.length === 0) &&
         ((p.tags || []).some((t) => t.toLowerCase().includes(rawTagQuery)) ||
           p.content.toLowerCase().includes(rawTagQuery))
     );
@@ -210,17 +235,21 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
   const placeholderText =
     activeTab === 'users'
       ? 'Search accounts, creators, handles, or skills...'
-      : activeTab === 'posts'
-      ? 'Search daily proofs, habits, keywords, or receipts...'
+      : activeTab === 'proofs'
+      ? 'Search proofs & photo receipts...'
+      : activeTab === 'tweets'
+      ? 'Search tweets & text reflections...'
       : activeTab === 'tags'
       ? 'Search discipline tags (e.g. #deepwork, #running)...'
       : activeTab === 'communities'
       ? 'Search squads and accountability groups...'
-      : 'Search accounts, proofs, #tags, squads...';
+      : 'Search accounts, proofs, tweets, #tags, squads...';
 
   const isFollowingUser = (targetId: string) => {
     return currentUser?.followedUserIds?.includes(targetId) ?? false;
   };
+
+  if (!isOpen) return null;
 
   return (
     <div
@@ -288,7 +317,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                 id: 'all' as SearchWish,
                 label: 'All',
                 icon: <Compass className="w-3.5 h-3.5" />,
-                count: filteredPosts.length + filteredUsers.length + filteredCommunities.length + filteredTags.length,
+                count: filteredProofs.length + filteredTweets.length + filteredUsers.length + filteredCommunities.length + filteredTags.length,
               },
               {
                 id: 'users' as SearchWish,
@@ -298,18 +327,18 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                 badgeColor: 'text-[#2F6FED]',
               },
               {
-                id: 'posts' as SearchWish,
-                label: 'Posts',
+                id: 'proofs' as SearchWish,
+                label: 'Proofs',
                 icon: <FileText className="w-3.5 h-3.5" />,
-                count: filteredPosts.length,
+                count: filteredProofs.length,
                 badgeColor: 'text-emerald-400',
               },
               {
-                id: 'tags' as SearchWish,
-                label: 'Tags',
-                icon: <Hash className="w-3.5 h-3.5" />,
-                count: filteredTags.length,
-                badgeColor: 'text-purple-400',
+                id: 'tweets' as SearchWish,
+                label: 'Tweets',
+                icon: <MessageSquare className="w-3.5 h-3.5" />,
+                count: filteredTweets.length,
+                badgeColor: 'text-sky-400',
               },
               {
                 id: 'communities' as SearchWish,
@@ -317,6 +346,13 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                 icon: <Globe className="w-3.5 h-3.5" />,
                 count: filteredCommunities.length,
                 badgeColor: 'text-blue-400',
+              },
+              {
+                id: 'tags' as SearchWish,
+                label: 'Tags',
+                icon: <Hash className="w-3.5 h-3.5" />,
+                count: filteredTags.length,
+                badgeColor: 'text-purple-400',
               },
             ].map((tab) => {
               const isActive = activeTab === tab.id;
@@ -450,7 +486,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
               )}
 
               {/* Trending Daily Proofs (Recent Posts) */}
-              {(activeTab === 'all' || activeTab === 'posts') && trendingProofs.length > 0 && (
+              {(activeTab === 'all' || activeTab === 'proofs') && trendingProofs.length > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -813,26 +849,26 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                 </div>
               )}
 
-              {/* POSTS (PROOFS) RESULTS */}
-              {(activeTab === 'all' || activeTab === 'posts') && filteredPosts.length > 0 && (
+              {/* PROOFS (RECEIPTS) RESULTS */}
+              {(activeTab === 'all' || activeTab === 'proofs') && filteredProofs.length > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-emerald-400">
                       <FileText className="w-3.5 h-3.5" />
-                      <span>Posts & Receipts ({filteredPosts.length})</span>
+                      <span>Proofs & Receipts ({filteredProofs.length})</span>
                     </div>
-                    {activeTab === 'all' && filteredPosts.length > 4 && (
+                    {activeTab === 'all' && filteredProofs.length > 4 && (
                       <button
-                        onClick={() => setActiveTab('posts')}
-                        className="text-[11px] text-emerald-400 font-bold hover:underline flex items-center gap-1"
+                        onClick={() => setActiveTab('proofs')}
+                        className="text-[11px] text-emerald-400 font-bold hover:underline flex items-center gap-1 cursor-pointer"
                       >
-                        View all {filteredPosts.length} posts <ArrowRight className="w-3 h-3" />
+                        View all {filteredProofs.length} proofs <ArrowRight className="w-3 h-3" />
                       </button>
                     )}
                   </div>
 
                   <div className="space-y-2.5">
-                    {filteredPosts.slice(0, activeTab === 'all' ? 4 : 25).map((post) => (
+                    {filteredProofs.slice(0, activeTab === 'all' ? 4 : 25).map((post) => (
                       <div
                         key={post.id}
                         onClick={() => {
@@ -888,6 +924,75 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                             />
                           </div>
                         )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* TWEETS (TEXT POSTS) RESULTS */}
+              {(activeTab === 'all' || activeTab === 'tweets') && filteredTweets.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-sky-400">
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>Tweets & Reflections ({filteredTweets.length})</span>
+                    </div>
+                    {activeTab === 'all' && filteredTweets.length > 4 && (
+                      <button
+                        onClick={() => setActiveTab('tweets')}
+                        className="text-[11px] text-sky-400 font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        View all {filteredTweets.length} tweets <ArrowRight className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {filteredTweets.slice(0, activeTab === 'all' ? 4 : 25).map((post) => (
+                      <div
+                        key={post.id}
+                        onClick={() => {
+                          vibrateLight();
+                          if (onSelectPost) onSelectPost(post);
+                          onClose();
+                        }}
+                        className="p-3.5 rounded-2xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/10 hover:border-sky-500/40 transition-all cursor-pointer flex gap-3.5 group"
+                      >
+                        <img
+                          src={post.userAvatar}
+                          alt={post.name}
+                          referrerPolicy="no-referrer"
+                          className="w-10 h-10 rounded-full object-cover border border-white/10 shrink-0 mt-0.5"
+                        />
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className="flex items-center justify-between gap-1">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="text-xs font-bold text-white truncate">{post.name}</span>
+                              <span className="text-[10px] text-white/40 truncate">@{post.username}</span>
+                            </div>
+                            <span className="text-[10px] text-sky-400 font-bold shrink-0 flex items-center gap-0.5">
+                              Tweet
+                            </span>
+                          </div>
+
+                          <p className="text-xs text-white/90 line-clamp-3 leading-relaxed">
+                            {post.content}
+                          </p>
+
+                          {post.tags && post.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 pt-0.5">
+                              {post.tags.map((t) => (
+                                <span
+                                  key={t}
+                                  className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-white/5 text-sky-400 border border-white/5"
+                                >
+                                  #{t.replace(/^#/, '')}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>

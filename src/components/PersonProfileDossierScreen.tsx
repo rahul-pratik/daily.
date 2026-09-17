@@ -17,8 +17,9 @@ import {
   Image as ImageIcon,
   ChevronRight,
   TrendingUp,
+  Globe,
 } from 'lucide-react';
-import { User, Challenge, ChallengeProgressPost } from '../types';
+import { User, Challenge, ChallengeProgressPost, Community } from '../types';
 import { DailyStorageService } from '../services/storage';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
 
@@ -29,6 +30,7 @@ interface PersonProfileDossierScreenProps {
   onSendMessage?: (targetUser: User) => void;
   onOpenCreatePost?: () => void;
   onOpenChallenge?: (challengeId: string) => void;
+  onOpenCommunity?: (community: Community) => void;
 }
 
 export const PersonProfileDossierScreen: React.FC<PersonProfileDossierScreenProps> = ({
@@ -38,6 +40,7 @@ export const PersonProfileDossierScreen: React.FC<PersonProfileDossierScreenProp
   onSendMessage,
   onOpenCreatePost,
   onOpenChallenge,
+  onOpenCommunity,
 }) => {
   // Active user to display: targetUser (e.g. Sarah Chen) or currentUser
   const user: User = targetUser || currentUser || {
@@ -75,6 +78,17 @@ export const PersonProfileDossierScreen: React.FC<PersonProfileDossierScreenProp
       return isParticipant || isCreator || hasPosts;
     });
   }, [allChallenges, user.id]);
+
+  // Communities this user is enrolled in or created
+  const userCommunities = useMemo(() => {
+    const all = DailyStorageService.getAllCommunities();
+    return all.filter((c) =>
+      c.moderatorId === user.id ||
+      c.memberIds?.includes(user.id) ||
+      ['comm_fitness', 'comm_coding'].some((id) => c.id === id && user.id === 'user_sarah') ||
+      (user.interests || []).some((tag) => c.category.toLowerCase().includes(tag.toLowerCase()))
+    );
+  }, [user.id, user.interests]);
 
   // Load all challenge progress posts (receipts) for this user
   const allProgressPosts = useMemo(() => DailyStorageService.getAllChallengeProgressPosts(), []);
@@ -226,16 +240,8 @@ export const PersonProfileDossierScreen: React.FC<PersonProfileDossierScreenProp
             </div>
           </div>
 
-          {/* Quick Metrics Bar: Challenge Recording & Streaks */}
-          <div className="grid grid-cols-4 gap-2 bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/5 rounded-2xl p-3 text-center">
-            <div>
-              <span className="text-base font-black font-mono text-[#2F6FED] block">
-                {user.currentStreak || 0}
-              </span>
-              <span className="text-[9px] font-bold text-slate-500 dark:text-white/50 uppercase tracking-wider">
-                Day Streak
-              </span>
-            </div>
+          {/* Quick Metrics Bar: Challenge Recording & Streaks (Day streak removed per spec) */}
+          <div className="grid grid-cols-3 gap-2 bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/5 rounded-2xl p-3 text-center">
             <div>
               <span className="text-base font-black font-mono text-slate-900 dark:text-white block">
                 {challengeStats.activeCount}
@@ -307,6 +313,61 @@ export const PersonProfileDossierScreen: React.FC<PersonProfileDossierScreenProp
             <span>Receipts ({userProgressPosts.length})</span>
           </button>
         </div>
+
+        {/* ========================================================
+            COMMUNITIES JOINED (Rendered in All Activity)
+            ======================================================== */}
+        {activeTab === 'all' && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-1.5">
+                <Globe className="w-4 h-4 text-sky-400" />
+                <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                  Communities & Squads
+                </h3>
+              </div>
+              <span className="text-[11px] font-mono text-slate-500 dark:text-white/40">
+                {userCommunities.length} joined
+              </span>
+            </div>
+
+            {userCommunities.length === 0 ? (
+              <div className="bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-2xl p-4 text-center">
+                <p className="text-xs text-slate-500 dark:text-white/50">No public communities joined yet</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {userCommunities.map((community) => (
+                  <div
+                    key={community.id}
+                    onClick={() => {
+                      vibrateLight();
+                      if (onOpenCommunity) onOpenCommunity(community);
+                    }}
+                    className="p-3 rounded-2xl bg-white dark:bg-[#0d0d12] border border-slate-200 dark:border-white/10 hover:border-sky-500/40 transition-all flex items-center justify-between gap-2.5 cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-lg shrink-0">
+                        {community.avatar || '🌐'}
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-xs font-black text-slate-900 dark:text-white truncate group-hover:text-sky-400 transition-colors">
+                          {community.name}
+                        </h4>
+                        <div className="flex items-center gap-2 text-[10px] text-slate-500 dark:text-white/50 mt-0.5">
+                          <span className="capitalize">{community.category}</span>
+                          <span>•</span>
+                          <span>{community.memberCount || 1} members</span>
+                        </div>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400 dark:text-white/30 group-hover:text-sky-400 group-hover:translate-x-0.5 transition-all shrink-0" />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ========================================================
             CHALLENGES RECORDED IN DOSSIER

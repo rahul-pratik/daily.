@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   X,
   Flame,
@@ -15,9 +15,12 @@ import {
   Heart,
   MessageSquare,
   Layers,
+  Globe,
+  Users,
 } from 'lucide-react';
-import { User, Post, ProofCollection } from '../types';
+import { User, Post, ProofCollection, Community } from '../types';
 import { vibrateLight } from '../services/haptics';
+import { DailyStorageService } from '../services/storage';
 
 interface UserProfileModalProps {
   user: User | null;
@@ -32,6 +35,7 @@ interface UserProfileModalProps {
   onToggleBlock?: (userId: string) => void;
   isBlocked?: boolean;
   onOpenDossier?: (user: User) => void;
+  onOpenCommunity?: (community: Community) => void;
 }
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
@@ -45,17 +49,43 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onToggleLike,
   onOpenComments,
   onOpenDossier,
+  onOpenCommunity,
 }) => {
-  const [activeTab, setActiveTab] = useState<'proofs' | 'collections'>('proofs');
+  const [activeTab, setActiveTab] = useState<'proofs' | 'tweets' | 'collections' | 'communities'>('proofs');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [copiedLink, setCopiedLink] = useState(false);
   const [selectedCollection, setSelectedCollection] = useState<ProofCollection | null>(null);
+  const [showConnections, setShowConnections] = useState<'followers' | 'following' | null>(null);
 
   if (!isOpen || !user) return null;
 
   const isMe = user.id === currentUser.id || user.id === 'user_me';
   const isFollowing = currentUser.followedUserIds?.includes(user.id) || false;
   const userPosts = (posts || []).filter((p) => p.userId === user.id);
+
+  const userProofPosts = userPosts.filter(
+    (p) => Boolean(p.imageUrl || (p.imageUrls && p.imageUrls.length > 0))
+  );
+
+  const userTweetPosts = userPosts.filter(
+    (p) =>
+      !p.imageUrl &&
+      (!p.imageUrls || p.imageUrls.length === 0)
+  );
+
+  // Derive communities user is in
+  const userCommunities = DailyStorageService.getAllCommunities().filter(
+    (c) =>
+      c.moderatorId === user.id ||
+      c.memberIds?.includes(user.id) ||
+      ['comm_fitness', 'comm_coding'].some((id) => c.id === id && user.id === 'user_sarah') ||
+      (user.interests || []).some((tag) => c.category.toLowerCase().includes(tag.toLowerCase()))
+  );
+
+  // Derive followers and following lists
+  const allUsers = DailyStorageService.getAllUsers();
+  const followersList = allUsers.filter((u) => u.id !== user.id).slice(0, 6);
+  const followingList = allUsers.filter((u) => u.id !== user.id).slice(2, 7);
 
   // Derive proof collections for the user (fallback if not populated)
   const userCollections: ProofCollection[] =
@@ -169,8 +199,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             </div>
           </div>
 
-          {/* Action Row: Follow, Message, and Person Dossier */}
-          <div className="pt-1 flex items-center gap-2">
+          {/* Action Row: Follow, Message, Share Profile, and Person Dossier */}
+          <div className="pt-1 flex items-center gap-2 flex-wrap sm:flex-nowrap">
             {!isMe && (
               <>
                 <button
@@ -221,6 +251,18 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               </>
             )}
 
+            {/* Share Profile Button */}
+            <button
+              type="button"
+              id="profile-share-btn"
+              onClick={handleShare}
+              className="px-3.5 py-2.5 rounded-2xl text-xs font-black bg-white/10 hover:bg-white/15 text-white border border-white/15 hover:border-sky-400/40 transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95 shrink-0"
+              title="Share profile link"
+            >
+              <Share2 className="w-3.5 h-3.5 text-sky-400" />
+              <span>{copiedLink ? 'Copied!' : 'Share Profile'}</span>
+            </button>
+
             <button
               type="button"
               id="profile-view-dossier-btn"
@@ -232,7 +274,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 }
               }}
               className={`${
-                isMe ? 'w-full' : 'px-4'
+                isMe ? 'flex-1' : 'px-3.5'
               } py-2.5 rounded-2xl text-xs font-black bg-white/10 hover:bg-white/15 text-white/90 border border-white/15 hover:border-[#2F6FED]/40 transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95 shrink-0`}
               title={`View ${user.name}'s Person Dossier & challenge history`}
             >
@@ -242,39 +284,141 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           </div>
 
           {/* Stats Row: Proofs, Tweets, Boxes, Followers, Following */}
-          <div className="grid grid-cols-5 gap-1 p-2.5 bg-white/[0.04] border border-white/10 rounded-2xl text-center">
-            <div>
+          <div className="grid grid-cols-5 gap-1 p-2 bg-white/[0.04] border border-white/10 rounded-2xl text-center">
+            <button
+              type="button"
+              onClick={() => {
+                vibrateLight();
+                setActiveTab('proofs');
+                setSelectedCollection(null);
+                setShowConnections(null);
+              }}
+              className="p-1 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
+            >
               <span className="text-sm font-black text-white block">
-                {userPosts.filter((p) => Boolean(p.imageUrl && p.imageUrl.trim() !== '')).length}
+                {userProofPosts.length}
               </span>
               <span className="text-[9px] uppercase tracking-wider text-white/50 font-bold">Proofs</span>
-            </div>
-            <div>
-              <span className="text-sm font-black text-white block">
-                {userPosts.filter((p) => !p.imageUrl || p.imageUrl.trim() === '').length}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                vibrateLight();
+                setActiveTab('tweets');
+                setSelectedCollection(null);
+                setShowConnections(null);
+              }}
+              className="p-1 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
+            >
+              <span className="text-sm font-black text-sky-400 block">
+                {userTweetPosts.length}
               </span>
               <span className="text-[9px] uppercase tracking-wider text-sky-400/80 font-bold">Tweets</span>
-            </div>
-            <div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                vibrateLight();
+                setActiveTab('collections');
+                setSelectedCollection(null);
+                setShowConnections(null);
+              }}
+              className="p-1 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
+            >
               <span className="text-sm font-black text-white block">{userCollections.length}</span>
               <span className="text-[9px] uppercase tracking-wider text-white/50 font-bold">Boxes</span>
-            </div>
-            <div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                vibrateLight();
+                setShowConnections('followers');
+              }}
+              className="p-1 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
+              title="View Followers"
+            >
               <span className="text-sm font-black text-white block">{user.followersCount}</span>
-              <span className="text-[9px] uppercase tracking-wider text-white/50 font-bold">Followers</span>
-            </div>
-            <div>
+              <span className="text-[9px] uppercase tracking-wider text-white/50 hover:text-white font-bold transition-colors">
+                Followers
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                vibrateLight();
+                setShowConnections('following');
+              }}
+              className="p-1 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
+              title="View Following"
+            >
               <span className="text-sm font-black text-white block">{user.followingCount}</span>
-              <span className="text-[9px] uppercase tracking-wider text-white/50 font-bold">Following</span>
-            </div>
+              <span className="text-[9px] uppercase tracking-wider text-white/50 hover:text-white font-bold transition-colors">
+                Following
+              </span>
+            </button>
           </div>
 
-          {/* Biography & Focus rendered directly under the proofs, followers bar */}
+          {/* Connections List Overlay (when Followers or Following clicked) */}
+          {showConnections && (
+            <div className="p-3.5 rounded-2xl bg-white/[0.05] border border-white/10 space-y-2.5 animate-in fade-in duration-150">
+              <div className="flex items-center justify-between pb-1 border-b border-white/10">
+                <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-white">
+                  <Users className="w-3.5 h-3.5 text-[#2F6FED]" />
+                  <span>{showConnections === 'followers' ? 'Followers' : 'Following'}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowConnections(null)}
+                  className="text-[11px] text-white/50 hover:text-white font-bold cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {(showConnections === 'followers' ? followersList : followingList).map((u) => (
+                  <div
+                    key={u.id}
+                    className="flex items-center justify-between gap-2 p-2 rounded-xl bg-white/[0.03] border border-white/5"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <img
+                        src={u.avatar}
+                        alt={u.name}
+                        className="w-8 h-8 rounded-full object-cover border border-white/10 shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold text-white block truncate">{u.name}</span>
+                        <span className="text-[10px] text-white/40 block truncate font-mono">@{u.username}</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        vibrateLight();
+                        onToggleFollow(u.id);
+                      }}
+                      className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-all shrink-0 cursor-pointer"
+                    >
+                      {currentUser.followedUserIds?.includes(u.id) ? 'Following' : 'Follow'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Bio Section */}
           <div className="p-3 rounded-2xl bg-white/[0.02] border border-white/10 space-y-1 text-left">
+            <span className="text-[10px] text-white/40 font-bold uppercase tracking-wider block">Bio</span>
             <div className="text-xs text-white/90 leading-relaxed font-medium">
               {(() => {
                 const rawBio = user.bio || 'Building daily momentum and verified receipts';
-                const text = rawBio.toLowerCase().includes('focus:') ? rawBio : `Focus: ${rawBio}`;
+                const text = rawBio.replace(/^focus:\s*/i, '');
                 const parts = text.split(/(@[a-zA-Z0-9_]+|🏆[^\n]+)/g);
                 return parts.map((part, i) => {
                   if (part.startsWith('@')) {
@@ -319,11 +463,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             </div>
           )}
 
-          {/* Navigation Tabs: Proofs & Collections */}
+          {/* Navigation Tabs: Proofs, Tweets, Collections & Communities */}
           <div className="pt-2 border-t border-white/10">
-            <div className="flex items-center justify-between pb-3">
+            <div className="flex items-center justify-between pb-3 overflow-x-auto no-scrollbar">
               {/* Tab Switcher */}
-              <div className="flex items-center gap-1 bg-white/[0.05] p-1 rounded-2xl border border-white/10">
+              <div className="flex items-center gap-1 bg-white/[0.05] p-1 rounded-2xl border border-white/10 shrink-0">
                 <button
                   type="button"
                   onClick={() => {
@@ -331,14 +475,31 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     setActiveTab('proofs');
                     setSelectedCollection(null);
                   }}
-                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     activeTab === 'proofs'
                       ? 'bg-[#2F6FED] text-white shadow-md'
                       : 'text-white/60 hover:text-white'
                   }`}
                 >
                   <ImageIcon className="w-3.5 h-3.5" />
-                  <span>Proofs ({userPosts.length})</span>
+                  <span>Proofs ({userProofPosts.length})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    vibrateLight();
+                    setActiveTab('tweets');
+                    setSelectedCollection(null);
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    activeTab === 'tweets'
+                      ? 'bg-sky-500 text-white shadow-md'
+                      : 'text-white/60 hover:text-white'
+                  }`}
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-sky-300" />
+                  <span>Tweets ({userTweetPosts.length})</span>
                 </button>
 
                 <button
@@ -348,24 +509,41 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     setActiveTab('collections');
                     setSelectedCollection(null);
                   }}
-                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     activeTab === 'collections'
                       ? 'bg-[#2F6FED] text-white shadow-md'
                       : 'text-white/60 hover:text-white'
                   }`}
                 >
                   <FolderHeart className="w-3.5 h-3.5" />
-                  <span>Collections ({userCollections.length})</span>
+                  <span>Boxes ({userCollections.length})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    vibrateLight();
+                    setActiveTab('communities');
+                    setSelectedCollection(null);
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    activeTab === 'communities'
+                      ? 'bg-[#2F6FED] text-white shadow-md'
+                      : 'text-white/60 hover:text-white'
+                  }`}
+                >
+                  <Globe className="w-3.5 h-3.5" />
+                  <span>Squads ({userCommunities.length})</span>
                 </button>
               </div>
 
               {/* View Mode Toggle for Proofs Tab */}
-              {activeTab === 'proofs' && userPosts.length > 0 && (
-                <div className="flex items-center gap-1 bg-white/[0.05] p-1 rounded-xl border border-white/10">
+              {activeTab === 'proofs' && userProofPosts.length > 0 && (
+                <div className="flex items-center gap-1 bg-white/[0.05] p-1 rounded-xl border border-white/10 shrink-0 ml-2">
                   <button
                     type="button"
                     onClick={() => setViewMode('grid')}
-                    className={`p-1.5 rounded-lg transition-colors ${
+                    className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                       viewMode === 'grid' ? 'bg-white text-black' : 'text-white/40 hover:text-white'
                     }`}
                     title="Grid View"
@@ -375,7 +553,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setViewMode('list')}
-                    className={`p-1.5 rounded-lg transition-colors ${
+                    className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                       viewMode === 'list' ? 'bg-white text-black' : 'text-white/40 hover:text-white'
                     }`}
                     title="List View"
@@ -389,10 +567,10 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             {/* TAB CONTENT: PROOFS */}
             {activeTab === 'proofs' && (
               <div>
-                {userPosts.length > 0 ? (
+                {userProofPosts.length > 0 ? (
                   viewMode === 'grid' ? (
                     <div className="grid grid-cols-3 gap-2">
-                      {userPosts.map((p) => (
+                      {userProofPosts.map((p) => (
                         <div
                           key={p.id}
                           onClick={() => setViewMode('list')}
@@ -441,7 +619,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {userPosts.map((p) => (
+                      {userProofPosts.map((p) => (
                         <div
                           key={p.id}
                           className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 space-y-2.5 text-xs shadow-sm"
@@ -476,7 +654,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                                 vibrateLight();
                                 onToggleLike(p.id);
                               }}
-                              className={`flex items-center gap-1.5 hover:text-white transition-colors ${
+                              className={`flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer ${
                                 p.likedByMe ? 'text-red-500 font-bold' : ''
                               }`}
                             >
@@ -486,7 +664,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                             <button
                               type="button"
                               onClick={() => onOpenComments(p)}
-                              className="flex items-center gap-1.5 hover:text-white transition-colors"
+                              className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer"
                             >
                               <MessageSquare className="w-4 h-4" />
                               <span>{p.comments?.length || 0}</span>
@@ -500,6 +678,111 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   <div className="text-center py-10 text-white/40 text-xs">
                     <Sparkles className="w-6 h-6 mx-auto mb-2 text-white/20" />
                     <span>No proofs shared yet by @{user.username}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB CONTENT: TWEETS */}
+            {activeTab === 'tweets' && (
+              <div className="space-y-3">
+                {userTweetPosts.length > 0 ? (
+                  userTweetPosts.map((p) => (
+                    <div
+                      key={p.id}
+                      className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 space-y-2.5 text-xs shadow-sm"
+                    >
+                      <div className="flex items-center justify-between text-[11px] text-white/50">
+                        <span className="text-sky-400 font-bold">Tweet</span>
+                        <span>{p.createdAt}</span>
+                      </div>
+
+                      <p className="text-white/90 leading-relaxed break-words font-medium">{p.content}</p>
+
+                      {p.tags && p.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 pt-0.5">
+                          {p.tags.map((t) => (
+                            <span
+                              key={t}
+                              className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20"
+                            >
+                              #{t.replace(/^#/, '')}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-4 pt-1 text-white/50 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            vibrateLight();
+                            onToggleLike(p.id);
+                          }}
+                          className={`flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer ${
+                            p.likedByMe ? 'text-red-500 font-bold' : ''
+                          }`}
+                        >
+                          <Heart className={`w-4 h-4 ${p.likedByMe ? 'fill-red-500' : ''}`} />
+                          <span>{p.likesCount}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onOpenComments(p)}
+                          className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer"
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                          <span>{p.comments?.length || 0}</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-10 text-white/40 text-xs">
+                    <MessageSquare className="w-6 h-6 mx-auto mb-2 text-white/20" />
+                    <span>No tweets or text reflections shared yet by @{user.username}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB CONTENT: COMMUNITIES */}
+            {activeTab === 'communities' && (
+              <div className="space-y-2.5">
+                {userCommunities.length > 0 ? (
+                  userCommunities.map((community) => (
+                    <div
+                      key={community.id}
+                      onClick={() => {
+                        vibrateLight();
+                        if (onOpenCommunity) onOpenCommunity(community);
+                      }}
+                      className="p-3.5 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-sky-500/40 transition-all flex items-center justify-between gap-3 cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-xl shrink-0">
+                          {community.avatar || '🌐'}
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="text-xs font-black text-white truncate group-hover:text-sky-400 transition-colors">
+                            {community.name}
+                          </h4>
+                          <div className="flex items-center gap-2 text-[10px] text-white/50 mt-0.5">
+                            <span className="capitalize">{community.category}</span>
+                            <span>•</span>
+                            <span>{community.memberCount || 1} members</span>
+                          </div>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold text-sky-400 px-2 py-0.5 rounded-md bg-sky-500/10 border border-sky-500/20">
+                        Joined
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-10 text-white/40 text-xs">
+                    <Globe className="w-6 h-6 mx-auto mb-2 text-white/20" />
+                    <span>No public communities or squads joined yet.</span>
                   </div>
                 )}
               </div>
