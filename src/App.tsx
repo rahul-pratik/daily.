@@ -29,8 +29,9 @@ import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { NotificationsModal } from './components/NotificationsModal';
 import { CreateCollectionModal } from './components/CreateCollectionModal';
 import { AddToCollectionModal } from './components/AddToCollectionModal';
-import { GlobalSearchModal } from './components/GlobalSearchModal';
+import { GlobalSearchModal, SearchWish } from './components/GlobalSearchModal';
 import { StreakFreezeAlertModal } from './components/StreakFreezeAlertModal';
+import { FeedSortDropdown } from './components/FeedSortDropdown';
 import { vibratePostSubmit, vibrateLight, vibrateStreakMilestone } from './services/haptics';
 
 export default function App() {
@@ -50,6 +51,12 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState<NavigationTab>('home');
   const [previousTab, setPreviousTab] = useState<NavigationTab>('home');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchInitialQuery, setSearchInitialQuery] = useState('');
+  const [searchInitialTab, setSearchInitialTab] = useState<SearchWish>('all');
+  const [feedSortFilters, setFeedSortFilters] = useState<string[]>([
+    'proofs:all',
+    'tweets:all',
+  ]);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isCreateCollectionOpen, setIsCreateCollectionOpen] = useState(false);
@@ -747,7 +754,18 @@ export default function App() {
             onSelectTab={setCurrentTab}
             unreadNotificationsCount={unreadNotificationsCount}
             onOpenNotifications={() => setIsNotificationsOpen(true)}
-            onOpenSearch={() => setIsSearchOpen(true)}
+            onOpenSearch={() => {
+              setSearchInitialQuery('');
+              setSearchInitialTab('all');
+              setIsSearchOpen(true);
+            }}
+            isHomeScreen={currentTab === 'home'}
+            sortButtonSlot={
+              <FeedSortDropdown
+                selectedSortFilters={feedSortFilters}
+                onSelectSortFilters={setFeedSortFilters}
+              />
+            }
           />
         )}
 
@@ -776,6 +794,14 @@ export default function App() {
               onOpenCreateCommunity={(tag) => {
                 setCommunityInitialTag(tag || '');
                 setIsCreateCommunityOpen(true);
+              }}
+              selectedSortFilters={feedSortFilters}
+              onSelectSortFilters={setFeedSortFilters}
+              onOpenSearchWithTag={(tag, tab) => {
+                const formattedTag = tag.startsWith('#') ? tag : `#${tag}`;
+                setSearchInitialQuery(formattedTag);
+                setSearchInitialTab((tab as SearchWish) || 'all');
+                setIsSearchOpen(true);
               }}
             />
           )}
@@ -1142,9 +1168,13 @@ export default function App() {
         {/* Global Search Modal */}
         <GlobalSearchModal
           isOpen={isSearchOpen}
-          onClose={() => setIsSearchOpen(false)}
+          onClose={() => {
+            setIsSearchOpen(false);
+            setSearchInitialQuery('');
+          }}
           users={users}
           communities={communities}
+          groups={groups}
           posts={posts}
           currentUser={currentUser}
           onToggleFollow={handleToggleFollow}
@@ -1154,15 +1184,27 @@ export default function App() {
           onSelectCommunity={(comm) => {
             setActiveCommunityHub(comm);
           }}
+          onSelectGroup={(group) => {
+            handleOpenDMWithGroup(group.id);
+          }}
           onSelectPost={(post) => {
             handleViewPostFromId(post.id);
           }}
           onSelectTag={(tag) => {
-            setCurrentTab('discover');
+            const formattedTag = tag.startsWith('#') ? tag : `#${tag}`;
+            setSearchInitialQuery(formattedTag);
+            setSearchInitialTab('all');
+            setIsSearchOpen(true);
           }}
           onCreateCommunity={(tag) => {
             setCommunityInitialTag(tag || '');
             setIsCreateCommunityOpen(true);
+          }}
+          initialQuery={searchInitialQuery}
+          initialTab={searchInitialTab}
+          onSelectChallenge={(challengeId) => {
+            setSelectedChallengeId(challengeId);
+            setCurrentTab('streak');
           }}
         />
 

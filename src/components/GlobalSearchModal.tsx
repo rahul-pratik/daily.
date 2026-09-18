@@ -18,10 +18,13 @@ import {
   CheckCircle2,
   Calendar,
   Plus,
+  Trophy,
 } from 'lucide-react';
-import { User, Community, Post, Group } from '../types';
+import { User, Community, Post, Group, Challenge } from '../types';
 import { vibrateLight } from '../services/haptics';
 import { DailyStorageService } from '../services/storage';
+
+export type SearchWish = 'all' | 'communities' | 'challenges' | 'proofs' | 'tweets' | 'users' | 'tags';
 
 interface GlobalSearchModalProps {
   isOpen: boolean;
@@ -38,6 +41,9 @@ interface GlobalSearchModalProps {
   onSelectPost?: (post: Post) => void;
   onSelectTag: (tag: string) => void;
   onCreateCommunity?: (tag: string) => void;
+  initialQuery?: string;
+  initialTab?: SearchWish;
+  onSelectChallenge?: (challengeId: string) => void;
 }
 
 const renderEntityAvatar = (avatar?: string, fallback: string = '🌐') => {
@@ -54,8 +60,6 @@ const renderEntityAvatar = (avatar?: string, fallback: string = '🌐') => {
   return <span className="text-lg">{avatar || fallback}</span>;
 };
 
-type SearchWish = 'all' | 'users' | 'proofs' | 'tweets' | 'communities' | 'tags';
-
 export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
   isOpen,
   onClose,
@@ -71,10 +75,18 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
   onSelectPost,
   onSelectTag,
   onCreateCommunity,
+  initialQuery = '',
+  initialTab = 'all',
+  onSelectChallenge,
 }) => {
-  const [query, setQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<SearchWish>('all');
+  const [query, setQuery] = useState(initialQuery);
+  const [activeTab, setActiveTab] = useState<SearchWish>(initialTab);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Challenges from storage
+  const allChallenges = useMemo(() => {
+    return DailyStorageService.getAllChallenges() || [];
+  }, [isOpen]);
 
   // Extract all unique popular tags with post counts, including custom hashtags
   const popularTags = useMemo(() => {
@@ -124,13 +136,13 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setQuery('');
-      setActiveTab('all');
+      setQuery(initialQuery || '');
+      setActiveTab(initialTab || 'all');
       setTimeout(() => {
         inputRef.current?.focus();
       }, 80);
     }
-  }, [isOpen]);
+  }, [isOpen, initialQuery, initialTab]);
 
   // Keyboard shortcut listener (Escape to close)
   useEffect(() => {
@@ -153,8 +165,24 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
       c.name.toLowerCase().includes(cleanQuery) ||
       c.category.toLowerCase().includes(cleanQuery) ||
       c.description?.toLowerCase().includes(cleanQuery) ||
-      c.tags?.some((t) => t.toLowerCase().includes(rawTagQuery))
+      c.tags?.some((t) => t.toLowerCase().includes(rawTagQuery)) ||
+      (rawTagQuery && c.name.toLowerCase().includes(rawTagQuery))
   );
+
+  // Filter Challenges
+  const filteredChallenges = allChallenges.filter((ch) => {
+    if (!cleanQuery) return true;
+    const lower = cleanQuery;
+    const tagMatch = rawTagQuery;
+    const matchTitle = ch.title.toLowerCase().includes(lower) || (tagMatch && ch.title.toLowerCase().includes(tagMatch));
+    const matchDesc = ch.description?.toLowerCase().includes(lower) || (tagMatch && ch.description?.toLowerCase().includes(tagMatch));
+    const matchCategory = ch.category?.toLowerCase().includes(lower);
+    const matchTags = Boolean(
+      ch.tag?.toLowerCase().includes(lower) ||
+      (tagMatch && ch.tag?.toLowerCase().includes(tagMatch))
+    );
+    return matchTitle || matchDesc || matchCategory || matchTags;
+  });
 
   // Filter Users (Accounts)
   const filteredUsers = users.filter(
@@ -178,7 +206,8 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
       p.name.toLowerCase().includes(cleanQuery) ||
       p.username.toLowerCase().includes(cleanQuery) ||
       p.communityName?.toLowerCase().includes(cleanQuery) ||
-      p.tags?.some((t) => t.toLowerCase().includes(rawTagQuery))
+      p.tags?.some((t) => t.toLowerCase().includes(rawTagQuery)) ||
+      (rawTagQuery && p.content.toLowerCase().includes(`#${rawTagQuery}`))
   );
 
   const filteredProofs = filteredPosts.filter((p) =>
@@ -195,6 +224,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
     (activeTab === 'all' || activeTab === 'proofs' ? filteredProofs.length : 0) +
     (activeTab === 'all' || activeTab === 'tweets' ? filteredTweets.length : 0) +
     (activeTab === 'all' || activeTab === 'communities' ? filteredCommunities.length : 0) +
+    (activeTab === 'all' || activeTab === 'challenges' ? filteredChallenges.length : 0) +
     (activeTab === 'all' || activeTab === 'users' ? filteredUsers.length : 0) +
     (activeTab === 'all' || activeTab === 'tags' ? filteredTags.length : 0);
 
@@ -207,6 +237,14 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
         c.name.toLowerCase().includes(rawTagQuery) ||
         (c.tags || []).some((t) => t.toLowerCase().includes(rawTagQuery)) ||
         c.category.toLowerCase().includes(rawTagQuery)
+    );
+
+    const matchingChallenges = allChallenges.filter(
+      (ch) =>
+        ch.title.toLowerCase().includes(rawTagQuery) ||
+        ch.tag?.toLowerCase().includes(rawTagQuery) ||
+        ch.description?.toLowerCase().includes(rawTagQuery) ||
+        ch.category?.toLowerCase().includes(rawTagQuery)
     );
 
     const matchingProofs = posts.filter(
@@ -227,10 +265,11 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
     return {
       tag: rawTagQuery,
       communitiesCount: matchingComms.length,
+      challengesCount: matchingChallenges.length,
       proofsCount: matchingProofs.length,
       tweetsCount: matchingTweets.length,
     };
-  }, [rawTagQuery, communities, posts]);
+  }, [rawTagQuery, communities, posts, allChallenges]);
 
   const placeholderText =
     activeTab === 'users'
@@ -239,11 +278,13 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
       ? 'Search proofs & photo receipts...'
       : activeTab === 'tweets'
       ? 'Search tweets & text reflections...'
+      : activeTab === 'challenges'
+      ? 'Search accountability challenges & streaks...'
       : activeTab === 'tags'
-      ? 'Search discipline tags (e.g. #deepwork, #running)...'
+      ? 'Enter tag name (e.g. fit for #fit)...'
       : activeTab === 'communities'
-      ? 'Search squads and accountability groups...'
-      : 'Search accounts, proofs, tweets, #tags, squads...';
+      ? 'Search communities & accountability groups...'
+      : 'Search accounts, proofs, tweets, challenges, #tags...';
 
   const isFollowingUser = (targetId: string) => {
     return currentUser?.followedUserIds?.includes(targetId) ?? false;
@@ -271,7 +312,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                 <h2 className="text-sm font-black tracking-tight text-white flex items-center gap-1.5">
                   Search & Discover
                 </h2>
-                <p className="text-[11px] text-white/50">Explore accounts, proofs, tags, and squads</p>
+                <p className="text-[11px] text-white/50">Explore communities, challenges, proofs, tweets, and #tags</p>
               </div>
             </div>
 
@@ -286,14 +327,28 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
 
           {/* Search Input Box */}
           <div className="relative flex items-center">
-            <Search className="w-4 h-4 text-white/40 absolute left-3.5 pointer-events-none" />
+            {activeTab === 'tags' ? (
+              <span className="w-10 pl-3.5 text-purple-400 font-black text-base select-none pointer-events-none flex items-center justify-start shrink-0">
+                #
+              </span>
+            ) : (
+              <Search className="w-4 h-4 text-white/40 absolute left-3.5 pointer-events-none" />
+            )}
             <input
               ref={inputRef}
               type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              value={activeTab === 'tags' ? query.replace(/^#/, '') : query}
+              onChange={(e) => {
+                let val = e.target.value;
+                if (activeTab === 'tags') {
+                  val = val.replace(/^#/, '');
+                }
+                setQuery(val);
+              }}
               placeholder={placeholderText}
-              className="w-full pl-10 pr-10 py-3 rounded-2xl bg-white/5 border border-white/10 text-white placeholder-white/40 text-sm font-medium focus:outline-none focus:border-[#2F6FED] focus:bg-white/[0.08] transition-all"
+              className={`w-full ${
+                activeTab === 'tags' ? 'pl-9' : 'pl-10'
+              } pr-10 py-3 rounded-2xl bg-white/5 border border-white/10 text-white placeholder-white/40 text-sm font-medium focus:outline-none focus:border-[#2F6FED] focus:bg-white/[0.08] transition-all`}
             />
             {query && (
               <button
@@ -317,14 +372,27 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                 id: 'all' as SearchWish,
                 label: 'All',
                 icon: <Compass className="w-3.5 h-3.5" />,
-                count: filteredProofs.length + filteredTweets.length + filteredUsers.length + filteredCommunities.length + filteredTags.length,
+                count:
+                  filteredProofs.length +
+                  filteredTweets.length +
+                  filteredUsers.length +
+                  filteredCommunities.length +
+                  filteredChallenges.length +
+                  filteredTags.length,
               },
               {
-                id: 'users' as SearchWish,
-                label: 'Accounts',
-                icon: <Users className="w-3.5 h-3.5" />,
-                count: filteredUsers.length,
-                badgeColor: 'text-[#2F6FED]',
+                id: 'communities' as SearchWish,
+                label: 'Communities',
+                icon: <Globe className="w-3.5 h-3.5" />,
+                count: filteredCommunities.length,
+                badgeColor: 'text-blue-400',
+              },
+              {
+                id: 'challenges' as SearchWish,
+                label: 'Challenges',
+                icon: <Trophy className="w-3.5 h-3.5" />,
+                count: filteredChallenges.length,
+                badgeColor: 'text-amber-400',
               },
               {
                 id: 'proofs' as SearchWish,
@@ -341,11 +409,11 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                 badgeColor: 'text-sky-400',
               },
               {
-                id: 'communities' as SearchWish,
-                label: 'Squads',
-                icon: <Globe className="w-3.5 h-3.5" />,
-                count: filteredCommunities.length,
-                badgeColor: 'text-blue-400',
+                id: 'users' as SearchWish,
+                label: 'Accounts',
+                icon: <Users className="w-3.5 h-3.5" />,
+                count: filteredUsers.length,
+                badgeColor: 'text-[#2F6FED]',
               },
               {
                 id: 'tags' as SearchWish,
@@ -583,8 +651,8 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                         key={t.tag}
                         onClick={() => {
                           vibrateLight();
-                          onSelectTag(t.tag);
-                          onClose();
+                          setQuery(t.tag);
+                          setActiveTab('all');
                         }}
                         className="px-3 py-2 rounded-xl bg-white/[0.03] hover:bg-purple-600/15 border border-white/10 hover:border-purple-500/40 text-xs font-bold text-white transition-all flex items-center gap-2 group active:scale-95"
                       >
@@ -599,14 +667,14 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                 </div>
               )}
 
-              {/* Accountability Squads */}
+              {/* Accountability Communities */}
               {(activeTab === 'all' || activeTab === 'communities') && (communities.length > 0 || groups.length > 0) && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Globe className="w-4 h-4 text-blue-400" />
                       <h3 className="text-xs font-black uppercase tracking-wider text-white">
-                        Featured Squads
+                        Featured Communities
                       </h3>
                     </div>
                     <span className="text-[11px] text-white/40 font-medium">Join groups</span>
@@ -694,7 +762,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                       <span className="font-mono text-xs font-black text-[#5B8DEF]">
                         #{searchedTagInsights.tag}
                       </span>
-                      <span className="text-[11px] text-white/50">Hashtag Breakdown</span>
+                      <span className="text-[11px] text-white/50">Activity Stats</span>
                     </div>
 
                     {onCreateCommunity && (
@@ -708,36 +776,100 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                         className="px-2.5 py-1 rounded-lg bg-[#2F6FED] hover:bg-blue-600 active:scale-95 text-white text-[11px] font-bold transition-all flex items-center gap-1 shadow-sm cursor-pointer shrink-0"
                       >
                         <Plus className="w-3 h-3 stroke-[3]" />
-                        <span>Create Squad from #{searchedTagInsights.tag}</span>
+                        <span>Create Community from #{searchedTagInsights.tag}</span>
                       </button>
                     )}
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 bg-black/40 p-2 rounded-xl border border-white/5 text-center">
-                    <div className="py-1">
-                      <span className="text-base font-black font-mono text-white block">
+                  {/* 4 Clickable Categories: Communities, Proofs, Tweets, Challenges */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-black/40 p-2 rounded-xl border border-white/5 text-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        vibrateLight();
+                        setActiveTab('communities');
+                      }}
+                      className={`py-2 px-1.5 rounded-xl transition-all cursor-pointer border text-center group ${
+                        activeTab === 'communities'
+                          ? 'bg-blue-500/20 border-blue-500/50'
+                          : 'hover:bg-white/10 border-transparent hover:border-blue-500/30'
+                      }`}
+                      title={`Show all communities with #${searchedTagInsights.tag}`}
+                    >
+                      <span className="text-base font-black font-mono text-blue-400 block group-hover:scale-105 transition-transform">
                         {searchedTagInsights.communitiesCount}
                       </span>
-                      <span className="text-[9px] font-bold text-white/50 uppercase tracking-wider block">
-                        Communities Made
+                      <span className="text-[9px] font-bold text-white/70 uppercase tracking-wider block mt-0.5">
+                        Communities
                       </span>
-                    </div>
-                    <div className="py-1 border-x border-white/5">
-                      <span className="text-base font-black font-mono text-[#5B8DEF] block">
+                      <span className="text-[8px] text-blue-300/60 block font-medium">Click to view</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        vibrateLight();
+                        setActiveTab('proofs');
+                      }}
+                      className={`py-2 px-1.5 rounded-xl transition-all cursor-pointer border text-center group ${
+                        activeTab === 'proofs'
+                          ? 'bg-emerald-500/20 border-emerald-500/50'
+                          : 'hover:bg-white/10 border-transparent hover:border-emerald-500/30'
+                      }`}
+                      title={`Show all proofs with #${searchedTagInsights.tag}`}
+                    >
+                      <span className="text-base font-black font-mono text-emerald-400 block group-hover:scale-105 transition-transform">
                         {searchedTagInsights.proofsCount}
                       </span>
-                      <span className="text-[9px] font-bold text-white/50 uppercase tracking-wider block">
-                        Proofs Made
+                      <span className="text-[9px] font-bold text-white/70 uppercase tracking-wider block mt-0.5">
+                        Proofs
                       </span>
-                    </div>
-                    <div className="py-1">
-                      <span className="text-base font-black font-mono text-sky-400 block">
+                      <span className="text-[8px] text-emerald-300/60 block font-medium">Click to view</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        vibrateLight();
+                        setActiveTab('tweets');
+                      }}
+                      className={`py-2 px-1.5 rounded-xl transition-all cursor-pointer border text-center group ${
+                        activeTab === 'tweets'
+                          ? 'bg-sky-500/20 border-sky-500/50'
+                          : 'hover:bg-white/10 border-transparent hover:border-sky-500/30'
+                      }`}
+                      title={`Show all tweets with #${searchedTagInsights.tag}`}
+                    >
+                      <span className="text-base font-black font-mono text-sky-400 block group-hover:scale-105 transition-transform">
                         {searchedTagInsights.tweetsCount}
                       </span>
-                      <span className="text-[9px] font-bold text-white/50 uppercase tracking-wider block">
-                        Tweets Made
+                      <span className="text-[9px] font-bold text-white/70 uppercase tracking-wider block mt-0.5">
+                        Tweets
                       </span>
-                    </div>
+                      <span className="text-[8px] text-sky-300/60 block font-medium">Click to view</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        vibrateLight();
+                        setActiveTab('challenges');
+                      }}
+                      className={`py-2 px-1.5 rounded-xl transition-all cursor-pointer border text-center group ${
+                        activeTab === 'challenges'
+                          ? 'bg-amber-500/20 border-amber-500/50'
+                          : 'hover:bg-white/10 border-transparent hover:border-amber-500/30'
+                      }`}
+                      title={`Show all challenges with #${searchedTagInsights.tag}`}
+                    >
+                      <span className="text-base font-black font-mono text-amber-400 block group-hover:scale-105 transition-transform">
+                        {searchedTagInsights.challengesCount}
+                      </span>
+                      <span className="text-[9px] font-bold text-white/70 uppercase tracking-wider block mt-0.5">
+                        Challenges
+                      </span>
+                      <span className="text-[8px] text-amber-300/60 block font-medium">Click to view</span>
+                    </button>
                   </div>
                 </div>
               )}
@@ -999,6 +1131,72 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                 </div>
               )}
 
+              {/* CHALLENGES RESULTS */}
+              {(activeTab === 'all' || activeTab === 'challenges') && filteredChallenges.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs font-black uppercase tracking-wider text-amber-400">
+                    <span className="flex items-center gap-1.5">
+                      <Trophy className="w-3.5 h-3.5" />
+                      Challenges & Streaks ({filteredChallenges.length})
+                    </span>
+                    {activeTab === 'all' && filteredChallenges.length > 4 && (
+                      <button
+                        onClick={() => setActiveTab('challenges')}
+                        className="text-[11px] text-amber-400 font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        View all {filteredChallenges.length} challenges <ArrowRight className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {filteredChallenges.slice(0, activeTab === 'all' ? 4 : 20).map((ch) => (
+                      <div
+                        key={ch.id}
+                        onClick={() => {
+                          vibrateLight();
+                          if (onSelectChallenge) {
+                            onSelectChallenge(ch.id);
+                          }
+                          onClose();
+                        }}
+                        className="p-3 rounded-2xl bg-white/[0.03] hover:bg-amber-500/10 border border-white/10 hover:border-amber-500/40 transition-all cursor-pointer flex items-center gap-3 group"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0 text-amber-400">
+                          <Trophy className="w-5 h-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <h4 className="text-xs font-black text-white truncate group-hover:text-amber-300 transition-colors">
+                              {ch.title}
+                            </h4>
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-300 shrink-0">
+                              {ch.category || 'Challenge'}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-white/50 truncate mt-0.5">
+                            {ch.durationDays}d duration • {ch.participantsCount || 1} joined
+                          </p>
+                          {ch.tag && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {[ch.tag].map((t) => (
+                                <span
+                                  key={t}
+                                  className="text-[8px] font-bold px-1 py-0.2 rounded bg-white/5 text-amber-300/80 border border-white/5"
+                                >
+                                  #{t.replace(/^#/, '')}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <ArrowRight className="w-3.5 h-3.5 text-white/20 group-hover:text-white transition-all shrink-0" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* TAGS RESULTS */}
               {(activeTab === 'all' || activeTab === 'tags') && filteredTags.length > 0 && (
                 <div className="space-y-3">
@@ -1014,8 +1212,8 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                         key={t.tag}
                         onClick={() => {
                           vibrateLight();
-                          onSelectTag(t.tag);
-                          onClose();
+                          setQuery(t.tag);
+                          setActiveTab('all');
                         }}
                         className="p-2.5 rounded-2xl bg-white/[0.03] hover:bg-purple-600/20 border border-white/10 hover:border-purple-500/40 text-xs font-bold text-white transition-all flex items-center gap-2 group"
                       >
@@ -1038,7 +1236,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                   <div className="flex items-center justify-between text-xs font-black uppercase tracking-wider text-blue-400">
                     <span className="flex items-center gap-1.5">
                       <Globe className="w-3.5 h-3.5" />
-                      Communities & Squads ({filteredCommunities.length})
+                      Communities ({filteredCommunities.length})
                     </span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -1080,11 +1278,17 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
 
         {/* Modal Footer */}
         <div className="px-4 py-3 border-t border-white/10 bg-white/[0.02] flex items-center justify-between text-[11px] text-white/50">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span>Filter by:</span>
-            <span className="text-[#2F6FED] font-bold">Accounts</span>
+            <span className="text-blue-400 font-bold">Communities</span>
             <span>•</span>
-            <span className="text-emerald-400 font-bold">Posts</span>
+            <span className="text-amber-400 font-bold">Challenges</span>
+            <span>•</span>
+            <span className="text-emerald-400 font-bold">Proofs</span>
+            <span>•</span>
+            <span className="text-sky-400 font-bold">Tweets</span>
+            <span>•</span>
+            <span className="text-[#2F6FED] font-bold">Accounts</span>
             <span>•</span>
             <span className="text-purple-400 font-bold">Tags</span>
           </div>
