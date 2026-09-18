@@ -1079,28 +1079,30 @@ export default function App() {
         />
 
         {/* User Profile Modal */}
-        <UserProfileModal
-          isOpen={!!activeProfileUser}
-          user={activeProfileUser}
-          currentUser={currentUser}
-          posts={posts}
-          onClose={() => setActiveProfileUser(null)}
-          onToggleFollow={handleToggleFollow}
-          onSendDM={handleStartDMWithUser}
-          onToggleLike={handleToggleLike}
-          onOpenComments={(post) => setCommentsPost(post)}
-          onOpenDossier={(targetUser) => {
-            setActiveDossierUser(targetUser || activeProfileUser || currentUser);
-            setActiveProfileUser(null);
-            setCurrentTab('dossier');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-          onOpenCommunity={(community) => {
-            setActiveProfileUser(null);
-            setActiveCommunityHub(community);
-          }}
-          onViewUser={handleViewUser}
-        />
+        {activeProfileUser && (
+          <UserProfileModal
+            isOpen={!!activeProfileUser}
+            user={activeProfileUser}
+            currentUser={currentUser}
+            posts={posts}
+            onClose={() => setActiveProfileUser(null)}
+            onToggleFollow={handleToggleFollow}
+            onSendDM={handleStartDMWithUser}
+            onToggleLike={handleToggleLike}
+            onOpenComments={(post) => setCommentsPost(post)}
+            onOpenDossier={(targetUser) => {
+              setActiveDossierUser(targetUser || activeProfileUser || currentUser);
+              setActiveProfileUser(null);
+              setCurrentTab('dossier');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onOpenCommunity={(community) => {
+              setActiveProfileUser(null);
+              setActiveCommunityHub(community);
+            }}
+            onViewUser={handleViewUser}
+          />
+        )}
 
         {/* Onboarding modal if not onboarded */}
         <OnboardingModal

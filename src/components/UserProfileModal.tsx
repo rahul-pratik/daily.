@@ -63,21 +63,27 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const [selectedInterest, setSelectedInterest] = useState<string | null>(null);
   const [interestSearchQuery, setInterestSearchQuery] = useState('');
 
-  if (!isOpen || !user) return null;
+  const isMe = Boolean(user && (user.id === currentUser.id || user.id === 'user_me'));
+  const isFollowing = Boolean(user && (currentUser.followedUserIds?.includes(user.id) || false));
 
-  const isMe = user.id === currentUser.id || user.id === 'user_me';
-  const isFollowing = currentUser.followedUserIds?.includes(user.id) || false;
-  const userPosts = (posts || []).filter((p) => p.userId === user.id);
+  const userPosts = useMemo(() => {
+    if (!user) return [];
+    return (posts || []).filter((p) => p.userId === user.id);
+  }, [posts, user?.id]);
 
-  const userProofPosts = userPosts.filter(
-    (p) => Boolean(p.imageUrl || (p.imageUrls && p.imageUrls.length > 0))
-  );
+  const userProofPosts = useMemo(() => {
+    return userPosts.filter(
+      (p) => Boolean(p.imageUrl || (p.imageUrls && p.imageUrls.length > 0))
+    );
+  }, [userPosts]);
 
-  const userTweetPosts = userPosts.filter(
-    (p) =>
-      !p.imageUrl &&
-      (!p.imageUrls || p.imageUrls.length === 0)
-  );
+  const userTweetPosts = useMemo(() => {
+    return userPosts.filter(
+      (p) =>
+        !p.imageUrl &&
+        (!p.imageUrls || p.imageUrls.length === 0)
+    );
+  }, [userPosts]);
 
   // Filtered proofs by selected interest or search query
   const filteredProofPosts = useMemo(() => {
@@ -110,22 +116,31 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   }, [userTweetPosts, selectedInterest, interestSearchQuery]);
 
   // Derive communities user is in
-  const userCommunities = DailyStorageService.getAllCommunities().filter(
-    (c) =>
-      c.moderatorId === user.id ||
-      c.memberIds?.includes(user.id) ||
-      ['comm_fitness', 'comm_coding'].some((id) => c.id === id && user.id === 'user_sarah') ||
-      (user.interests || []).some((tag) => c.category.toLowerCase().includes(tag.toLowerCase()))
-  );
+  const userCommunities = useMemo(() => {
+    if (!user) return [];
+    return DailyStorageService.getAllCommunities().filter(
+      (c) =>
+        c.moderatorId === user.id ||
+        c.memberIds?.includes(user.id) ||
+        ['comm_fitness', 'comm_coding'].some((id) => c.id === id && user.id === 'user_sarah') ||
+        (user.interests || []).some((tag) => c.category.toLowerCase().includes(tag.toLowerCase()))
+    );
+  }, [user?.id, user?.interests]);
 
   // Derive followers and following lists
-  const allUsers = DailyStorageService.getAllUsers();
-  const followersList = allUsers.filter((u) => u.id !== user.id).slice(0, 6);
-  const followingList = allUsers.filter((u) => u.id !== user.id).slice(2, 7);
+  const { followersList, followingList } = useMemo(() => {
+    if (!user) return { followersList: [], followingList: [] };
+    const allUsers = DailyStorageService.getAllUsers();
+    return {
+      followersList: allUsers.filter((u) => u.id !== user.id).slice(0, 6),
+      followingList: allUsers.filter((u) => u.id !== user.id).slice(2, 7),
+    };
+  }, [user?.id]);
 
   // Derive proof collections for the user (fallback if not populated)
-  const userCollections: ProofCollection[] =
-    user.proofCollections && user.proofCollections.length > 0
+  const userCollections: ProofCollection[] = useMemo(() => {
+    if (!user) return [];
+    return user.proofCollections && user.proofCollections.length > 0
       ? user.proofCollections
       : [
           {
@@ -154,6 +169,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             updatedAt: '2026-08-28',
           },
         ];
+  }, [user, userPosts]);
 
   // Filtered collections by selected interest or search query
   const filteredCollections = useMemo(() => {
@@ -171,6 +187,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   }, [userCollections, selectedInterest, interestSearchQuery]);
 
   const handleShare = () => {
+    if (!user) return;
     vibrateLight();
     const shareUrl = `${window.location.origin}/#profile/${user.username}`;
     navigator.clipboard?.writeText(shareUrl);
@@ -179,9 +196,12 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   };
 
   const handleFollowClick = () => {
+    if (!user) return;
     vibrateLight();
     onToggleFollow(user.id);
   };
+
+  if (!isOpen || !user) return null;
 
   return (
     <div
