@@ -896,6 +896,7 @@ export default function App() {
                 });
               }}
               onOpenCreatePost={() => setIsCreateOpen(true)}
+              onOpenCommunity={(community) => setActiveCommunityHub(community)}
             />
           )}
 
@@ -1072,6 +1073,7 @@ export default function App() {
             setActiveProfileUser(null);
             setActiveCommunityHub(community);
           }}
+          onViewUser={handleViewUser}
         />
 
         {/* Onboarding modal if not onboarded */}

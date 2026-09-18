@@ -19,6 +19,8 @@ export const TopHeader: React.FC<{
   onOpenNotifications?: () => void;
   unreadNotificationsCount?: number;
   onOpenSearch?: () => void;
+  isHomeScreen?: boolean;
+  sortButtonSlot?: React.ReactNode;
 }> = ({
   currentUser,
   onOpenDMs,
@@ -27,13 +29,15 @@ export const TopHeader: React.FC<{
   onOpenNotifications = () => {},
   unreadNotificationsCount = 0,
   onOpenSearch = () => {},
+  isHomeScreen = false,
+  sortButtonSlot,
 }) => {
   return (
-    <header className="sticky top-0 z-30 w-full bg-[#050505]/95 backdrop-blur-md border-b border-white/5 px-4 py-3 flex items-center justify-between">
+    <header className="sticky top-0 z-30 w-full bg-[#050505]/95 backdrop-blur-md border-b border-white/5 px-3 sm:px-4 py-2.5 flex items-center justify-between">
       {/* Brand Logo */}
       <button 
         onClick={() => onSelectTab('home')}
-        className="flex flex-col text-left cursor-pointer select-none group min-h-[44px] justify-center focus:outline-none"
+        className="flex flex-col text-left cursor-pointer select-none group min-h-[44px] justify-center focus:outline-none shrink-0"
       >
         <div className="flex items-center gap-1.5">
           <h1 className="text-xl font-black tracking-tighter text-white">
@@ -45,12 +49,15 @@ export const TopHeader: React.FC<{
         </p>
       </button>
 
-      {/* Right controls: Global Search + Notifications + DMs */}
+      {/* Right controls: on home screen -> sort by , search button , notifications , dms */}
       <div className="flex items-center gap-1.5 sm:gap-2">
+        {/* Sort By Option - In Home Screen Only */}
+        {isHomeScreen && sortButtonSlot}
+
         {/* Global Search Button */}
         <button
           onClick={onOpenSearch}
-          className="p-2.5 rounded-full bg-white/5 hover:bg-[#2F6FED]/20 border border-white/10 hover:border-[#2F6FED]/40 text-white/80 hover:text-[#2F6FED] transition-all active:scale-95 min-h-[40px] min-w-[40px] flex items-center justify-center"
+          className="p-2.5 rounded-full bg-white/10 hover:bg-white/15 border border-white/10 hover:border-[#2F6FED]/40 text-white/80 hover:text-[#2F6FED] transition-all active:scale-95 min-h-[40px] min-w-[40px] flex items-center justify-center cursor-pointer"
           aria-label="Global Search"
           title="Search communities, users, tags..."
         >

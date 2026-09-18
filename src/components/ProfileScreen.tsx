@@ -42,6 +42,8 @@ import { PostInsightsModal } from './PostInsightsModal';
 import { UserConnectionsModal } from './UserConnectionsModal';
 import { ShareProfileIdModal } from './ShareProfileIdModal';
 import { ProfileSettingsModal } from './ProfileSettingsModal';
+import { BioRenderer } from './BioRenderer';
+import { ProfileSortByDropdown } from './ProfileSortByDropdown';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
 import { DailyStorageService } from '../services/storage';
 
@@ -60,6 +62,8 @@ interface ProfileScreenProps {
   onToggleFollow?: (userId: string) => void;
   onSendDM?: (targetUser: { id: string; name: string; username: string; avatar: string; streak: number }) => void;
   onSharePost?: (post: Post) => void;
+  onShareProfile?: (user: User) => void;
+  onViewUser?: (user: { id: string; name: string; username: string; avatar: string; streak?: number }) => void;
   onOpenInsights?: (post: Post) => void;
   onDeletePost?: (postId: string) => void;
   onOpenCreateCollection?: () => void;
@@ -90,6 +94,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onToggleFollow = () => {},
   onSendDM = (_targetUser: { id: string; name: string; username: string; avatar: string; streak: number }) => {},
   onSharePost,
+  onShareProfile,
+  onViewUser,
   onOpenInsights,
   onDeletePost,
   onOpenCreateCollection = () => {},
@@ -188,6 +194,54 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const userProofPosts = userPosts.filter((p) => Boolean(p.imageUrl && p.imageUrl.trim() !== ''));
   const userTextPosts = userPosts.filter((p) => !p.imageUrl || p.imageUrl.trim() === '');
 
+  // Sort by Interests & search filtering for Proofs, Tweets, and Boxes
+  const [selectedInterest, setSelectedInterest] = useState<string | null>(null);
+  const [interestSearchQuery, setInterestSearchQuery] = useState('');
+
+  // Filtered proofs
+  const filteredProofPosts = React.useMemo(() => {
+    let result = userProofPosts;
+    if (selectedInterest) {
+      const q = selectedInterest.toLowerCase();
+      result = result.filter(
+        (p) =>
+          (p.tags || []).some((t) => t.toLowerCase().includes(q)) ||
+          p.content.toLowerCase().includes(q)
+      );
+    }
+    if (interestSearchQuery.trim()) {
+      const q = interestSearchQuery.toLowerCase().trim();
+      result = result.filter(
+        (p) =>
+          (p.tags || []).some((t) => t.toLowerCase().includes(q)) ||
+          p.content.toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [userProofPosts, selectedInterest, interestSearchQuery]);
+
+  // Filtered tweets
+  const filteredTweetPosts = React.useMemo(() => {
+    let result = userTextPosts;
+    if (selectedInterest) {
+      const q = selectedInterest.toLowerCase();
+      result = result.filter(
+        (p) =>
+          (p.tags || []).some((t) => t.toLowerCase().includes(q)) ||
+          p.content.toLowerCase().includes(q)
+      );
+    }
+    if (interestSearchQuery.trim()) {
+      const q = interestSearchQuery.toLowerCase().trim();
+      result = result.filter(
+        (p) =>
+          (p.tags || []).some((t) => t.toLowerCase().includes(q)) ||
+          p.content.toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [userTextPosts, selectedInterest, interestSearchQuery]);
+
   // Filter saved posts
   const savedPosts = posts.filter((p) => savedPostIds.includes(p.id));
 
@@ -243,6 +297,41 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   // Collections
   const collections = currentUser.proofCollections || [];
+
+  // Filtered collections
+  const filteredCollections = React.useMemo(() => {
+    let result = collections;
+    if (selectedInterest) {
+      const q = selectedInterest.toLowerCase();
+      result = result.filter(
+        (col) =>
+          col.name.toLowerCase().includes(q) ||
+          col.description?.toLowerCase().includes(q) ||
+          posts.some(
+            (p) =>
+              col.postIds.includes(p.id) &&
+              ((p.tags || []).some((t) => t.toLowerCase().includes(q)) ||
+                p.content.toLowerCase().includes(q))
+          )
+      );
+    }
+    if (interestSearchQuery.trim()) {
+      const q = interestSearchQuery.toLowerCase().trim();
+      result = result.filter(
+        (col) =>
+          col.name.toLowerCase().includes(q) ||
+          col.description?.toLowerCase().includes(q) ||
+          posts.some(
+            (p) =>
+              col.postIds.includes(p.id) &&
+              ((p.tags || []).some((t) => t.toLowerCase().includes(q)) ||
+                p.content.toLowerCase().includes(q))
+          )
+      );
+    }
+    return result;
+  }, [collections, selectedInterest, interestSearchQuery, posts]);
+
   const selectedCollection = collections.find((c) => c.id === selectedCollectionId);
 
   // Posts in selected collection
@@ -269,7 +358,24 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <span className="text-xs font-mono font-bold text-white/50">
             @{currentUser.username}
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Share Profile Link / Rich Share Modal */}
+            <button
+              onClick={() => {
+                vibrateLight();
+                if (onShareProfile) {
+                  onShareProfile(currentUser);
+                } else {
+                  setIsShareIdModalOpen(true);
+                }
+              }}
+              className="p-2 rounded-full bg-white/5 border border-white/10 hover:border-sky-400/40 text-white/70 hover:text-white transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center cursor-pointer"
+              title="Share Profile"
+              aria-label="Share Profile"
+            >
+              <Share2 className="w-3.5 h-3.5 text-sky-400" />
+            </button>
+
             {/* Share ID to Chats & Groups Button */}
             <button
               onClick={() => {
@@ -410,34 +516,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         {/* Bio rendered directly under the proofs, followers bar */}
         <div className="mt-4 pt-3.5 border-t border-white/10 space-y-1.5 text-left">
           <span className="text-[10px] text-white/40 font-bold uppercase tracking-wider block">Bio</span>
-          <div className="text-xs text-white/90 leading-relaxed font-medium">
-            {(() => {
-              const rawBio = currentUser.bio || 'Building daily momentum and verified receipts';
-              // Strip any legacy 'Focus:' prefix
-              const text = rawBio.replace(/^focus:\s*/i, '');
-              const parts = text.split(/(@[a-zA-Z0-9_]+|🏆[^\n]+)/g);
-              return parts.map((part, i) => {
-                if (part.startsWith('@')) {
-                  return (
-                    <span key={i} className="text-sky-400 font-bold font-mono">
-                      {part}
-                    </span>
-                  );
-                }
-                if (part.startsWith('🏆')) {
-                  return (
-                    <span
-                      key={i}
-                      className="inline-flex items-center gap-0.5 px-2 py-0.5 ml-1 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-bold"
-                    >
-                      {part}
-                    </span>
-                  );
-                }
-                return part;
-              });
-            })()}
-          </div>
+          <BioRenderer
+            bio={currentUser.bio || 'Building daily momentum and verified receipts'}
+            onViewUser={onViewUser}
+          />
         </div>
 
         {/* Focus Areas */}
@@ -553,9 +635,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         </div>
       </div>
 
-      {/* Clean Profile Navigation Tabs */}
+      {/* Clean Profile Navigation Tabs with Sort By & Grid/List Toggle */}
       <div className="space-y-3 pt-2">
-        <div className="flex items-center justify-between border-b border-white/5 pb-3">
+        <div className="flex items-center justify-between border-b border-white/5 pb-3 gap-2 flex-wrap">
           {/* Tab buttons */}
           <div className="flex items-center gap-1 bg-white/5 p-1 rounded-2xl border border-white/5 overflow-x-auto no-scrollbar">
             <button
@@ -571,7 +653,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               }`}
             >
               <Flame className="w-3.5 h-3.5 text-[#2F6FED]" />
-              <span>Proofs ({userProofPosts.length})</span>
+              <span>Proofs ({filteredProofPosts.length})</span>
             </button>
 
             <button
@@ -587,7 +669,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               }`}
             >
               <MessageSquare className="w-3.5 h-3.5 text-sky-400" />
-              <span>Tweets ({userTextPosts.length})</span>
+              <span>Tweets ({filteredTweetPosts.length})</span>
             </button>
 
             <button
@@ -603,8 +685,55 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               }`}
             >
               <Folder className="w-3.5 h-3.5" />
-              <span>Boxes ({collections.length})</span>
+              <span>Boxes ({filteredCollections.length})</span>
             </button>
+          </div>
+
+          {/* Right Action Bar: Sort By dropdown + Grid/List View Mode Toggle */}
+          <div className="flex items-center gap-1.5 ml-auto">
+            <ProfileSortByDropdown
+              selectedInterest={selectedInterest}
+              searchQuery={interestSearchQuery}
+              onSelectInterest={setSelectedInterest}
+              onSearchQueryChange={setInterestSearchQuery}
+              userInterests={currentUser.interests}
+              currentTabName={profileTab === 'proofs' ? 'Proofs' : profileTab === 'tweets' ? 'Tweets' : 'Boxes'}
+            />
+
+            {profileTab === 'proofs' && (
+              <div className="flex items-center bg-white/5 p-1 rounded-xl border border-white/10">
+                <button
+                  type="button"
+                  onClick={() => {
+                    vibrateLight();
+                    setViewMode('grid');
+                  }}
+                  className={`p-1.5 rounded-lg transition-all cursor-pointer ${
+                    viewMode === 'grid'
+                      ? 'bg-white text-black shadow-sm'
+                      : 'text-white/40 hover:text-white'
+                  }`}
+                  title="Grid View"
+                >
+                  <Grid className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    vibrateLight();
+                    setViewMode('list');
+                  }}
+                  className={`p-1.5 rounded-lg transition-all cursor-pointer ${
+                    viewMode === 'list'
+                      ? 'bg-white text-black shadow-sm'
+                      : 'text-white/40 hover:text-white'
+                  }`}
+                  title="List View"
+                >
+                  <List className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -625,44 +754,115 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         </div>
       )}
 
-      {/* TAB 1: PROOFS TAB (Only posts with photo receipts - no text-only posts here) */}
+      {/* TAB 1: PROOFS TAB (Only posts with photo receipts - Grid view by default) */}
       {profileTab === 'proofs' && (
         <div className="space-y-4 animate-in fade-in">
-          {userProofPosts.length > 0 ? (
-            <div className="space-y-4">
-              {userProofPosts.map((post) => (
-                <PostCard
-                  key={post.id}
-                  post={post}
-                  currentUser={currentUser}
-                  onToggleLike={onToggleLike}
-                  onOpenComments={onOpenComments}
-                  onToggleFollow={onToggleFollow}
-                  onSendDM={onSendDM}
-                  isSaved={savedPostIds.includes(post.id)}
-                  onToggleSave={onToggleSave}
-                  onReportPost={onReportPost}
-                  isReported={reportedPostIds.includes(post.id)}
-                  onSharePost={onSharePost}
-                  onOpenInsights={onOpenInsights}
-                  onDeletePost={onDeletePost}
-                  onOpenAddToCollection={onOpenAddToCollection}
-                />
-              ))}
-            </div>
+          {filteredProofPosts.length > 0 ? (
+            viewMode === 'grid' ? (
+              <div className="grid grid-cols-3 gap-2">
+                {filteredProofPosts.map((post) => {
+                  const mainImg = post.imageUrl || (post.imageUrls && post.imageUrls[0]);
+                  return (
+                    <div
+                      key={post.id}
+                      onClick={() => {
+                        vibrateLight();
+                        onOpenComments(post);
+                      }}
+                      className="group relative aspect-square rounded-2xl overflow-hidden bg-white/5 border border-white/10 hover:border-[#2F6FED]/50 transition-all cursor-pointer shadow-sm"
+                    >
+                      {mainImg ? (
+                        <img
+                          src={mainImg}
+                          alt={post.content.slice(0, 30)}
+                          referrerPolicy="no-referrer"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                        />
+                      ) : (
+                        <div className="w-full h-full p-2 bg-white/5 flex items-center justify-center text-xs text-white/50">
+                          📸 Proof
+                        </div>
+                      )}
+
+                      {/* Overlay on hover/touch */}
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-2 text-white">
+                        <div className="flex justify-end">
+                          <span className="text-[10px] font-black bg-[#2F6FED] px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                            🔥 {post.userStreak || 1}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-center gap-3 text-xs font-bold">
+                          <span className="flex items-center gap-1">
+                            <Heart className="w-3.5 h-3.5 fill-white text-white" />
+                            {post.likesCount || 0}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <MessageCircle className="w-3.5 h-3.5 fill-white text-white" />
+                            {post.comments?.length || 0}
+                          </span>
+                        </div>
+                        <p className="text-[9px] text-white/80 line-clamp-1 truncate">
+                          {post.content}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredProofPosts.map((post) => (
+                  <PostCard
+                    key={post.id}
+                    post={post}
+                    currentUser={currentUser}
+                    onToggleLike={onToggleLike}
+                    onOpenComments={onOpenComments}
+                    onToggleFollow={onToggleFollow}
+                    onSendDM={onSendDM}
+                    isSaved={savedPostIds.includes(post.id)}
+                    onToggleSave={onToggleSave}
+                    onReportPost={onReportPost}
+                    isReported={reportedPostIds.includes(post.id)}
+                    onSharePost={onSharePost}
+                    onOpenInsights={onOpenInsights}
+                    onDeletePost={onDeletePost}
+                    onOpenAddToCollection={onOpenAddToCollection}
+                  />
+                ))}
+              </div>
+            )
           ) : (
             <EmptyStateIllustration
               type="feed"
-              title="No proof receipts posted yet"
-              description="Start your streak! Post your first proof with photo evidence for today."
-              primaryAction={{
-                label: 'Post Proof',
-                onClick: () => {
-                  if (onOpenCreatePost) onOpenCreatePost();
-                  else if (onOpenCreateDraft) onOpenCreateDraft();
-                },
-                icon: <Plus className="w-4 h-4" />,
-              }}
+              title={
+                selectedInterest || interestSearchQuery
+                  ? "No matching proofs found"
+                  : "No proof receipts posted yet"
+              }
+              description={
+                selectedInterest || interestSearchQuery
+                  ? `No proofs match interest "${selectedInterest || interestSearchQuery}". Try clearing the filter.`
+                  : "Start your streak! Post your first proof with photo evidence for today."
+              }
+              primaryAction={
+                selectedInterest || interestSearchQuery
+                  ? {
+                      label: 'Clear Filter',
+                      onClick: () => {
+                        setSelectedInterest(null);
+                        setInterestSearchQuery('');
+                      },
+                    }
+                  : {
+                      label: 'Post Proof',
+                      onClick: () => {
+                        if (onOpenCreatePost) onOpenCreatePost();
+                        else if (onOpenCreateDraft) onOpenCreateDraft();
+                      },
+                      icon: <Plus className="w-4 h-4" />,
+                    }
+              }
             />
           )}
         </div>
@@ -671,9 +871,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       {/* TAB 2: TWEETS / TEXT-ONLY POSTS TAB (Like tweets online) */}
       {profileTab === 'tweets' && (
         <div className="space-y-3 animate-in fade-in">
-          {userTextPosts.length > 0 ? (
+          {filteredTweetPosts.length > 0 ? (
             <div className="space-y-3">
-              {userTextPosts.map((post) => {
+              {filteredTweetPosts.map((post) => {
                 const isSaved = savedPostIds.includes(post.id);
                 return (
                   <div
@@ -820,20 +1020,40 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               <div className="w-12 h-12 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-sky-400 flex items-center justify-center mx-auto">
                 <MessageSquare className="w-6 h-6" />
               </div>
-              <h4 className="text-sm font-black text-white">No tweets posted yet</h4>
+              <h4 className="text-sm font-black text-white">
+                {selectedInterest || interestSearchQuery
+                  ? "No matching tweets found"
+                  : "No tweets posted yet"}
+              </h4>
               <p className="text-xs text-white/50 max-w-sm mx-auto leading-relaxed">
-                Post short thoughts, lessons, reflections, or daily updates online without attaching photo receipts.
+                {selectedInterest || interestSearchQuery
+                  ? `No tweets match interest "${selectedInterest || interestSearchQuery}". Try clearing the filter.`
+                  : "Post short thoughts, lessons, reflections, or daily updates online without attaching photo receipts."}
               </p>
-              <button
-                onClick={() => {
-                  vibrateLight();
-                  if (onOpenCreatePost) onOpenCreatePost();
-                }}
-                className="mt-2 py-2 px-4 rounded-xl bg-sky-500 hover:bg-sky-400 text-black font-black text-xs inline-flex items-center gap-1.5 transition-all shadow-md shadow-sky-500/20 cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                <span>Post Your First Tweet</span>
-              </button>
+              {selectedInterest || interestSearchQuery ? (
+                <button
+                  onClick={() => {
+                    vibrateLight();
+                    setSelectedInterest(null);
+                    setInterestSearchQuery('');
+                  }}
+                  className="mt-2 py-2 px-4 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs inline-flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>Clear Filter</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    vibrateLight();
+                    if (onOpenCreatePost) onOpenCreatePost();
+                  }}
+                  className="mt-2 py-2 px-4 rounded-xl bg-sky-500 hover:bg-sky-400 text-black font-black text-xs inline-flex items-center gap-1.5 transition-all shadow-md shadow-sky-500/20 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                  <span>Post Your First Tweet</span>
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -1019,7 +1239,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 </div>
 
                 {/* Existing Collections Cards */}
-                {collections.map((col) => {
+                {filteredCollections.map((col) => {
                   const proofCount = col.postIds.length;
                   return (
                     <div

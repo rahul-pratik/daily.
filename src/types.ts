@@ -364,6 +364,18 @@ export interface CommunitySharePreview {
   note?: string;
 }
 
+export interface UserProfileSharePreview {
+  userId: string;
+  name: string;
+  username: string;
+  avatar: string;
+  streak: number;
+  bio?: string;
+  sharedByName: string;
+  sharedByAvatar: string;
+  note?: string;
+}
+
 export interface ChallengeLeaderboardIndividual {
   rank: number;
   user: {
@@ -447,6 +459,7 @@ export interface Message {
   sharedPost?: SharedPostPreview;
   challengeInvite?: ChallengeInvitePreview;
   communityShare?: CommunitySharePreview;
+  userProfileShare?: UserProfileSharePreview;
   timestamp: string;
   isRead: boolean;
   reactions?: MessageReaction[];

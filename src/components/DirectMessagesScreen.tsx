@@ -26,8 +26,19 @@ import {
   BellOff,
   Flag,
   AlertCircle,
+  Globe,
+  Flame,
+  User as UserIcon,
 } from 'lucide-react';
-import { User, Message, Group } from '../types';
+import {
+  User,
+  Message,
+  Group,
+  SharedPostPreview,
+  ChallengeInvitePreview,
+  CommunitySharePreview,
+  UserProfileSharePreview,
+} from '../types';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
 import { DailyStorageService } from '../services/storage';
 import { GroupDetailsScreen } from './GroupDetailsScreen';
@@ -50,6 +61,10 @@ interface DirectMessagesScreenProps {
     imageUrl?: string;
     audioUrl?: string;
     audioDuration?: number;
+    sharedPost?: SharedPostPreview;
+    challengeInvite?: ChallengeInvitePreview;
+    communityShare?: CommunitySharePreview;
+    userProfileShare?: UserProfileSharePreview;
   }) => void;
   onToggleReaction?: (messageId: string, emoji: string) => void;
   onTogglePinMessage?: (messageId: string) => void;
@@ -67,6 +82,7 @@ interface DirectMessagesScreenProps {
     currentStreak: number;
   }) => void;
   onOpenChallenge?: (challengeId: string) => void;
+  onOpenCommunity?: (communityId: string) => void;
   onBack: () => void;
 }
 
@@ -108,6 +124,7 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
   onViewPost,
   onViewUser,
   onOpenChallenge,
+  onOpenCommunity,
   onBack,
 }) => {
   const [activeUserId, setActiveUserId] = useState<string | null>(initialChatUserId || null);
@@ -1657,6 +1674,163 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                               {msg.text}
                             </p>
                           )
+                        )}
+
+                        {/* Shared Community Preview Card */}
+                        {msg.communityShare && (
+                          <div className="mt-2 p-2.5 rounded-xl bg-black/40 border border-white/15 space-y-2">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center text-xl shrink-0">
+                                {msg.communityShare.communityAvatar || '🌐'}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <span className="text-[9px] font-bold text-[#5B8DEF] uppercase tracking-wider block">
+                                  Squad Community
+                                </span>
+                                <h5 className="text-xs font-black text-white truncate">
+                                  {msg.communityShare.communityName}
+                                </h5>
+                                <span className="text-[10px] text-white/50 block">
+                                  {msg.communityShare.memberCount} members • {msg.communityShare.communityCategory}
+                                </span>
+                              </div>
+                            </div>
+                            {msg.communityShare.communityDescription && (
+                              <p className="text-[11px] text-white/70 line-clamp-2">
+                                {msg.communityShare.communityDescription}
+                              </p>
+                            )}
+                            {onOpenCommunity && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onOpenCommunity(msg.communityShare!.communityId);
+                                }}
+                                className="w-full py-1.5 px-3 rounded-lg bg-[#2F6FED] hover:bg-[#255bd1] text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                              >
+                                <Users className="w-3 h-3" />
+                                <span>View Squad Details</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Shared Challenge Preview Card */}
+                        {msg.challengeInvite && (
+                          <div className="mt-2 p-2.5 rounded-xl bg-black/40 border border-amber-500/30 space-y-2">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-10 h-10 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-xl shrink-0">
+                                🏆
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <span className="text-[9px] font-bold text-amber-400 uppercase tracking-wider block">
+                                  {msg.challengeInvite.durationDays} Days Goal Challenge
+                                </span>
+                                <h5 className="text-xs font-black text-white truncate">
+                                  {msg.challengeInvite.challengeTitle}
+                                </h5>
+                                <span className="text-[10px] text-white/50 font-mono block">
+                                  #{msg.challengeInvite.tag}
+                                </span>
+                              </div>
+                            </div>
+                            {onOpenChallenge && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onOpenChallenge(msg.challengeInvite!.challengeId);
+                                }}
+                                className="w-full py-1.5 px-3 rounded-lg bg-amber-500 hover:bg-amber-600 text-black text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                              >
+                                <Trophy className="w-3 h-3" />
+                                <span>Join / View Challenge</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Shared User Profile Preview Card */}
+                        {msg.userProfileShare && (
+                          <div className="mt-2 p-2.5 rounded-xl bg-black/40 border border-white/15 space-y-2">
+                            <div className="flex items-center gap-2.5">
+                              <img
+                                src={msg.userProfileShare.avatar}
+                                alt={msg.userProfileShare.name}
+                                className="w-10 h-10 rounded-full object-cover border border-white/20 shrink-0"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <h5 className="text-xs font-black text-white truncate">
+                                  {msg.userProfileShare.name}
+                                </h5>
+                                <span className="text-[10px] text-[#5B8DEF] font-mono block">
+                                  @{msg.userProfileShare.username}
+                                </span>
+                                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-400 mt-0.5">
+                                  <Flame className="w-2.5 h-2.5 fill-amber-400" />
+                                  {msg.userProfileShare.streak} day streak
+                                </span>
+                              </div>
+                            </div>
+                            {msg.userProfileShare.bio && (
+                              <p className="text-[11px] text-white/70 line-clamp-2">
+                                {msg.userProfileShare.bio}
+                              </p>
+                            )}
+                            {onViewUser && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onViewUser({
+                                    id: msg.userProfileShare!.userId,
+                                    name: msg.userProfileShare!.name,
+                                    username: msg.userProfileShare!.username,
+                                    avatar: msg.userProfileShare!.avatar,
+                                    currentStreak: msg.userProfileShare!.streak,
+                                  });
+                                }}
+                                className="w-full py-1.5 px-3 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                              >
+                                <UserIcon className="w-3 h-3" />
+                                <span>View Profile</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Shared Post Preview Card */}
+                        {msg.sharedPost && (
+                          <div className="mt-2 p-2 rounded-xl bg-black/40 border border-white/15 space-y-1.5">
+                            {msg.sharedPost.imageUrl && (
+                              <img
+                                src={msg.sharedPost.imageUrl}
+                                alt="Post preview"
+                                className="w-full h-28 object-cover rounded-lg"
+                              />
+                            )}
+                            <div className="px-1">
+                              <span className="text-[10px] font-bold text-sky-400 font-mono block">
+                                @{msg.sharedPost.authorUsername}
+                              </span>
+                              <p className="text-[11px] text-white/80 line-clamp-2 mt-0.5">
+                                {msg.sharedPost.content}
+                              </p>
+                            </div>
+                            {onViewPost && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onViewPost(msg.sharedPost!.id);
+                                }}
+                                className="w-full py-1 px-2 rounded-md bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                              >
+                                <span>View Post</span>
+                              </button>
+                            )}
+                          </div>
                         )}
 
                         <div

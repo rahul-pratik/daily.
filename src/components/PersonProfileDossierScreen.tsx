@@ -19,9 +19,10 @@ import {
   TrendingUp,
   Globe,
 } from 'lucide-react';
-import { User, Challenge, ChallengeProgressPost, Community } from '../types';
+import { User, Challenge, ChallengeProgressPost, Community, Post } from '../types';
 import { DailyStorageService } from '../services/storage';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
+import { CommunityHubModal } from './CommunityHubModal';
 
 interface PersonProfileDossierScreenProps {
   targetUser?: User | null;
@@ -66,6 +67,7 @@ export const PersonProfileDossierScreen: React.FC<PersonProfileDossierScreenProp
   const [activeTab, setActiveTab] = useState<'all' | 'challenges' | 'milestones'>('all');
   const [copiedLink, setCopiedLink] = useState(false);
   const [selectedProofModal, setSelectedProofModal] = useState<ChallengeProgressPost | null>(null);
+  const [selectedCommunityForModal, setSelectedCommunityForModal] = useState<Community | null>(null);
 
   // Load all challenges from storage and filter for this user
   const allChallenges = useMemo(() => DailyStorageService.getAllChallenges(), []);
@@ -342,22 +344,26 @@ export const PersonProfileDossierScreen: React.FC<PersonProfileDossierScreenProp
                     key={community.id}
                     onClick={() => {
                       vibrateLight();
-                      if (onOpenCommunity) onOpenCommunity(community);
+                      if (onOpenCommunity) {
+                        onOpenCommunity(community);
+                      } else {
+                        setSelectedCommunityForModal(community);
+                      }
                     }}
-                    className="p-3 rounded-2xl bg-white dark:bg-[#0d0d12] border border-slate-200 dark:border-white/10 hover:border-sky-500/40 transition-all flex items-center justify-between gap-2.5 cursor-pointer group"
+                    className="p-3 rounded-2xl bg-white dark:bg-[#0d0d12] border border-slate-200 dark:border-white/10 hover:border-sky-500/40 transition-all flex items-center justify-between gap-2.5 cursor-pointer group min-w-0"
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-lg shrink-0">
                         {community.avatar || '🌐'}
                       </div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <h4 className="text-xs font-black text-slate-900 dark:text-white truncate group-hover:text-sky-400 transition-colors">
                           {community.name}
                         </h4>
-                        <div className="flex items-center gap-2 text-[10px] text-slate-500 dark:text-white/50 mt-0.5">
-                          <span className="capitalize">{community.category}</span>
+                        <div className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-white/50 mt-0.5 truncate">
+                          <span className="capitalize shrink-0">{community.category}</span>
                           <span>•</span>
-                          <span>{community.memberCount || 1} members</span>
+                          <span className="truncate">{community.memberCount || 1} members</span>
                         </div>
                       </div>
                     </div>
@@ -408,28 +414,28 @@ export const PersonProfileDossierScreen: React.FC<PersonProfileDossierScreenProp
                   return (
                     <div
                       key={challenge.id}
-                      className="bg-white dark:bg-[#0d0d12] border border-slate-200 dark:border-white/10 rounded-2xl p-4 shadow-sm hover:border-[#2F6FED]/40 transition-all space-y-3"
+                      className="bg-white dark:bg-[#0d0d12] border border-slate-200 dark:border-white/10 rounded-2xl p-4 shadow-sm hover:border-[#2F6FED]/40 transition-all space-y-3 min-w-0"
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex items-start justify-between gap-3 min-w-0">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
                           <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-xl shrink-0">
                             {challenge.icon || '🏆'}
                           </div>
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <h4 className="text-xs font-black text-slate-900 dark:text-white truncate">
+                              <h4 className="text-xs font-black text-slate-900 dark:text-white break-words">
                                 {challenge.title}
                               </h4>
                               {isSquad && (
-                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-500/15 text-indigo-500 dark:text-indigo-300 border border-indigo-500/20">
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-500/15 text-indigo-500 dark:text-indigo-300 border border-indigo-500/20 shrink-0">
                                   Squad: {userTeam?.name || 'Cohort'}
                                 </span>
                               )}
                             </div>
-                            <div className="flex items-center gap-2 text-[10px] text-slate-500 dark:text-white/50 mt-0.5 font-mono">
-                              <span>{challenge.durationDays} Days Goal</span>
+                            <div className="flex items-center gap-2 text-[10px] text-slate-500 dark:text-white/50 mt-0.5 font-mono truncate">
+                              <span className="shrink-0">{challenge.durationDays} Days Goal</span>
                               <span>•</span>
-                              <span className="text-[#2F6FED]">#{challenge.tag}</span>
+                              <span className="text-[#2F6FED] truncate">#{challenge.tag}</span>
                             </div>
                           </div>
                         </div>
@@ -602,6 +608,23 @@ export const PersonProfileDossierScreen: React.FC<PersonProfileDossierScreenProp
             )}
           </div>
         </div>
+      )}
+
+      {/* Community Detail Hub Modal */}
+      {selectedCommunityForModal && (
+        <CommunityHubModal
+          community={selectedCommunityForModal}
+          currentUser={currentUser || user}
+          allUsers={DailyStorageService.getAllUsers()}
+          posts={DailyStorageService.getAllPosts()}
+          isOpen={!!selectedCommunityForModal}
+          onClose={() => setSelectedCommunityForModal(null)}
+          onToggleJoin={(communityId) => {
+            if (currentUser) {
+              DailyStorageService.toggleJoinCommunity(communityId);
+            }
+          }}
+        />
       )}
     </div>
   );

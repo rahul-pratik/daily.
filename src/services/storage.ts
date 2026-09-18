@@ -20,6 +20,8 @@ import {
   ChallengeType,
   UserNote,
   ChallengeInvitePreview,
+  CommunitySharePreview,
+  UserProfileSharePreview,
   ChallengeLeaderboardIndividual,
   ChallengeLeaderboardSquad,
   ChallengeLeaderboard,
@@ -1886,6 +1888,8 @@ export class DailyStorageService {
     audioDuration?: number;
     sharedPost?: SharedPostPreview;
     challengeInvite?: ChallengeInvitePreview;
+    communityShare?: CommunitySharePreview;
+    userProfileShare?: UserProfileSharePreview;
   }): Message {
     const currentUser = this.getCurrentUser();
     let convId = '';
@@ -1910,6 +1914,8 @@ export class DailyStorageService {
       audioDuration: params.audioDuration,
       sharedPost: params.sharedPost,
       challengeInvite: params.challengeInvite,
+      communityShare: params.communityShare,
+      userProfileShare: params.userProfileShare,
       timestamp: 'Just now',
       isRead: true,
     };

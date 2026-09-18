@@ -21,6 +21,8 @@ import {
 import { User, Post, ProofCollection, Community } from '../types';
 import { vibrateLight } from '../services/haptics';
 import { DailyStorageService } from '../services/storage';
+import { ProfileSortByDropdown } from './ProfileSortByDropdown';
+import { BioRenderer } from './BioRenderer';
 
 interface UserProfileModalProps {
   user: User | null;
@@ -36,6 +38,7 @@ interface UserProfileModalProps {
   isBlocked?: boolean;
   onOpenDossier?: (user: User) => void;
   onOpenCommunity?: (community: Community) => void;
+  onViewUser?: (user: User) => void;
 }
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
@@ -50,12 +53,15 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onOpenComments,
   onOpenDossier,
   onOpenCommunity,
+  onViewUser,
 }) => {
   const [activeTab, setActiveTab] = useState<'proofs' | 'tweets' | 'collections' | 'communities'>('proofs');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [copiedLink, setCopiedLink] = useState(false);
   const [selectedCollection, setSelectedCollection] = useState<ProofCollection | null>(null);
   const [showConnections, setShowConnections] = useState<'followers' | 'following' | null>(null);
+  const [selectedInterest, setSelectedInterest] = useState<string | null>(null);
+  const [interestSearchQuery, setInterestSearchQuery] = useState('');
 
   if (!isOpen || !user) return null;
 
@@ -72,6 +78,36 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       !p.imageUrl &&
       (!p.imageUrls || p.imageUrls.length === 0)
   );
+
+  // Filtered proofs by selected interest or search query
+  const filteredProofPosts = useMemo(() => {
+    return userProofPosts.filter((post) => {
+      const matchInterest = selectedInterest
+        ? (post.tags || []).some((t) => t.toLowerCase().includes(selectedInterest.toLowerCase())) ||
+          post.content.toLowerCase().includes(selectedInterest.toLowerCase())
+        : true;
+      const matchQuery = interestSearchQuery.trim()
+        ? (post.tags || []).some((t) => t.toLowerCase().includes(interestSearchQuery.toLowerCase())) ||
+          post.content.toLowerCase().includes(interestSearchQuery.toLowerCase())
+        : true;
+      return matchInterest && matchQuery;
+    });
+  }, [userProofPosts, selectedInterest, interestSearchQuery]);
+
+  // Filtered tweets by selected interest or search query
+  const filteredTweetPosts = useMemo(() => {
+    return userTweetPosts.filter((post) => {
+      const matchInterest = selectedInterest
+        ? (post.tags || []).some((t) => t.toLowerCase().includes(selectedInterest.toLowerCase())) ||
+          post.content.toLowerCase().includes(selectedInterest.toLowerCase())
+        : true;
+      const matchQuery = interestSearchQuery.trim()
+        ? (post.tags || []).some((t) => t.toLowerCase().includes(interestSearchQuery.toLowerCase())) ||
+          post.content.toLowerCase().includes(interestSearchQuery.toLowerCase())
+        : true;
+      return matchInterest && matchQuery;
+    });
+  }, [userTweetPosts, selectedInterest, interestSearchQuery]);
 
   // Derive communities user is in
   const userCommunities = DailyStorageService.getAllCommunities().filter(
@@ -118,6 +154,21 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             updatedAt: '2026-08-28',
           },
         ];
+
+  // Filtered collections by selected interest or search query
+  const filteredCollections = useMemo(() => {
+    return userCollections.filter((col) => {
+      const matchInterest = selectedInterest
+        ? col.name.toLowerCase().includes(selectedInterest.toLowerCase()) ||
+          (col.description && col.description.toLowerCase().includes(selectedInterest.toLowerCase()))
+        : true;
+      const matchQuery = interestSearchQuery.trim()
+        ? col.name.toLowerCase().includes(interestSearchQuery.toLowerCase()) ||
+          (col.description && col.description.toLowerCase().includes(interestSearchQuery.toLowerCase()))
+        : true;
+      return matchInterest && matchQuery;
+    });
+  }, [userCollections, selectedInterest, interestSearchQuery]);
 
   const handleShare = () => {
     vibrateLight();
@@ -416,31 +467,18 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           <div className="p-3 rounded-2xl bg-white/[0.02] border border-white/10 space-y-1 text-left">
             <span className="text-[10px] text-white/40 font-bold uppercase tracking-wider block">Bio</span>
             <div className="text-xs text-white/90 leading-relaxed font-medium">
-              {(() => {
-                const rawBio = user.bio || 'Building daily momentum and verified receipts';
-                const text = rawBio.replace(/^focus:\s*/i, '');
-                const parts = text.split(/(@[a-zA-Z0-9_]+|🏆[^\n]+)/g);
-                return parts.map((part, i) => {
-                  if (part.startsWith('@')) {
-                    return (
-                      <span key={i} className="text-sky-400 font-bold font-mono">
-                        {part}
-                      </span>
+              <BioRenderer
+                bio={user.bio || 'Building daily momentum and verified receipts'}
+                onViewUser={(targetUser) => {
+                  if (onViewUser) {
+                    onClose();
+                    const fullUser = DailyStorageService.getAllUsers().find(
+                      (candidate) => candidate.id === targetUser.id
                     );
+                    if (fullUser) onViewUser(fullUser);
                   }
-                  if (part.startsWith('🏆')) {
-                    return (
-                      <span
-                        key={i}
-                        className="inline-flex items-center gap-0.5 px-2 py-0.5 ml-1 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-bold"
-                      >
-                        {part}
-                      </span>
-                    );
-                  }
-                  return part;
-                });
-              })()}
+                }}
+              />
             </div>
           </div>
 
@@ -537,40 +575,54 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 </button>
               </div>
 
-              {/* View Mode Toggle for Proofs Tab */}
-              {activeTab === 'proofs' && userProofPosts.length > 0 && (
-                <div className="flex items-center gap-1 bg-white/[0.05] p-1 rounded-xl border border-white/10 shrink-0 ml-2">
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('grid')}
-                    className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                      viewMode === 'grid' ? 'bg-white text-black' : 'text-white/40 hover:text-white'
-                    }`}
-                    title="Grid View"
-                  >
-                    <Grid className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('list')}
-                    className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                      viewMode === 'list' ? 'bg-white text-black' : 'text-white/40 hover:text-white'
-                    }`}
-                    title="List View"
-                  >
-                    <List className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )}
+              {/* Action Controls: Sort By dropdown + View Mode toggle */}
+              <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                {activeTab !== 'communities' && (
+                  <ProfileSortByDropdown
+                    selectedInterest={selectedInterest}
+                    searchQuery={interestSearchQuery}
+                    onSelectInterest={setSelectedInterest}
+                    onSearchQueryChange={setInterestSearchQuery}
+                    userInterests={user.interests}
+                    currentTabName={activeTab === 'proofs' ? 'Proofs' : activeTab === 'tweets' ? 'Tweets' : 'Boxes'}
+                  />
+                )}
+
+                {/* View Mode Toggle for Proofs Tab */}
+                {activeTab === 'proofs' && filteredProofPosts.length > 0 && (
+                  <div className="flex items-center gap-1 bg-white/[0.05] p-1 rounded-xl border border-white/10 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('grid')}
+                      className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                        viewMode === 'grid' ? 'bg-white text-black' : 'text-white/40 hover:text-white'
+                      }`}
+                      title="Grid View"
+                    >
+                      <Grid className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('list')}
+                      className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                        viewMode === 'list' ? 'bg-white text-black' : 'text-white/40 hover:text-white'
+                      }`}
+                      title="List View"
+                    >
+                      <List className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* TAB CONTENT: PROOFS */}
             {activeTab === 'proofs' && (
               <div>
-                {userProofPosts.length > 0 ? (
+                {filteredProofPosts.length > 0 ? (
                   viewMode === 'grid' ? (
                     <div className="grid grid-cols-3 gap-2">
-                      {userProofPosts.map((p) => (
+                      {filteredProofPosts.map((p) => (
                         <div
                           key={p.id}
                           onClick={() => setViewMode('list')}
@@ -619,7 +671,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {userProofPosts.map((p) => (
+                      {filteredProofPosts.map((p) => (
                         <div
                           key={p.id}
                           className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 space-y-2.5 text-xs shadow-sm"
@@ -675,9 +727,26 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     </div>
                   )
                 ) : (
-                  <div className="text-center py-10 text-white/40 text-xs">
-                    <Sparkles className="w-6 h-6 mx-auto mb-2 text-white/20" />
-                    <span>No proofs shared yet by @{user.username}</span>
+                  <div className="text-center py-10 text-white/40 text-xs space-y-2">
+                    <Sparkles className="w-6 h-6 mx-auto text-white/20" />
+                    <p className="font-bold text-white/70">
+                      {selectedInterest || interestSearchQuery
+                        ? "No matching proofs found"
+                        : `No proofs shared yet by @${user.username}`}
+                    </p>
+                    {selectedInterest || interestSearchQuery ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateLight();
+                          setSelectedInterest(null);
+                          setInterestSearchQuery('');
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors cursor-pointer"
+                      >
+                        Clear Filter
+                      </button>
+                    ) : null}
                   </div>
                 )}
               </div>
@@ -686,8 +755,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             {/* TAB CONTENT: TWEETS */}
             {activeTab === 'tweets' && (
               <div className="space-y-3">
-                {userTweetPosts.length > 0 ? (
-                  userTweetPosts.map((p) => (
+                {filteredTweetPosts.length > 0 ? (
+                  filteredTweetPosts.map((p) => (
                     <div
                       key={p.id}
                       className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 space-y-2.5 text-xs shadow-sm"
@@ -738,9 +807,26 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-10 text-white/40 text-xs">
-                    <MessageSquare className="w-6 h-6 mx-auto mb-2 text-white/20" />
-                    <span>No tweets or text reflections shared yet by @{user.username}</span>
+                  <div className="text-center py-10 text-white/40 text-xs space-y-2">
+                    <MessageSquare className="w-6 h-6 mx-auto text-white/20" />
+                    <p className="font-bold text-white/70">
+                      {selectedInterest || interestSearchQuery
+                        ? "No matching tweets found"
+                        : `No tweets or text reflections shared yet by @${user.username}`}
+                    </p>
+                    {selectedInterest || interestSearchQuery ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateLight();
+                          setSelectedInterest(null);
+                          setInterestSearchQuery('');
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors cursor-pointer"
+                      >
+                        Clear Filter
+                      </button>
+                    ) : null}
                   </div>
                 )}
               </div>
@@ -855,53 +941,77 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   </div>
                 ) : (
                   /* Collections Grid */
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {userCollections.map((col) => {
-                      const postCount = col.postIds?.length || userPosts.length;
-                      return (
-                        <div
-                          key={col.id}
-                          onClick={() => {
-                            vibrateLight();
-                            setSelectedCollection(col);
-                          }}
-                          className="group rounded-2xl overflow-hidden bg-white/[0.04] border border-white/10 hover:border-[#2F6FED]/50 transition-all cursor-pointer shadow-sm flex flex-col"
-                        >
-                          <div className="relative aspect-video w-full overflow-hidden bg-black/60">
-                            {col.coverImageUrl ? (
-                              <img
-                                src={col.coverImageUrl}
-                                alt={col.name}
-                                referrerPolicy="no-referrer"
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-2xl bg-gradient-to-br from-[#2F6FED]/20 to-black">
-                                {col.icon || '📂'}
-                              </div>
-                            )}
-                            <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded-lg bg-black/80 backdrop-blur-sm border border-white/10 text-[10px] font-bold text-white flex items-center gap-1">
-                              <span>{col.icon || '📂'}</span>
-                              <span>{postCount} Proof{postCount === 1 ? '' : 's'}</span>
-                            </span>
-                          </div>
-
-                          <div className="p-3 flex-1 flex flex-col justify-between">
-                            <div>
-                              <h4 className="text-xs font-black text-white group-hover:text-[#2F6FED] transition-colors">
-                                {col.name}
-                              </h4>
-                              {col.description && (
-                                <p className="text-[10px] text-white/60 line-clamp-2 mt-1 leading-relaxed">
-                                  {col.description}
-                                </p>
+                  filteredCollections.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {filteredCollections.map((col) => {
+                        const postCount = col.postIds?.length || userPosts.length;
+                        return (
+                          <div
+                            key={col.id}
+                            onClick={() => {
+                              vibrateLight();
+                              setSelectedCollection(col);
+                            }}
+                            className="group rounded-2xl overflow-hidden bg-white/[0.04] border border-white/10 hover:border-[#2F6FED]/50 transition-all cursor-pointer shadow-sm flex flex-col"
+                          >
+                            <div className="relative aspect-video w-full overflow-hidden bg-black/60">
+                              {col.coverImageUrl ? (
+                                <img
+                                  src={col.coverImageUrl}
+                                  alt={col.name}
+                                  referrerPolicy="no-referrer"
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-2xl bg-gradient-to-br from-[#2F6FED]/20 to-black">
+                                  {col.icon || '📂'}
+                                </div>
                               )}
+                              <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded-lg bg-black/80 backdrop-blur-sm border border-white/10 text-[10px] font-bold text-white flex items-center gap-1">
+                                <span>{col.icon || '📂'}</span>
+                                <span>{postCount} Proof{postCount === 1 ? '' : 's'}</span>
+                              </span>
+                            </div>
+
+                            <div className="p-3 flex-1 flex flex-col justify-between">
+                              <div>
+                                <h4 className="text-xs font-black text-white group-hover:text-[#2F6FED] transition-colors">
+                                  {col.name}
+                                </h4>
+                                {col.description && (
+                                  <p className="text-[10px] text-white/60 line-clamp-2 mt-1 leading-relaxed">
+                                    {col.description}
+                                  </p>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-10 text-white/40 text-xs space-y-2">
+                      <FolderHeart className="w-6 h-6 mx-auto text-white/20" />
+                      <p className="font-bold text-white/70">
+                        {selectedInterest || interestSearchQuery
+                          ? "No matching boxes or collections found"
+                          : `No collections created yet by @${user.username}`}
+                      </p>
+                      {selectedInterest || interestSearchQuery ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            vibrateLight();
+                            setSelectedInterest(null);
+                            setInterestSearchQuery('');
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors cursor-pointer"
+                        >
+                          Clear Filter
+                        </button>
+                      ) : null}
+                    </div>
+                  )
                 )}
               </div>
             )}

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { X, Flame, Check, Upload, Save } from 'lucide-react';
-import { User, AVAILABLE_INTERESTS } from '../types';
+import { X, Flame, Check, Upload, Save, Trophy, AtSign, Plus } from 'lucide-react';
+import { User, AVAILABLE_INTERESTS, Challenge } from '../types';
 import { vibrateLight } from '../services/haptics';
+import { DailyStorageService } from '../services/storage';
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -28,10 +29,86 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   const [name, setName] = useState(currentUser.name);
   const [username, setUsername] = useState(currentUser.username);
   const [avatar, setAvatar] = useState(currentUser.avatar);
-  const [bio, setBio] = useState(currentUser.bio);
+  const [bio, setBio] = useState(currentUser.bio || '');
   const [interests, setInterests] = useState<string[]>(currentUser.interests || []);
+  const [showChallengePicker, setShowChallengePicker] = useState(false);
+  const [showMentionPicker, setShowMentionPicker] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
 
   if (!isOpen) return null;
+
+  // Retrieve user's completed or active challenges
+  const allChallenges = DailyStorageService.getAllChallenges();
+  const allUsers = DailyStorageService.getAllUsers().filter((u) => u.id !== currentUser.id);
+
+  // Challenges user has participated in or completed
+  const userChallenges = allChallenges.filter((c) =>
+    (c.participantIds || []).includes(currentUser.id) ||
+    c.createdBy === currentUser.id
+  );
+  const challengesToShow = userChallenges.length > 0 ? userChallenges : allChallenges;
+
+  // Detect typing "challenge" or "@" in bio
+  const handleBioChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setBio(val);
+
+    // Check if the user is typing "@"
+    const lastAtIdx = val.lastIndexOf('@');
+    if (lastAtIdx !== -1 && lastAtIdx === val.length - 1) {
+      setShowMentionPicker(true);
+      setShowChallengePicker(false);
+      setMentionQuery('');
+    } else if (lastAtIdx !== -1 && lastAtIdx > val.length - 15 && !val.slice(lastAtIdx).includes(' ')) {
+      setShowMentionPicker(true);
+      setMentionQuery(val.slice(lastAtIdx + 1).toLowerCase());
+    } else {
+      setShowMentionPicker(false);
+    }
+
+    // Check if user is typing "challenge" or "challenges"
+    const lower = val.toLowerCase();
+    const words = lower.split(/\s+/);
+    const lastWord = words[words.length - 1] || '';
+    if (lastWord === 'challenge' || lastWord === 'challenges' || lastWord.startsWith('challenge:')) {
+      setShowChallengePicker(true);
+      setShowMentionPicker(false);
+    }
+  };
+
+  const handleSelectChallenge = (challenge: Challenge) => {
+    vibrateLight();
+    const challengeText = `🏆 Completed: ${challenge.title}`;
+    // Replace "challenge" or "challenges" if at the end of bio, or append
+    let newBio = bio.trim();
+    if (newBio.toLowerCase().endsWith('challenges')) {
+      newBio = newBio.slice(0, -'challenges'.length).trim();
+    } else if (newBio.toLowerCase().endsWith('challenge')) {
+      newBio = newBio.slice(0, -'challenge'.length).trim();
+    }
+    
+    if (newBio.length > 0) {
+      newBio += `\n${challengeText}`;
+    } else {
+      newBio = challengeText;
+    }
+
+    setBio(newBio.slice(0, 200));
+    setShowChallengePicker(false);
+  };
+
+  const handleSelectMention = (targetUser: User) => {
+    vibrateLight();
+    const lastAtIdx = bio.lastIndexOf('@');
+    let newBio = bio;
+    if (lastAtIdx !== -1) {
+      newBio = bio.slice(0, lastAtIdx) + `@${targetUser.username} `;
+    } else {
+      newBio += ` @${targetUser.username} `;
+    }
+    setBio(newBio.slice(0, 200));
+    setShowMentionPicker(false);
+  };
 
   const toggleInterest = (item: string) => {
     vibrateLight();
@@ -142,16 +219,166 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             </div>
           </div>
 
-          {/* Bio */}
-          <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-white/70 mb-1">Bio</label>
+          {/* Bio with Completed Challenges & @mentions */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-white/70">
+                Bio
+              </label>
+              <span className="text-[10px] text-white/40 font-mono">{bio.length}/200</span>
+            </div>
+
             <textarea
               value={bio}
-              onChange={(e) => setBio(e.target.value)}
-              rows={2}
-              maxLength={140}
-              className="w-full px-3 py-2 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-xl text-xs text-white outline-none resize-none"
+              onChange={handleBioChange}
+              rows={3}
+              maxLength={200}
+              placeholder="Tell your story, type @ to mention someone, or type 'challenges' to add your completed challenges..."
+              className="w-full px-3 py-2 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-xl text-xs text-white outline-none resize-none placeholder-white/30"
             />
+
+            {/* Quick helper action chips */}
+            <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateLight();
+                  setShowChallengePicker((prev) => !prev);
+                  setShowMentionPicker(false);
+                }}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border flex items-center gap-1 cursor-pointer ${
+                  showChallengePicker
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                    : 'bg-white/5 text-white/70 hover:text-white border-white/10 hover:bg-white/10'
+                }`}
+              >
+                <Trophy className="w-3 h-3 text-amber-400" />
+                <span>+ Completed Challenge</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateLight();
+                  setShowMentionPicker((prev) => !prev);
+                  setShowChallengePicker(false);
+                }}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border flex items-center gap-1 cursor-pointer ${
+                  showMentionPicker
+                    ? 'bg-[#2F6FED]/20 text-[#5B8DEF] border-[#2F6FED]/40'
+                    : 'bg-white/5 text-white/70 hover:text-white border-white/10 hover:bg-white/10'
+                }`}
+              >
+                <AtSign className="w-3 h-3 text-[#2F6FED]" />
+                <span>+ Mention User</span>
+              </button>
+            </div>
+
+            {/* Completed Challenge Picker Dropdown */}
+            {showChallengePicker && (
+              <div className="p-2.5 rounded-2xl bg-[#141419] border border-amber-500/30 space-y-2 animate-in fade-in duration-150 shadow-xl">
+                <div className="flex items-center justify-between pb-1 border-b border-white/10">
+                  <div className="flex items-center gap-1.5">
+                    <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                    <span className="text-[11px] font-bold text-white">Select Completed Challenge to Add</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowChallengePicker(false)}
+                    className="text-white/40 hover:text-white p-0.5"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+
+                <div className="space-y-1 max-h-40 overflow-y-auto no-scrollbar pr-0.5">
+                  {challengesToShow.map((challenge) => (
+                    <button
+                      key={challenge.id}
+                      type="button"
+                      onClick={() => handleSelectChallenge(challenge)}
+                      className="w-full text-left p-2 rounded-xl bg-white/5 hover:bg-amber-500/15 border border-white/5 hover:border-amber-500/30 transition-all flex items-center justify-between gap-2 group cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-base shrink-0">{challenge.icon || '🏆'}</span>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-white group-hover:text-amber-300 truncate">
+                            {challenge.title}
+                          </p>
+                          <p className="text-[10px] text-white/40 font-mono">
+                            {challenge.durationDays} days • #{challenge.tag}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold text-amber-400 shrink-0 group-hover:underline">
+                        + Add to Bio
+                      </span>
+                    </button>
+                  ))}
+                  {challengesToShow.length === 0 && (
+                    <p className="text-xs text-white/40 text-center py-2">
+                      No challenges found. Join and complete a challenge to showcase it!
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* User Mention Picker Dropdown */}
+            {showMentionPicker && (
+              <div className="p-2.5 rounded-2xl bg-[#141419] border border-[#2F6FED]/30 space-y-2 animate-in fade-in duration-150 shadow-xl">
+                <div className="flex items-center justify-between pb-1 border-b border-white/10">
+                  <div className="flex items-center gap-1.5">
+                    <AtSign className="w-3.5 h-3.5 text-[#2F6FED]" />
+                    <span className="text-[11px] font-bold text-white">Select User to Mention</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowMentionPicker(false)}
+                    className="text-white/40 hover:text-white p-0.5"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+
+                <div className="space-y-1 max-h-40 overflow-y-auto no-scrollbar pr-0.5">
+                  {allUsers
+                    .filter((u) =>
+                      mentionQuery
+                        ? u.username.toLowerCase().includes(mentionQuery) ||
+                          u.name.toLowerCase().includes(mentionQuery)
+                        : true
+                    )
+                    .slice(0, 8)
+                    .map((user) => (
+                      <button
+                        key={user.id}
+                        type="button"
+                        onClick={() => handleSelectMention(user)}
+                        className="w-full text-left p-2 rounded-xl bg-white/5 hover:bg-[#2F6FED]/15 border border-white/5 hover:border-[#2F6FED]/30 transition-all flex items-center justify-between gap-2 group cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <img
+                            src={user.avatar}
+                            alt={user.name}
+                            referrerPolicy="no-referrer"
+                            className="w-6 h-6 rounded-full object-cover shrink-0"
+                          />
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-white group-hover:text-[#5B8DEF] truncate">
+                              @{user.username}
+                            </p>
+                            <p className="text-[10px] text-white/40 truncate">{user.name}</p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-bold text-[#5B8DEF] shrink-0 group-hover:underline">
+                          Insert
+                        </span>
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
 
 
