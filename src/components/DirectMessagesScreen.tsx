@@ -29,11 +29,14 @@ import {
   Globe,
   Flame,
   User as UserIcon,
+  Share2,
 } from 'lucide-react';
 import {
   User,
   Message,
   Group,
+  Community,
+  Challenge,
   SharedPostPreview,
   ChallengeInvitePreview,
   CommunitySharePreview,
@@ -165,6 +168,88 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Share Community or Challenge from DMs
+  const [showShareMenu, setShowShareMenu] = useState(false);
+  const [showSharePickerModal, setShowSharePickerModal] = useState<'community' | 'challenge' | null>(null);
+  const [sharePickerSearch, setSharePickerSearch] = useState('');
+  const [shareToast, setShareToast] = useState<string | null>(null);
+
+  const allAvailableCommunities = useMemo(() => {
+    return DailyStorageService.getAllCommunities();
+  }, []);
+
+  const allAvailableChallenges = useMemo(() => {
+    return DailyStorageService.getAllChallenges();
+  }, []);
+
+  const filteredCommunitiesForShare = useMemo(() => {
+    if (!sharePickerSearch.trim()) return allAvailableCommunities;
+    const q = sharePickerSearch.toLowerCase();
+    return allAvailableCommunities.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.category.toLowerCase().includes(q) ||
+        (c.description && c.description.toLowerCase().includes(q))
+    );
+  }, [allAvailableCommunities, sharePickerSearch]);
+
+  const filteredChallengesForShare = useMemo(() => {
+    if (!sharePickerSearch.trim()) return allAvailableChallenges;
+    const q = sharePickerSearch.toLowerCase();
+    return allAvailableChallenges.filter(
+      (ch) =>
+        ch.title.toLowerCase().includes(q) ||
+        ch.tag.toLowerCase().includes(q) ||
+        (ch.description && ch.description.toLowerCase().includes(q))
+    );
+  }, [allAvailableChallenges, sharePickerSearch]);
+
+  const handleShareCommunityToCurrentChat = (comm: Community) => {
+    vibrateStreakMilestone();
+    onSendMessage({
+      receiverId: activeUserId || undefined,
+      groupId: activeGroupId || undefined,
+      text: inputText.trim() || `Check out the ${comm.name} squad on Daily!`,
+      communityShare: {
+        communityId: comm.id,
+        communityName: comm.name,
+        communityDescription: comm.description,
+        communityAvatar: comm.avatar,
+        communityCategory: comm.category,
+        memberCount: comm.memberCount || 1,
+        sharedByName: currentUser.name,
+        sharedByAvatar: currentUser.avatar,
+      },
+    });
+    setInputText('');
+    setShowSharePickerModal(null);
+    setSharePickerSearch('');
+    setShareToast(`Shared ${comm.name} to chat!`);
+    setTimeout(() => setShareToast(null), 2500);
+  };
+
+  const handleShareChallengeToCurrentChat = (ch: Challenge) => {
+    vibrateStreakMilestone();
+    onSendMessage({
+      receiverId: activeUserId || undefined,
+      groupId: activeGroupId || undefined,
+      text: inputText.trim() || `Join me in the ${ch.title} challenge on Daily!`,
+      challengeInvite: {
+        challengeId: ch.id,
+        challengeTitle: ch.title,
+        tag: ch.tag,
+        durationDays: ch.durationDays,
+        invitedByName: currentUser.name,
+        invitedByAvatar: currentUser.avatar,
+      },
+    });
+    setInputText('');
+    setShowSharePickerModal(null);
+    setSharePickerSearch('');
+    setShareToast(`Shared challenge ${ch.title} to chat!`);
+    setTimeout(() => setShareToast(null), 2500);
+  };
 
   // Scroll smoothly or instantly to the bottom of the active conversation
   const scrollToBottom = useCallback((smooth: boolean = true) => {
@@ -2051,6 +2136,59 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                   <ImageIcon className="w-4 h-4" />
                 </button>
 
+                {/* Share Community or Challenge Trigger */}
+                <div className="relative shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setShowShareMenu((prev) => !prev)}
+                    className="p-2.5 rounded-xl bg-white/5 hover:bg-[#2F6FED]/20 border border-white/10 text-white/70 hover:text-[#2F6FED] transition-colors shrink-0 flex items-center justify-center cursor-pointer"
+                    title="Share Community or Challenge"
+                    aria-label="Share Community or Challenge"
+                  >
+                    <Share2 className="w-4 h-4 text-[#2F6FED]" />
+                  </button>
+
+                  {showShareMenu && (
+                    <div
+                      className="absolute bottom-full mb-2 left-0 w-52 bg-[#12141c] border border-white/15 rounded-2xl shadow-2xl p-1.5 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowShareMenu(false);
+                          setShowSharePickerModal('community');
+                        }}
+                        className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold text-white hover:bg-white/10 flex items-center gap-2.5 transition-colors cursor-pointer"
+                      >
+                        <div className="w-6 h-6 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center shrink-0">
+                          <Globe className="w-3.5 h-3.5" />
+                        </div>
+                        <div>
+                          <span className="block font-bold">Share Community</span>
+                          <span className="text-[10px] text-white/50 block">Send squad link to chat</span>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowShareMenu(false);
+                          setShowSharePickerModal('challenge');
+                        }}
+                        className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold text-white hover:bg-white/10 flex items-center gap-2.5 transition-colors cursor-pointer"
+                      >
+                        <div className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                          <Trophy className="w-3.5 h-3.5" />
+                        </div>
+                        <div>
+                          <span className="block font-bold">Share Challenge</span>
+                          <span className="text-[10px] text-white/50 block">Invite to challenge goal</span>
+                        </div>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -2233,6 +2371,160 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                 <Flag className="w-3.5 h-3.5" />
                 <span>Submit Report</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {shareToast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-[#2F6FED] text-white text-xs font-bold px-4 py-2 rounded-full shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-150">
+          <Check className="w-3.5 h-3.5 stroke-[3]" />
+          <span>{shareToast}</span>
+        </div>
+      )}
+
+      {/* Share Picker Modal (Community or Challenge) */}
+      {showSharePickerModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => {
+            setShowSharePickerModal(null);
+            setSharePickerSearch('');
+          }}
+        >
+          <div
+            className="w-full max-w-md bg-[#0e1017] border border-white/15 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden animate-in slide-in-from-bottom duration-250"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-white/10">
+              <div className="flex items-center gap-2.5">
+                <div
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center ${
+                    showSharePickerModal === 'community'
+                      ? 'bg-sky-500/20 text-sky-400'
+                      : 'bg-amber-500/20 text-amber-400'
+                  }`}
+                >
+                  {showSharePickerModal === 'community' ? (
+                    <Globe className="w-4 h-4" />
+                  ) : (
+                    <Trophy className="w-4 h-4" />
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white">
+                    {showSharePickerModal === 'community' ? 'Share Community / Squad' : 'Share Challenge'}
+                  </h3>
+                  <p className="text-[10px] text-white/50">
+                    Send directly to {activeGroup ? activeGroup.name : `@${activeUser?.username || 'chat'}`}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSharePickerModal(null);
+                  setSharePickerSearch('');
+                }}
+                className="p-1.5 rounded-full hover:bg-white/10 text-white/60 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Search */}
+            <div className="p-3 border-b border-white/10">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-white/40 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={sharePickerSearch}
+                  onChange={(e) => setSharePickerSearch(e.target.value)}
+                  placeholder={
+                    showSharePickerModal === 'community'
+                      ? 'Search communities or categories...'
+                      : 'Search challenges or tags...'
+                  }
+                  className="w-full pl-9 pr-3 py-2 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-xl text-xs text-white placeholder-white/40 outline-none"
+                />
+              </div>
+            </div>
+
+            {/* List */}
+            <div className="p-3 space-y-2 overflow-y-auto flex-1 divide-y divide-white/5">
+              {showSharePickerModal === 'community' ? (
+                filteredCommunitiesForShare.length === 0 ? (
+                  <p className="text-xs text-center text-white/40 py-8">No communities found</p>
+                ) : (
+                  filteredCommunitiesForShare.map((comm) => (
+                    <div
+                      key={comm.id}
+                      className="pt-2 first:pt-0 flex items-center justify-between gap-3 p-2 rounded-xl hover:bg-white/5 transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-lg shrink-0 overflow-hidden">
+                          {comm.avatar && (comm.avatar.startsWith('http') || comm.avatar.startsWith('data:')) ? (
+                            <img src={comm.avatar} alt={comm.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <span>{comm.avatar || '🌐'}</span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-xs font-bold text-white truncate">{comm.name}</h4>
+                          <p className="text-[10px] text-white/50 truncate">
+                            {comm.category} • {comm.memberCount || 1} members
+                          </p>
+                          {comm.description && (
+                            <p className="text-[10px] text-white/40 line-clamp-1 mt-0.5">{comm.description}</p>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleShareCommunityToCurrentChat(comm)}
+                        className="px-3 py-1.5 rounded-xl bg-[#2F6FED] hover:bg-[#255bd1] text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shrink-0 cursor-pointer active:scale-95"
+                      >
+                        <Send className="w-3 h-3" />
+                        <span>Share</span>
+                      </button>
+                    </div>
+                  ))
+                )
+              ) : filteredChallengesForShare.length === 0 ? (
+                <p className="text-xs text-center text-white/40 py-8">No challenges found</p>
+              ) : (
+                filteredChallengesForShare.map((ch) => (
+                  <div
+                    key={ch.id}
+                    className="pt-2 first:pt-0 flex items-center justify-between gap-3 p-2 rounded-xl hover:bg-white/5 transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-lg shrink-0">
+                        {ch.icon || '🏆'}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-xs font-bold text-white truncate">{ch.title}</h4>
+                        <p className="text-[10px] text-amber-400/80 font-mono truncate">
+                          {ch.durationDays} Days • #{ch.tag}
+                        </p>
+                        {ch.description && (
+                          <p className="text-[10px] text-white/40 line-clamp-1 mt-0.5">{ch.description}</p>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleShareChallengeToCurrentChat(ch)}
+                      className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-black text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shrink-0 cursor-pointer active:scale-95"
+                    >
+                      <Send className="w-3 h-3" />
+                      <span>Share</span>
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

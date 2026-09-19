@@ -4,7 +4,22 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { User, Post, Message, Group, Community, NavigationTab, ReportReason, AppNotification, ProofCollection, PostDraft } from './types';
+import {
+  User,
+  Post,
+  Message,
+  Group,
+  Community,
+  NavigationTab,
+  ReportReason,
+  AppNotification,
+  ProofCollection,
+  PostDraft,
+  CommunitySharePreview,
+  ChallengeInvitePreview,
+  SharedPostPreview,
+  UserProfileSharePreview,
+} from './types';
 import { DailyStorageService } from './services/storage';
 import { TopHeader, BottomNavigation } from './components/Navigation';
 import { HomeFeed } from './components/HomeFeed';
@@ -21,6 +36,7 @@ import { EditProfileModal } from './components/EditProfileModal';
 import { UserProfileModal } from './components/UserProfileModal';
 import { ReportModal } from './components/ReportModal';
 import { ShareModal } from './components/ShareModal';
+import { UniversalShareModal, UniversalShareItem } from './components/UniversalShareModal';
 import { CreateGroupModal } from './components/CreateGroupModal';
 import { CreateCommunityModal } from './components/CreateCommunityModal';
 import { CommunityHubModal } from './components/CommunityHubModal';
@@ -67,6 +83,7 @@ export default function App() {
   const [commentsPost, setCommentsPost] = useState<Post | null>(null);
   const [reportingPost, setReportingPost] = useState<Post | null>(null);
   const [sharingPost, setSharingPost] = useState<Post | null>(null);
+  const [universalShareItem, setUniversalShareItem] = useState<UniversalShareItem | null>(null);
   const [insightsPost, setInsightsPost] = useState<Post | null>(null);
   const [postPendingDelete, setPostPendingDelete] = useState<Post | null>(null);
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
@@ -286,6 +303,10 @@ export default function App() {
     imageUrl?: string;
     audioUrl?: string;
     audioDuration?: number;
+    communityShare?: CommunitySharePreview;
+    challengeInvite?: ChallengeInvitePreview;
+    sharedPost?: SharedPostPreview;
+    userProfileShare?: UserProfileSharePreview;
   }) => {
     const newMsg = DailyStorageService.sendMessage(params);
     setMessages((prev) => [...prev, newMsg]);
@@ -570,6 +591,90 @@ export default function App() {
       handleOpenDMs(recipientUserIds[0], null);
     } else if (recipientGroupIds.length > 0) {
       handleOpenDMs(null, recipientGroupIds[0]);
+    }
+  };
+
+  const handleUniversalSendToUser = (userId: string, note?: string) => {
+    if (!universalShareItem) return;
+    if (universalShareItem.type === 'community' && universalShareItem.community) {
+      const comm = universalShareItem.community;
+      handleSendMessage({
+        receiverId: userId,
+        text: note?.trim() || `Check out the ${comm.name} squad on Daily!`,
+        communityShare: {
+          communityId: comm.id,
+          communityName: comm.name,
+          communityDescription: comm.description,
+          communityAvatar: comm.avatar,
+          communityCategory: comm.category,
+          memberCount: comm.memberCount || 1,
+          sharedByName: currentUser.name,
+          sharedByAvatar: currentUser.avatar,
+        },
+      });
+    } else if (universalShareItem.type === 'challenge' && universalShareItem.challenge) {
+      const ch = universalShareItem.challenge;
+      handleSendMessage({
+        receiverId: userId,
+        text: note?.trim() || `Join me in the ${ch.title} challenge on Daily!`,
+        challengeInvite: {
+          challengeId: ch.id,
+          challengeTitle: ch.title,
+          tag: ch.tag,
+          durationDays: ch.durationDays,
+          invitedByName: currentUser.name,
+          invitedByAvatar: currentUser.avatar,
+        },
+      });
+    } else if (universalShareItem.type === 'post' && universalShareItem.post) {
+      const post = universalShareItem.post;
+      handleSendMessage({
+        receiverId: userId,
+        text: note?.trim() || `Check out this proof by ${post.name} on Daily!`,
+        imageUrl: post.imageUrl,
+      });
+    }
+  };
+
+  const handleUniversalSendToGroup = (groupId: string, note?: string) => {
+    if (!universalShareItem) return;
+    if (universalShareItem.type === 'community' && universalShareItem.community) {
+      const comm = universalShareItem.community;
+      handleSendMessage({
+        groupId,
+        text: note?.trim() || `Check out the ${comm.name} squad on Daily!`,
+        communityShare: {
+          communityId: comm.id,
+          communityName: comm.name,
+          communityDescription: comm.description,
+          communityAvatar: comm.avatar,
+          communityCategory: comm.category,
+          memberCount: comm.memberCount || 1,
+          sharedByName: currentUser.name,
+          sharedByAvatar: currentUser.avatar,
+        },
+      });
+    } else if (universalShareItem.type === 'challenge' && universalShareItem.challenge) {
+      const ch = universalShareItem.challenge;
+      handleSendMessage({
+        groupId,
+        text: note?.trim() || `Join me in the ${ch.title} challenge on Daily!`,
+        challengeInvite: {
+          challengeId: ch.id,
+          challengeTitle: ch.title,
+          tag: ch.tag,
+          durationDays: ch.durationDays,
+          invitedByName: currentUser.name,
+          invitedByAvatar: currentUser.avatar,
+        },
+      });
+    } else if (universalShareItem.type === 'post' && universalShareItem.post) {
+      const post = universalShareItem.post;
+      handleSendMessage({
+        groupId,
+        text: note?.trim() || `Check out this proof by ${post.name} on Daily!`,
+        imageUrl: post.imageUrl,
+      });
     }
   };
 
@@ -923,6 +1028,18 @@ export default function App() {
               }}
               onOpenCreatePost={() => setIsCreateOpen(true)}
               onOpenCommunity={(community) => setActiveCommunityHub(community)}
+              onShareCommunity={(community) => {
+                setUniversalShareItem({
+                  type: 'community',
+                  community,
+                });
+              }}
+              onShareChallenge={(challenge) => {
+                setUniversalShareItem({
+                  type: 'challenge',
+                  challenge,
+                });
+              }}
             />
           )}
 
@@ -946,6 +1063,12 @@ export default function App() {
               onViewPost={handleViewPostFromId}
               onViewUser={handleViewSimplifiedUser}
               onOpenChallenge={handleOpenChallenge}
+              onOpenCommunity={(communityId) => {
+                const comm = DailyStorageService.getAllCommunities().find((c) => c.id === communityId);
+                if (comm) {
+                  setActiveCommunityHub(comm);
+                }
+              }}
               onBack={() => {
                 setCurrentTab(previousTab === 'messages' ? 'home' : previousTab);
                 setActiveChatUserId(null);
@@ -1032,6 +1155,32 @@ export default function App() {
           }}
         />
 
+        {/* Universal Share Modal (Communities, Challenges, Posts) */}
+        {universalShareItem && (
+          <UniversalShareModal
+            isOpen={!!universalShareItem}
+            item={universalShareItem}
+            currentUser={currentUser}
+            allUsers={users}
+            allGroups={groups}
+            onClose={() => setUniversalShareItem(null)}
+            onSendToUser={handleUniversalSendToUser}
+            onSendToGroup={handleUniversalSendToGroup}
+            onOpenDirectChat={(userId) => {
+              setActiveChatUserId(userId);
+              setActiveGroupId(null);
+              setCurrentTab('messages');
+              setUniversalShareItem(null);
+            }}
+            onOpenGroupChat={(groupId) => {
+              setActiveGroupId(groupId);
+              setActiveChatUserId(null);
+              setCurrentTab('messages');
+              setUniversalShareItem(null);
+            }}
+          />
+        )}
+
         {/* Create Private Group Modal (in DMs) */}
         <CreateGroupModal
           isOpen={isCreateGroupOpen}
@@ -1101,6 +1250,12 @@ export default function App() {
               setActiveCommunityHub(community);
             }}
             onViewUser={handleViewUser}
+            onShareCommunity={(community) => {
+              setUniversalShareItem({
+                type: 'community',
+                community,
+              });
+            }}
           />
         )}
 

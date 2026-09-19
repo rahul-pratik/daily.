@@ -17,12 +17,15 @@ import {
   Layers,
   Globe,
   Users,
+  Activity,
+  Calendar,
 } from 'lucide-react';
 import { User, Post, ProofCollection, Community } from '../types';
 import { vibrateLight } from '../services/haptics';
 import { DailyStorageService } from '../services/storage';
 import { ProfileSortByDropdown } from './ProfileSortByDropdown';
 import { BioRenderer } from './BioRenderer';
+import { CommunityHubModal } from './CommunityHubModal';
 
 interface UserProfileModalProps {
   user: User | null;
@@ -39,6 +42,7 @@ interface UserProfileModalProps {
   onOpenDossier?: (user: User) => void;
   onOpenCommunity?: (community: Community) => void;
   onViewUser?: (user: User) => void;
+  onShareCommunity?: (community: Community) => void;
 }
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
@@ -54,6 +58,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onOpenDossier,
   onOpenCommunity,
   onViewUser,
+  onShareCommunity,
 }) => {
   const [activeTab, setActiveTab] = useState<'proofs' | 'tweets' | 'collections' | 'communities'>('proofs');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -62,6 +67,14 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const [showConnections, setShowConnections] = useState<'followers' | 'following' | null>(null);
   const [selectedInterest, setSelectedInterest] = useState<string | null>(null);
   const [interestSearchQuery, setInterestSearchQuery] = useState('');
+  const [showPostingActivity, setShowPostingActivity] = useState(false);
+  const [hoveredActivityDay, setHoveredActivityDay] = useState<{
+    date: string;
+    count: number;
+    isToday: boolean;
+    formattedLabel: string;
+  } | null>(null);
+  const [selectedCommunityForHub, setSelectedCommunityForHub] = useState<Community | null>(null);
 
   const isMe = Boolean(user && (user.id === currentUser.id || user.id === 'user_me'));
   const isFollowing = Boolean(user && (currentUser.followedUserIds?.includes(user.id) || false));
@@ -126,6 +139,55 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         (user.interests || []).some((tag) => c.category.toLowerCase().includes(tag.toLowerCase()))
     );
   }, [user?.id, user?.interests]);
+
+  // Derive 30-day posting activity grid for this specific user
+  const user30DaysActivity = useMemo(() => {
+    if (!user) return [];
+    const days: {
+      date: string;
+      count: number;
+      isToday: boolean;
+      formattedLabel: string;
+    }[] = [];
+
+    const now = new Date();
+    // Gather all posts from storage or props for this user
+    const targetUserPosts = userPosts;
+
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      const count = targetUserPosts.filter((p) => {
+        if (!p.createdAt) return false;
+        return p.createdAt.startsWith(dateStr) || (p as any).postDate === dateStr;
+      }).length;
+
+      const isToday = i === 0;
+      const formattedLabel = d.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      });
+
+      days.push({
+        date: dateStr,
+        count,
+        isToday,
+        formattedLabel,
+      });
+    }
+
+    return days;
+  }, [userPosts, user?.id]);
+
+  const userActiveDaysCount = useMemo(
+    () => user30DaysActivity.filter((d) => d.count > 0).length,
+    [user30DaysActivity]
+  );
+  const userTotalProofsLast30Days = useMemo(
+    () => user30DaysActivity.reduce((acc, d) => acc + d.count, 0),
+    [user30DaysActivity]
+  );
 
   // Derive followers and following lists
   const { followersList, followingList } = useMemo(() => {
@@ -352,7 +414,107 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               <Layers className="w-3.5 h-3.5 text-[#2F6FED]" />
               <span>Dossier</span>
             </button>
+
+            {/* Posting Activity Button */}
+            <button
+              type="button"
+              id="profile-posting-activity-btn"
+              onClick={() => {
+                vibrateLight();
+                setShowPostingActivity((prev) => !prev);
+              }}
+              className={`px-3.5 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95 shrink-0 cursor-pointer ${
+                showPostingActivity
+                  ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 shadow-emerald-500/15'
+                  : 'bg-white/10 hover:bg-white/15 text-white border border-white/15 hover:border-emerald-400/40'
+              }`}
+              title={`View ${user.name}'s 30-day posting activity chart`}
+            >
+              <Activity className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Posting Activity</span>
+            </button>
           </div>
+
+          {/* POSTING ACTIVITY HEATMAP (GREEN DOT CHART) */}
+          {showPostingActivity && (
+            <div className="p-3.5 rounded-2xl bg-[#090b0e] border border-emerald-500/30 space-y-2.5 animate-in fade-in slide-in-from-top-2 duration-200 shadow-xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Activity className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-xs font-black text-white tracking-wide">
+                    @{user.username}'s Posting Activity
+                  </span>
+                  <span className="text-[10px] text-white/40 font-medium">
+                    (30 Days)
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono text-emerald-400 font-bold">
+                  {userActiveDaysCount}/30 active days • {userTotalProofsLast30Days} proofs
+                </span>
+              </div>
+
+              {/* Dots matrix: 30 days in a clean 10x3 grid */}
+              <div className="bg-black/60 rounded-xl border border-white/10 p-2.5 space-y-2">
+                <div className="grid grid-cols-10 gap-1.5 sm:gap-2">
+                  {user30DaysActivity.map((day) => {
+                    let dotStyle = 'bg-white/10 border-white/5 hover:border-white/30';
+                    if (day.count === 1) {
+                      dotStyle = 'bg-emerald-500/70 border-emerald-400/80 shadow-sm shadow-emerald-500/20';
+                    } else if (day.count >= 2) {
+                      dotStyle = 'bg-emerald-400 border-emerald-300 shadow-md shadow-emerald-400/30 font-bold';
+                    }
+
+                    return (
+                      <button
+                        key={day.date}
+                        type="button"
+                        onMouseEnter={() => setHoveredActivityDay(day)}
+                        onMouseLeave={() => setHoveredActivityDay(null)}
+                        onClick={() => {
+                          vibrateLight();
+                          setHoveredActivityDay(day);
+                        }}
+                        className={`group relative aspect-square rounded-md border transition-all duration-150 flex items-center justify-center cursor-pointer ${dotStyle} ${
+                          day.isToday ? 'ring-1 ring-white/60' : ''
+                        }`}
+                        title={`${day.formattedLabel}: ${day.count} ${day.count === 1 ? 'proof' : 'proofs'} posted`}
+                        aria-label={`${day.formattedLabel}: ${day.count} proofs`}
+                      >
+                        {day.count > 1 && (
+                          <span className="text-[7px] font-mono text-black font-black leading-none">
+                            {day.count}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Tooltip / Legend */}
+                <div className="flex items-center justify-between pt-1 border-t border-white/5 text-[10px] text-white/50">
+                  {hoveredActivityDay ? (
+                    <div className="font-mono text-white text-[11px] flex items-center gap-1.5 animate-in fade-in duration-150">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                      <span className="font-bold">{hoveredActivityDay.formattedLabel}:</span>
+                      <span className="text-emerald-400 font-bold">
+                        {hoveredActivityDay.count} {hoveredActivityDay.count === 1 ? 'proof' : 'proofs'}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-[10px] text-white/40">Tap any dot to view daily count</span>
+                  )}
+
+                  <div className="flex items-center gap-1.5 text-[9px] text-white/40 shrink-0">
+                    <span>Less</span>
+                    <span className="w-2 h-2 rounded-sm bg-white/10 border border-white/5" />
+                    <span className="w-2 h-2 rounded-sm bg-emerald-500/70 border border-emerald-400/80" />
+                    <span className="w-2 h-2 rounded-sm bg-emerald-400 border border-emerald-300" />
+                    <span>More</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Stats Row: Proofs, Tweets, Boxes, Followers, Following */}
           <div className="grid grid-cols-5 gap-1 p-2 bg-white/[0.04] border border-white/10 rounded-2xl text-center">
@@ -522,91 +684,89 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           )}
 
           {/* Navigation Tabs: Proofs, Tweets, Collections & Communities */}
-          <div className="pt-2 border-t border-white/10">
-            <div className="flex items-center justify-between pb-3 overflow-x-auto no-scrollbar">
-              {/* Tab Switcher */}
-              <div className="flex items-center gap-1 bg-white/[0.05] p-1 rounded-2xl border border-white/10 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => {
-                    vibrateLight();
-                    setActiveTab('proofs');
-                    setSelectedCollection(null);
-                  }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    activeTab === 'proofs'
-                      ? 'bg-[#2F6FED] text-white shadow-md'
-                      : 'text-white/60 hover:text-white'
-                  }`}
-                >
-                  <ImageIcon className="w-3.5 h-3.5" />
-                  <span>Proofs ({userProofPosts.length})</span>
-                </button>
+          <div className="pt-2 border-t border-white/10 space-y-2.5">
+            {/* Primary Tab Switcher Bar - Full Width with no squishing or text overlap */}
+            <div className="flex items-center gap-1 bg-white/[0.05] p-1 rounded-2xl border border-white/10 overflow-x-auto no-scrollbar">
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateLight();
+                  setActiveTab('proofs');
+                  setSelectedCollection(null);
+                }}
+                className={`flex-1 min-w-[72px] flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'proofs'
+                    ? 'bg-[#2F6FED] text-white shadow-md'
+                    : 'text-white/60 hover:text-white'
+                }`}
+              >
+                <ImageIcon className="w-3.5 h-3.5 shrink-0" />
+                <span>Proofs ({userProofPosts.length})</span>
+              </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    vibrateLight();
-                    setActiveTab('tweets');
-                    setSelectedCollection(null);
-                  }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    activeTab === 'tweets'
-                      ? 'bg-sky-500 text-white shadow-md'
-                      : 'text-white/60 hover:text-white'
-                  }`}
-                >
-                  <MessageSquare className="w-3.5 h-3.5 text-sky-300" />
-                  <span>Tweets ({userTweetPosts.length})</span>
-                </button>
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateLight();
+                  setActiveTab('tweets');
+                  setSelectedCollection(null);
+                }}
+                className={`flex-1 min-w-[72px] flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'tweets'
+                    ? 'bg-sky-500 text-white shadow-md'
+                    : 'text-white/60 hover:text-white'
+                }`}
+              >
+                <MessageSquare className="w-3.5 h-3.5 text-sky-300 shrink-0" />
+                <span>Tweets ({userTweetPosts.length})</span>
+              </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    vibrateLight();
-                    setActiveTab('collections');
-                    setSelectedCollection(null);
-                  }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    activeTab === 'collections'
-                      ? 'bg-[#2F6FED] text-white shadow-md'
-                      : 'text-white/60 hover:text-white'
-                  }`}
-                >
-                  <FolderHeart className="w-3.5 h-3.5" />
-                  <span>Boxes ({userCollections.length})</span>
-                </button>
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateLight();
+                  setActiveTab('collections');
+                  setSelectedCollection(null);
+                }}
+                className={`flex-1 min-w-[72px] flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'collections'
+                    ? 'bg-[#2F6FED] text-white shadow-md'
+                    : 'text-white/60 hover:text-white'
+                }`}
+              >
+                <FolderHeart className="w-3.5 h-3.5 shrink-0" />
+                <span>Boxes ({userCollections.length})</span>
+              </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    vibrateLight();
-                    setActiveTab('communities');
-                    setSelectedCollection(null);
-                  }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    activeTab === 'communities'
-                      ? 'bg-[#2F6FED] text-white shadow-md'
-                      : 'text-white/60 hover:text-white'
-                  }`}
-                >
-                  <Globe className="w-3.5 h-3.5" />
-                  <span>Squads ({userCommunities.length})</span>
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateLight();
+                  setActiveTab('communities');
+                  setSelectedCollection(null);
+                }}
+                className={`flex-1 min-w-[72px] flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === 'communities'
+                    ? 'bg-[#2F6FED] text-white shadow-md'
+                    : 'text-white/60 hover:text-white'
+                }`}
+              >
+                <Globe className="w-3.5 h-3.5 shrink-0" />
+                <span>Squads ({userCommunities.length})</span>
+              </button>
+            </div>
 
-              {/* Action Controls: Sort By dropdown + View Mode toggle */}
-              <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                {activeTab !== 'communities' && (
-                  <ProfileSortByDropdown
-                    selectedInterest={selectedInterest}
-                    searchQuery={interestSearchQuery}
-                    onSelectInterest={setSelectedInterest}
-                    onSearchQueryChange={setInterestSearchQuery}
-                    userInterests={user.interests}
-                    currentTabName={activeTab === 'proofs' ? 'Proofs' : activeTab === 'tweets' ? 'Tweets' : 'Boxes'}
-                  />
-                )}
+            {/* Action Controls SUB-BAR: Sort By dropdown + View Mode toggle (shown BELOW the tab bar!) */}
+            {activeTab !== 'communities' && (
+              <div className="flex items-center justify-between gap-2 pt-0.5 pb-1">
+                <ProfileSortByDropdown
+                  selectedInterest={selectedInterest}
+                  searchQuery={interestSearchQuery}
+                  onSelectInterest={setSelectedInterest}
+                  onSearchQueryChange={setInterestSearchQuery}
+                  userInterests={user.interests}
+                  currentTabName={activeTab === 'proofs' ? 'Proofs' : activeTab === 'tweets' ? 'Tweets' : 'Boxes'}
+                />
 
                 {/* View Mode Toggle for Proofs Tab */}
                 {activeTab === 'proofs' && filteredProofPosts.length > 0 && (
@@ -634,7 +794,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   </div>
                 )}
               </div>
-            </div>
+            )}
 
             {/* TAB CONTENT: PROOFS */}
             {activeTab === 'proofs' && (
@@ -861,28 +1021,48 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                       key={community.id}
                       onClick={() => {
                         vibrateLight();
-                        if (onOpenCommunity) onOpenCommunity(community);
+                        if (onOpenCommunity) {
+                          onOpenCommunity(community);
+                        } else {
+                          setSelectedCommunityForHub(community);
+                        }
                       }}
                       className="p-3.5 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-sky-500/40 transition-all flex items-center justify-between gap-3 cursor-pointer group"
                     >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-xl shrink-0">
-                          {community.avatar || '🌐'}
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="w-11 h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-xl shrink-0 overflow-hidden shadow-sm">
+                          {community.avatar && (community.avatar.startsWith('http') || community.avatar.startsWith('data:')) ? (
+                            <img
+                              src={community.avatar}
+                              alt={community.name}
+                              referrerPolicy="no-referrer"
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span>{community.avatar || '🌐'}</span>
+                          )}
                         </div>
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <h4 className="text-xs font-black text-white truncate group-hover:text-sky-400 transition-colors">
                             {community.name}
                           </h4>
                           <div className="flex items-center gap-2 text-[10px] text-white/50 mt-0.5">
-                            <span className="capitalize">{community.category}</span>
+                            <span className="capitalize text-sky-400 font-semibold">{community.category}</span>
                             <span>•</span>
                             <span>{community.memberCount || 1} members</span>
                           </div>
+                          {community.description && (
+                            <p className="text-[11px] text-white/60 line-clamp-1 mt-1 leading-relaxed">
+                              {community.description}
+                            </p>
+                          )}
                         </div>
                       </div>
-                      <span className="text-[10px] font-bold text-sky-400 px-2 py-0.5 rounded-md bg-sky-500/10 border border-sky-500/20">
-                        Joined
-                      </span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-[10px] font-bold text-sky-400 px-2.5 py-1 rounded-lg bg-sky-500/10 border border-sky-500/20 group-hover:bg-sky-500 group-hover:text-white transition-colors">
+                          View Squad
+                        </span>
+                      </div>
                     </div>
                   ))
                 ) : (
@@ -1038,6 +1218,23 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Community Detail Hub Modal */}
+      {selectedCommunityForHub && (
+        <CommunityHubModal
+          community={selectedCommunityForHub}
+          currentUser={currentUser}
+          allUsers={DailyStorageService.getAllUsers()}
+          posts={posts}
+          isOpen={!!selectedCommunityForHub}
+          onClose={() => setSelectedCommunityForHub(null)}
+          onShareCommunity={onShareCommunity}
+          onToggleJoin={(communityId) => {
+            DailyStorageService.toggleJoinCommunity(communityId);
+          }}
+          onViewUser={onViewUser}
+        />
+      )}
     </div>
   );
 };

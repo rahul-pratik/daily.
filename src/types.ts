@@ -336,12 +336,12 @@ export interface CommunityMemberRanking {
 export interface ChallengeInvitePreview {
   challengeId: string;
   challengeTitle: string;
-  challengeIcon: string;
-  challengeType: ChallengeType;
+  challengeIcon?: string;
+  challengeType?: ChallengeType;
   durationDays: number;
-  category: string;
+  category?: string;
   tag: string;
-  deadlineDate: string;
+  deadlineDate?: string;
   teamId?: string;
   teamName?: string;
   invitedByName: string;

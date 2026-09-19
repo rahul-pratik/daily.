@@ -51,6 +51,7 @@ interface CommunityHubModalProps {
   onViewUser?: (user: User) => void;
   onViewPost?: (postId: string) => void;
   onReportViolation?: (communityName: string, ruleText: string) => void;
+  onShareCommunity?: (community: Community) => void;
 }
 
 type DiscussionSort = 'hot' | 'new' | 'top';
@@ -81,6 +82,7 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
   onToggleJoin,
   onViewUser,
   onReportViolation,
+  onShareCommunity,
 }) => {
   // State for discussions and header dropdown
   const [threads, setThreads] = useState<CommunityDiscussionThread[]>([]);
@@ -261,9 +263,13 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
 
   const handleShareCommunity = () => {
     vibrateLight();
-    navigator.clipboard?.writeText?.(window.location.origin + `#community-${community.id}`);
-    setCopyToast('Community link copied!');
-    setTimeout(() => setCopyToast(null), 2400);
+    if (onShareCommunity) {
+      onShareCommunity(community);
+    } else {
+      navigator.clipboard?.writeText?.(window.location.origin + `#community-${community.id}`);
+      setCopyToast('Community link copied!');
+      setTimeout(() => setCopyToast(null), 2400);
+    }
   };
 
   const handleShareThread = (thread: CommunityDiscussionThread) => {
@@ -313,7 +319,7 @@ export const CommunityHubModal: React.FC<CommunityHubModalProps> = ({
   return (
     <div
       id="community-hub-container"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
     >
       <div className="w-full h-full max-w-2xl bg-[#0e0e11] text-white flex flex-col md:h-[94vh] md:rounded-[32px] md:border md:border-white/10 overflow-hidden shadow-2xl relative">
         
