@@ -47,6 +47,7 @@ import { CreateCollectionModal } from './components/CreateCollectionModal';
 import { AddToCollectionModal } from './components/AddToCollectionModal';
 import { GlobalSearchModal, SearchWish } from './components/GlobalSearchModal';
 import { FeedSortDropdown } from './components/FeedSortDropdown';
+import { usePhoneBackButton } from './hooks/usePhoneBackButton';
 import { vibratePostSubmit, vibrateLight, vibrateStreakMilestone } from './services/haptics';
 
 export default function App() {
@@ -198,6 +199,67 @@ export default function App() {
   ).length;
 
   const unreadNotificationsCount = notifications.filter((n) => !n.isRead).length;
+
+  // Intercept phone hardware/gesture back button to match app's back button
+  usePhoneBackButton(
+    {
+      universalShareItem,
+      activeProfileUser,
+      activeCommunityHub,
+      commentsPost,
+      reportingPost,
+      sharingPost,
+      insightsPost,
+      isNotificationsOpen,
+      isSearchOpen,
+      isCreateOpen,
+      isEditProfileOpen,
+      isCreateGroupOpen,
+      isCreateCommunityOpen,
+      isCreateCollectionOpen,
+      selectedPostForCollection,
+      postPendingDelete,
+      celebrationOpen: celebrationState.isOpen,
+      currentTab,
+      previousTab,
+      activeChatUserId,
+      activeGroupId,
+      activeDossierUser,
+      currentUser,
+    },
+    {
+      closeUniversalShare: () => setUniversalShareItem(null),
+      closeProfile: () => setActiveProfileUser(null),
+      closeCommunityHub: () => setActiveCommunityHub(null),
+      closeComments: () => setCommentsPost(null),
+      closeReport: () => setReportingPost(null),
+      closeShare: () => setSharingPost(null),
+      closeInsights: () => setInsightsPost(null),
+      closeNotifications: () => setIsNotificationsOpen(false),
+      closeSearch: () => setIsSearchOpen(false),
+      closeCreate: () => setIsCreateOpen(false),
+      closeEditProfile: () => setIsEditProfileOpen(false),
+      closeCreateGroup: () => setIsCreateGroupOpen(false),
+      closeCreateCommunity: () => setIsCreateCommunityOpen(false),
+      closeCreateCollection: () => setIsCreateCollectionOpen(false),
+      closeAddToCollection: () => setSelectedPostForCollection(null),
+      closeDeletePost: () => setPostPendingDelete(null),
+      closeCelebration: () => setCelebrationState((prev) => ({ ...prev, isOpen: false })),
+      closeActiveChat: () => {
+        setActiveChatUserId(null);
+        setActiveGroupId(null);
+      },
+      closeDossier: () => {
+        if (activeDossierUser && activeDossierUser.id !== currentUser.id) {
+          setActiveProfileUser(activeDossierUser);
+          setActiveDossierUser(null);
+        } else {
+          setCurrentTab('profile');
+        }
+      },
+      goToTab: (tab) => setCurrentTab(tab),
+    }
+  );
 
   // Onboarding completion handler
   const handleCompleteOnboarding = (updatedUserProps: Partial<User>) => {
@@ -1170,32 +1232,6 @@ export default function App() {
           }}
         />
 
-        {/* Universal Share Modal (Communities, Challenges, Posts) */}
-        {universalShareItem && (
-          <UniversalShareModal
-            isOpen={!!universalShareItem}
-            item={universalShareItem}
-            currentUser={currentUser}
-            allUsers={users}
-            allGroups={groups}
-            onClose={() => setUniversalShareItem(null)}
-            onSendToUser={handleUniversalSendToUser}
-            onSendToGroup={handleUniversalSendToGroup}
-            onOpenDirectChat={(userId) => {
-              setActiveChatUserId(userId);
-              setActiveGroupId(null);
-              setCurrentTab('messages');
-              setUniversalShareItem(null);
-            }}
-            onOpenGroupChat={(groupId) => {
-              setActiveGroupId(groupId);
-              setActiveChatUserId(null);
-              setCurrentTab('messages');
-              setUniversalShareItem(null);
-            }}
-          />
-        )}
-
         {/* Create Private Group Modal (in DMs) */}
         <CreateGroupModal
           isOpen={isCreateGroupOpen}
@@ -1280,6 +1316,34 @@ export default function App() {
                 type: 'user',
                 user: targetUser,
               });
+            }}
+          />
+        )}
+
+        {/* Universal Share Modal (Communities, Challenges, Posts, Users) - Rendered on top of all modals */}
+        {universalShareItem && (
+          <UniversalShareModal
+            isOpen={!!universalShareItem}
+            item={universalShareItem}
+            currentUser={currentUser}
+            allUsers={users}
+            allGroups={groups}
+            onClose={() => setUniversalShareItem(null)}
+            onSendToUser={handleUniversalSendToUser}
+            onSendToGroup={handleUniversalSendToGroup}
+            onOpenDirectChat={(userId) => {
+              setActiveChatUserId(userId);
+              setActiveGroupId(null);
+              setActiveProfileUser(null);
+              setCurrentTab('messages');
+              setUniversalShareItem(null);
+            }}
+            onOpenGroupChat={(groupId) => {
+              setActiveGroupId(groupId);
+              setActiveChatUserId(null);
+              setActiveProfileUser(null);
+              setCurrentTab('messages');
+              setUniversalShareItem(null);
             }}
           />
         )}

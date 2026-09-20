@@ -135,12 +135,19 @@ export const FeedSortDropdown: React.FC<FeedSortDropdownProps> = ({
         />
       </button>
 
-      {/* Dropdown Popover */}
+      {/* Dropdown Popover / Mobile Card */}
       {isOpen && (
-        <div
-          id="feed-sort-by-menu"
-          className="absolute right-0 top-full mt-2 w-[340px] sm:w-[380px] max-w-[calc(100vw-24px)] bg-[#12141c] border border-white/15 rounded-2xl shadow-2xl shadow-black/90 backdrop-blur-2xl p-3 z-50 animate-in fade-in zoom-in-95 duration-150 space-y-3 max-h-[85vh] overflow-y-auto no-scrollbar"
-        >
+        <>
+          {/* Mobile Backdrop */}
+          <div
+            className="fixed inset-0 z-40 bg-black/70 backdrop-blur-xs sm:hidden"
+            onClick={() => setIsOpen(false)}
+          />
+
+          <div
+            id="feed-sort-by-menu"
+            className="fixed inset-x-3 bottom-3 max-h-[82dvh] sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:bottom-auto sm:w-[380px] sm:max-h-[85vh] bg-[#12141c] border border-white/15 rounded-3xl sm:rounded-2xl shadow-2xl shadow-black/90 backdrop-blur-2xl p-4 sm:p-3 z-50 animate-in fade-in slide-in-from-bottom-3 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-150 space-y-3 overflow-y-auto"
+          >
           {/* Header */}
           <div className="flex items-center justify-between border-b border-white/10 pb-2">
             <div>
@@ -310,6 +317,7 @@ export const FeedSortDropdown: React.FC<FeedSortDropdownProps> = ({
             </button>
           </div>
         </div>
+        </>
       )}
     </div>
   );

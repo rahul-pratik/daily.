@@ -329,11 +329,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg bg-[#0c0c10] border-t sm:border border-white/10 rounded-t-[32px] sm:rounded-[32px] max-h-[90vh] sm:max-h-[85vh] flex flex-col shadow-2xl overflow-hidden text-white my-0 sm:my-6"
+        className="w-full max-w-lg bg-[#0c0c10] border-t sm:border border-white/10 rounded-t-[28px] sm:rounded-[32px] max-h-[92dvh] sm:max-h-[85vh] flex flex-col shadow-2xl overflow-hidden text-white my-0 sm:my-6 overscroll-contain"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Bar: @username & Close */}
-        <div className="px-5 py-3.5 border-b border-white/10 flex items-center justify-between bg-[#0c0c10] sticky top-0 z-10">
+        <div className="px-4 sm:px-5 py-3.5 border-b border-white/10 flex items-center justify-between bg-[#0c0c10] sticky top-0 z-10 shrink-0">
           <div className="flex items-center gap-2">
             <span className="font-mono text-xs font-bold text-white/70">@{user.username}</span>
           </div>
@@ -433,12 +433,12 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         </div>
 
         {/* Scrollable Profile Content */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
           {/* PFP and Identity Section */}
-          <div className="flex items-start gap-4">
+          <div className="flex items-start gap-3 sm:gap-4">
             {/* PFP Avatar */}
             <div className="relative shrink-0">
-              <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-white/20 bg-black/60 shadow-xl ring-2 ring-[#2F6FED]/20">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden border-2 border-white/20 bg-black/60 shadow-xl ring-2 ring-[#2F6FED]/20">
                 <img
                   src={user.avatar}
                   alt={user.name}

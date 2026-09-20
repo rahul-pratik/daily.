@@ -6,7 +6,6 @@ import {
   Compass,
   PlusCircle,
   Globe,
-  ArrowUp,
   Trophy,
   ArrowUpDown,
   ChevronDown,
@@ -99,7 +98,9 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
   ]);
   const selectedSortFilters = externalSortFilters || internalSortFilters;
 
-  const setSelectedSortFilters = (next: string[] | ((prev: string[]) => string[])) => {
+  const setSelectedSortFilters = (
+    next: string[] | ((prev: string[]) => string[])
+  ) => {
     if (externalOnSelectSortFilters) {
       const resolved = typeof next === 'function' ? next(selectedSortFilters) : next;
       externalOnSelectSortFilters(resolved);
@@ -112,26 +113,7 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [isCreatingTag, setIsCreatingTag] = useState(false);
   const [newTagInput, setNewTagInput] = useState('');
-  const [showScrollTop, setShowScrollTop] = useState(false);
   const [feedRevision, setFeedRevision] = useState(0);
-
-  // Monitor scroll position: button appears whenever user scrolls down more than one full viewport height
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrolled = window.scrollY || document.documentElement.scrollTop;
-      const viewportHeight = window.innerHeight;
-      setShowScrollTop(scrolled > viewportHeight);
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll();
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  const scrollToTop = () => {
-    vibrateLight();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
 
   // Filter out blocked & muted users & reported posts
   const unblockedPosts = useMemo(() => {
@@ -970,19 +952,6 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
           </div>
         )}
       </div>
-
-      {/* Scroll-to-Top Floating Button */}
-      {showScrollTop && (
-        <button
-          onClick={scrollToTop}
-          id="homefeed-scroll-to-top"
-          className="fixed bottom-20 right-4 sm:right-6 z-40 p-3 rounded-full bg-[#2F6FED] hover:bg-blue-600 text-white shadow-2xl shadow-[#2F6FED]/40 border border-white/20 transition-all duration-200 hover:scale-110 active:scale-95 flex items-center justify-center animate-in fade-in slide-in-from-bottom-3"
-          title="Scroll to top"
-          aria-label="Scroll to top"
-        >
-          <ArrowUp className="w-5 h-5 stroke-[2.5]" />
-        </button>
-      )}
     </PullToRefresh>
   );
 };
