@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   X,
   User,
@@ -25,11 +25,15 @@ import {
   Check,
   Plus,
   Target,
+  ArrowLeft,
+  Search,
+  Ban,
+  UserCheck,
+  ShieldCheck,
 } from 'lucide-react';
 import { User as UserType, Post, PostDraft } from '../types';
 import { DailyStorageService } from '../services/storage';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
-import { StreakFreezeCard } from './StreakFreezeCard';
 
 interface ProfileSettingsModalProps {
   isOpen: boolean;
@@ -68,6 +72,52 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
   const [themeMode, setThemeMode] = useState<'system' | 'dark' | 'light'>(() => DailyStorageService.getThemeMode());
   const [currentTheme, setCurrentTheme] = useState<'dark' | 'light'>(() => DailyStorageService.getTheme());
   const [hapticsEnabled, setHapticsEnabled] = useState<boolean>(() => DailyStorageService.getHapticsEnabled());
+
+  // Blocked Users Management View State
+  const [activeView, setActiveView] = useState<'main' | 'blocked_users'>('main');
+  const [blockedUsers, setBlockedUsers] = useState<UserType[]>([]);
+  const [searchBlockedQuery, setSearchBlockedQuery] = useState('');
+  const [unblockedToastMessage, setUnblockedToastMessage] = useState<string | null>(null);
+
+  // Sync blocked users whenever modal opens or blocked IDs change
+  useEffect(() => {
+    if (isOpen) {
+      setBlockedUsers(DailyStorageService.getBlockedUsers());
+    }
+  }, [isOpen, currentUser.blockedUserIds]);
+
+  // Reset to main view on modal close/open
+  useEffect(() => {
+    if (isOpen) {
+      setActiveView('main');
+      setSearchBlockedQuery('');
+      setUnblockedToastMessage(null);
+    }
+  }, [isOpen]);
+
+  const handleUnblockUser = (userId: string, userName: string) => {
+    vibrateLight();
+    const result = DailyStorageService.unblockUser(userId);
+    setBlockedUsers(DailyStorageService.getBlockedUsers());
+    if (onUserUpdated) {
+      onUserUpdated(result.updatedUser);
+    }
+    setUnblockedToastMessage(`Unblocked ${userName}`);
+    setTimeout(() => {
+      setUnblockedToastMessage(null);
+    }, 2500);
+  };
+
+  const filteredBlockedUsers = useMemo(() => {
+    if (!searchBlockedQuery.trim()) return blockedUsers;
+    const q = searchBlockedQuery.toLowerCase().trim();
+    return blockedUsers.filter(
+      (u) =>
+        u.name.toLowerCase().includes(q) ||
+        u.username.toLowerCase().includes(q) ||
+        u.bio?.toLowerCase().includes(q)
+    );
+  }, [blockedUsers, searchBlockedQuery]);
 
   // 30 Days Activity State
   const [hoveredDay, setHoveredDay] = useState<{
@@ -213,22 +263,173 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
       >
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-white/10 flex items-center justify-between">
-          <div>
-            <h2 className="text-base font-black text-white flex items-center gap-2">
-              <span>Settings & Tools</span>
-            </h2>
-            <p className="text-[11px] text-white/50">Manage dossier, analytics, saved items & account</p>
-          </div>
+          {activeView === 'blocked_users' ? (
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                id="settings-back-to-main-btn"
+                onClick={() => {
+                  vibrateLight();
+                  setActiveView('main');
+                }}
+                className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
+                aria-label="Back to settings"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <div>
+                <h2 className="text-base font-black text-white flex items-center gap-2">
+                  <span>Blocked Users</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/30 font-mono">
+                    {blockedUsers.length}
+                  </span>
+                </h2>
+                <p className="text-[11px] text-white/50">Manage accounts hidden from your HomeFeed</p>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <h2 className="text-base font-black text-white flex items-center gap-2">
+                <span>Settings & Tools</span>
+              </h2>
+              <p className="text-[11px] text-white/50">Manage dossier, analytics, saved items & account</p>
+            </div>
+          )}
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+            className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Settings Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+        {activeView === 'blocked_users' ? (
+          <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+            {/* Context Info Banner */}
+            <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400 shrink-0 mt-0.5">
+                <Ban className="w-4 h-4" />
+              </div>
+              <div className="flex-1">
+                <h4 className="text-xs font-bold text-white">Blocked Accounts & Feeds</h4>
+                <p className="text-[11px] text-white/50 mt-0.5 leading-relaxed">
+                  Posts and discussions from blocked members are completely hidden from your HomeFeed. Unblocking restores their posts immediately.
+                </p>
+              </div>
+            </div>
+
+            {/* Notification Toast inside View */}
+            {unblockedToastMessage && (
+              <div className="p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold flex items-center gap-2 animate-in fade-in duration-200">
+                <Check className="w-4 h-4 text-emerald-400" />
+                <span>{unblockedToastMessage}</span>
+              </div>
+            )}
+
+            {/* Search filter if blocked users exist */}
+            {blockedUsers.length > 0 && (
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
+                <input
+                  type="text"
+                  value={searchBlockedQuery}
+                  onChange={(e) => setSearchBlockedQuery(e.target.value)}
+                  placeholder="Search blocked accounts..."
+                  className="w-full bg-white/[0.04] border border-white/10 focus:border-red-500/40 focus:ring-1 focus:ring-red-500/40 rounded-xl pl-9 pr-3.5 py-2 text-xs text-white placeholder:text-white/30 focus:outline-none transition-all"
+                />
+                {searchBlockedQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchBlockedQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white text-xs cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Blocked Members List */}
+            {filteredBlockedUsers.length > 0 ? (
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-white/40">
+                    Blocked Members ({filteredBlockedUsers.length})
+                  </span>
+                  <span className="text-[10px] text-white/40 font-mono">
+                    Tap to unblock
+                  </span>
+                </div>
+
+                {filteredBlockedUsers.map((bUser) => (
+                  <div
+                    key={bUser.id}
+                    id={`blocked-user-row-${bUser.id}`}
+                    className="p-3.5 rounded-2xl bg-white/[0.03] hover:bg-white/[0.05] border border-white/10 flex items-center justify-between gap-3 transition-colors group"
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="w-10 h-10 rounded-full overflow-hidden border border-red-500/30 shrink-0 bg-neutral-900">
+                        <img
+                          src={bUser.avatar}
+                          alt={bUser.name}
+                          referrerPolicy="no-referrer"
+                          className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all"
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-xs font-bold text-white truncate">{bUser.name}</h4>
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-red-500/15 text-red-400 border border-red-500/30 shrink-0">
+                            Blocked
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-white/50 font-mono truncate">@{bUser.username}</p>
+                        {bUser.bio && (
+                          <p className="text-[10px] text-white/40 truncate mt-0.5">{bUser.bio}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      id={`unblock-btn-${bUser.id}`}
+                      onClick={() => handleUnblockUser(bUser.id, bUser.name)}
+                      className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/15 hover:border-white/30 text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95"
+                    >
+                      <UserCheck className="w-3.5 h-3.5 text-white/60" />
+                      <span>Unblock</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : blockedUsers.length === 0 ? (
+              <div className="p-8 rounded-2xl bg-white/[0.02] border border-white/10 text-center flex flex-col items-center justify-center space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                  <ShieldCheck className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-white">No Blocked Members</h4>
+                  <p className="text-xs text-white/50 max-w-xs mt-1 leading-relaxed">
+                    You haven't blocked any accounts. Anyone you block from their profile or post will appear here and can be unblocked anytime.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="p-8 rounded-2xl bg-white/[0.02] border border-white/10 text-center space-y-2">
+                <p className="text-xs text-white/60">No blocked members match "{searchBlockedQuery}"</p>
+                <button
+                  type="button"
+                  onClick={() => setSearchBlockedQuery('')}
+                  className="text-xs text-[#2F6FED] font-bold hover:underline cursor-pointer"
+                >
+                  Clear search
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
           {/* Quick User Summary */}
           <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -463,22 +664,6 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                 </button>
               </div>
             </div>
-          </div>
-
-          {/* Streak Freeze Protection (Moved from Challenges Tab) */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between px-1">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-white/40 flex items-center gap-1.5">
-                <Flame className="w-3 h-3 text-orange-400 fill-current" />
-                <span>Streak Freeze Protection</span>
-              </span>
-              <span className="text-[9px] font-mono text-[#2F6FED]">Profile Security</span>
-            </div>
-            <StreakFreezeCard
-              currentUser={currentUser}
-              onUserUpdated={onUserUpdated}
-              onOpenNotifications={onOpenNotifications}
-            />
           </div>
 
           {/* Theme Mode Toggle (System Auto / Dark / Light) */}
@@ -761,6 +946,43 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
               Account Management
             </span>
 
+            {/* Blocked Users Management Entry */}
+            <button
+              type="button"
+              id="settings-blocked-users-btn"
+              onClick={() => {
+                vibrateLight();
+                setActiveView('blocked_users');
+              }}
+              className="w-full p-3.5 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-red-500/30 transition-all flex items-center justify-between text-left group cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400 shrink-0 group-hover:scale-105 transition-transform">
+                  <Ban className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-white group-hover:text-red-300 transition-colors">
+                      Blocked Users
+                    </span>
+                    <span
+                      className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                        blockedUsers.length > 0
+                          ? 'bg-red-500/15 text-red-400 border-red-500/30'
+                          : 'bg-white/5 text-white/50 border-white/10'
+                      }`}
+                    >
+                      {blockedUsers.length} blocked
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-white/50 mt-0.5">
+                    Review blocked accounts & restore feed visibility
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-white/30 group-hover:text-white group-hover:translate-x-0.5 transition-all shrink-0" />
+            </button>
+
             <button
               type="button"
               onClick={() => setShowResetConfirm(true)}
@@ -783,6 +1005,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
             </button>
           </div>
         </div>
+        )}
       </div>
     </div>
   );

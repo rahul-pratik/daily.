@@ -34,7 +34,6 @@ interface NotificationsModalProps {
   onOpenCommunity?: (communityId: string) => void;
   onOpenChallenge?: (challengeId: string) => void;
   onToggleFollow?: (userId: string) => void;
-  onOpenStreakFreezeAlert?: () => void;
 }
 
 type NotificationFilter = 'all' | 'unread' | 'like' | 'comment' | 'follow' | 'challenge';
@@ -52,7 +51,6 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   onOpenCommunity,
   onOpenChallenge,
   onToggleFollow,
-  onOpenStreakFreezeAlert,
 }) => {
   const [activeFilter, setActiveFilter] = useState<NotificationFilter>('all');
 
@@ -114,18 +112,6 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
             <ShieldCheck className="w-3 h-3" />
           </div>
         );
-      case 'streak_freeze_used':
-        return (
-          <div className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
-            <ShieldCheck className="w-3 h-3 text-cyan-400" />
-          </div>
-        );
-      case 'streak_freeze_earned':
-        return (
-          <div className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
-            <Sparkles className="w-3 h-3 text-cyan-400" />
-          </div>
-        );
       case 'challenge_badge':
         return (
           <div className="w-5 h-5 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300">
@@ -163,12 +149,6 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
     vibrateLight();
     if (!n.isRead) {
       onMarkAsRead(n.id);
-    }
-
-    if (n.type === 'streak_freeze_used' && onOpenStreakFreezeAlert) {
-      onOpenStreakFreezeAlert();
-      onClose();
-      return;
     }
 
     if ((n.type === 'challenge_invite' || n.type === 'squad_invite') && (n.challengeId || n.targetId) && onOpenChallenge) {

@@ -98,7 +98,16 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
     'tweets:all',
   ]);
   const selectedSortFilters = externalSortFilters || internalSortFilters;
-  const setSelectedSortFilters = externalOnSelectSortFilters || setInternalSortFilters;
+
+  const setSelectedSortFilters = (next: string[] | ((prev: string[]) => string[])) => {
+    if (externalOnSelectSortFilters) {
+      const resolved = typeof next === 'function' ? next(selectedSortFilters) : next;
+      externalOnSelectSortFilters(resolved);
+      return;
+    }
+
+    setInternalSortFilters((prev) => (typeof next === 'function' ? next(prev) : next));
+  };
 
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [isCreatingTag, setIsCreatingTag] = useState(false);
@@ -124,10 +133,10 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Filter out blocked users & reported posts
-  const unblockedPosts = posts.filter(
-    (post) => !currentUser.blockedUserIds?.includes(post.userId)
-  );
+  // Filter out blocked & muted users & reported posts
+  const unblockedPosts = useMemo(() => {
+    return DailyStorageService.filterPostsForHomeFeed(posts);
+  }, [posts, currentUser.blockedUserIds, currentUser.mutedUserIds, feedRevision]);
 
   // Joined communities of current user
   const joinedCommunities = useMemo(() => {
@@ -176,6 +185,9 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
     joinedCommunities.forEach((comm) => {
       const threads = DailyStorageService.getCommunityDiscussions(comm.id);
       threads.forEach((t) => {
+        if (DailyStorageService.isUserBlocked(t.authorId) || DailyStorageService.isUserMuted(t.authorId)) {
+          return;
+        }
         const syntheticId = `comm_thread_${t.id}`;
         const authorFlair = t.authorFlair || '';
         if (!seenIds.has(syntheticId)) {
@@ -227,7 +239,9 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
     // 1. Challenge progress posts (daily photos, receipts, captions, cheers)
     const allProgressPosts = DailyStorageService.getAllChallengeProgressPosts();
     const relevantProgress = allProgressPosts.filter((p) =>
-      joinedChallengeIds.has(p.challengeId)
+      joinedChallengeIds.has(p.challengeId) &&
+      !DailyStorageService.isUserBlocked(p.userId) &&
+      !DailyStorageService.isUserMuted(p.userId)
     );
 
     relevantProgress.forEach((p) => {
@@ -281,6 +295,9 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
     joinedChallenges.forEach((ch) => {
       const messages = DailyStorageService.getChallengeMessages(ch.id);
       messages.forEach((msg) => {
+        if (DailyStorageService.isUserBlocked(msg.senderId) || DailyStorageService.isUserMuted(msg.senderId)) {
+          return;
+        }
         if (msg.text && msg.text.trim().length > 10) {
           const syntheticMsgId = `ch_msg_${msg.id}`;
           if (!seenIds.has(syntheticMsgId)) {
@@ -574,20 +591,14 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
 
   const toggleSortFilter = (filterKey: string) => {
     vibrateLight();
-    const updateFilters = (prev: string[]) => {
+    setSelectedSortFilters((prev) => {
       if (prev.includes(filterKey)) {
         const next = prev.filter((k) => k !== filterKey);
         return next.length > 0 ? next : ['proofs:all', 'tweets:all'];
       } else {
         return [...prev, filterKey];
       }
-    };
-
-    if (externalOnSelectSortFilters) {
-      externalOnSelectSortFilters(updateFilters(selectedSortFilters));
-    } else {
-      setInternalSortFilters(updateFilters);
-    }
+    });
   };
 
   const applyPreset = (preset: string[]) => {

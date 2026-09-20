@@ -344,7 +344,7 @@ export const PersonProfileDossierScreen: React.FC<PersonProfileDossierScreenProp
         </div>
 
         {/* ========================================================
-            COMMUNITIES & SQUADS JOINED (Rendered in All Activity)
+            COMMUNITIES JOINED (Rendered in All Activity)
             ======================================================== */}
         {activeTab === 'all' && (
           <div className="space-y-3">
@@ -352,7 +352,7 @@ export const PersonProfileDossierScreen: React.FC<PersonProfileDossierScreenProp
               <div className="flex items-center gap-1.5">
                 <Globe className="w-4 h-4 text-sky-400" />
                 <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">
-                  Communities & Squads
+                  Communities
                 </h3>
               </div>
               <span className="text-[11px] font-mono text-slate-500 dark:text-white/40">
@@ -403,8 +403,6 @@ export const PersonProfileDossierScreen: React.FC<PersonProfileDossierScreenProp
                         </div>
                         <div className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-white/50 mt-1">
                           <span className="font-semibold">{community.memberCount || 1} members</span>
-                          <span>•</span>
-                          <span className="text-emerald-500 font-bold">Squad</span>
                         </div>
                         {community.description && (
                           <p className="text-[11px] text-slate-600 dark:text-white/60 line-clamp-1 mt-1 leading-normal">
@@ -414,7 +412,7 @@ export const PersonProfileDossierScreen: React.FC<PersonProfileDossierScreenProp
                       </div>
                     </div>
 
-                    {/* Bottom Action Row: View Squad & Share in DMs */}
+                    {/* Bottom Action Row: View & Share in DMs */}
                     <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-white/5">
                       <button
                         type="button"
@@ -442,7 +440,7 @@ export const PersonProfileDossierScreen: React.FC<PersonProfileDossierScreenProp
                         }}
                         className="px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500 text-sky-500 hover:text-white dark:text-sky-400 dark:hover:text-white text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
                       >
-                        <span>View Squad</span>
+                        <span>View</span>
                         <ChevronRight className="w-3 h-3" />
                       </button>
                     </div>

@@ -28,11 +28,9 @@ export interface User {
   joinedDate: string;
   savedPostIds?: string[];
   blockedUserIds?: string[];
+  mutedUserIds?: string[];
   proofCollections?: ProofCollection[];
   isCurrentUser?: boolean;
-  streakFreezes?: number; // Available streak freezes earned through challenges
-  streakFreezeActive?: boolean; // Whether active streak protection is equipped for next missed day
-  lastStreakFreezeUsedDate?: string; // Date streak freeze was last consumed
 }
 
 export interface PersonalHabit {
@@ -536,8 +534,6 @@ export type NotificationType =
   | 'squad_invite'
   | 'group_invite'
   | 'cheer'
-  | 'streak_freeze_earned'
-  | 'streak_freeze_used'
   | 'challenge_badge';
 
 export interface AppNotification {

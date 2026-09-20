@@ -52,6 +52,7 @@ const STORAGE_KEYS = {
   REPORTED_DISCUSSIONS: 'daily_app_reported_discussions_v1',
   HABITS: 'daily_app_personal_habits_v1',
   BLOCKED_USERS: 'daily_app_blocked_users_v1',
+  MUTED_USERS: 'daily_app_muted_users_v1',
   NOTIFICATIONS: 'daily_app_notifications_v1',
   USER_NOTES: 'daily_app_user_notes_v1',
   THEME: 'daily_app_theme_v1',
@@ -79,6 +80,12 @@ export const getYesterdayDateString = (): string => {
 };
 
 export class DailyStorageService {
+  // In-memory cache for high-performance blocked and muted user checks
+  private static _cachedBlockedUserIds: string[] | null = null;
+  private static _cachedBlockedUserSet: Set<string> | null = null;
+  private static _cachedMutedUserIds: string[] | null = null;
+  private static _cachedMutedUserSet: Set<string> | null = null;
+
   static getCurrentUser(): User {
     const data = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
     if (!data) {
@@ -92,14 +99,6 @@ export class DailyStorageService {
         return INITIAL_CURRENT_USER;
       }
       let changed = false;
-      if (typeof user.streakFreezes !== 'number') {
-        user.streakFreezes = 1;
-        changed = true;
-      }
-      if (typeof user.streakFreezeActive !== 'boolean') {
-        user.streakFreezeActive = true;
-        changed = true;
-      }
       if (!Array.isArray(user.followedUserIds)) {
         user.followedUserIds = INITIAL_CURRENT_USER.followedUserIds || [];
         changed = true;
@@ -120,6 +119,14 @@ export class DailyStorageService {
         user.proofCollections = INITIAL_CURRENT_USER.proofCollections || [];
         changed = true;
       }
+      if (!Array.isArray(user.blockedUserIds)) {
+        user.blockedUserIds = [];
+        changed = true;
+      }
+      if (!Array.isArray(user.mutedUserIds)) {
+        user.mutedUserIds = [];
+        changed = true;
+      }
       if (changed) {
         this.saveCurrentUser(user);
       }
@@ -130,6 +137,16 @@ export class DailyStorageService {
   }
 
   static saveCurrentUser(user: User): void {
+    if (Array.isArray(user.blockedUserIds)) {
+      this._cachedBlockedUserIds = [...user.blockedUserIds];
+      this._cachedBlockedUserSet = new Set(user.blockedUserIds);
+      localStorage.setItem(STORAGE_KEYS.BLOCKED_USERS, JSON.stringify(user.blockedUserIds));
+    }
+    if (Array.isArray(user.mutedUserIds)) {
+      this._cachedMutedUserIds = [...user.mutedUserIds];
+      this._cachedMutedUserSet = new Set(user.mutedUserIds);
+      localStorage.setItem(STORAGE_KEYS.MUTED_USERS, JSON.stringify(user.mutedUserIds));
+    }
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
   }
 
@@ -2212,131 +2229,6 @@ export class DailyStorageService {
     return newMsg;
   }
 
-  // --- STREAK FREEZE SYSTEM ---
-  static getStreakFreezeStatus(): {
-    freezesAvailable: number;
-    isActive: boolean;
-    lastUsedDate?: string;
-  } {
-    const user = this.getCurrentUser();
-    return {
-      freezesAvailable: user.streakFreezes ?? 1,
-      isActive: user.streakFreezeActive ?? true,
-      lastUsedDate: user.lastStreakFreezeUsedDate,
-    };
-  }
-
-  static toggleEquipStreakFreeze(): { user: User; isActive: boolean } {
-    const user = this.getCurrentUser();
-    const count = user.streakFreezes ?? 0;
-    if (count <= 0) {
-      return { user, isActive: false };
-    }
-    const nextState = !user.streakFreezeActive;
-    const updated: User = {
-      ...user,
-      streakFreezeActive: nextState,
-    };
-    this.saveCurrentUser(updated);
-    return { user: updated, isActive: nextState };
-  }
-
-  static claimChallengeStreakFreeze(challengeId: string, reason: string): { user: User; success: boolean } {
-    const user = this.getCurrentUser();
-    const currentCount = user.streakFreezes ?? 0;
-    const updated: User = {
-      ...user,
-      streakFreezes: currentCount + 1,
-      streakFreezeActive: true,
-    };
-    this.saveCurrentUser(updated);
-
-    // Send a celebratory notification
-    const notifs = this.getAllNotifications();
-    const notif: AppNotification = {
-      id: `notif_freeze_${Date.now()}`,
-      type: 'streak_freeze_earned',
-      actorId: user.id,
-      actorName: 'Daily Challenge System',
-      actorUsername: 'challenges',
-      actorAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80',
-      message: `❄️ You earned 1x Streak Freeze for: ${reason}! Your streak is shielded against missed days.`,
-      createdAt: 'Just now',
-      timestamp: Date.now(),
-      isRead: false,
-    };
-    this.saveAllNotifications([notif, ...notifs]);
-
-    return { user: updated, success: true };
-  }
-
-  static useStreakFreeze(reason?: string): {
-    user: User;
-    success: boolean;
-    notification?: AppNotification;
-    message: string;
-  } {
-    const user = this.getCurrentUser();
-    const count = user.streakFreezes ?? 0;
-    const today = getTodayDateString();
-
-    if (count <= 0) {
-      return {
-        user,
-        success: false,
-        message: 'No streak freezes available. Earn more by staying consistent in group challenges!',
-      };
-    }
-
-    if (user.lastStreakFreezeUsedDate === today) {
-      return {
-        user,
-        success: false,
-        message: 'A streak freeze is already protecting your streak for today!',
-      };
-    }
-
-    const updatedUser: User = {
-      ...user,
-      streakFreezes: Math.max(0, count - 1),
-      streakFreezeActive: true,
-      lastStreakFreezeUsedDate: today,
-    };
-    this.saveCurrentUser(updatedUser);
-
-    const notif: AppNotification = {
-      id: `notif_freeze_used_${Date.now()}`,
-      type: 'streak_freeze_used',
-      actorId: 'system',
-      actorName: 'Streak Protection',
-      actorUsername: 'streak_guardian',
-      actorAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80',
-      message: `❄️ Streak Freeze Activated: Your ${updatedUser.currentStreak}-day streak is protected for today! Take a breather and reset. Remember to return tomorrow to keep your streak going strong! 🔥`,
-      createdAt: 'Just now',
-      timestamp: Date.now(),
-      isRead: false,
-    };
-
-    const notifs = this.getAllNotifications();
-    this.saveAllNotifications([notif, ...notifs]);
-
-    // Dispatch global event so UI displays alert modal immediately
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(
-        new CustomEvent('daily:streak-freeze-used', {
-          detail: { user: updatedUser, notification: notif },
-        })
-      );
-    }
-
-    return {
-      user: updatedUser,
-      success: true,
-      notification: notif,
-      message: `Your ${updatedUser.currentStreak}-day streak is protected for today! Return tomorrow to keep it going.`,
-    };
-  }
-
   static awardChallengeBadge(_badgeName: string): { user: User; awarded: boolean } {
     return { user: this.getCurrentUser(), awarded: false };
   }
@@ -2429,41 +2321,110 @@ export class DailyStorageService {
     return createdMessages;
   }
 
-  // Blocked Users Management
+  // High-performance Blocked Users Management with In-Memory Caching
+  static invalidateBlockMuteCache(): void {
+    this._cachedBlockedUserIds = null;
+    this._cachedBlockedUserSet = null;
+    this._cachedMutedUserIds = null;
+    this._cachedMutedUserSet = null;
+  }
+
   static getBlockedUserIds(): string[] {
+    if (this._cachedBlockedUserIds !== null) {
+      return this._cachedBlockedUserIds;
+    }
     const data = localStorage.getItem(STORAGE_KEYS.BLOCKED_USERS);
+    let ids: string[] = [];
     if (!data) {
-      const currentUser = this.getCurrentUser();
-      const initial = currentUser.blockedUserIds || [];
-      this.saveBlockedUserIds(initial);
-      return initial;
+      try {
+        const rawUser = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+        if (rawUser) {
+          const parsed = JSON.parse(rawUser);
+          if (Array.isArray(parsed.blockedUserIds)) {
+            ids = parsed.blockedUserIds;
+          }
+        }
+      } catch {}
+      this.saveBlockedUserIds(ids);
+      return ids;
     }
     try {
       const parsed = JSON.parse(data);
-      return Array.isArray(parsed) ? parsed : [];
+      ids = Array.isArray(parsed) ? parsed : [];
     } catch {
-      return [];
+      ids = [];
     }
+    this._cachedBlockedUserIds = ids;
+    this._cachedBlockedUserSet = new Set(ids);
+    return ids;
+  }
+
+  static getBlockedUserSet(): Set<string> {
+    if (this._cachedBlockedUserSet !== null) {
+      return this._cachedBlockedUserSet;
+    }
+    this.getBlockedUserIds();
+    return this._cachedBlockedUserSet || new Set();
   }
 
   static saveBlockedUserIds(ids: string[]): void {
+    this._cachedBlockedUserIds = [...ids];
+    this._cachedBlockedUserSet = new Set(ids);
     localStorage.setItem(STORAGE_KEYS.BLOCKED_USERS, JSON.stringify(ids));
+
+    try {
+      const rawUser = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+      if (rawUser) {
+        const user = JSON.parse(rawUser);
+        if (user && typeof user === 'object') {
+          user.blockedUserIds = ids;
+          localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
+        }
+      }
+    } catch {}
   }
 
-  static toggleBlockUser(userId: string): { blockedUserIds: string[]; isBlocked: boolean; updatedUser: User } {
-    const currentBlocked = this.getBlockedUserIds();
-    const isCurrentlyBlocked = currentBlocked.includes(userId);
-    const updatedBlocked = isCurrentlyBlocked
-      ? currentBlocked.filter((id) => id !== userId)
-      : [...currentBlocked, userId];
+  static isUserBlocked(userId: string): boolean {
+    return this.getBlockedUserSet().has(userId);
+  }
 
+  static getBlockedUsers(): User[] {
+    const blockedIds = this.getBlockedUserIds();
+    if (blockedIds.length === 0) return [];
+    const allUsers = this.getAllUsers();
+    return blockedIds.map((id) => {
+      const found = allUsers.find((u) => u.id === id);
+      if (found) return found;
+      return {
+        id,
+        name: 'Blocked User',
+        username: id.replace(/^user_/, ''),
+        avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80',
+        bio: 'This user is currently blocked.',
+        interests: [],
+        habits: [],
+        currentStreak: 0,
+        longestStreak: 0,
+        totalPosts: 0,
+        activityDates: [],
+        followersCount: 0,
+        followingCount: 0,
+        followedUserIds: [],
+        lastPostedDate: null,
+        joinedDate: '2026-01-01',
+      } as User;
+    });
+  }
+
+  static blockUser(userId: string): { blockedUserIds: string[]; updatedUser: User } {
+    const currentBlocked = this.getBlockedUserIds();
+    const updatedBlocked = currentBlocked.includes(userId) ? currentBlocked : [...currentBlocked, userId];
     this.saveBlockedUserIds(updatedBlocked);
 
     const currentUser = this.getCurrentUser();
-    // Also unfollow if blocking
     let updatedFollowed = currentUser.followedUserIds || [];
     let updatedFollowingCount = currentUser.followingCount || 0;
-    if (!isCurrentlyBlocked && updatedFollowed.includes(userId)) {
+    if (updatedFollowed.includes(userId)) {
       updatedFollowed = updatedFollowed.filter((id) => id !== userId);
       updatedFollowingCount = Math.max(0, updatedFollowingCount - 1);
     }
@@ -2474,13 +2435,179 @@ export class DailyStorageService {
       followedUserIds: updatedFollowed,
       followingCount: updatedFollowingCount,
     };
-    this.saveCurrentUser(updatedUser);
+    localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(updatedUser));
 
     return {
       blockedUserIds: updatedBlocked,
-      isBlocked: !isCurrentlyBlocked,
       updatedUser,
     };
+  }
+
+  static unblockUser(userId: string): { blockedUserIds: string[]; updatedUser: User } {
+    const currentBlocked = this.getBlockedUserIds();
+    const updatedBlocked = currentBlocked.filter((id) => id !== userId);
+    this.saveBlockedUserIds(updatedBlocked);
+
+    const currentUser = this.getCurrentUser();
+    const updatedUser: User = {
+      ...currentUser,
+      blockedUserIds: updatedBlocked,
+    };
+    localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(updatedUser));
+
+    return {
+      blockedUserIds: updatedBlocked,
+      updatedUser,
+    };
+  }
+
+  static toggleBlockUser(userId: string): { blockedUserIds: string[]; isBlocked: boolean; updatedUser: User } {
+    const isCurrentlyBlocked = this.isUserBlocked(userId);
+    if (isCurrentlyBlocked) {
+      const res = this.unblockUser(userId);
+      return {
+        blockedUserIds: res.blockedUserIds,
+        isBlocked: false,
+        updatedUser: res.updatedUser,
+      };
+    } else {
+      const res = this.blockUser(userId);
+      return {
+        blockedUserIds: res.blockedUserIds,
+        isBlocked: true,
+        updatedUser: res.updatedUser,
+      };
+    }
+  }
+
+  // High-performance Muted Users Management with In-Memory Caching
+  static getMutedUserIds(): string[] {
+    if (this._cachedMutedUserIds !== null) {
+      return this._cachedMutedUserIds;
+    }
+    const data = localStorage.getItem(STORAGE_KEYS.MUTED_USERS);
+    let ids: string[] = [];
+    if (!data) {
+      try {
+        const rawUser = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+        if (rawUser) {
+          const parsed = JSON.parse(rawUser);
+          if (Array.isArray(parsed.mutedUserIds)) {
+            ids = parsed.mutedUserIds;
+          }
+        }
+      } catch {}
+      this.saveMutedUserIds(ids);
+      return ids;
+    }
+    try {
+      const parsed = JSON.parse(data);
+      ids = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      ids = [];
+    }
+    this._cachedMutedUserIds = ids;
+    this._cachedMutedUserSet = new Set(ids);
+    return ids;
+  }
+
+  static getMutedUserSet(): Set<string> {
+    if (this._cachedMutedUserSet !== null) {
+      return this._cachedMutedUserSet;
+    }
+    this.getMutedUserIds();
+    return this._cachedMutedUserSet || new Set();
+  }
+
+  static saveMutedUserIds(ids: string[]): void {
+    this._cachedMutedUserIds = [...ids];
+    this._cachedMutedUserSet = new Set(ids);
+    localStorage.setItem(STORAGE_KEYS.MUTED_USERS, JSON.stringify(ids));
+
+    try {
+      const rawUser = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+      if (rawUser) {
+        const user = JSON.parse(rawUser);
+        if (user && typeof user === 'object') {
+          user.mutedUserIds = ids;
+          localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
+        }
+      }
+    } catch {}
+  }
+
+  static isUserMuted(userId: string): boolean {
+    return this.getMutedUserSet().has(userId);
+  }
+
+  static muteUser(userId: string): { mutedUserIds: string[]; updatedUser: User } {
+    const currentMuted = this.getMutedUserIds();
+    const updatedMuted = currentMuted.includes(userId) ? currentMuted : [...currentMuted, userId];
+    this.saveMutedUserIds(updatedMuted);
+
+    const currentUser = this.getCurrentUser();
+    const updatedUser: User = {
+      ...currentUser,
+      mutedUserIds: updatedMuted,
+    };
+    localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(updatedUser));
+
+    return {
+      mutedUserIds: updatedMuted,
+      updatedUser,
+    };
+  }
+
+  static unmuteUser(userId: string): { mutedUserIds: string[]; updatedUser: User } {
+    const currentMuted = this.getMutedUserIds();
+    const updatedMuted = currentMuted.filter((id) => id !== userId);
+    this.saveMutedUserIds(updatedMuted);
+
+    const currentUser = this.getCurrentUser();
+    const updatedUser: User = {
+      ...currentUser,
+      mutedUserIds: updatedMuted,
+    };
+    localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(updatedUser));
+
+    return {
+      mutedUserIds: updatedMuted,
+      updatedUser,
+    };
+  }
+
+  static toggleMuteUser(userId: string): { mutedUserIds: string[]; isMuted: boolean; updatedUser: User } {
+    const isCurrentlyMuted = this.isUserMuted(userId);
+    if (isCurrentlyMuted) {
+      const res = this.unmuteUser(userId);
+      return {
+        mutedUserIds: res.mutedUserIds,
+        isMuted: false,
+        updatedUser: res.updatedUser,
+      };
+    } else {
+      const res = this.muteUser(userId);
+      return {
+        mutedUserIds: res.mutedUserIds,
+        isMuted: true,
+        updatedUser: res.updatedUser,
+      };
+    }
+  }
+
+  // HomeFeed filtering: O(1) set-based filter
+  static getHomeFeedPosts(): Post[] {
+    const allPosts = this.getAllPosts();
+    return this.filterPostsForHomeFeed(allPosts);
+  }
+
+  static filterPostsForHomeFeed(posts: Post[]): Post[] {
+    const blockedSet = this.getBlockedUserSet();
+    const mutedSet = this.getMutedUserSet();
+    if (blockedSet.size === 0 && mutedSet.size === 0) {
+      return posts;
+    }
+    return posts.filter((post) => !blockedSet.has(post.userId) && !mutedSet.has(post.userId));
   }
 
   // Personal Habits Management
@@ -2809,6 +2936,7 @@ export class DailyStorageService {
   // Reset demo data
   static resetToDefault(): void {
     localStorage.clear();
+    this.invalidateBlockMuteCache();
     this.saveCurrentUser(INITIAL_CURRENT_USER);
     this.saveAllUsers(SAMPLE_USERS);
     this.saveAllPosts(INITIAL_POSTS);
@@ -2817,6 +2945,7 @@ export class DailyStorageService {
     this.savePersonalHabits(INITIAL_PERSONAL_HABITS);
     this.saveAllNotifications(INITIAL_NOTIFICATIONS);
     this.saveBlockedUserIds([]);
+    this.saveMutedUserIds([]);
     this.saveSavedPostIds(['post_1', 'post_3']);
     this.saveReportedPostIds([]);
     this.setOnboarded(true);
@@ -4218,16 +4347,6 @@ export class DailyStorageService {
       } catch {
         // ignore
       }
-    }
-
-    // --- AUTOMATIC STREAK FREEZE REWARDS ---
-    try {
-      // Earn Streak Freeze: high engagement milestone at Day 5
-      if (newDayNumber === 5) {
-        this.claimChallengeStreakFreeze(challengeId, `5 Verified Check-ins in "${targetChallenge.title}"`);
-      }
-    } catch {
-      // ignore
     }
 
     return {

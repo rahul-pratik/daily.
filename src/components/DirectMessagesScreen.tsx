@@ -1770,7 +1770,7 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                               </div>
                               <div className="min-w-0 flex-1">
                                 <span className="text-[9px] font-bold text-[#5B8DEF] uppercase tracking-wider block">
-                                  Squad Community
+                                  Community
                                 </span>
                                 <h5 className="text-xs font-black text-white truncate">
                                   {msg.communityShare.communityName}
@@ -1795,7 +1795,7 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                                 className="w-full py-1.5 px-3 rounded-lg bg-[#2F6FED] hover:bg-[#255bd1] text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                               >
                                 <Users className="w-3 h-3" />
-                                <span>View Squad Details</span>
+                                <span>View Community</span>
                               </button>
                             )}
                           </div>
@@ -2165,7 +2165,7 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                         </div>
                         <div>
                           <span className="block font-bold">Share Community</span>
-                          <span className="text-[10px] text-white/50 block">Send squad link to chat</span>
+                          <span className="text-[10px] text-white/50 block">Send community link to chat</span>
                         </div>
                       </button>
 
@@ -2415,7 +2415,7 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                 </div>
                 <div>
                   <h3 className="text-sm font-black text-white">
-                    {showSharePickerModal === 'community' ? 'Share Community / Squad' : 'Share Challenge'}
+                    {showSharePickerModal === 'community' ? 'Share Community' : 'Share Challenge'}
                   </h3>
                   <p className="text-[10px] text-white/50">
                     Send directly to {activeGroup ? activeGroup.name : `@${activeUser?.username || 'chat'}`}

@@ -19,6 +19,12 @@ import {
   Users,
   Activity,
   Calendar,
+  Send,
+  Link as LinkIcon,
+  MoreVertical,
+  VolumeX,
+  Volume2,
+  Ban,
 } from 'lucide-react';
 import { User, Post, ProofCollection, Community } from '../types';
 import { vibrateLight } from '../services/haptics';
@@ -39,10 +45,13 @@ interface UserProfileModalProps {
   onOpenComments: (post: Post) => void;
   onToggleBlock?: (userId: string) => void;
   isBlocked?: boolean;
+  onToggleMute?: (userId: string) => void;
+  isMuted?: boolean;
   onOpenDossier?: (user: User) => void;
   onOpenCommunity?: (community: Community) => void;
   onViewUser?: (user: User) => void;
   onShareCommunity?: (community: Community) => void;
+  onShareUser?: (user: User) => void;
 }
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
@@ -55,14 +64,20 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onSendDM,
   onToggleLike,
   onOpenComments,
+  onToggleBlock,
+  isBlocked: propIsBlocked,
+  onToggleMute,
+  isMuted: propIsMuted,
   onOpenDossier,
   onOpenCommunity,
   onViewUser,
   onShareCommunity,
+  onShareUser,
 }) => {
   const [activeTab, setActiveTab] = useState<'proofs' | 'tweets' | 'collections' | 'communities'>('proofs');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [copiedLink, setCopiedLink] = useState(false);
+  const [showShareOptions, setShowShareOptions] = useState(false);
   const [selectedCollection, setSelectedCollection] = useState<ProofCollection | null>(null);
   const [showConnections, setShowConnections] = useState<'followers' | 'following' | null>(null);
   const [selectedInterest, setSelectedInterest] = useState<string | null>(null);
@@ -75,9 +90,30 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     formattedLabel: string;
   } | null>(null);
   const [selectedCommunityForHub, setSelectedCommunityForHub] = useState<Community | null>(null);
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
+  const [localBlocked, setLocalBlocked] = useState<boolean | null>(null);
+  const [localMuted, setLocalMuted] = useState<boolean | null>(null);
+
+  React.useEffect(() => {
+    setLocalBlocked(null);
+    setLocalMuted(null);
+    setShowMoreOptions(false);
+  }, [user?.id]);
 
   const isMe = Boolean(user && (user.id === currentUser.id || user.id === 'user_me'));
   const isFollowing = Boolean(user && (currentUser.followedUserIds?.includes(user.id) || false));
+
+  const isBlocked = propIsBlocked !== undefined
+    ? propIsBlocked
+    : (localBlocked !== null
+        ? localBlocked
+        : Boolean(user && (currentUser.blockedUserIds?.includes(user.id) || DailyStorageService.isUserBlocked(user.id))));
+
+  const isMuted = propIsMuted !== undefined
+    ? propIsMuted
+    : (localMuted !== null
+        ? localMuted
+        : Boolean(user && (currentUser.mutedUserIds?.includes(user.id) || DailyStorageService.isUserMuted(user.id))));
 
   const userPosts = useMemo(() => {
     if (!user) return [];
@@ -263,6 +299,28 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     onToggleFollow(user.id);
   };
 
+  const handleBlockToggle = () => {
+    if (!user) return;
+    vibrateLight();
+    if (onToggleBlock) {
+      onToggleBlock(user.id);
+    } else {
+      const result = DailyStorageService.toggleBlockUser(user.id);
+      setLocalBlocked(result.isBlocked);
+    }
+  };
+
+  const handleMuteToggle = () => {
+    if (!user) return;
+    vibrateLight();
+    if (onToggleMute) {
+      onToggleMute(user.id);
+    } else {
+      const result = DailyStorageService.toggleMuteUser(user.id);
+      setLocalMuted(result.isMuted);
+    }
+  };
+
   if (!isOpen || !user) return null;
 
   return (
@@ -274,31 +332,99 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         className="w-full max-w-lg bg-[#0c0c10] border-t sm:border border-white/10 rounded-t-[32px] sm:rounded-[32px] max-h-[90vh] sm:max-h-[85vh] flex flex-col shadow-2xl overflow-hidden text-white my-0 sm:my-6"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header Bar: @username, Share & Close */}
+        {/* Header Bar: @username & Close */}
         <div className="px-5 py-3.5 border-b border-white/10 flex items-center justify-between bg-[#0c0c10] sticky top-0 z-10">
           <div className="flex items-center gap-2">
             <span className="font-mono text-xs font-bold text-white/70">@{user.username}</span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleShare}
-              className="p-2 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors relative"
-              title="Share profile link"
-              aria-label="Share profile"
-            >
-              <Share2 className="w-4 h-4" />
-              {copiedLink && (
-                <span className="absolute -top-7 right-0 text-[10px] font-bold bg-[#2F6FED] text-white px-2.5 py-0.5 rounded-full shadow-lg whitespace-nowrap">
-                  Link copied!
-                </span>
-              )}
-            </button>
+          <div className="flex items-center gap-1.5">
+            {!isMe && (
+              <div className="relative">
+                <button
+                  type="button"
+                  id="profile-more-options-btn"
+                  onClick={() => setShowMoreOptions((prev) => !prev)}
+                  className="p-2 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                  title="More profile options"
+                  aria-label="More options"
+                >
+                  <MoreVertical className="w-5 h-5" />
+                </button>
+
+                {showMoreOptions && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-20"
+                      onClick={() => setShowMoreOptions(false)}
+                    />
+                    <div
+                      className="absolute right-0 top-full mt-1.5 w-60 bg-[#161822] border border-white/15 rounded-2xl p-1.5 shadow-2xl z-30 animate-in fade-in zoom-in-95 duration-150"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {/* Mute / Unmute Option */}
+                      <button
+                        type="button"
+                        id="profile-mute-option-btn"
+                        onClick={() => {
+                          setShowMoreOptions(false);
+                          handleMuteToggle();
+                        }}
+                        className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold text-white hover:bg-white/10 flex items-center gap-2.5 transition-colors cursor-pointer"
+                      >
+                        {isMuted ? (
+                          <>
+                            <Volume2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <span className="block font-bold text-emerald-400">Unmute @{user.username}</span>
+                              <span className="text-[10px] text-white/50 block font-normal truncate">
+                                Show posts in HomeFeed again
+                              </span>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <VolumeX className="w-4 h-4 text-amber-400 shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <span className="block font-bold text-amber-300">Mute @{user.username}</span>
+                              <span className="text-[10px] text-white/50 block font-normal truncate">
+                                Hide posts from HomeFeed
+                              </span>
+                            </div>
+                          </>
+                        )}
+                      </button>
+
+                      {/* Block / Unblock Option */}
+                      <button
+                        type="button"
+                        id="profile-block-option-btn"
+                        onClick={() => {
+                          setShowMoreOptions(false);
+                          handleBlockToggle();
+                        }}
+                        className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold text-red-400 hover:bg-red-500/10 flex items-center gap-2.5 transition-colors cursor-pointer mt-0.5"
+                      >
+                        <Ban className="w-4 h-4 text-red-400 shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <span className="block font-bold">
+                            {isBlocked ? `Unblock @${user.username}` : `Block @${user.username}`}
+                          </span>
+                          <span className="text-[10px] text-white/50 block font-normal truncate">
+                            {isBlocked ? 'Allow interactions and posts' : 'Hide posts and block interactions'}
+                          </span>
+                        </div>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
             <button
               type="button"
               onClick={onClose}
-              className="p-2 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+              className="p-2 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
               aria-label="Close modal"
             >
               <X className="w-5 h-5" />
@@ -322,80 +448,156 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               </div>
             </div>
 
-            {/* Name, Handle */}
+            {/* Name, Handle, and Beside-Handle Follow & Message Buttons */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
                 <h2 className="text-lg font-black text-white truncate">{user.name}</h2>
                 <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0" />
               </div>
-              <p className="text-xs text-white/50 font-mono mt-0.5">@{user.username}</p>
+
+              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                <span className="text-xs text-white/50 font-mono">@{user.username}</span>
+
+                {isBlocked && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/30 flex items-center gap-1 shrink-0">
+                    <Ban className="w-2.5 h-2.5" />
+                    <span>Blocked</span>
+                  </span>
+                )}
+
+                {isMuted && !isBlocked && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1 shrink-0">
+                    <VolumeX className="w-2.5 h-2.5" />
+                    <span>Muted</span>
+                  </span>
+                )}
+
+                {!isMe && (
+                  <div className="flex items-center gap-1.5">
+                    {isBlocked ? (
+                      <button
+                        type="button"
+                        id="profile-unblock-btn"
+                        onClick={handleBlockToggle}
+                        className="px-3 py-1 rounded-xl text-xs font-bold bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 transition-all flex items-center gap-1 shrink-0 cursor-pointer shadow-sm active:scale-95"
+                      >
+                        <Ban className="w-3 h-3" />
+                        <span>Unblock</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        id="profile-follow-toggle-btn"
+                        onClick={handleFollowClick}
+                        className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1 shrink-0 cursor-pointer ${
+                          isFollowing
+                            ? 'bg-white/10 text-white/90 hover:bg-white/15 border border-white/15 shadow-sm'
+                            : 'bg-[#2F6FED] hover:bg-blue-600 text-white shadow-sm'
+                        }`}
+                      >
+                        {isFollowing ? (
+                          <>
+                            <Check className="w-3 h-3 stroke-[3]" />
+                            <span>Following</span>
+                          </>
+                        ) : (
+                          <>
+                            <UserPlus className="w-3 h-3 stroke-[2.5]" />
+                            <span>Follow</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      id="profile-direct-message-btn"
+                      onClick={() => {
+                        vibrateLight();
+                        onClose();
+                        if (onSendDM) {
+                          onSendDM({
+                            id: user.id,
+                            name: user.name,
+                            username: user.username,
+                            avatar: user.avatar,
+                            streak: user.currentStreak || 0,
+                          });
+                        }
+                      }}
+                      disabled={isBlocked}
+                      className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95 shrink-0 cursor-pointer ${
+                        isBlocked
+                          ? 'opacity-40 cursor-not-allowed bg-white/5 border border-white/5 text-white/40'
+                          : 'bg-white/10 hover:bg-white/15 text-white border border-white/15'
+                      }`}
+                      title={isBlocked ? 'User is blocked' : `Direct message @${user.username}`}
+                    >
+                      <MessageSquare className="w-3 h-3 text-[#2F6FED]" />
+                      <span>Message</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Action Row: Follow, Message, Share Profile, and Person Dossier */}
-          <div className="pt-1 flex items-center gap-2 flex-wrap sm:flex-nowrap">
-            {!isMe && (
-              <>
-                <button
-                  type="button"
-                  id="profile-follow-toggle-btn"
-                  onClick={handleFollowClick}
-                  className={`flex-1 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
-                    isFollowing
-                      ? 'bg-white/10 text-white/90 hover:bg-white/15 border border-white/15 shadow-sm'
-                      : 'bg-[#2F6FED] hover:bg-blue-600 text-white shadow-lg shadow-[#2F6FED]/25'
-                  }`}
+          {/* Action Row: Share Profile, Dossier, and Posting Activity */}
+          <div className="pt-1 flex items-center gap-2">
+            {/* Share Profile Button with Send to DMs or Copy Link options */}
+            <div className="relative flex-1">
+              <button
+                type="button"
+                id="profile-share-btn"
+                onClick={() => setShowShareOptions((prev) => !prev)}
+                className="w-full py-2.5 px-3 rounded-2xl text-xs font-black bg-white/10 hover:bg-white/15 text-white border border-white/15 hover:border-sky-400/40 transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
+                title="Share profile"
+              >
+                <Share2 className="w-3.5 h-3.5 text-sky-400" />
+                <span>{copiedLink ? 'Copied Link!' : 'Share Profile'}</span>
+              </button>
+
+              {showShareOptions && (
+                <div
+                  className="absolute left-0 bottom-full sm:bottom-auto sm:top-full mb-2 sm:mb-0 sm:mt-2 w-52 bg-[#141620] border border-white/15 rounded-2xl p-1.5 shadow-2xl z-30 animate-in fade-in zoom-in-95 duration-150"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  {isFollowing ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 stroke-[3]" />
-                      <span>Following</span>
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus className="w-3.5 h-3.5 stroke-[2.5]" />
-                      <span>Follow</span>
-                    </>
-                  )}
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowShareOptions(false);
+                      vibrateLight();
+                      if (onShareUser) {
+                        onShareUser(user);
+                      }
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-white hover:bg-[#2F6FED] flex items-center gap-2.5 transition-colors cursor-pointer"
+                  >
+                    <Send className="w-3.5 h-3.5 text-sky-400" />
+                    <div>
+                      <span className="block font-bold">Send to DMs</span>
+                      <span className="text-[10px] text-white/50 block font-normal">Share profile to friend or group</span>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowShareOptions(false);
+                      handleShare();
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-white hover:bg-[#2F6FED] flex items-center gap-2.5 transition-colors cursor-pointer mt-0.5"
+                  >
+                    <LinkIcon className="w-3.5 h-3.5 text-emerald-400" />
+                    <div>
+                      <span className="block font-bold">Copy Link</span>
+                      <span className="text-[10px] text-white/50 block font-normal">Copy profile URL to clipboard</span>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
 
-                <button
-                  type="button"
-                  id="profile-direct-message-btn"
-                  onClick={() => {
-                    vibrateLight();
-                    onClose();
-                    if (onSendDM) {
-                      onSendDM({
-                        id: user.id,
-                        name: user.name,
-                        username: user.username,
-                        avatar: user.avatar,
-                        streak: user.currentStreak || 0,
-                      });
-                    }
-                  }}
-                  className="flex-1 py-2.5 rounded-2xl text-xs font-black bg-white/10 hover:bg-white/15 text-white border border-white/15 transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
-                  title={`Direct message @${user.username}`}
-                >
-                  <MessageSquare className="w-3.5 h-3.5 text-[#2F6FED]" />
-                  <span>Message</span>
-                </button>
-              </>
-            )}
-
-            {/* Share Profile Button */}
-            <button
-              type="button"
-              id="profile-share-btn"
-              onClick={handleShare}
-              className="px-3.5 py-2.5 rounded-2xl text-xs font-black bg-white/10 hover:bg-white/15 text-white border border-white/15 hover:border-sky-400/40 transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95 shrink-0"
-              title="Share profile link"
-            >
-              <Share2 className="w-3.5 h-3.5 text-sky-400" />
-              <span>{copiedLink ? 'Copied!' : 'Share Profile'}</span>
-            </button>
-
+            {/* Dossier Button */}
             <button
               type="button"
               id="profile-view-dossier-btn"
@@ -406,9 +608,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   onOpenDossier(user);
                 }
               }}
-              className={`${
-                isMe ? 'flex-1' : 'px-3.5'
-              } py-2.5 rounded-2xl text-xs font-black bg-white/10 hover:bg-white/15 text-white/90 border border-white/15 hover:border-[#2F6FED]/40 transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95 shrink-0`}
+              className="flex-1 py-2.5 px-3 rounded-2xl text-xs font-black bg-white/10 hover:bg-white/15 text-white/90 border border-white/15 hover:border-[#2F6FED]/40 transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
               title={`View ${user.name}'s Person Dossier & challenge history`}
             >
               <Layers className="w-3.5 h-3.5 text-[#2F6FED]" />
@@ -423,7 +623,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 vibrateLight();
                 setShowPostingActivity((prev) => !prev);
               }}
-              className={`px-3.5 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95 shrink-0 cursor-pointer ${
+              className={`flex-1 py-2.5 px-3 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95 cursor-pointer ${
                 showPostingActivity
                   ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 shadow-emerald-500/15'
                   : 'bg-white/10 hover:bg-white/15 text-white border border-white/15 hover:border-emerald-400/40'
@@ -683,8 +883,66 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             </div>
           )}
 
-          {/* Navigation Tabs: Proofs, Tweets, Collections & Communities */}
-          <div className="pt-2 border-t border-white/10 space-y-2.5">
+          {/* Blocked State Notice Banner */}
+          {isBlocked && (
+            <div className="p-3.5 rounded-2xl bg-red-500/10 border border-red-500/25 flex items-center justify-between gap-3 animate-in fade-in duration-150">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <Ban className="w-5 h-5 text-red-400 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-white">You blocked @{user.username}</p>
+                  <p className="text-[11px] text-white/60 truncate">Posts from this user are hidden from your HomeFeed.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                id="profile-banner-unblock-btn"
+                onClick={handleBlockToggle}
+                className="px-3 py-1.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-xs font-bold transition-all shrink-0 cursor-pointer shadow-sm active:scale-95"
+              >
+                Unblock
+              </button>
+            </div>
+          )}
+
+          {/* Muted State Notice Banner */}
+          {isMuted && !isBlocked && (
+            <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between gap-3 animate-in fade-in duration-150">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <VolumeX className="w-4 h-4 text-amber-400 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-amber-300">@{user.username} is muted</p>
+                  <p className="text-[10px] text-white/60 truncate">Their posts are hidden from your HomeFeed.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                id="profile-banner-unmute-btn"
+                onClick={handleMuteToggle}
+                className="px-2.5 py-1 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-xs font-bold transition-all shrink-0 cursor-pointer active:scale-95"
+              >
+                Unmute
+              </button>
+            </div>
+          )}
+
+          {/* Navigation Tabs or Blocked Placeholder */}
+          {isBlocked ? (
+            <div className="py-12 px-4 text-center rounded-2xl bg-white/[0.02] border border-white/5 space-y-2.5 my-2">
+              <Ban className="w-8 h-8 text-red-400/80 mx-auto" />
+              <h3 className="text-sm font-bold text-white">Posts are hidden</h3>
+              <p className="text-xs text-white/50 max-w-xs mx-auto">
+                You have blocked @{user.username}. Unblock them to view their proofs, tweets, and boxes.
+              </p>
+              <button
+                type="button"
+                onClick={handleBlockToggle}
+                className="mt-1 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95"
+              >
+                Unblock @{user.username}
+              </button>
+            </div>
+          ) : (
+            <div className="pt-2 border-t border-white/10 space-y-2.5">
             {/* Primary Tab Switcher Bar - Full Width with no squishing or text overlap */}
             <div className="flex items-center gap-1 bg-white/[0.05] p-1 rounded-2xl border border-white/10 overflow-x-auto no-scrollbar">
               <button
@@ -752,7 +1010,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 }`}
               >
                 <Globe className="w-3.5 h-3.5 shrink-0" />
-                <span>Squads ({userCommunities.length})</span>
+                <span>Communities ({userCommunities.length})</span>
               </button>
             </div>
 
@@ -1060,7 +1318,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <span className="text-[10px] font-bold text-sky-400 px-2.5 py-1 rounded-lg bg-sky-500/10 border border-sky-500/20 group-hover:bg-sky-500 group-hover:text-white transition-colors">
-                          View Squad
+                          View
                         </span>
                       </div>
                     </div>
@@ -1068,7 +1326,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 ) : (
                   <div className="text-center py-10 text-white/40 text-xs">
                     <Globe className="w-6 h-6 mx-auto mb-2 text-white/20" />
-                    <span>No public communities or squads joined yet.</span>
+                    <span>No public communities joined yet.</span>
                   </div>
                 )}
               </div>
@@ -1216,6 +1474,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               </div>
             )}
           </div>
+          )}
         </div>
       </div>
 

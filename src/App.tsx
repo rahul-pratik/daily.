@@ -46,7 +46,6 @@ import { NotificationsModal } from './components/NotificationsModal';
 import { CreateCollectionModal } from './components/CreateCollectionModal';
 import { AddToCollectionModal } from './components/AddToCollectionModal';
 import { GlobalSearchModal, SearchWish } from './components/GlobalSearchModal';
-import { StreakFreezeAlertModal } from './components/StreakFreezeAlertModal';
 import { FeedSortDropdown } from './components/FeedSortDropdown';
 import { vibratePostSubmit, vibrateLight, vibrateStreakMilestone } from './services/haptics';
 
@@ -175,8 +174,6 @@ export default function App() {
     isNewStreakDay: false,
   });
 
-  // Streak freeze used notification alert modal state
-  const [isStreakFreezeAlertOpen, setIsStreakFreezeAlertOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -185,20 +182,12 @@ export default function App() {
   };
 
   useEffect(() => {
-    const handleFreezeUsed = () => {
-      setCurrentUser(DailyStorageService.getCurrentUser());
-      setNotifications(DailyStorageService.getAllNotifications());
-      setIsStreakFreezeAlertOpen(true);
-    };
-
     const handleNotificationsUpdated = () => {
       setNotifications(DailyStorageService.getAllNotifications());
     };
 
-    window.addEventListener('daily:streak-freeze-used', handleFreezeUsed);
     window.addEventListener('daily:notification-added', handleNotificationsUpdated);
     return () => {
-      window.removeEventListener('daily:streak-freeze-used', handleFreezeUsed);
       window.removeEventListener('daily:notification-added', handleNotificationsUpdated);
     };
   }, []);
@@ -242,6 +231,21 @@ export default function App() {
     const { currentUser: updatedMe, updatedUsers } = DailyStorageService.toggleFollowUser(userId);
     setCurrentUser(updatedMe);
     setUsers(updatedUsers);
+  };
+
+  // Toggle Block on User
+  const handleToggleBlock = (userId: string) => {
+    const { updatedUser, isBlocked } = DailyStorageService.toggleBlockUser(userId);
+    setCurrentUser(updatedUser);
+    setUsers(DailyStorageService.getAllUsers());
+    showToast(isBlocked ? 'User blocked — posts hidden from HomeFeed' : 'User unblocked');
+  };
+
+  // Toggle Mute on User
+  const handleToggleMute = (userId: string) => {
+    const { updatedUser, isMuted } = DailyStorageService.toggleMuteUser(userId);
+    setCurrentUser(updatedUser);
+    showToast(isMuted ? 'User muted — posts hidden from HomeFeed' : 'User unmuted');
   };
 
   // Create Post Handler with Streak and Confetti Animation
@@ -600,7 +604,7 @@ export default function App() {
       const comm = universalShareItem.community;
       handleSendMessage({
         receiverId: userId,
-        text: note?.trim() || `Check out the ${comm.name} squad on Daily!`,
+        text: note?.trim() || `Check out the ${comm.name} community on Daily!`,
         communityShare: {
           communityId: comm.id,
           communityName: comm.name,
@@ -632,6 +636,12 @@ export default function App() {
         receiverId: userId,
         text: note?.trim() || `Check out this proof by ${post.name} on Daily!`,
         imageUrl: post.imageUrl,
+      });
+    } else if (universalShareItem.type === 'user' && universalShareItem.user) {
+      const u = universalShareItem.user;
+      handleSendMessage({
+        receiverId: userId,
+        text: note?.trim() || `Check out @${u.username}'s profile on Daily!`,
       });
     }
   };
@@ -642,7 +652,7 @@ export default function App() {
       const comm = universalShareItem.community;
       handleSendMessage({
         groupId,
-        text: note?.trim() || `Check out the ${comm.name} squad on Daily!`,
+        text: note?.trim() || `Check out the ${comm.name} community on Daily!`,
         communityShare: {
           communityId: comm.id,
           communityName: comm.name,
@@ -674,6 +684,12 @@ export default function App() {
         groupId,
         text: note?.trim() || `Check out this proof by ${post.name} on Daily!`,
         imageUrl: post.imageUrl,
+      });
+    } else if (universalShareItem.type === 'user' && universalShareItem.user) {
+      const u = universalShareItem.user;
+      handleSendMessage({
+        groupId,
+        text: note?.trim() || `Check out @${u.username}'s profile on Daily!`,
       });
     }
   };
@@ -1106,7 +1122,6 @@ export default function App() {
           onMarkAsRead={handleMarkNotificationAsRead}
           onMarkAllAsRead={handleMarkAllNotificationsAsRead}
           onClearAll={handleClearAllNotifications}
-          onOpenStreakFreezeAlert={() => setIsStreakFreezeAlertOpen(true)}
           onOpenChallenge={handleOpenChallenge}
         />
 
@@ -1236,6 +1251,10 @@ export default function App() {
             posts={posts}
             onClose={() => setActiveProfileUser(null)}
             onToggleFollow={handleToggleFollow}
+            onToggleBlock={handleToggleBlock}
+            onToggleMute={handleToggleMute}
+            isBlocked={activeProfileUser ? (currentUser.blockedUserIds?.includes(activeProfileUser.id) || DailyStorageService.isUserBlocked(activeProfileUser.id)) : false}
+            isMuted={activeProfileUser ? (currentUser.mutedUserIds?.includes(activeProfileUser.id) || DailyStorageService.isUserMuted(activeProfileUser.id)) : false}
             onSendDM={handleStartDMWithUser}
             onToggleLike={handleToggleLike}
             onOpenComments={(post) => setCommentsPost(post)}
@@ -1254,6 +1273,12 @@ export default function App() {
               setUniversalShareItem({
                 type: 'community',
                 community,
+              });
+            }}
+            onShareUser={(targetUser) => {
+              setUniversalShareItem({
+                type: 'user',
+                user: targetUser,
               });
             }}
           />
@@ -1377,21 +1402,6 @@ export default function App() {
           }}
         />
 
-        {/* Global Streak Freeze Used Notification Alert Modal */}
-        <StreakFreezeAlertModal
-          isOpen={isStreakFreezeAlertOpen}
-          onClose={() => setIsStreakFreezeAlertOpen(false)}
-          currentUser={currentUser}
-          streakCount={currentUser.currentStreak}
-          onOpenNotifications={() => {
-            setIsStreakFreezeAlertOpen(false);
-            setIsNotificationsOpen(true);
-          }}
-          onOpenChallenges={() => {
-            setIsStreakFreezeAlertOpen(false);
-            setCurrentTab('streak');
-          }}
-        />
         {/* Global Toast Notification */}
         {toastMessage && (
           <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl bg-black/90 border border-white/20 text-white text-xs font-semibold shadow-2xl backdrop-blur-md max-w-sm text-center animate-in fade-in slide-in-from-bottom-3 duration-200">

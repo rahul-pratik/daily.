@@ -7,7 +7,6 @@ import {
   Users,
   Search,
   Send,
-  Flame,
   Globe,
   Trophy,
   User as UserIcon,
@@ -68,7 +67,7 @@ export const UniversalShareModal: React.FC<UniversalShareModalProps> = ({
   let shareText = '';
 
   if (item.type === 'community' && item.community) {
-    title = `Share Squad: ${item.community.name}`;
+    title = `Share Community: ${item.community.name}`;
     shareUrl = `${window.location.origin}/#community/${item.community.id}`;
     shareText = `Check out the "${item.community.name}" community on Daily! ${item.community.description || ''}`;
   } else if (item.type === 'challenge' && item.challenge) {
@@ -78,7 +77,7 @@ export const UniversalShareModal: React.FC<UniversalShareModalProps> = ({
   } else if (item.type === 'user' && item.user) {
     title = `Share @${item.user.username}'s Profile`;
     shareUrl = `${window.location.origin}/#profile/${item.user.username}`;
-    shareText = `Check out @${item.user.username} on Daily! Current streak: ${item.user.currentStreak} days 🔥`;
+    shareText = `Check out @${item.user.username} on Daily!`;
   } else if (item.type === 'post' && item.post) {
     title = `Share Proof by @${item.post.username}`;
     shareUrl = `${window.location.origin}/#post/${item.post.id}`;
@@ -187,7 +186,7 @@ export const UniversalShareModal: React.FC<UniversalShareModalProps> = ({
               </div>
               <div className="min-w-0 flex-1">
                 <span className="text-[10px] font-bold text-[#5B8DEF] uppercase tracking-wider block">
-                  Squad & Community
+                  Community
                 </span>
                 <h4 className="text-xs font-black text-white truncate">{item.community.name}</h4>
                 <p className="text-[11px] text-white/60 line-clamp-1 mt-0.5">
@@ -230,15 +229,13 @@ export const UniversalShareModal: React.FC<UniversalShareModalProps> = ({
                   <h4 className="text-xs font-black text-white truncate">{item.user.name}</h4>
                   <span className="text-[10px] text-[#5B8DEF] font-mono">@{item.user.username}</span>
                 </div>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded">
-                    <Flame className="w-3 h-3 fill-amber-400" />
-                    {item.user.currentStreak} day streak
-                  </span>
-                  <span className="text-[10px] text-white/40 truncate">
-                    {item.user.interests?.[0] ? `#${item.user.interests[0]}` : ''}
-                  </span>
-                </div>
+                {item.user.interests?.[0] && (
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-[10px] text-white/40 truncate">
+                      #{item.user.interests[0]}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           )}

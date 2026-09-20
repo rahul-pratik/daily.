@@ -114,6 +114,7 @@ export const INITIAL_CURRENT_USER: User = {
   followingCount: 38,
   followedUserIds: ['user_sarah', 'user_elena', 'user_marcus'],
   blockedUserIds: [],
+  mutedUserIds: [],
   lastPostedDate: getPastDate(0),
   joinedDate: '2026-06-15',
   proofCollections: [
@@ -149,8 +150,6 @@ export const INITIAL_CURRENT_USER: User = {
     },
   ],
   isCurrentUser: true,
-  streakFreezes: 1,
-  streakFreezeActive: true,
 };
 
 export const INITIAL_PERSONAL_HABITS: PersonalHabit[] = [

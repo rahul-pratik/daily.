@@ -5,7 +5,6 @@ import {
   Users,
   Hash,
   Globe,
-  Flame,
   ArrowRight,
   TrendingUp,
   Sparkles,
@@ -174,12 +173,12 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
     if (!cleanQuery) return true;
     const lower = cleanQuery;
     const tagMatch = rawTagQuery;
+    const challengeTags = [ch.tag].filter(Boolean) as string[];
     const matchTitle = ch.title.toLowerCase().includes(lower) || (tagMatch && ch.title.toLowerCase().includes(tagMatch));
     const matchDesc = ch.description?.toLowerCase().includes(lower) || (tagMatch && ch.description?.toLowerCase().includes(tagMatch));
     const matchCategory = ch.category?.toLowerCase().includes(lower);
-    const matchTags = Boolean(
-      ch.tag?.toLowerCase().includes(lower) ||
-      (tagMatch && ch.tag?.toLowerCase().includes(tagMatch))
+    const matchTags = challengeTags.some(
+      (t) => t.toLowerCase().includes(lower) || (tagMatch && t.toLowerCase().includes(tagMatch))
     );
     return matchTitle || matchDesc || matchCategory || matchTags;
   });
@@ -242,7 +241,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
     const matchingChallenges = allChallenges.filter(
       (ch) =>
         ch.title.toLowerCase().includes(rawTagQuery) ||
-        ch.tag?.toLowerCase().includes(rawTagQuery) ||
+        [ch.tag].filter(Boolean).some((t) => t.toLowerCase().includes(rawTagQuery)) ||
         ch.description?.toLowerCase().includes(rawTagQuery) ||
         ch.category?.toLowerCase().includes(rawTagQuery)
     );
@@ -495,9 +494,6 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                                 referrerPolicy="no-referrer"
                                 className="w-11 h-11 rounded-full object-cover border border-white/15 group-hover:border-[#2F6FED]/50 transition-colors"
                               />
-                              <div className="absolute -bottom-1 -right-1 bg-[#2F6FED] text-white rounded-full p-0.5 border border-[#0C1017]">
-                                <Flame className="w-2.5 h-2.5 fill-white" />
-                              </div>
                             </div>
 
                             <div className="min-w-0 flex-1">
@@ -507,17 +503,13 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                                 </h4>
                               </div>
                               <p className="text-[11px] text-white/40 truncate">@{creator.username}</p>
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="text-[10px] font-bold text-[#2F6FED] flex items-center gap-0.5">
-                                  <Flame className="w-2.5 h-2.5 fill-[#2F6FED]" />
-                                  {creator.currentStreak}d streak
-                                </span>
-                                {creator.interests && creator.interests[0] && (
-                                  <span className="text-[9px] text-white/40 bg-white/5 px-1.5 py-0.2 rounded border border-white/5 truncate max-w-[90px]">
+                              {creator.interests && creator.interests[0] && (
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <span className="text-[9px] text-white/40 bg-white/5 px-1.5 py-0.2 rounded border border-white/5 truncate max-w-[120px]">
                                     {creator.interests[0]}
                                   </span>
-                                )}
-                              </div>
+                                </div>
+                              )}
                             </div>
                           </div>
 
@@ -590,10 +582,6 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                               <p className="text-[10px] text-white/40 truncate">@{post.username}</p>
                             </div>
                           </div>
-                          <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0">
-                            <Flame className="w-2.5 h-2.5 fill-emerald-400" />
-                            {post.userStreak}d
-                          </span>
                         </div>
 
                         <p className="text-xs text-white/80 line-clamp-2 leading-relaxed font-normal">
@@ -942,10 +930,6 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                               {user.bio && (
                                 <p className="text-[10px] text-white/70 truncate mt-0.5">{user.bio}</p>
                               )}
-                              <div className="flex items-center gap-1 mt-1 text-[10px] text-[#2F6FED] font-bold">
-                                <Flame className="w-2.5 h-2.5 fill-[#2F6FED]" />
-                                <span>{user.currentStreak}d streak</span>
-                              </div>
                             </div>
                           </div>
 
@@ -1022,10 +1006,6 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                               <span className="text-xs font-bold text-white truncate">{post.name}</span>
                               <span className="text-[10px] text-white/40 truncate">@{post.username}</span>
                             </div>
-                            <span className="text-[10px] text-[#2F6FED] font-bold shrink-0 flex items-center gap-0.5">
-                              <Flame className="w-2.5 h-2.5 fill-[#2F6FED]" />
-                              {post.userStreak}d streak
-                            </span>
                           </div>
 
                           <p className="text-xs text-white/80 line-clamp-2 leading-relaxed">
@@ -1179,7 +1159,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                           </p>
                           {ch.tag && (
                             <div className="flex flex-wrap gap-1 mt-1">
-                              {[ch.tag].map((t) => (
+                              {[ch.tag].slice(0, 3).map((t) => (
                                 <span
                                   key={t}
                                   className="text-[8px] font-bold px-1 py-0.2 rounded bg-white/5 text-amber-300/80 border border-white/5"
