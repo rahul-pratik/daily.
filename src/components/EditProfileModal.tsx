@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { X, Flame, Check, Upload, Save, Trophy, AtSign, Plus } from 'lucide-react';
-import { User, AVAILABLE_INTERESTS, Challenge } from '../types';
+import { X, Flame, Check, Upload, Save, Trophy, AtSign, Plus, RotateCcw } from 'lucide-react';
+import { User, AVAILABLE_INTERESTS, Challenge, DEFAULT_USER_AVATAR } from '../types';
 import { vibrateLight } from '../services/haptics';
 import { DailyStorageService } from '../services/storage';
 
@@ -10,15 +10,6 @@ interface EditProfileModalProps {
   currentUser: User;
   onSave: (updated: Partial<User>) => void;
 }
-
-const PRESET_AVATARS = [
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=400&auto=format&fit=crop&q=80',
-];
 
 export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   isOpen,
@@ -166,33 +157,35 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
         <form onSubmit={handleSave} className="flex-1 overflow-y-auto py-3 space-y-4 pr-1 no-scrollbar">
           {/* Avatar */}
           <div className="flex flex-col items-center py-1">
-            <div className="relative">
+            <div className="relative group">
               <img
                 src={avatar}
                 alt="Profile Avatar"
                 referrerPolicy="no-referrer"
-                className="w-16 h-16 rounded-full object-cover border-2 border-[#2F6FED] shadow-md"
+                className="w-18 h-18 rounded-full object-cover border-2 border-[#2F6FED] shadow-md ring-2 ring-[#2F6FED]/20"
               />
-              <label className="absolute bottom-0 right-0 p-1 bg-black border border-white/20 hover:border-[#2F6FED] rounded-full text-white cursor-pointer shadow-md">
-                <Upload className="w-3 h-3" />
+              <label className="absolute bottom-0 right-0 p-1.5 bg-[#2F6FED] hover:bg-blue-600 border border-black rounded-full text-white cursor-pointer shadow-md transition-all hover:scale-105 active:scale-95">
+                <Upload className="w-3.5 h-3.5" />
                 <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
               </label>
             </div>
 
-            {/* Presets */}
-            <div className="flex items-center gap-1.5 mt-2">
-              {PRESET_AVATARS.map((p, idx) => (
+            <div className="flex items-center gap-2 mt-2.5">
+              <label className="text-[11px] font-bold px-3 py-1 rounded-full bg-white/10 hover:bg-white/15 text-white cursor-pointer transition-colors flex items-center gap-1.5">
+                <Upload className="w-3 h-3 text-[#2F6FED]" />
+                Upload New Photo
+                <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+              </label>
+
+              {avatar !== DEFAULT_USER_AVATAR && (
                 <button
-                  key={idx}
                   type="button"
-                  onClick={() => setAvatar(p)}
-                  className={`w-6 h-6 rounded-full overflow-hidden border transition-all ${
-                    avatar === p ? 'border-[#2F6FED] scale-110' : 'border-white/10 opacity-60'
-                  }`}
+                  onClick={() => setAvatar(DEFAULT_USER_AVATAR)}
+                  className="text-[11px] font-medium px-2.5 py-1 rounded-full text-white/50 hover:text-white/80 hover:bg-white/5 transition-colors"
                 >
-                  <img src={p} alt="preset" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+                  Reset to Default
                 </button>
-              ))}
+              )}
             </div>
           </div>
 

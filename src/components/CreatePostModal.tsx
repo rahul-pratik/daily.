@@ -753,11 +753,11 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     <>
       <div
         id="create-proof-modal"
-        className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200"
+        className="fixed inset-0 z-50 flex flex-col sm:items-center sm:justify-center sm:p-4 bg-[#050505] sm:bg-black/85 backdrop-blur-md overflow-hidden animate-in fade-in duration-200"
         onClick={handleSafeClose}
       >
         <div
-          className="w-full max-w-lg bg-[#0D0D0D] border border-white/15 rounded-[32px] p-5 sm:p-6 shadow-2xl relative text-white my-auto max-h-[92vh] flex flex-col animate-in zoom-in-95 duration-200"
+          className="w-full sm:max-w-lg h-full sm:h-auto sm:max-h-[92vh] bg-[#0A0A0A] sm:border sm:border-white/15 rounded-none sm:rounded-[28px] p-4 sm:p-6 shadow-2xl relative text-white flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}

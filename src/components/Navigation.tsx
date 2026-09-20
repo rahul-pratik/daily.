@@ -20,7 +20,6 @@ export const TopHeader: React.FC<{
   unreadNotificationsCount?: number;
   onOpenSearch?: () => void;
   isHomeScreen?: boolean;
-  sortButtonSlot?: React.ReactNode;
 }> = ({
   currentUser,
   onOpenDMs,
@@ -30,7 +29,6 @@ export const TopHeader: React.FC<{
   unreadNotificationsCount = 0,
   onOpenSearch = () => {},
   isHomeScreen = false,
-  sortButtonSlot,
 }) => {
   return (
     <header className="sticky top-0 z-30 w-full bg-[#050505]/95 backdrop-blur-md border-b border-white/5 px-3 sm:px-4 py-2.5 flex items-center justify-between">
@@ -49,11 +47,8 @@ export const TopHeader: React.FC<{
         </p>
       </button>
 
-      {/* Right controls: on home screen -> sort by , search button , notifications , dms */}
+      {/* Right controls: search button, notifications, dms */}
       <div className="flex items-center gap-1.5 sm:gap-2">
-        {/* Sort By Option - In Home Screen Only */}
-        {isHomeScreen && sortButtonSlot}
-
         {/* Global Search Button */}
         <button
           onClick={onOpenSearch}

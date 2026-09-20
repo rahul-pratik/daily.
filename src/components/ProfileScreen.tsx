@@ -33,8 +33,9 @@ import {
   MessageSquare,
   MessageCircle,
   Heart,
+  Camera,
 } from 'lucide-react';
-import { User, Post, ProofCollection, PostDraft } from '../types';
+import { User, Post, ProofCollection, PostDraft, DEFAULT_USER_AVATAR } from '../types';
 import { PostCard } from './PostCard';
 import { EmptyStateIllustration } from './EmptyStateIllustration';
 import { PersonProfileDossierScreen } from './PersonProfileDossierScreen';
@@ -349,6 +350,24 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       ? standardDrafts
       : drafts;
 
+  const handleDirectAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      vibrateLight();
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          const updated = { ...currentUser, avatar: reader.result as string };
+          DailyStorageService.saveCurrentUser(updated);
+          if (onUserUpdated) {
+            onUserUpdated(updated);
+          }
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   return (
     <div className="w-full pb-24 pt-2 px-3 sm:px-4 max-w-lg mx-auto space-y-4">
       {/* Profile Header Card */}
@@ -406,7 +425,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
         {/* User Info Row */}
         <div className="flex items-start gap-4">
-          <div className="relative">
+          <div className="relative group">
             <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-full overflow-hidden border border-white/10 shadow-lg shrink-0">
               <img
                 src={currentUser.avatar}
@@ -415,6 +434,21 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 className="w-full h-full object-cover"
               />
             </div>
+            {/* Direct PFP Edit Button */}
+            <label
+              htmlFor="profile-screen-pfp-upload"
+              className="absolute -bottom-1 -right-1 p-1.5 bg-[#2F6FED] hover:bg-blue-600 border-2 border-[#090A0F] rounded-full text-white cursor-pointer shadow-md transition-all hover:scale-110 active:scale-95 flex items-center justify-center"
+              title="Change Profile Picture"
+            >
+              <Camera className="w-3.5 h-3.5" />
+              <input
+                id="profile-screen-pfp-upload"
+                type="file"
+                accept="image/*"
+                onChange={handleDirectAvatarUpload}
+                className="hidden"
+              />
+            </label>
           </div>
 
           <div className="flex-1">

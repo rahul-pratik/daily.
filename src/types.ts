@@ -31,6 +31,8 @@ export interface User {
   mutedUserIds?: string[];
   proofCollections?: ProofCollection[];
   isCurrentUser?: boolean;
+  email?: string;
+  authProvider?: 'google' | 'apple' | 'email';
 }
 
 export interface PersonalHabit {
@@ -558,3 +560,7 @@ export interface AppNotification {
   timestamp?: number;
   isRead: boolean;
 }
+
+export const DEFAULT_USER_AVATAR =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none'%3E%3Crect width='100' height='100' fill='%2318181b'/%3E%3Ccircle cx='50' cy='38' r='18' fill='%2352525b'/%3E%3Cpath d='M22 84c0-15.464 12.536-28 28-28s28 12.536 28 28' fill='%2352525b'/%3E%3C/svg%3E";
+

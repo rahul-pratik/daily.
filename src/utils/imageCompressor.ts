@@ -22,8 +22,8 @@ export interface SquareCropOptions {
 export const cropAndCompressImage = async (
   source: File | string,
   aspectRatio: AspectRatioType = 'square',
-  maxWidth = 1000,
-  quality = 0.80,
+  maxWidth = 1400,
+  quality = 0.88,
   options?: SquareCropOptions
 ): Promise<string> => {
   return new Promise<string>((resolve) => {

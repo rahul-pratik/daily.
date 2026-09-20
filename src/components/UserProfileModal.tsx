@@ -321,119 +321,165 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     }
   };
 
+  const handleShareProfile = () => {
+    if (!user) return;
+
+    vibrateLight();
+    if (onShareUser) {
+      onShareUser(user);
+    } else {
+      const url = `${window.location.origin}/#@${user.username}`;
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(url).then(() => {
+          setCopiedLink(true);
+          setTimeout(() => setCopiedLink(false), 2000);
+        });
+      }
+    }
+  };
+
   if (!isOpen || !user) return null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
-      onClick={onClose}
+      id="user-profile-screen"
+      className="fixed inset-0 z-40 bg-[#050505] text-white flex justify-center overflow-y-auto"
     >
-      <div
-        className="w-full max-w-lg bg-[#0c0c10] border-t sm:border border-white/10 rounded-t-[28px] sm:rounded-[32px] max-h-[92dvh] sm:max-h-[85vh] flex flex-col shadow-2xl overflow-hidden text-white my-0 sm:my-6 overscroll-contain"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header Bar: @username & Close */}
-        <div className="px-4 sm:px-5 py-3.5 border-b border-white/10 flex items-center justify-between bg-[#0c0c10] sticky top-0 z-10 shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-xs font-bold text-white/70">@{user.username}</span>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            {!isMe && (
-              <div className="relative">
-                <button
-                  type="button"
-                  id="profile-more-options-btn"
-                  onClick={() => setShowMoreOptions((prev) => !prev)}
-                  className="p-2 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                  title="More profile options"
-                  aria-label="More options"
-                >
-                  <MoreVertical className="w-5 h-5" />
-                </button>
-
-                {showMoreOptions && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-20"
-                      onClick={() => setShowMoreOptions(false)}
-                    />
-                    <div
-                      className="absolute right-0 top-full mt-1.5 w-60 bg-[#161822] border border-white/15 rounded-2xl p-1.5 shadow-2xl z-30 animate-in fade-in zoom-in-95 duration-150"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {/* Mute / Unmute Option */}
-                      <button
-                        type="button"
-                        id="profile-mute-option-btn"
-                        onClick={() => {
-                          setShowMoreOptions(false);
-                          handleMuteToggle();
-                        }}
-                        className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold text-white hover:bg-white/10 flex items-center gap-2.5 transition-colors cursor-pointer"
-                      >
-                        {isMuted ? (
-                          <>
-                            <Volume2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                            <div className="min-w-0 flex-1">
-                              <span className="block font-bold text-emerald-400">Unmute @{user.username}</span>
-                              <span className="text-[10px] text-white/50 block font-normal truncate">
-                                Show posts in HomeFeed again
-                              </span>
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <VolumeX className="w-4 h-4 text-amber-400 shrink-0" />
-                            <div className="min-w-0 flex-1">
-                              <span className="block font-bold text-amber-300">Mute @{user.username}</span>
-                              <span className="text-[10px] text-white/50 block font-normal truncate">
-                                Hide posts from HomeFeed
-                              </span>
-                            </div>
-                          </>
-                        )}
-                      </button>
-
-                      {/* Block / Unblock Option */}
-                      <button
-                        type="button"
-                        id="profile-block-option-btn"
-                        onClick={() => {
-                          setShowMoreOptions(false);
-                          handleBlockToggle();
-                        }}
-                        className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold text-red-400 hover:bg-red-500/10 flex items-center gap-2.5 transition-colors cursor-pointer mt-0.5"
-                      >
-                        <Ban className="w-4 h-4 text-red-400 shrink-0" />
-                        <div className="min-w-0 flex-1">
-                          <span className="block font-bold">
-                            {isBlocked ? `Unblock @${user.username}` : `Block @${user.username}`}
-                          </span>
-                          <span className="text-[10px] text-white/50 block font-normal truncate">
-                            {isBlocked ? 'Allow interactions and posts' : 'Hide posts and block interactions'}
-                          </span>
-                        </div>
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-2 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-              aria-label="Close modal"
-            >
-              <X className="w-5 h-5" />
-            </button>
+      <div className="w-full max-w-lg min-h-screen bg-[#050505] flex flex-col pb-28 relative">
+        {/* Top Sticky Header Bar: Back button, username & actions */}
+      <div className="px-3 sm:px-4 py-3 border-b border-white/10 flex items-center justify-between bg-[#050505]/95 backdrop-blur-md sticky top-0 z-20 shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 text-white text-xs font-bold transition-all cursor-pointer shrink-0"
+            aria-label="Go back"
+            title="Go back"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back</span>
+          </button>
+          <div className="min-w-0 pl-1">
+            <div className="flex items-center gap-1">
+              <span className="font-mono text-xs font-bold text-white truncate">@{user.username}</span>
+              <CheckCircle2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+            </div>
+            <span className="text-[10px] text-white/50 block truncate">{user.name}</span>
           </div>
         </div>
 
-        {/* Scrollable Profile Content */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Share Profile Button */}
+          <button
+            type="button"
+            onClick={handleShareProfile}
+            className="p-2 rounded-full text-white/70 hover:text-white bg-white/5 hover:bg-white/10 transition-colors cursor-pointer relative"
+            title="Share profile link"
+            aria-label="Share profile"
+          >
+            {copiedLink ? (
+              <Check className="w-4 h-4 text-emerald-400" />
+            ) : (
+              <Share2 className="w-4 h-4" />
+            )}
+          </button>
+
+          {!isMe && (
+            <div className="relative">
+              <button
+                type="button"
+                id="profile-more-options-btn"
+                onClick={() => setShowMoreOptions((prev) => !prev)}
+                className="p-2 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                title="More profile options"
+                aria-label="More options"
+              >
+                <MoreVertical className="w-5 h-5" />
+              </button>
+
+              {showMoreOptions && (
+                <>
+                  <div
+                    className="fixed inset-0 z-20"
+                    onClick={() => setShowMoreOptions(false)}
+                  />
+                  <div
+                    className="absolute right-0 top-full mt-1.5 w-60 bg-[#161822] border border-white/15 rounded-2xl p-1.5 shadow-2xl z-30 animate-in fade-in zoom-in-95 duration-150"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Mute / Unmute Option */}
+                    <button
+                      type="button"
+                      id="profile-mute-option-btn"
+                      onClick={() => {
+                        setShowMoreOptions(false);
+                        handleMuteToggle();
+                      }}
+                      className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold text-white hover:bg-white/10 flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      {isMuted ? (
+                        <>
+                          <Volume2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <span className="block font-bold text-emerald-400">Unmute @{user.username}</span>
+                            <span className="text-[10px] text-white/50 block font-normal truncate">
+                              Show posts in HomeFeed again
+                            </span>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <VolumeX className="w-4 h-4 text-amber-400 shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <span className="block font-bold text-amber-300">Mute @{user.username}</span>
+                            <span className="text-[10px] text-white/50 block font-normal truncate">
+                              Hide posts from HomeFeed
+                            </span>
+                          </div>
+                        </>
+                      )}
+                    </button>
+
+                    {/* Block / Unblock Option */}
+                    <button
+                      type="button"
+                      id="profile-block-option-btn"
+                      onClick={() => {
+                        setShowMoreOptions(false);
+                        handleBlockToggle();
+                      }}
+                      className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold text-red-400 hover:bg-red-500/10 flex items-center gap-2.5 transition-colors cursor-pointer mt-0.5"
+                    >
+                      <Ban className="w-4 h-4 text-red-400 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <span className="block font-bold">
+                          {isBlocked ? `Unblock @${user.username}` : `Block @${user.username}`}
+                        </span>
+                        <span className="text-[10px] text-white/50 block font-normal truncate">
+                          {isBlocked ? 'Allow interactions and posts' : 'Hide posts and block interactions'}
+                        </span>
+                      </div>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            aria-label="Close"
+            title="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Profile Content Body */}
+      <div className="flex-1 p-4 sm:p-5 space-y-4">
           {/* PFP and Identity Section */}
           <div className="flex items-start gap-3 sm:gap-4">
             {/* PFP Avatar */}
@@ -1497,3 +1543,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     </div>
   );
 };
+
+export const UserProfileScreen = UserProfileModal;
+

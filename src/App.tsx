@@ -943,12 +943,6 @@ export default function App() {
               setIsSearchOpen(true);
             }}
             isHomeScreen={currentTab === 'home'}
-            sortButtonSlot={
-              <FeedSortDropdown
-                selectedSortFilters={feedSortFilters}
-                onSelectSortFilters={setFeedSortFilters}
-              />
-            }
           />
         )}
 

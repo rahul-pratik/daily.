@@ -23,6 +23,7 @@ import { Post, User, Challenge } from '../types';
 import { PostCard } from './PostCard';
 import { PullToRefresh } from './PullToRefresh';
 import { EmptyStateIllustration } from './EmptyStateIllustration';
+import { FeedSortDropdown } from './FeedSortDropdown';
 import { handleHorizontalWheelScroll } from '../utils/scroll';
 import { vibrateLight } from '../services/haptics';
 import { DailyStorageService } from '../services/storage';
@@ -633,6 +634,106 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
       completedText="Feed updated • Just now"
     >
       <div className="w-full pb-24 pt-2 px-3 sm:px-4 max-w-lg mx-auto space-y-3">
+        {/* Feed Sort Option (Positioned below search, notification, and DM bar, and above all tags) */}
+        <div className="flex items-center justify-between gap-2 pt-0.5 pb-0.5">
+          <FeedSortDropdown
+            selectedSortFilters={selectedSortFilters}
+            onSelectSortFilters={setSelectedSortFilters}
+          />
+        </div>
+
+        {/* Tag filter pills (Horizontally Scrollable) */}
+        <div className="space-y-1.5">
+          <div
+            onWheel={handleHorizontalWheelScroll}
+            className="w-full flex items-center gap-1.5 overflow-x-auto whitespace-nowrap flex-nowrap pb-1 no-scrollbar touch-pan-x overscroll-x-contain py-1"
+          >
+            <button
+              onClick={() => {
+                vibrateLight();
+                setActiveTag(null);
+              }}
+              className={`shrink-0 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all border cursor-pointer ${
+                activeTag === null
+                  ? 'bg-white text-black border-white font-black'
+                  : 'bg-white/5 text-white/60 border-white/10 hover:text-white hover:border-white/20'
+              }`}
+            >
+              All Tags
+            </button>
+
+            {/* Make Custom Hashtag Button */}
+            <button
+              type="button"
+              onClick={() => {
+                vibrateLight();
+                setIsCreatingTag(!isCreatingTag);
+              }}
+              className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all border cursor-pointer flex items-center gap-1 ${
+                isCreatingTag
+                  ? 'bg-[#2F6FED] text-white border-[#2F6FED]'
+                  : 'bg-white/5 text-[#5B8DEF] border-[#2F6FED]/30 hover:bg-[#2F6FED]/10'
+              }`}
+              title="Create your own hashtag"
+            >
+              <Plus className="w-3 h-3 stroke-[3]" />
+              <span>Make Tag</span>
+            </button>
+
+            {availableTags.map((tag) => (
+              <button
+                key={tag}
+                onClick={() => {
+                  vibrateLight();
+                  setActiveTag(activeTag === tag ? null : tag);
+                }}
+                className={`shrink-0 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all border cursor-pointer ${
+                  activeTag === tag
+                    ? 'bg-[#2F6FED] text-white border-[#2F6FED] font-black shadow-sm'
+                    : 'bg-white/5 text-white/60 border-white/10 hover:text-white hover:border-white/20'
+                }`}
+              >
+                #{tag}
+              </button>
+            ))}
+          </div>
+
+          {/* Inline Custom Hashtag Creator */}
+          {isCreatingTag && (
+            <form
+              onSubmit={handleCreateCustomTag}
+              className="flex items-center gap-2 p-2 bg-white/5 border border-white/10 rounded-xl animate-in fade-in"
+            >
+              <span className="text-xs font-mono font-bold text-[#5B8DEF] pl-1">#</span>
+              <input
+                type="text"
+                value={newTagInput}
+                onChange={(e) => setNewTagInput(e.target.value)}
+                placeholder="type-new-hashtag (e.g. morningrun, indiehacker)..."
+                autoFocus
+                className="flex-1 bg-transparent text-xs text-white placeholder-white/40 focus:outline-none font-mono"
+              />
+              <button
+                type="submit"
+                disabled={!newTagInput.trim()}
+                className="px-3 py-1 rounded-lg bg-[#2F6FED] text-white text-[11px] font-bold hover:bg-blue-600 disabled:opacity-40 transition-all cursor-pointer"
+              >
+                Add Tag
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCreatingTag(false);
+                  setNewTagInput('');
+                }}
+                className="p-1 text-white/40 hover:text-white"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </form>
+          )}
+        </div>
+
         {/* Active Filter Badges */}
         {!(
           selectedSortFilters.length === 2 &&
@@ -799,98 +900,6 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
             )}
           </div>
         )}
-
-        {/* Tag filter pills (Horizontally Scrollable) */}
-        <div className="space-y-1.5">
-          <div
-            onWheel={handleHorizontalWheelScroll}
-            className="w-full flex items-center gap-1.5 overflow-x-auto whitespace-nowrap flex-nowrap pb-1 no-scrollbar touch-pan-x overscroll-x-contain py-1"
-          >
-            <button
-              onClick={() => {
-                vibrateLight();
-                setActiveTag(null);
-              }}
-              className={`shrink-0 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all border cursor-pointer ${
-                activeTag === null
-                  ? 'bg-white text-black border-white font-black'
-                  : 'bg-white/5 text-white/60 border-white/10 hover:text-white hover:border-white/20'
-              }`}
-            >
-              All Tags
-            </button>
-
-            {/* Make Custom Hashtag Button */}
-            <button
-              type="button"
-              onClick={() => {
-                vibrateLight();
-                setIsCreatingTag(!isCreatingTag);
-              }}
-              className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all border cursor-pointer flex items-center gap-1 ${
-                isCreatingTag
-                  ? 'bg-[#2F6FED] text-white border-[#2F6FED]'
-                  : 'bg-white/5 text-[#5B8DEF] border-[#2F6FED]/30 hover:bg-[#2F6FED]/10'
-              }`}
-              title="Create your own hashtag"
-            >
-              <Plus className="w-3 h-3 stroke-[3]" />
-              <span>Make Tag</span>
-            </button>
-
-            {availableTags.map((tag) => (
-              <button
-                key={tag}
-                onClick={() => {
-                  vibrateLight();
-                  setActiveTag(activeTag === tag ? null : tag);
-                }}
-                className={`shrink-0 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all border cursor-pointer ${
-                  activeTag === tag
-                    ? 'bg-[#2F6FED] text-white border-[#2F6FED] font-black shadow-sm'
-                    : 'bg-white/5 text-white/60 border-white/10 hover:text-white hover:border-white/20'
-                }`}
-              >
-                #{tag}
-              </button>
-            ))}
-          </div>
-
-          {/* Inline Custom Hashtag Creator */}
-          {isCreatingTag && (
-            <form
-              onSubmit={handleCreateCustomTag}
-              className="flex items-center gap-2 p-2 bg-white/5 border border-white/10 rounded-xl animate-in fade-in"
-            >
-              <span className="text-xs font-mono font-bold text-[#5B8DEF] pl-1">#</span>
-              <input
-                type="text"
-                value={newTagInput}
-                onChange={(e) => setNewTagInput(e.target.value)}
-                placeholder="type-new-hashtag (e.g. morningrun, indiehacker)..."
-                autoFocus
-                className="flex-1 bg-transparent text-xs text-white placeholder-white/40 focus:outline-none font-mono"
-              />
-              <button
-                type="submit"
-                disabled={!newTagInput.trim()}
-                className="px-3 py-1 rounded-lg bg-[#2F6FED] text-white text-[11px] font-bold hover:bg-blue-600 disabled:opacity-40 transition-all cursor-pointer"
-              >
-                Add Tag
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsCreatingTag(false);
-                  setNewTagInput('');
-                }}
-                className="p-1 text-white/40 hover:text-white"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </form>
-          )}
-        </div>
 
         {/* Posts Stream / Empty State */}
         {filteredPosts.length > 0 ? (
