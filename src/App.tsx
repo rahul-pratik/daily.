@@ -275,7 +275,7 @@ export default function App() {
   // Sync Supabase Auth session if redirected via OAuth or active token
   useEffect(() => {
     if (!supabase) return;
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: { user?: { user_metadata?: Record<string, any>; email?: string } } | null) => {
       if (session?.user) {
         const meta = session.user.user_metadata || {};
         const userEmail = session.user.email || '';
