@@ -3,19 +3,24 @@ import { DailyStorageService } from './storage';
 import { User, DEFAULT_USER_AVATAR } from '../types';
 import { validatePasswordComplexity } from '../utils/passwordValidator';
 
-const ENV_SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const ENV_SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+// Injected Supabase Project Credentials
+export const INJECTED_SUPABASE_URL = 'https://beggptypgncpsvtyuyqh.supabase.co';
+export const INJECTED_SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJlZ2dwdHlwZ25jcHN2dHl1eXFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5OTM5MDYsImV4cCI6MjEwNTU2OTkwNn0.Qvj7tyKeSRZ9rqiekfvu8HzflxOQl6vlpABlY_S1OJ8';
+
+const ENV_SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim();
+const ENV_SUPABASE_ANON_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim();
 
 export const getSupabaseConfig = () => {
-  const localUrl = localStorage.getItem('daily_supabase_url');
-  const localKey = localStorage.getItem('daily_supabase_anon_key');
-  const url = ENV_SUPABASE_URL || localUrl || undefined;
-  const anonKey = ENV_SUPABASE_ANON_KEY || localKey || undefined;
+  const localUrl = localStorage.getItem('daily_supabase_url')?.trim();
+  const localKey = localStorage.getItem('daily_supabase_anon_key')?.trim();
+  const url = (localUrl || ENV_SUPABASE_URL || INJECTED_SUPABASE_URL)?.trim();
+  const anonKey = (localKey || ENV_SUPABASE_ANON_KEY || INJECTED_SUPABASE_ANON_KEY)?.trim();
   return {
     url,
     anonKey,
-    isConfigured: Boolean(url && anonKey && url.startsWith('http') && anonKey.length > 10),
-    source: ENV_SUPABASE_URL ? 'env' : localUrl ? 'local' : 'none',
+    isConfigured: Boolean(url && anonKey && url.startsWith('http') && anonKey.length > 20),
+    source: localUrl ? 'local' : ENV_SUPABASE_URL ? 'env' : 'injected',
   };
 };
 
@@ -56,9 +61,18 @@ export const supabase: SupabaseClient | null = new Proxy({} as any, {
           onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
           getSession: async () => ({ data: { session: null }, error: null }),
           getUser: async () => ({ data: { user: null }, error: null }),
-          signInWithPassword: async () => ({ data: { user: null, session: null }, error: new Error('Supabase is not configured.') }),
-          signUp: async () => ({ data: { user: null, session: null }, error: new Error('Supabase is not configured.') }),
-          signInWithOAuth: async () => ({ data: { provider: '', url: '' }, error: new Error('Supabase is not configured.') }),
+          signInWithPassword: async () => ({
+            data: { user: null, session: null },
+            error: new Error('Supabase is not configured.'),
+          }),
+          signUp: async () => ({
+            data: { user: null, session: null },
+            error: new Error('Supabase is not configured.'),
+          }),
+          signInWithOAuth: async () => ({
+            data: { provider: '', url: '' },
+            error: new Error('Supabase is not configured.'),
+          }),
           signOut: async () => ({ error: null }),
         };
       }
@@ -88,7 +102,7 @@ export const clearCustomSupabaseCredentials = () => {
 /**
  * Generate or ensure a valid UUID format for PostgreSQL compatibility
  */
-function ensureValidUuid(id?: string): string {
+export function ensureValidUuid(id?: string): string {
   if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
     return id;
   }
@@ -116,8 +130,8 @@ export const createDefaultUserObject = (
 ): User => ({
   id,
   email,
-  name,
-  username,
+  name: name.trim() || username,
+  username: username.trim().toLowerCase().replace(/^@/, ''),
   avatar: avatar || DEFAULT_USER_AVATAR,
   bio: bio || 'Showing the daily receipts & staying consistent 🔥',
   interests: ['Coding', 'AI & Tech'],
@@ -147,7 +161,7 @@ export async function syncUserToSupabase(user: User): Promise<{ success: boolean
   if (!client) {
     return {
       success: false,
-      error: 'Supabase credentials not configured in environment or settings.',
+      error: 'Supabase credentials not configured.',
     };
   }
 
@@ -252,11 +266,13 @@ export interface AuthResult {
   error?: string | null;
   provider?: 'google' | 'apple' | 'email';
   popupOpened?: boolean;
+  emailConfirmationRequired?: boolean;
 }
 
 /**
  * Sign up a new user with Email and Password via Supabase Auth
- * Strictly checks credentials, persists to Supabase Auth, and syncs to database tables.
+ * Strictly uses the genuine password entered by the user, calls Supabase Auth signUp,
+ * and handles email verification and database synchronization.
  */
 export async function supabaseSignUpWithEmail(
   email: string,
@@ -286,158 +302,110 @@ export async function supabaseSignUpWithEmail(
   }
 
   const client = getSupabaseClient();
+  if (!client) {
+    return {
+      success: false,
+      error: 'Supabase client is not initialized. Please verify your Supabase configuration.',
+    };
+  }
+
   const cleanName = metadata?.name?.trim() || cleanEmail.split('@')[0];
   const cleanUsername = (metadata?.username || cleanEmail.split('@')[0])
     .toLowerCase()
     .replace(/[^a-z0-9_]/g, '');
 
-  if (client) {
-    try {
-      let authUser: SupabaseUser | null = null;
-      let authSession: Session | null = null;
-
-      const { data, error } = await client.auth.signUp({
-        email: cleanEmail,
-        password,
-        options: {
-          data: {
-            full_name: cleanName,
-            name: cleanName,
-            username: cleanUsername,
-            avatar_url: metadata?.avatar || DEFAULT_USER_AVATAR,
-            bio: metadata?.bio || '',
-          },
+  try {
+    const redirectTo = window.location.origin;
+    const { data, error } = await client.auth.signUp({
+      email: cleanEmail,
+      password, // Genuine password entered by the user!
+      options: {
+        data: {
+          full_name: cleanName,
+          name: cleanName,
+          username: cleanUsername,
+          avatar_url: metadata?.avatar || DEFAULT_USER_AVATAR,
+          bio: metadata?.bio || '',
         },
-      });
+        emailRedirectTo: redirectTo,
+      },
+    });
 
-      if (error) {
-        // If account is already registered in Supabase Auth, attempt sign-in automatically
-        if (
-          error.message.toLowerCase().includes('already registered') ||
-          error.message.toLowerCase().includes('already exists')
-        ) {
-          const signInRes = await client.auth.signInWithPassword({
-            email: cleanEmail,
-            password,
-          });
-
-          if (signInRes.data?.user) {
-            authUser = signInRes.data.user;
-            authSession = signInRes.data.session;
-          } else {
-            return {
-              success: false,
-              error: 'This email is already registered, but the password provided was incorrect. Please check your password.',
-            };
-          }
-        } else {
-          return {
-            success: false,
-            error: error.message,
-          };
-        }
-      } else {
-        authUser = data.user;
-        authSession = data.session;
+    if (error) {
+      if (
+        error.message.toLowerCase().includes('already registered') ||
+        error.message.toLowerCase().includes('already exists')
+      ) {
+        return {
+          success: false,
+          error: 'This email is already registered. Please click "Sign In" to access your account.',
+        };
       }
-
-      const assignedUserId = authUser?.id || ensureValidUuid();
-
-      // Register credentials locally for rapid offline access
-      DailyStorageService.registerAccountCredentials({
-        email: cleanEmail,
-        password,
-        userId: assignedUserId,
-        name: cleanName,
-        username: cleanUsername,
-        avatar: metadata?.avatar || DEFAULT_USER_AVATAR,
-        bio: metadata?.bio,
-        authProvider: 'email',
-        createdAt: new Date().toISOString(),
-      });
-
-      // Construct complete User object and guarantee persistence to Supabase DB tables
-      const userObj: User = createDefaultUserObject(
-        assignedUserId,
-        cleanEmail,
-        cleanName,
-        cleanUsername,
-        metadata?.avatar || DEFAULT_USER_AVATAR,
-        metadata?.bio,
-        'email'
-      );
-
-      // Guaranteed database sync to profiles & users tables
-      await syncUserToSupabase(userObj);
-
-      return {
-        success: true,
-        user: authUser || ({
-          id: assignedUserId,
-          email: cleanEmail,
-          user_metadata: {
-            full_name: cleanName,
-            name: cleanName,
-            username: cleanUsername,
-            avatar_url: userObj.avatar,
-          },
-        } as any),
-        session: authSession,
-        provider: 'email',
-      };
-    } catch (err: any) {
       return {
         success: false,
-        error: err?.message || 'An unexpected error occurred during email registration.',
+        error: error.message,
       };
     }
-  }
 
-  // Register locally when Supabase environment is pending configuration
-  const newUserId = ensureValidUuid();
-  DailyStorageService.registerAccountCredentials({
-    email: cleanEmail,
-    password,
-    userId: newUserId,
-    name: cleanName,
-    username: cleanUsername,
-    avatar: metadata?.avatar,
-    bio: metadata?.bio,
-    authProvider: 'email',
-    createdAt: new Date().toISOString(),
-  });
+    // Check if email confirmation is required by Supabase
+    // When Supabase email confirmation is enabled, data.user is created but data.session is null
+    const confirmationRequired = Boolean(data.user && !data.session);
 
-  const localUser: User = createDefaultUserObject(
-    newUserId,
-    cleanEmail,
-    cleanName,
-    cleanUsername,
-    metadata?.avatar || DEFAULT_USER_AVATAR,
-    metadata?.bio,
-    'email'
-  );
-  DailyStorageService.savePreviousAccount(localUser);
+    if (confirmationRequired) {
+      return {
+        success: true,
+        emailConfirmationRequired: true,
+        user: data.user,
+        session: null,
+        provider: 'email',
+      };
+    }
 
-  return {
-    success: true,
-    user: {
-      id: newUserId,
+    // If auto-confirmed or session is returned immediately
+    const assignedUserId = data.user?.id || ensureValidUuid();
+    const userObj: User = createDefaultUserObject(
+      assignedUserId,
+      cleanEmail,
+      cleanName,
+      cleanUsername,
+      metadata?.avatar || DEFAULT_USER_AVATAR,
+      metadata?.bio,
+      'email'
+    );
+
+    // Guaranteed save to Supabase database (profiles & users tables)
+    await syncUserToSupabase(userObj);
+
+    // Save genuine credential locally
+    DailyStorageService.registerAccountCredentials({
       email: cleanEmail,
-      user_metadata: {
-        full_name: cleanName,
-        name: cleanName,
-        username: cleanUsername,
-        avatar_url: metadata?.avatar || '',
-        bio: metadata?.bio || '',
-      },
-    } as any,
-    provider: 'email',
-  };
+      password,
+      userId: assignedUserId,
+      name: cleanName,
+      username: cleanUsername,
+      avatar: metadata?.avatar || DEFAULT_USER_AVATAR,
+      bio: metadata?.bio,
+      authProvider: 'email',
+      createdAt: new Date().toISOString(),
+    });
+
+    return {
+      success: true,
+      user: data.user,
+      session: data.session,
+      provider: 'email',
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || 'An unexpected error occurred during registration.',
+    };
+  }
 }
 
 /**
- * Sign in existing user with Email and Password
- * Strictly verifies against Supabase and local credentials.
+ * Sign in existing user with Email and Password via Supabase Auth
+ * Strictly checks genuine credentials with Supabase, saves profile to Supabase database.
  */
 export async function supabaseSignInWithEmail(
   email: string,
@@ -459,190 +427,227 @@ export async function supabaseSignInWithEmail(
   }
 
   const client = getSupabaseClient();
-  if (client) {
-    try {
-      const { data, error } = await client.auth.signInWithPassword({
-        email: cleanEmail,
-        password,
-      });
-
-      if (!error && data.user) {
-        const meta = data.user.user_metadata || {};
-        const cleanName = meta.full_name || meta.name || cleanEmail.split('@')[0];
-        const cleanUsername = (meta.username || cleanEmail.split('@')[0])
-          .toLowerCase()
-          .replace(/[^a-z0-9_]/g, '');
-
-        const userObj: User = createDefaultUserObject(
-          data.user.id,
-          cleanEmail,
-          cleanName,
-          cleanUsername,
-          meta.avatar_url || DEFAULT_USER_AVATAR,
-          meta.bio,
-          'email'
-        );
-
-        // Sync to Supabase profiles table on sign in
-        await syncUserToSupabase(userObj);
-
-        return {
-          success: true,
-          user: data.user,
-          session: data.session,
-          provider: 'email',
-        };
-      }
-    } catch (err: any) {
-      console.warn('Supabase sign in attempt exception:', err);
-    }
-  }
-
-  // Strictly verify against registered credentials
-  const verifyRes = DailyStorageService.verifyEmailPassword(cleanEmail, password);
-  if (!verifyRes.success) {
+  if (!client) {
     return {
       success: false,
-      error: verifyRes.error || 'Incorrect email or password. Please verify your credentials and try again.',
+      error: 'Supabase client is not initialized.',
     };
   }
 
-  const cred = verifyRes.credential!;
-  return {
-    success: true,
-    user: {
-      id: cred.userId,
-      email: cred.email,
-      user_metadata: {
-        full_name: cred.name,
-        name: cred.name,
-        username: cred.username,
-        avatar_url: cred.avatar,
-        bio: cred.bio,
-      },
-    } as any,
-    provider: 'email',
-  };
-}
-
-/**
- * Sign in with Google OAuth via Supabase and persist directly into Supabase database
- */
-export async function supabaseSignInWithGoogle(
-  googleEmail?: string,
-  googleName?: string,
-  googleAvatar?: string
-): Promise<AuthResult> {
-  const client = getSupabaseClient();
-  const finalEmail = (googleEmail?.trim().toLowerCase()) || 'pratik.rahulb@gmail.com';
-  const finalName = googleName?.trim() || 'Rahul Pratik';
-  const cleanUsername = finalEmail.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '');
-  const finalAvatar = googleAvatar || DEFAULT_USER_AVATAR;
-
-  if (client) {
-    try {
-      const redirectTo = window.location.origin;
-      // Trigger genuine OAuth flow with Supabase
-      client.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'select_account',
-          },
-        },
-      }).catch((oauthErr) => {
-        console.warn('Supabase Google OAuth trigger notice:', oauthErr);
-      });
-    } catch (err) {
-      console.warn('Supabase Google OAuth error:', err);
-    }
-  }
-
-  // Immediately persist Google profile to Supabase database tables (profiles & users)
-  const userObj: User = createDefaultUserObject(
-    ensureValidUuid(),
-    finalEmail,
-    finalName,
-    cleanUsername,
-    finalAvatar,
-    'Showing the daily receipts & staying consistent 🔥',
-    'google'
-  );
-
-  // Sync to database
   try {
-    await syncUserToSupabase(userObj);
-  } catch (err) {
-    console.warn('Sync google user to Supabase notice:', err);
-  }
+    const { data, error } = await client.auth.signInWithPassword({
+      email: cleanEmail,
+      password, // Genuine password entered by the user!
+    });
 
-  return {
-    success: true,
-    provider: 'google',
-    user: {
-      id: userObj.id,
-      email: finalEmail,
-      user_metadata: {
-        full_name: finalName,
-        name: finalName,
-        username: cleanUsername,
-        avatar_url: userObj.avatar,
-      },
-    } as any,
-  };
-}
-
-/**
- * Sign in with Apple OAuth via Supabase or genuine Apple ID flow
- */
-export async function supabaseSignInWithApple(): Promise<AuthResult> {
-  if (isSupabaseConfigured() && supabase) {
-    try {
-      const redirectTo = window.location.origin;
-      const { data: _data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'apple',
-        options: {
-          redirectTo,
-        },
-      });
-
-      if (error) {
+    if (error) {
+      if (error.message.toLowerCase().includes('email not confirmed')) {
         return {
           success: false,
-          error: error.message,
-          provider: 'apple',
+          error:
+            'Your email address has not been confirmed yet. Please check your email inbox and click the verification link.',
+          emailConfirmationRequired: true,
         };
       }
+      return {
+        success: false,
+        error: error.message || 'Incorrect email or password. Please verify your credentials and try again.',
+      };
+    }
+
+    if (data.user) {
+      const meta = data.user.user_metadata || {};
+      const cleanName = meta.full_name || meta.name || cleanEmail.split('@')[0];
+      const cleanUsername = (meta.username || cleanEmail.split('@')[0])
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, '');
+
+      const userObj: User = createDefaultUserObject(
+        data.user.id,
+        cleanEmail,
+        cleanName,
+        cleanUsername,
+        meta.avatar_url || DEFAULT_USER_AVATAR,
+        meta.bio,
+        'email'
+      );
+
+      // Persist to Supabase profiles/users tables
+      await syncUserToSupabase(userObj);
+
+      // Register local credential
+      DailyStorageService.registerAccountCredentials({
+        email: cleanEmail,
+        password,
+        userId: data.user.id,
+        name: cleanName,
+        username: cleanUsername,
+        avatar: meta.avatar_url || DEFAULT_USER_AVATAR,
+        bio: meta.bio,
+        authProvider: 'email',
+        createdAt: new Date().toISOString(),
+      });
 
       return {
         success: true,
-        provider: 'apple',
+        user: data.user,
+        session: data.session,
+        provider: 'email',
       };
-    } catch (err: any) {
+    }
+
+    return {
+      success: false,
+      error: 'Sign in failed. No user was returned by Supabase.',
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || 'Authentication error. Please check your connection and try again.',
+    };
+  }
+}
+
+/**
+ * Sign in with Google OAuth via Supabase
+ * Genuinely opens the Google OAuth consent & confirmation page using client.auth.signInWithOAuth.
+ */
+export async function supabaseSignInWithGoogle(): Promise<AuthResult> {
+  const client = getSupabaseClient();
+  if (!client) {
+    return {
+      success: false,
+      error: 'Supabase client is not configured. Please check your Supabase credentials.',
+    };
+  }
+
+  try {
+    const redirectTo = window.location.origin;
+    const { data, error } = await client.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'select_account',
+        },
+      },
+    });
+
+    if (error) {
       return {
         success: false,
-        error: err?.message || 'Apple authentication failed.',
+        error: error.message,
+      };
+    }
+
+    if (data?.url) {
+      // Genuinely navigate to Google OAuth confirmation / account chooser screen!
+      window.location.assign(data.url);
+      return {
+        success: true,
+        popupOpened: true,
+      };
+    }
+
+    return {
+      success: true,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || 'Failed to start Google sign-in.',
+    };
+  }
+}
+
+/**
+ * Resend Email confirmation verification link via Supabase Auth
+ */
+export async function supabaseResendConfirmationEmail(
+  email: string
+): Promise<{ success: boolean; error?: string }> {
+  const client = getSupabaseClient();
+  if (!client) {
+    return { success: false, error: 'Supabase is not configured.' };
+  }
+  try {
+    const cleanEmail = email.trim().toLowerCase();
+    const { error } = await client.auth.resend({
+      type: 'signup',
+      email: cleanEmail,
+      options: {
+        emailRedirectTo: window.location.origin,
+      },
+    });
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Failed to resend confirmation email.' };
+  }
+}
+
+/**
+ * Sign in with Apple OAuth via Supabase
+ */
+export async function supabaseSignInWithApple(): Promise<AuthResult> {
+  const client = getSupabaseClient();
+  if (!client) {
+    return {
+      success: false,
+      error: 'Supabase client is not configured.',
+    };
+  }
+
+  try {
+    const redirectTo = window.location.origin;
+    const { data, error } = await client.auth.signInWithOAuth({
+      provider: 'apple',
+      options: {
+        redirectTo,
+      },
+    });
+
+    if (error) {
+      return {
+        success: false,
+        error: error.message,
         provider: 'apple',
       };
     }
-  }
 
-  return {
-    success: true,
-    provider: 'apple',
-    popupOpened: true,
-  };
+    if (data?.url) {
+      window.location.assign(data.url);
+      return {
+        success: true,
+        provider: 'apple',
+        popupOpened: true,
+      };
+    }
+
+    return {
+      success: true,
+      provider: 'apple',
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || 'Apple authentication failed.',
+      provider: 'apple',
+    };
+  }
 }
 
 /**
  * Sign out from Supabase Auth
  */
 export async function supabaseSignOut(): Promise<void> {
-  if (supabase) {
+  const client = getSupabaseClient();
+  if (client) {
     try {
-      await supabase.auth.signOut();
+      await client.auth.signOut();
     } catch {
       // ignore
     }
@@ -653,9 +658,10 @@ export async function supabaseSignOut(): Promise<void> {
  * Get current active session
  */
 export async function supabaseGetSession(): Promise<Session | null> {
-  if (!supabase) return null;
+  const client = getSupabaseClient();
+  if (!client) return null;
   try {
-    const { data } = await supabase.auth.getSession();
+    const { data } = await client.auth.getSession();
     return data.session;
   } catch {
     return null;

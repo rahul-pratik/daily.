@@ -212,9 +212,9 @@ export const INITIAL_PERSONAL_HABITS: PersonalHabit[] = [
 
 export const SAMPLE_USERS: User[] = [
   {
-    id: 'user_rahul',
-    name: 'Rahul',
-    username: 'rahul',
+    id: 'user_rohan',
+    name: 'Rohan',
+    username: 'rohan',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
     bio: 'Building SaaS, running 10K & learning Python. Showing up daily.',
     interests: ['Building', 'Fitness', 'Learning', 'Coding', 'Startups'],

@@ -21,7 +21,7 @@ import {
   UserProfileSharePreview,
   DEFAULT_USER_AVATAR,
 } from './types';
-import { supabase, isSupabaseConfigured, getSupabaseClient } from './services/supabase';
+import { supabase, isSupabaseConfigured, getSupabaseClient, syncUserToSupabase } from './services/supabase';
 import { DailyStorageService } from './services/storage';
 import { TopHeader, BottomNavigation } from './components/Navigation';
 import { HomeFeed } from './components/HomeFeed';
@@ -286,7 +286,7 @@ export default function App() {
     if (!isSupabaseConfigured()) return;
     const client = getSupabaseClient();
     if (!client?.auth) return;
-    const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = client.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
         const meta = session.user.user_metadata || {};
         const userEmail = session.user.email || '';
@@ -294,20 +294,33 @@ export default function App() {
         const username = (meta.username || userEmail.split('@')[0] || '').toLowerCase().replace(/[^a-z0-9_]/g, '');
         const avatar = meta.avatar_url || meta.picture || DEFAULT_USER_AVATAR;
 
-        setCurrentUser((prev) => {
-          const updated: User = {
-            ...prev,
-            name: name || prev.name || 'Daily Creator',
-            username: username || prev.username || 'creator',
-            avatar: avatar || prev.avatar || DEFAULT_USER_AVATAR,
-            email: userEmail || prev.email,
-          };
-          DailyStorageService.saveCurrentUser(updated);
-          DailyStorageService.savePreviousAccount(updated);
-          return updated;
-        });
+        const updated: User = {
+          ...DailyStorageService.getCurrentUser(),
+          id: session.user.id,
+          name: name || 'Daily Creator',
+          username: username || 'creator',
+          avatar: avatar || DEFAULT_USER_AVATAR,
+          email: userEmail,
+          authProvider: (session.user.app_metadata?.provider as any) || 'google',
+        };
+
+        // Persist to Supabase database (profiles & users tables)
+        try {
+          await syncUserToSupabase(updated);
+        } catch (syncErr) {
+          console.warn('Session user sync to Supabase notice:', syncErr);
+        }
+
+        DailyStorageService.saveCurrentUser(updated);
+        DailyStorageService.savePreviousAccount(updated);
         DailyStorageService.setOnboarded(true);
+        setCurrentUser(updated);
         setIsOnboarded(true);
+
+        // Clean URL hash if it contains OAuth / confirmation tokens
+        if (window.location.hash.includes('access_token') || window.location.hash.includes('type=')) {
+          window.history.replaceState(null, document.title, window.location.pathname);
+        }
       }
     });
 

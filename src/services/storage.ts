@@ -76,30 +76,7 @@ export interface RegisteredUserCredential {
   createdAt: string;
 }
 
-const INITIAL_REGISTERED_CREDENTIALS: RegisteredUserCredential[] = [
-  {
-    email: 'pratik.rahulb@gmail.com',
-    password: 'daily2026!',
-    userId: 'user_pratik',
-    username: 'rahulpratik',
-    name: 'Rahul Pratik',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
-    bio: 'Showing the daily receipts & staying consistent 🔥',
-    authProvider: 'email',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    email: 'alex.rivera@dailyapp.io',
-    password: 'daily2026!',
-    userId: 'user_me',
-    username: 'alexrivera',
-    name: 'Alex Rivera',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
-    bio: 'Building products daily 🚀',
-    authProvider: 'email',
-    createdAt: new Date().toISOString(),
-  },
-];
+const INITIAL_REGISTERED_CREDENTIALS: RegisteredUserCredential[] = [];
 
 // Current reference date (today in the app context)
 export const getTodayDateString = (): string => {
@@ -174,6 +151,18 @@ export class DailyStorageService {
         user.avatar = DEFAULT_USER_AVATAR;
         changed = true;
       }
+      // Sanitize: If stale user was Rahul Pratik or user_pratik, purge so it is not stored for everyone
+      if (
+        user.id === 'user_pratik' ||
+        user.name === 'Rahul Pratik' ||
+        user.email === 'pratik.rahulb@gmail.com' ||
+        user.username === 'rahulpratik'
+      ) {
+        localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+        localStorage.removeItem(STORAGE_KEYS.ONBOARDED);
+        this.saveCurrentUser(INITIAL_CURRENT_USER);
+        return INITIAL_CURRENT_USER;
+      }
       if (changed) {
         this.saveCurrentUser(user);
       }
@@ -196,8 +185,14 @@ export class DailyStorageService {
     }
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
 
-    // Guarantee that every active account gets recorded to previous accounts for the sign-in screen
-    if (user && user.name?.trim() && user.username?.trim()) {
+    // Guarantee that every active genuine account gets recorded to previous accounts
+    if (
+      user &&
+      user.name?.trim() &&
+      user.username?.trim() &&
+      user.id !== 'user_pratik' &&
+      user.name !== 'Rahul Pratik'
+    ) {
       this.savePreviousAccount(user);
     }
   }
@@ -221,12 +216,28 @@ export class DailyStorageService {
       }
     }
 
+    // Sanitize: Purge any dummy/test accounts so they are not shown to everyone
+    list = list.filter(
+      (u) =>
+        u &&
+        u.id !== 'user_pratik' &&
+        u.name !== 'Rahul Pratik' &&
+        u.username !== 'rahulpratik' &&
+        u.email !== 'pratik.rahulb@gmail.com'
+    );
+
     // Always ensure the active current user is in the list if they have a real name/username
     try {
       const rawCurrent = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
       if (rawCurrent) {
         const cur = JSON.parse(rawCurrent);
-        if (cur && cur.name?.trim() && cur.username?.trim()) {
+        if (
+          cur &&
+          cur.name?.trim() &&
+          cur.username?.trim() &&
+          cur.id !== 'user_pratik' &&
+          cur.name !== 'Rahul Pratik'
+        ) {
           const cleanCur = {
             ...cur,
             username: cur.username.toLowerCase().replace(/^@/, '').trim(),
@@ -238,43 +249,18 @@ export class DailyStorageService {
           );
           if (!exists) {
             list = [cleanCur, ...list];
-            localStorage.setItem(STORAGE_KEYS.PREVIOUS_ACCOUNTS, JSON.stringify(list));
           }
         }
       }
     } catch {}
 
-    // Fallback: If completely empty, supply default user account
-    if (list.length === 0) {
-      const defaultUser: User = {
-        id: 'user_pratik',
-        name: 'Rahul Pratik',
-        username: 'rahulpratik',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
-        bio: 'Showing the daily receipts & staying consistent 🔥',
-        interests: ['Coding', 'AI & Tech'],
-        habits: ['Build Daily', 'Exercise', 'Read 20 min'],
-        currentStreak: 14,
-        longestStreak: 21,
-        totalPosts: 42,
-        activityDates: ['2026-09-20', '2026-09-21'],
-        followersCount: 128,
-        followingCount: 94,
-        followedUserIds: [],
-        lastPostedDate: '2026-09-21',
-        joinedDate: '2026-01-15',
-        email: 'pratik.rahulb@gmail.com',
-        authProvider: 'email',
-      };
-      list = [defaultUser];
-      localStorage.setItem(STORAGE_KEYS.PREVIOUS_ACCOUNTS, JSON.stringify(list));
-    }
-
+    localStorage.setItem(STORAGE_KEYS.PREVIOUS_ACCOUNTS, JSON.stringify(list));
     return list;
   }
 
   static savePreviousAccount(user: User): void {
     if (!user) return;
+    if (user.id === 'user_pratik' || user.name === 'Rahul Pratik' || user.email === 'pratik.rahulb@gmail.com') return;
     const name = user.name?.trim() || 'Daily Creator';
     const username = (user.username || 'creator').toLowerCase().replace(/^@/, '').trim();
     const id = user.id || `user_${username}_${Date.now()}`;
@@ -308,18 +294,25 @@ export class DailyStorageService {
   static getRegisteredCredentials(): RegisteredUserCredential[] {
     const data = localStorage.getItem(STORAGE_KEYS.REGISTERED_CREDENTIALS);
     if (!data) {
-      localStorage.setItem(STORAGE_KEYS.REGISTERED_CREDENTIALS, JSON.stringify(INITIAL_REGISTERED_CREDENTIALS));
-      return INITIAL_REGISTERED_CREDENTIALS;
+      return [];
     }
     try {
       const list = JSON.parse(data);
-      if (!Array.isArray(list) || list.length === 0) {
-        localStorage.setItem(STORAGE_KEYS.REGISTERED_CREDENTIALS, JSON.stringify(INITIAL_REGISTERED_CREDENTIALS));
-        return INITIAL_REGISTERED_CREDENTIALS;
+      if (!Array.isArray(list)) return [];
+      const cleaned = list.filter(
+        (c) =>
+          c &&
+          c.userId !== 'user_pratik' &&
+          c.name !== 'Rahul Pratik' &&
+          c.username !== 'rahulpratik' &&
+          c.email !== 'pratik.rahulb@gmail.com'
+      );
+      if (cleaned.length !== list.length) {
+        localStorage.setItem(STORAGE_KEYS.REGISTERED_CREDENTIALS, JSON.stringify(cleaned));
       }
-      return list;
+      return cleaned;
     } catch {
-      return INITIAL_REGISTERED_CREDENTIALS;
+      return [];
     }
   }
 
