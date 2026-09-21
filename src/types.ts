@@ -33,6 +33,9 @@ export interface User {
   isCurrentUser?: boolean;
   email?: string;
   authProvider?: 'google' | 'apple' | 'email';
+  level?: number;
+  rank?: string;
+  streakFreezesLeft?: number;
 }
 
 export interface PersonalHabit {

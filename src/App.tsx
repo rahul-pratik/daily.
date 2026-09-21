@@ -22,6 +22,7 @@ import {
   DEFAULT_USER_AVATAR,
 } from './types';
 import { supabase, isSupabaseConfigured, getSupabaseClient, syncUserToSupabase } from './services/supabase';
+import { logAuthStateChangeDiagnostic } from './services/authDiagnostic';
 import { DailyStorageService } from './services/storage';
 import { TopHeader, BottomNavigation } from './components/Navigation';
 import { HomeFeed } from './components/HomeFeed';
@@ -281,46 +282,112 @@ export default function App() {
     setIsAccountSwitcherOpen(true);
   };
 
-  // Sync Supabase Auth session if redirected via OAuth or active token
+  // Sync Supabase Auth session if redirected via OAuth or active token, with diagnostic logging
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
     const client = getSupabaseClient();
     if (!client?.auth) return;
-    const { data: { subscription } } = client.auth.onAuthStateChange(async (_event, session) => {
+
+    // Check initial session on boot
+    client.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        logAuthStateChangeDiagnostic({
+          event: 'INITIAL_SESSION',
+          session,
+          notes: 'Found existing Supabase session on app initialization',
+        });
+      }
+    }).catch((err) => {
+      console.warn('Initial session check notice:', err);
+    });
+
+    const { data: { subscription } } = client.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         const meta = session.user.user_metadata || {};
         const userEmail = session.user.email || '';
-        const name = meta.full_name || meta.name || userEmail.split('@')[0] || '';
-        const username = (meta.username || userEmail.split('@')[0] || '').toLowerCase().replace(/[^a-z0-9_]/g, '');
+        const rawName = meta.full_name || meta.name || userEmail.split('@')[0] || '';
+        const rawUsername = (meta.username || meta.preferred_username || userEmail.split('@')[0] || '')
+          .toLowerCase()
+          .replace(/[^a-z0-9_]/g, '');
         const avatar = meta.avatar_url || meta.picture || DEFAULT_USER_AVATAR;
+        const provider = (session.user.app_metadata?.provider as any) || 'google';
 
+        // Check if a saved profile already exists in Supabase 'profiles' table to retain rich data
+        let existingProfile: any = null;
+        try {
+          const { data, error } = await client
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .maybeSingle();
+          if (data && !error) {
+            existingProfile = data;
+          }
+        } catch (fetchErr) {
+          console.warn('Profile fetch notice in onAuthStateChange:', fetchErr);
+        }
+
+        const baseUser = DailyStorageService.getCurrentUser();
         const updated: User = {
-          ...DailyStorageService.getCurrentUser(),
+          ...baseUser,
           id: session.user.id,
-          name: name || 'Daily Creator',
-          username: username || 'creator',
-          avatar: avatar || DEFAULT_USER_AVATAR,
+          name: existingProfile?.name || existingProfile?.full_name || rawName || 'Daily Creator',
+          username: existingProfile?.username || rawUsername || 'creator',
+          avatar: existingProfile?.avatar || existingProfile?.avatar_url || avatar || DEFAULT_USER_AVATAR,
           email: userEmail,
-          authProvider: (session.user.app_metadata?.provider as any) || 'google',
+          bio: existingProfile?.bio || meta.bio || baseUser.bio || 'Showing the daily receipts & staying consistent 🔥',
+          currentStreak: existingProfile?.current_streak ?? baseUser.currentStreak ?? 1,
+          longestStreak: existingProfile?.longest_streak ?? existingProfile?.highest_streak ?? baseUser.longestStreak ?? 1,
+          level: existingProfile?.level ?? baseUser.level ?? 1,
+          rank: existingProfile?.rank || baseUser.rank || 'Bronze',
+          totalPosts: existingProfile?.total_proofs ?? existingProfile?.total_posts ?? baseUser.totalPosts ?? 0,
+          streakFreezesLeft: existingProfile?.streak_freezes_left ?? baseUser.streakFreezesLeft ?? 2,
+          interests: existingProfile?.interests || baseUser.interests || ['Coding', 'AI & Tech'],
+          habits: existingProfile?.habits || baseUser.habits || ['Build Daily', 'Exercise'],
+          authProvider: provider,
         };
 
-        // Persist to Supabase database (profiles & users tables)
+        // Persist to Supabase database ('profiles' table)
+        let syncResult: any = null;
         try {
-          await syncUserToSupabase(updated);
-        } catch (syncErr) {
+          syncResult = await syncUserToSupabase(updated);
+        } catch (syncErr: any) {
           console.warn('Session user sync to Supabase notice:', syncErr);
+          syncResult = { success: false, error: syncErr?.message, action: 'failed' };
         }
+
+        // Diagnostic Log for Auth state change
+        logAuthStateChangeDiagnostic({
+          event,
+          session,
+          mappedUser: updated,
+          databasePayload: syncResult?.databasePayload,
+          syncResult: {
+            success: syncResult?.success ?? false,
+            error: syncResult?.error,
+            action: syncResult?.action,
+            durationMs: syncResult?.durationMs,
+          },
+          notes: `User signed in via ${provider}. Profile ${syncResult?.action || 'synced'}.`,
+        });
 
         DailyStorageService.saveCurrentUser(updated);
         DailyStorageService.savePreviousAccount(updated);
         DailyStorageService.setOnboarded(true);
         setCurrentUser(updated);
+        setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
         setIsOnboarded(true);
 
         // Clean URL hash if it contains OAuth / confirmation tokens
         if (window.location.hash.includes('access_token') || window.location.hash.includes('type=')) {
           window.history.replaceState(null, document.title, window.location.pathname);
         }
+      } else if (event === 'SIGNED_OUT') {
+        logAuthStateChangeDiagnostic({
+          event: 'SIGNED_OUT',
+          session: null,
+          notes: 'User session terminated (SIGNED_OUT event received)',
+        });
       }
     });
 

@@ -148,11 +148,22 @@ export const createDefaultUserObject = (
   authProvider: provider,
 });
 
+export interface UserSyncResult {
+  success: boolean;
+  action?: 'created' | 'updated' | 'unchanged' | 'failed';
+  error?: string;
+  durationMs?: number;
+  databasePayload?: Record<string, any>;
+  syncedProfile?: any;
+}
+
 /**
- * Save / Upsert a User profile into Supabase database (profiles & users tables)
+ * Save / Upsert a User profile into Supabase database (profiles & users tables).
+ * Correctly maps user data to database structure and handles profile creation vs updates.
  */
-export async function syncUserToSupabase(user: User): Promise<{ success: boolean; error?: string }> {
-  if (!user) return { success: false, error: 'No user provided' };
+export async function syncUserToSupabase(user: User): Promise<UserSyncResult> {
+  const startTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  if (!user) return { success: false, error: 'No user provided', action: 'failed' };
 
   // Always persist to local previous accounts as well
   DailyStorageService.savePreviousAccount(user);
@@ -162,6 +173,7 @@ export async function syncUserToSupabase(user: User): Promise<{ success: boolean
     return {
       success: false,
       error: 'Supabase credentials not configured.',
+      action: 'failed',
     };
   }
 
@@ -169,28 +181,62 @@ export async function syncUserToSupabase(user: User): Promise<{ success: boolean
     const cleanUsername = user.username?.toLowerCase().replace(/^@/, '').trim() || 'creator';
     const cleanEmail = user.email?.trim() || `${cleanUsername}@dailyapp.io`;
     const cleanName = user.name?.trim() || cleanUsername;
-    const cleanId = ensureValidUuid(user.id);
 
-    // 1. Comprehensive payload matching standard Supabase profile schemas
-    const fullPayload = {
+    // Check if active Supabase Auth user has a specific UUID
+    let targetId = user.id;
+    try {
+      const { data: authData } = await client.auth.getUser();
+      if (authData?.user?.id) {
+        targetId = authData.user.id;
+      }
+    } catch {
+      // Non-blocking fallback to user.id
+    }
+    const cleanId = ensureValidUuid(targetId);
+
+    // Check if profile row already exists to distinguish between create and update
+    let isUpdate = false;
+    let existingProfile: any = null;
+    try {
+      const { data, error: selectErr } = await client
+        .from('profiles')
+        .select('*')
+        .eq('id', cleanId)
+        .maybeSingle();
+
+      if (data && !selectErr) {
+        isUpdate = true;
+        existingProfile = data;
+      }
+    } catch {
+      // Proceed with upsert
+    }
+
+    // 1. Comprehensive payload matching standard Supabase 'profiles' database schema
+    const fullPayload: Record<string, any> = {
       id: cleanId,
       username: cleanUsername,
       name: cleanName,
       full_name: cleanName,
       avatar_url: user.avatar || DEFAULT_USER_AVATAR,
       avatar: user.avatar || DEFAULT_USER_AVATAR,
-      bio: user.bio || '',
+      bio: user.bio || existingProfile?.bio || '',
       email: cleanEmail,
-      streak: user.currentStreak || 0,
-      current_streak: user.currentStreak || 0,
-      longest_streak: user.longestStreak || 0,
-      total_posts: user.totalPosts || 0,
-      interests: user.interests || [],
-      habits: user.habits || [],
+      current_streak: user.currentStreak ?? existingProfile?.current_streak ?? 1,
+      highest_streak: user.longestStreak ?? existingProfile?.highest_streak ?? user.currentStreak ?? 1,
+      longest_streak: user.longestStreak ?? existingProfile?.longest_streak ?? user.currentStreak ?? 1,
+      level: user.level ?? existingProfile?.level ?? 1,
+      rank: user.rank || existingProfile?.rank || 'Bronze',
+      total_proofs: user.totalPosts ?? existingProfile?.total_proofs ?? 0,
+      total_posts: user.totalPosts ?? existingProfile?.total_posts ?? 0,
+      streak_freezes_left: user.streakFreezesLeft ?? existingProfile?.streak_freezes_left ?? 2,
+      interests: user.interests || existingProfile?.interests || [],
+      habits: user.habits || existingProfile?.habits || [],
+      auth_provider: user.authProvider || existingProfile?.auth_provider || 'email',
       updated_at: new Date().toISOString(),
     };
 
-    // 2. Minimal fallback payload in case extra columns don't exist
+    // 2. Minimal fallback payload in case custom optional columns don't exist
     const minimalPayload = {
       id: cleanId,
       username: cleanUsername,
@@ -202,41 +248,67 @@ export async function syncUserToSupabase(user: User): Promise<{ success: boolean
     };
 
     // Try upserting to 'profiles' table
-    let { error: profileError } = await client
+    let syncedProfileRecord: any = null;
+    let { data: upsertData, error: profileError } = await client
       .from('profiles')
-      .upsert(fullPayload, { onConflict: 'id' });
+      .upsert(fullPayload, { onConflict: 'id' })
+      .select()
+      .maybeSingle();
+
+    if (!profileError) {
+      syncedProfileRecord = upsertData;
+    } else {
+      // Attempt with minimal payload if full schema has missing columns
+      const { data: minData, error: minErr } = await client
+        .from('profiles')
+        .upsert(minimalPayload, { onConflict: 'id' })
+        .select()
+        .maybeSingle();
+
+      if (!minErr) {
+        profileError = null;
+        syncedProfileRecord = minData;
+      } else {
+        profileError = minErr;
+      }
+    }
+
+    // Try optional sync to legacy 'users' table or view if present
+    try {
+      await client.from('users').upsert(fullPayload, { onConflict: 'id' });
+    } catch {
+      // Ignored if users is a view or not present
+    }
+
+    const durationMs = Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - startTime);
 
     if (profileError) {
-      const { error: minErr } = await client
-        .from('profiles')
-        .upsert(minimalPayload, { onConflict: 'id' });
-      profileError = minErr;
-    }
-
-    // Try upserting to 'users' table as well
-    let { error: userTableError } = await client
-      .from('users')
-      .upsert(fullPayload, { onConflict: 'id' });
-
-    if (userTableError) {
-      const { error: minErr2 } = await client
-        .from('users')
-        .upsert(minimalPayload, { onConflict: 'id' });
-      userTableError = minErr2;
-    }
-
-    if (profileError && userTableError) {
-      console.warn('Supabase DB sync note:', profileError.message || userTableError.message);
+      console.warn('Supabase DB sync notice:', profileError.message);
       return {
         success: false,
-        error: profileError.message || userTableError.message,
+        action: 'failed',
+        error: profileError.message,
+        durationMs,
+        databasePayload: fullPayload,
       };
     }
 
-    return { success: true };
+    return {
+      success: true,
+      action: isUpdate ? 'updated' : 'created',
+      durationMs,
+      databasePayload: fullPayload,
+      syncedProfile: syncedProfileRecord || fullPayload,
+    };
   } catch (err: any) {
+    const durationMs = Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - startTime);
     console.warn('Supabase profile sync error:', err);
-    return { success: false, error: err?.message || 'Sync failed' };
+    return {
+      success: false,
+      action: 'failed',
+      error: err?.message || 'Sync failed',
+      durationMs,
+    };
   }
 }
 

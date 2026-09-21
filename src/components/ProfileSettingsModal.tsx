@@ -47,6 +47,11 @@ import {
   syncUserToSupabase,
 } from '../services/supabase';
 import { SUPABASE_SQL_SCHEMA } from '../services/supabaseSchema';
+import {
+  getAuthDiagnosticLogs,
+  clearAuthDiagnosticLogs,
+  AuthDiagnosticEntry,
+} from '../services/authDiagnostic';
 
 interface ProfileSettingsModalProps {
   isOpen: boolean;
@@ -91,6 +96,9 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
   const [isSyncingSupabase, setIsSyncingSupabase] = useState(false);
   const [showSupabaseConfig, setShowSupabaseConfig] = useState(false);
   const [showSqlSchemaModal, setShowSqlSchemaModal] = useState(false);
+  const [showDiagnosticsModal, setShowDiagnosticsModal] = useState(false);
+  const [diagnosticsList, setDiagnosticsList] = useState<AuthDiagnosticEntry[]>([]);
+  const [copiedDiagnostics, setCopiedDiagnostics] = useState(false);
   const [copiedSql, setCopiedSql] = useState(false);
   const [supabaseUrlInput, setSupabaseUrlInput] = useState(() => getSupabaseConfig().url || '');
   const [supabaseKeyInput, setSupabaseKeyInput] = useState(() => getSupabaseConfig().anonKey || '');
@@ -1148,7 +1156,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowSqlSchemaModal(true)}
-                  className="py-2 px-3 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 font-bold text-xs border border-emerald-500/30 transition-colors flex items-center gap-1 cursor-pointer"
+                  className="py-2 px-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 font-bold text-xs border border-emerald-500/30 transition-colors flex items-center gap-1 cursor-pointer shrink-0"
                   title="View SQL DDL script for Supabase SQL Editor"
                 >
                   <FileText className="w-3.5 h-3.5" />
@@ -1157,8 +1165,21 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
 
                 <button
                   type="button"
+                  onClick={() => {
+                    setDiagnosticsList(getAuthDiagnosticLogs());
+                    setShowDiagnosticsModal(true);
+                  }}
+                  className="py-2 px-2.5 rounded-xl bg-blue-500/15 hover:bg-blue-500/25 text-blue-300 font-bold text-xs border border-blue-500/30 transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+                  title="View diagnostic logs for Google/Email auth state changes"
+                >
+                  <Activity className="w-3.5 h-3.5" />
+                  <span>Auth Logs</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setShowSupabaseConfig(!showSupabaseConfig)}
-                  className="py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white font-bold text-xs border border-white/10 transition-colors cursor-pointer"
+                  className="py-2 px-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white font-bold text-xs border border-white/10 transition-colors cursor-pointer shrink-0"
                 >
                   {showSupabaseConfig ? 'Hide' : 'Keys'}
                 </button>
@@ -1352,6 +1373,175 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                 onClick={() => {
                   vibrateLight();
                   setShowSqlSchemaModal(false);
+                }}
+                className="py-2.5 px-5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Supabase Auth State Diagnostics Modal */}
+        {showDiagnosticsModal && (
+          <div className="absolute inset-0 z-50 bg-[#0A0A0A] rounded-[32px] p-6 flex flex-col justify-between border border-white/20 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
+                  <Activity className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Auth State Diagnostic Logs</h3>
+                  <p className="text-xs text-white/50">Real-time trace for Google/Email logins & profile sync</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateLight();
+                  setShowDiagnosticsModal(false);
+                }}
+                className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/50 hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-hidden my-3 flex flex-col gap-2">
+              <div className="flex items-center justify-between shrink-0">
+                <span className="text-[11px] font-mono text-white/50">
+                  {diagnosticsList.length} recorded transition{diagnosticsList.length === 1 ? '' : 's'}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vibrateLight();
+                      clearAuthDiagnosticLogs();
+                      setDiagnosticsList([]);
+                    }}
+                    className="py-1 px-2.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-[11px] font-medium transition-colors cursor-pointer"
+                  >
+                    Clear Logs
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vibrateLight();
+                      navigator.clipboard.writeText(JSON.stringify(diagnosticsList, null, 2));
+                      setCopiedDiagnostics(true);
+                      setTimeout(() => setCopiedDiagnostics(false), 2000);
+                    }}
+                    className="py-1 px-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-md"
+                  >
+                    {copiedDiagnostics ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Copied JSON</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy Logs JSON</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
+                {diagnosticsList.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center p-6 text-white/40">
+                    <Activity className="w-8 h-8 mb-2 opacity-40 text-blue-400" />
+                    <p className="text-xs font-medium">No auth transitions recorded yet in this session.</p>
+                    <p className="text-[10px] mt-1 text-white/30">
+                      Sign in with Google or Email, or refresh the session to capture trace data.
+                    </p>
+                  </div>
+                ) : (
+                  [...diagnosticsList].reverse().map((diag) => (
+                    <div
+                      key={diag.id}
+                      className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-2 text-xs"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`px-2 py-0.5 rounded-md font-mono text-[10px] font-bold ${
+                              diag.event === 'SIGNED_IN'
+                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                : diag.event === 'SIGNED_OUT'
+                                ? 'bg-red-500/20 text-red-300 border border-red-500/30'
+                                : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                            }`}
+                          >
+                            {diag.event}
+                          </span>
+                          <span className="text-white/80 font-mono text-[11px] font-bold">
+                            {diag.provider || 'email'}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-mono text-white/40">
+                          {new Date(diag.timestamp).toLocaleTimeString()}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-[11px] font-mono bg-black/40 p-2 rounded-lg border border-white/5">
+                        <div>
+                          <span className="text-white/40 block text-[9px]">USER ID</span>
+                          <span className="text-white/90 truncate block" title={diag.sessionUserId}>
+                            {diag.sessionUserId ? `${diag.sessionUserId.substring(0, 16)}...` : 'None'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-white/40 block text-[9px]">EMAIL</span>
+                          <span className="text-white/90 truncate block" title={diag.email}>
+                            {diag.email || 'None'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {diag.syncResult && (
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-white/50">Supabase 'profiles' sync:</span>
+                          <span
+                            className={`font-bold flex items-center gap-1 ${
+                              diag.syncResult.success ? 'text-emerald-400' : 'text-amber-400'
+                            }`}
+                          >
+                            {diag.syncResult.success ? '✓ SUCCESS' : '⚠ NOTICE'}
+                            {diag.syncResult.action && ` (${diag.syncResult.action})`}
+                            {diag.syncResult.durationMs !== undefined && ` [${diag.syncResult.durationMs}ms]`}
+                          </span>
+                        </div>
+                      )}
+
+                      {diag.notes && (
+                        <p className="text-[10px] text-white/60 bg-white/5 px-2 py-1 rounded">
+                          {diag.notes}
+                        </p>
+                      )}
+
+                      {diag.databasePayload && (
+                        <details className="text-[10px] font-mono text-white/50 cursor-pointer">
+                          <summary className="hover:text-white/80">View Database Row Payload</summary>
+                          <pre className="mt-1 p-2 rounded bg-black/80 border border-white/5 overflow-x-auto text-[10px] text-purple-300 select-all">
+                            {JSON.stringify(diag.databasePayload, null, 2)}
+                          </pre>
+                        </details>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="shrink-0 flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateLight();
+                  setShowDiagnosticsModal(false);
                 }}
                 className="py-2.5 px-5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs transition-colors cursor-pointer"
               >
