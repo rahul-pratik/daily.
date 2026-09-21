@@ -1,28 +1,149 @@
 import { createClient, SupabaseClient, User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { DailyStorageService } from './storage';
+import { User } from '../types';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+const ENV_SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const ENV_SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
-export const isSupabaseConfigured = (): boolean => {
-  return Boolean(
-    supabaseUrl &&
-    supabaseAnonKey &&
-    supabaseUrl.startsWith('http') &&
-    supabaseAnonKey.length > 10
-  );
+export const getSupabaseConfig = () => {
+  const localUrl = localStorage.getItem('daily_supabase_url');
+  const localKey = localStorage.getItem('daily_supabase_anon_key');
+  const url = ENV_SUPABASE_URL || localUrl || undefined;
+  const anonKey = ENV_SUPABASE_ANON_KEY || localKey || undefined;
+  return {
+    url,
+    anonKey,
+    isConfigured: Boolean(url && anonKey && url.startsWith('http') && anonKey.length > 10),
+    source: ENV_SUPABASE_URL ? 'env' : localUrl ? 'local' : 'none',
+  };
 };
 
-// Initialize Supabase Client if configured, or null for fallback
-export const supabase: SupabaseClient | null = isSupabaseConfigured()
-  ? createClient(supabaseUrl!, supabaseAnonKey!, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true,
-      },
-    })
-  : null;
+export const isSupabaseConfigured = (): boolean => {
+  return getSupabaseConfig().isConfigured;
+};
+
+// Singleton dynamic client instance
+let cachedClient: SupabaseClient | null = null;
+
+export const getSupabaseClient = (): SupabaseClient | null => {
+  const config = getSupabaseConfig();
+  if (!config.isConfigured) return null;
+  if (!cachedClient) {
+    try {
+      cachedClient = createClient(config.url!, config.anonKey!, {
+        auth: {
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: true,
+        },
+      });
+    } catch (err) {
+      console.warn('Failed to initialize Supabase client:', err);
+      return null;
+    }
+  }
+  return cachedClient;
+};
+
+export const supabase: SupabaseClient | null = getSupabaseClient();
+
+export const setSupabaseProjectCredentials = (url: string, anonKey: string) => {
+  if (url && anonKey) {
+    localStorage.setItem('daily_supabase_url', url.trim());
+    localStorage.setItem('daily_supabase_anon_key', anonKey.trim());
+    cachedClient = null;
+    return true;
+  }
+  return false;
+};
+
+export const clearCustomSupabaseCredentials = () => {
+  localStorage.removeItem('daily_supabase_url');
+  localStorage.removeItem('daily_supabase_anon_key');
+  cachedClient = null;
+};
+
+/**
+ * Save / Upsert a User profile into Supabase database (profiles & users tables)
+ */
+export async function syncUserToSupabase(user: User): Promise<{ success: boolean; error?: string }> {
+  if (!user) return { success: false, error: 'No user provided' };
+
+  // Always persist to local previous accounts as well
+  DailyStorageService.savePreviousAccount(user);
+
+  const client = getSupabaseClient();
+  if (!client) {
+    return {
+      success: false,
+      error: 'Supabase credentials not configured in environment or settings.',
+    };
+  }
+
+  try {
+    const cleanUsername = user.username?.toLowerCase().replace(/^@/, '').trim() || 'creator';
+    const cleanEmail = user.email?.trim() || `${cleanUsername}@dailyapp.io`;
+
+    const profileData = {
+      id: user.id || `user_${cleanUsername}`,
+      username: cleanUsername,
+      name: user.name?.trim() || cleanUsername,
+      avatar_url: user.avatar,
+      bio: user.bio || '',
+      email: cleanEmail,
+      streak: user.currentStreak || 0,
+      longest_streak: user.longestStreak || 0,
+      total_posts: user.totalPosts || 0,
+      interests: user.interests || [],
+      habits: user.habits || [],
+      updated_at: new Date().toISOString(),
+    };
+
+    // 1. Upsert to 'profiles' table
+    const { error: profileError } = await client
+      .from('profiles')
+      .upsert(profileData, { onConflict: 'id' });
+
+    if (profileError) {
+      // 2. Fallback: try upserting to 'users' table if 'profiles' table differs
+      const { error: userTableError } = await client
+        .from('users')
+        .upsert(profileData, { onConflict: 'id' });
+
+      if (userTableError) {
+        console.warn('Supabase DB sync note:', profileError.message || userTableError.message);
+        return {
+          success: false,
+          error: profileError.message || userTableError.message,
+        };
+      }
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.warn('Supabase profile sync error:', err);
+    return { success: false, error: err?.message || 'Sync failed' };
+  }
+}
+
+/**
+ * Sync all accounts stored on this device to Supabase
+ */
+export async function syncAllAccountsToSupabase(): Promise<{ total: number; synced: number }> {
+  const accounts = DailyStorageService.getPreviousAccounts();
+  const client = getSupabaseClient();
+  if (!client || accounts.length === 0) {
+    return { total: accounts.length, synced: 0 };
+  }
+
+  let synced = 0;
+  for (const acc of accounts) {
+    const res = await syncUserToSupabase(acc);
+    if (res.success) synced++;
+  }
+
+  return { total: accounts.length, synced };
+}
 
 export interface AuthResult {
   success: boolean;

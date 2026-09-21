@@ -64,6 +64,7 @@ export default function App() {
   const [reportedPostIds, setReportedPostIds] = useState<string[]>(() => DailyStorageService.getReportedPostIds());
   const [notifications, setNotifications] = useState<AppNotification[]>(() => DailyStorageService.getAllNotifications());
   const [isOnboarded, setIsOnboarded] = useState<boolean>(() => DailyStorageService.isOnboarded());
+  const [isAccountSwitcherOpen, setIsAccountSwitcherOpen] = useState<boolean>(false);
 
   // UI Navigation & Modals
   const [currentTab, setCurrentTab] = useState<NavigationTab>('home');
@@ -263,7 +264,7 @@ export default function App() {
     }
   );
 
-  // Onboarding completion handler
+  // Onboarding & Account Switcher completion handler
   const handleCompleteOnboarding = (updatedUserProps: Partial<User>) => {
     const updated = { ...currentUser, ...updatedUserProps };
     setCurrentUser(updated);
@@ -271,6 +272,13 @@ export default function App() {
     DailyStorageService.savePreviousAccount(updated);
     DailyStorageService.setOnboarded(true);
     setIsOnboarded(true);
+    setIsAccountSwitcherOpen(false);
+  };
+
+  // Switch Account Trigger from Profile Settings
+  const handleSwitchAccount = () => {
+    DailyStorageService.savePreviousAccount(currentUser);
+    setIsAccountSwitcherOpen(true);
   };
 
   // Sync Supabase Auth session if redirected via OAuth or active token
@@ -1110,6 +1118,7 @@ export default function App() {
               }}
               onUserUpdated={(u) => setCurrentUser(u)}
               onOpenNotifications={() => setIsNotificationsOpen(true)}
+              onSwitchAccount={handleSwitchAccount}
             />
           )}
 
@@ -1378,12 +1387,16 @@ export default function App() {
           />
         )}
 
-        {/* Onboarding modal if not onboarded */}
-        <OnboardingModal
-          isOpen={!isOnboarded}
-          initialUser={currentUser}
-          onComplete={handleCompleteOnboarding}
-        />
+        {/* Onboarding & Account Switcher Modal */}
+        {(isAccountSwitcherOpen || !isOnboarded) && (
+          <OnboardingModal
+            isOpen={true}
+            initialUser={currentUser}
+            forceSignInView={isAccountSwitcherOpen}
+            onClose={isOnboarded ? () => setIsAccountSwitcherOpen(false) : undefined}
+            onComplete={handleCompleteOnboarding}
+          />
+        )}
 
         {/* Create Post Modal with Local Draft Saving, Schedule Queue & Draft Editor */}
         <CreatePostModal

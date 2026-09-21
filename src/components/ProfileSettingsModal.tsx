@@ -31,10 +31,20 @@ import {
   UserCheck,
   ShieldCheck,
   LogOut,
+  Users,
+  Cloud,
+  Database,
+  RefreshCw,
 } from 'lucide-react';
 import { User as UserType, Post, PostDraft } from '../types';
 import { DailyStorageService } from '../services/storage';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
+import {
+  getSupabaseConfig,
+  setSupabaseProjectCredentials,
+  syncAllAccountsToSupabase,
+  syncUserToSupabase,
+} from '../services/supabase';
 
 interface ProfileSettingsModalProps {
   isOpen: boolean;
@@ -51,6 +61,7 @@ interface ProfileSettingsModalProps {
   onResetData: () => void;
   onUserUpdated?: (user: UserType) => void;
   onOpenNotifications?: () => void;
+  onSwitchAccount?: () => void;
 }
 
 export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
@@ -68,11 +79,17 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
   onResetData,
   onUserUpdated,
   onOpenNotifications,
+  onSwitchAccount,
 }) => {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [themeMode, setThemeMode] = useState<'system' | 'dark' | 'light'>(() => DailyStorageService.getThemeMode());
   const [currentTheme, setCurrentTheme] = useState<'dark' | 'light'>(() => DailyStorageService.getTheme());
   const [hapticsEnabled, setHapticsEnabled] = useState<boolean>(() => DailyStorageService.getHapticsEnabled());
+  const [supabaseSyncStatus, setSupabaseSyncStatus] = useState<string | null>(null);
+  const [isSyncingSupabase, setIsSyncingSupabase] = useState(false);
+  const [showSupabaseConfig, setShowSupabaseConfig] = useState(false);
+  const [supabaseUrlInput, setSupabaseUrlInput] = useState(() => getSupabaseConfig().url || '');
+  const [supabaseKeyInput, setSupabaseKeyInput] = useState(() => getSupabaseConfig().anonKey || '');
 
   // Blocked Users Management View State
   const [activeView, setActiveView] = useState<'main' | 'blocked_users'>('main');
@@ -86,6 +103,26 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
       setBlockedUsers(DailyStorageService.getBlockedUsers());
     }
   }, [isOpen, currentUser.blockedUserIds]);
+
+  // Previous accounts list for switcher count and quick selection
+  const previousAccounts = useMemo(() => {
+    return DailyStorageService.getPreviousAccounts();
+  }, [isOpen]);
+
+  const handleSyncSupabase = async () => {
+    vibrateLight();
+    setIsSyncingSupabase(true);
+    setSupabaseSyncStatus(null);
+    try {
+      const res = await syncAllAccountsToSupabase();
+      setSupabaseSyncStatus(`Synced ${res.synced} of ${res.total} accounts to Supabase`);
+      vibrateStreakMilestone();
+    } catch (err: any) {
+      setSupabaseSyncStatus(`Sync error: ${err?.message || 'Failed to reach Supabase'}`);
+    } finally {
+      setIsSyncingSupabase(false);
+    }
+  };
 
   // Reset to main view on modal close/open
   useEffect(() => {
@@ -939,13 +976,136 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
               </div>
               <ChevronRight className="w-4 h-4 text-white/30 group-hover:text-white group-hover:translate-x-0.5 transition-all shrink-0" />
             </button>
+
+            {/* 5. Switch Account (In Personal Tools & Hubs alongside Dossier, Analytics, Saved, Drafts) */}
+            <button
+              type="button"
+              id="settings-switch-account-btn"
+              onClick={() => {
+                vibrateLight();
+                onClose();
+                if (onSwitchAccount) {
+                  onSwitchAccount();
+                }
+              }}
+              className="w-full p-3.5 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-[#2F6FED]/40 transition-all flex items-center justify-between text-left group cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-[#2F6FED] shrink-0 group-hover:scale-105 transition-transform">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-white group-hover:text-[#2F6FED] transition-colors">
+                      Switch Account
+                    </span>
+                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-[#2F6FED]/15 text-[#2F6FED] border border-[#2F6FED]/30">
+                      {previousAccounts.length} {previousAccounts.length === 1 ? 'account' : 'accounts'}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-white/50 mt-0.5">
+                    Open sign-in screen to switch between accounts or create a new profile
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-white/30 group-hover:text-white group-hover:translate-x-0.5 transition-all shrink-0" />
+            </button>
           </div>
 
           {/* Account & Storage Actions */}
           <div className="space-y-2 pt-2 border-t border-white/5">
             <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-white/40 px-1">
-              Account Management
+              Account Management & Cloud Persistence
             </span>
+
+            {/* Supabase Cloud Database Persistence */}
+            <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                    <Database className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <span>Supabase Persistence</span>
+                      <span
+                        className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                          getSupabaseConfig().isConfigured
+                            ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                            : 'bg-blue-500/15 text-blue-300 border-blue-500/30'
+                        }`}
+                      >
+                        {getSupabaseConfig().isConfigured ? 'Connected' : 'Active'}
+                      </span>
+                    </h4>
+                    <p className="text-[10px] text-white/50">
+                      Syncs user accounts and streaks directly to Supabase
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {supabaseSyncStatus && (
+                <div className="p-2 rounded-xl bg-white/5 border border-white/10 text-[11px] text-emerald-300 font-mono">
+                  {supabaseSyncStatus}
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleSyncSupabase}
+                  disabled={isSyncingSupabase}
+                  className="flex-1 py-2 px-3 rounded-xl bg-[#2F6FED] hover:bg-blue-600 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#2F6FED]/20 cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncingSupabase ? 'animate-spin' : ''}`} />
+                  <span>{isSyncingSupabase ? 'Syncing...' : 'Sync Accounts to Supabase'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowSupabaseConfig(!showSupabaseConfig)}
+                  className="py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white font-bold text-xs border border-white/10 transition-colors cursor-pointer"
+                >
+                  {showSupabaseConfig ? 'Hide' : 'Keys'}
+                </button>
+              </div>
+
+              {showSupabaseConfig && (
+                <div className="p-3 rounded-xl bg-black/60 border border-white/10 space-y-2 text-xs">
+                  <span className="text-[10px] font-mono text-white/60 block font-bold uppercase">
+                    Supabase Project URL & Anon Key:
+                  </span>
+                  <input
+                    type="text"
+                    value={supabaseUrlInput}
+                    onChange={(e) => setSupabaseUrlInput(e.target.value)}
+                    placeholder="https://xyz.supabase.co"
+                    className="w-full px-3 py-1.5 rounded-lg bg-white/5 border border-white/15 text-xs text-white placeholder-white/30 outline-none"
+                  />
+                  <input
+                    type="password"
+                    value={supabaseKeyInput}
+                    onChange={(e) => setSupabaseKeyInput(e.target.value)}
+                    placeholder="anon-public-key"
+                    className="w-full px-3 py-1.5 rounded-lg bg-white/5 border border-white/15 text-xs text-white placeholder-white/30 outline-none"
+                  />
+                  <div className="flex items-center justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSupabaseProjectCredentials(supabaseUrlInput, supabaseKeyInput);
+                        setSupabaseSyncStatus('Saved custom Supabase credentials!');
+                        setShowSupabaseConfig(false);
+                      }}
+                      className="px-3 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-black font-bold text-xs cursor-pointer"
+                    >
+                      Save Credentials
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Blocked Users Management Entry */}
             <button
@@ -984,13 +1144,16 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
               <ChevronRight className="w-4 h-4 text-white/30 group-hover:text-white group-hover:translate-x-0.5 transition-all shrink-0" />
             </button>
 
+            {/* Switch Account */}
             <button
               type="button"
+              id="settings-switch-account-footer-btn"
               onClick={() => {
                 vibrateLight();
-                DailyStorageService.savePreviousAccount(currentUser);
-                DailyStorageService.setOnboarded(false);
-                window.location.reload();
+                onClose();
+                if (onSwitchAccount) {
+                  onSwitchAccount();
+                }
               }}
               className="w-full p-3.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all flex items-center justify-between text-left group cursor-pointer"
             >
@@ -1000,10 +1163,10 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                 </div>
                 <div>
                   <span className="text-xs font-bold text-white group-hover:text-[#2F6FED] transition-colors">
-                    Log Out & Switch Account
+                    Switch Account
                   </span>
                   <p className="text-[10px] text-white/40 mt-0.5">
-                    Save current session to previous accounts and return to sign in
+                    Save current session to device list and open account switcher
                   </p>
                 </div>
               </div>

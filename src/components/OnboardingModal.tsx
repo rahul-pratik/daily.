@@ -25,25 +25,36 @@ import {
   supabaseSignUpWithEmail,
   supabaseSignInWithGoogle,
   supabaseSignInWithApple,
+  syncUserToSupabase,
 } from '../services/supabase';
 
 interface OnboardingModalProps {
   isOpen: boolean;
   onComplete: (updatedUser: Partial<User>) => void;
   initialUser: User;
+  forceSignInView?: boolean;
+  onClose?: () => void;
 }
 
 export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   isOpen,
   onComplete,
   initialUser,
+  forceSignInView = false,
+  onClose,
 }) => {
   // Steps: 1 = Create Profile, 2 = Interests, 3 = Login / Auth
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
-  // Separate view for account switcher (when clicking "Already have an account? Sign in")
-  const [showPreviousAccounts, setShowPreviousAccounts] = useState(false);
-  const [showCredentialsForm, setShowCredentialsForm] = useState(false);
+  // Separate view for account switcher (when clicking "Already have an account? Sign in" or Switch Account)
+  const [showPreviousAccounts, setShowPreviousAccounts] = useState(forceSignInView);
+
+  // Sync state if forceSignInView changes
+  React.useEffect(() => {
+    if (forceSignInView) {
+      setShowPreviousAccounts(true);
+    }
+  }, [forceSignInView]);
 
   // Profile data starts clean without default Alex Rivera / @alexrivera / default bio
   const isAlexRivera =
@@ -140,15 +151,40 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     setAvatar(DEFAULT_USER_AVATAR);
   };
 
+  // Start creating a brand new account
+  const handleStartMakeNewAccount = () => {
+    vibrateLight();
+    setName('');
+    setUsername('');
+    setAvatar(DEFAULT_USER_AVATAR);
+    setBio('');
+    setEmail('');
+    setPassword('');
+    setSelectedInterests(['Coding', 'AI & Tech', 'Fitness & Gym']);
+    setAuthError(null);
+    setShowPreviousAccounts(false);
+    setStep(1);
+  };
+
   // Select an existing account previously signed in
-  const handleSelectExistingAccount = (account: User) => {
+  const handleSelectExistingAccount = async (account: User) => {
     vibrateStreakMilestone();
     DailyStorageService.savePreviousAccount(account);
+    DailyStorageService.saveCurrentUser(account);
+    DailyStorageService.setOnboarded(true);
+
+    // Persist to Supabase in background
+    try {
+      await syncUserToSupabase(account);
+    } catch (err) {
+      console.warn('Supabase sync notice:', err);
+    }
+
     onComplete(account);
   };
 
   // Finalize onboarding after authenticating with selected credentials
-  const handleAuthComplete = (
+  const handleAuthComplete = async (
     provider: 'google' | 'apple' | 'email',
     userEmail?: string,
     overrideUser?: Partial<User>
@@ -159,7 +195,9 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
       (userEmail ? userEmail.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '') : 'creator');
     const finalEmail = userEmail || `${cleanUsername}@dailyapp.io`;
 
-    onComplete({
+    const newUser: User = {
+      ...initialUser,
+      id: overrideUser?.id || `user_${cleanUsername}_${Date.now()}`,
       name: (overrideUser?.name || name).trim() || 'Daily Creator',
       username: cleanUsername,
       avatar: overrideUser?.avatar || avatar || DEFAULT_USER_AVATAR,
@@ -168,7 +206,21 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
       habits: initialUser.habits || ['Build Daily', 'Exercise', 'Read 20 min'],
       email: finalEmail,
       authProvider: provider,
-    });
+    };
+
+    // Save to local device storage & previous accounts list
+    DailyStorageService.saveCurrentUser(newUser);
+    DailyStorageService.savePreviousAccount(newUser);
+    DailyStorageService.setOnboarded(true);
+
+    // Save & sync to Supabase database
+    try {
+      await syncUserToSupabase(newUser);
+    } catch (err) {
+      console.warn('Supabase sync notice on auth complete:', err);
+    }
+
+    onComplete(newUser);
   };
 
   // Google Sign-In Handler via Supabase / Google Accounts popup
@@ -458,50 +510,85 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         
         {/* =================================================================== */}
         {/* PREVIOUSLY SIGNED-IN ACCOUNTS SCREEN                                */}
-        {/* Opened when clicking "Already have an account? Sign in"             */}
+        {/* Opened when clicking "Sign in" or "Switch Account"                  */}
         {/* =================================================================== */}
         {showPreviousAccounts ? (
           <div className="flex flex-col flex-1 min-h-0">
-            {/* Header with Back button to Sign Up */}
-            <div className="flex items-center gap-2.5 mb-4 shrink-0">
-              <button
-                type="button"
-                onClick={() => {
-                  vibrateLight();
-                  setShowPreviousAccounts(false);
-                  setShowCredentialsForm(false);
-                }}
-                className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-white/70 hover:text-white transition-colors cursor-pointer"
-                aria-label="Back to Sign Up"
-              >
-                <ArrowLeft className="w-4 h-4" />
-              </button>
-              <div>
-                <h2 className="text-xl font-black text-white">Sign In</h2>
-                <p className="text-xs text-white/50">
-                  {previousAccounts.length > 0 && !showCredentialsForm
-                    ? 'Select an account previously signed in'
-                    : 'Access your account'}
-                </p>
+            {/* Header with Back or Cancel button */}
+            <div className="flex items-center justify-between mb-4 shrink-0">
+              <div className="flex items-center gap-2.5">
+                {onClose ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vibrateLight();
+                      onClose();
+                    }}
+                    className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-white/70 hover:text-white transition-colors cursor-pointer"
+                    aria-label="Back to App"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vibrateLight();
+                      setShowPreviousAccounts(false);
+                      setStep(1);
+                    }}
+                    className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-white/70 hover:text-white transition-colors cursor-pointer"
+                    aria-label="Back to Sign Up"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                  </button>
+                )}
+                <div>
+                  <h2 className="text-xl font-black text-white">Sign In / Switch Account</h2>
+                  <p className="text-xs text-white/50">
+                    {previousAccounts.length > 0
+                      ? 'Select an account to open or make a new account'
+                      : 'Access your daily streak profile'}
+                  </p>
+                </div>
               </div>
+
+              {onClose && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    vibrateLight();
+                    onClose();
+                  }}
+                  className="text-xs font-bold text-white/40 hover:text-white px-2 py-1 rounded-lg transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+              )}
             </div>
 
-            {/* CASE A: Has previous accounts on this device */}
-            {previousAccounts.length > 0 && !showCredentialsForm ? (
+            {previousAccounts.length > 0 ? (
               <div className="flex flex-col flex-1 min-h-0">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-white/40 mb-2 shrink-0">
-                  Accounts on this device
+                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-white/40 mb-2 shrink-0">
+                  <span>Accounts on this device ({previousAccounts.length})</span>
+                  <span className="text-[#2F6FED]">Tap to open</span>
                 </div>
 
                 <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 my-1">
-                  {previousAccounts.map((account) => {
-                    const accountStreak = (account as User & { streak?: number }).streak ?? account.currentStreak ?? 0;
+                  {previousAccounts.map((account, index) => {
+                    const isRecent = index === 0;
+                    const legacyStreak = (account as User & { streak?: number }).streak ?? 0;
+                    const accountStreak = account.currentStreak ?? legacyStreak;
 
                     return (
                       <div
-                        key={account.id || account.username}
+                        key={account.id || account.username || index}
                         onClick={() => handleSelectExistingAccount(account)}
-                        className="w-full p-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#2F6FED]/50 transition-all flex items-center justify-between group cursor-pointer active:scale-[0.99]"
+                        className={`w-full p-3.5 rounded-2xl transition-all flex items-center justify-between group cursor-pointer active:scale-[0.99] border ${
+                          isRecent
+                            ? 'bg-blue-500/10 hover:bg-blue-500/15 border-blue-500/30 hover:border-[#2F6FED]'
+                            : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20'
+                        }`}
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="relative">
@@ -514,10 +601,15 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                             <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-[#0A0A0A]" />
                           </div>
                           <div className="min-w-0 text-left">
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="text-xs font-bold text-white block truncate group-hover:text-[#2F6FED] transition-colors">
                                 {account.name}
                               </span>
+                              {isRecent && (
+                                <span className="text-[9px] font-black text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded-full border border-emerald-500/30 shrink-0">
+                                  Recent
+                                </span>
+                              )}
                               {accountStreak > 0 && (
                                 <span className="text-[10px] font-black text-amber-400 flex items-center gap-0.5 shrink-0 bg-amber-500/10 px-1.5 py-0.5 rounded-full border border-amber-500/20">
                                   <Flame className="w-2.5 h-2.5 fill-current" />
@@ -545,36 +637,44 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   })}
                 </div>
 
+                {/* Make a New Account Button */}
                 <div className="pt-3 mt-2 border-t border-white/10 flex flex-col gap-2 shrink-0">
                   <button
                     type="button"
-                    onClick={() => {
-                      vibrateLight();
-                      setShowCredentialsForm(true);
-                      setAuthMode('signin');
-                    }}
-                    className="w-full py-2.5 px-3 rounded-2xl bg-white/5 hover:bg-white/10 text-white/80 hover:text-white font-bold text-xs border border-white/10 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    onClick={handleStartMakeNewAccount}
+                    className="w-full py-3 rounded-2xl bg-[#2F6FED] hover:bg-blue-600 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg shadow-[#2F6FED]/20 cursor-pointer active:scale-[0.99]"
                   >
-                    <KeyRound className="w-3.5 h-3.5 text-[#2F6FED]" />
-                    Sign in to another account (Email or Social)
+                    <span>+ Make a New Account</span>
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      vibrateLight();
-                      setShowPreviousAccounts(false);
-                      setShowCredentialsForm(false);
-                      setStep(1);
-                    }}
-                    className="w-full py-2 px-3 rounded-2xl text-white/50 hover:text-white text-xs font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <ArrowLeft className="w-3.5 h-3.5" />
-                    Back to Sign Up
-                  </button>
+                  {onClose ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        vibrateLight();
+                        onClose();
+                      }}
+                      className="w-full py-2 px-3 rounded-2xl text-white/50 hover:text-white text-xs font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      Back to App
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        vibrateLight();
+                        setShowPreviousAccounts(false);
+                        setStep(1);
+                      }}
+                      className="w-full py-2 px-3 rounded-2xl text-white/50 hover:text-white text-xs font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      Back to Sign Up
+                    </button>
+                  )}
                 </div>
               </div>
-            ) : !showCredentialsForm ? (
+            ) : (
               /* CASE B: No previous accounts found on this device */
               <div className="flex flex-col flex-1 items-center justify-center py-6 text-center">
                 <div className="w-16 h-16 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-center mb-4 text-white/30">
@@ -586,207 +686,39 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 </p>
 
                 <div className="w-full space-y-2.5 max-w-xs">
-                  {/* Primary requested button: Back to sign up screen */}
                   <button
                     type="button"
-                    onClick={() => {
-                      vibrateLight();
-                      setShowPreviousAccounts(false);
-                      setStep(1);
-                    }}
+                    onClick={handleStartMakeNewAccount}
                     className="w-full py-3 rounded-2xl bg-[#2F6FED] text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-blue-600 active:scale-[0.99] transition-all shadow-lg shadow-[#2F6FED]/20 cursor-pointer"
                   >
-                    <ArrowLeft className="w-4 h-4" />
-                    Back to Sign Up
+                    <span>+ Make a New Account</span>
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      vibrateLight();
-                      setShowCredentialsForm(true);
-                      setAuthMode('signin');
-                    }}
-                    className="w-full py-2.5 px-3 rounded-2xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white font-bold text-xs border border-white/10 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <KeyRound className="w-3.5 h-3.5 text-[#2F6FED]" />
-                    Sign in with Email or Social
-                  </button>
-                </div>
-              </div>
-            ) : (
-              /* Secondary option: Sign in with credentials (Supabase: Email, Google, Apple) */
-              <div className="flex flex-col flex-1 min-h-0 overflow-y-auto pr-1">
-                {authError && (
-                  <div className="mb-3 p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium flex items-center gap-1.5">
-                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                    <span>{authError}</span>
-                  </div>
-                )}
-
-                <div className="space-y-2 shrink-0 mb-3">
-                  <button
-                    type="button"
-                    onClick={handleGoogleLogin}
-                    disabled={!!authLoading}
-                    className="w-full py-2.5 px-4 rounded-2xl bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs flex items-center justify-center gap-2.5 shadow-md active:scale-[0.99] transition-all disabled:opacity-50 cursor-pointer"
-                  >
-                    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                      <path
-                        fill="#4285F4"
-                        d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
-                      />
-                      <path
-                        fill="#34A853"
-                        d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.24v3.15C3.26 21.36 7.34 24 12 24z"
-                      />
-                      <path
-                        fill="#FBBC05"
-                        d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.24C.45 8.15 0 9.92 0 12s.45 3.85 1.24 5.42l4.04-3.15z"
-                      />
-                      <path
-                        fill="#EA4335"
-                        d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.24 6.58l4.04 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-                      />
-                    </svg>
-                    <span>Continue with Google</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleAppleLogin}
-                    disabled={!!authLoading}
-                    className="w-full py-2.5 px-4 rounded-2xl bg-[#141416] hover:bg-[#1f1f24] border border-white/20 text-white font-bold text-xs flex items-center justify-center gap-2.5 shadow-md active:scale-[0.99] transition-all disabled:opacity-50 cursor-pointer"
-                  >
-                    <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
-                      <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.47c.65-.79 1.1-1.89.98-2.99-.95.04-2.1.63-2.78 1.42-.59.68-1.12 1.77-.98 2.85 1.06.08 2.14-.54 2.78-1.28z" />
-                    </svg>
-                    <span>Continue with Apple</span>
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-3 my-2 shrink-0">
-                  <div className="h-[1px] bg-white/10 flex-1" />
-                  <span className="text-[10px] uppercase font-bold text-white/40 tracking-wider">
-                    or with email
-                  </span>
-                  <div className="h-[1px] bg-white/10 flex-1" />
-                </div>
-
-                {/* Genuine credentials test chip */}
-                <div className="p-3 rounded-2xl bg-[#2F6FED]/10 border border-[#2F6FED]/20 text-xs shrink-0 mb-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <KeyRound className="w-3.5 h-3.5 text-[#2F6FED] shrink-0" />
-                      <div className="min-w-0">
-                        <span className="text-[11px] text-blue-200 font-bold block truncate">
-                          Genuine Account Verification
-                        </span>
-                        <span className="text-[10px] text-white/70 font-mono block truncate">
-                          pratik.rahulb@gmail.com &bull; daily2026!
-                        </span>
-                      </div>
-                    </div>
+                  {onClose ? (
                     <button
                       type="button"
                       onClick={() => {
-                        setEmail('pratik.rahulb@gmail.com');
-                        setPassword('daily2026!');
-                        setAuthError(null);
+                        vibrateLight();
+                        onClose();
                       }}
-                      className="px-2.5 py-1 rounded-xl bg-[#2F6FED] hover:bg-blue-600 text-white font-bold text-[10px] shrink-0 transition-colors cursor-pointer"
+                      className="w-full py-2 px-3 rounded-2xl text-white/50 hover:text-white text-xs font-medium transition-colors flex items-center justify-center cursor-pointer"
                     >
-                      Auto-fill
+                      Back to App
                     </button>
-                  </div>
-                  <p className="text-[10px] text-white/40 mt-1 leading-tight">
-                    Entering an incorrect or random password will display &quot;Incorrect email or password&quot;.
-                  </p>
-                </div>
-
-                <form onSubmit={handleEmailSubmit} className="space-y-2.5">
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-white/60 mb-1">
-                      Email
-                    </label>
-                    <div className="relative flex items-center">
-                      <Mail className="absolute left-3.5 w-3.5 h-3.5 text-white/40" />
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="you@example.com"
-                        required
-                        className="w-full pl-9 pr-3.5 py-2.5 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-white/60 mb-1">
-                      Password
-                    </label>
-                    <div className="relative flex items-center">
-                      <Lock className="absolute left-3.5 w-3.5 h-3.5 text-white/40" />
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Enter password"
-                        required
-                        className="w-full pl-9 pr-9 py-2.5 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 text-white/40 hover:text-white transition-colors cursor-pointer"
-                      >
-                        {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={!!authLoading || !email.trim() || !password}
-                    className="w-full py-3 rounded-2xl bg-[#2F6FED] text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-blue-600 active:scale-[0.99] transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-lg shadow-[#2F6FED]/20 cursor-pointer mt-1"
-                  >
-                    {authLoading === 'email' ? (
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <>
-                        <KeyRound className="w-4 h-4" />
-                        <span>Sign In & Enter Daily</span>
-                      </>
-                    )}
-                  </button>
-                </form>
-
-                <div className="pt-3 mt-3 border-t border-white/10 flex items-center justify-between shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      vibrateLight();
-                      setShowCredentialsForm(false);
-                    }}
-                    className="text-xs font-bold text-white/60 hover:text-white flex items-center gap-1 cursor-pointer"
-                  >
-                    <ArrowLeft className="w-3.5 h-3.5" />
-                    {previousAccounts.length > 0 ? 'Back to Accounts' : 'Back'}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      vibrateLight();
-                      setShowPreviousAccounts(false);
-                      setShowCredentialsForm(false);
-                      setStep(1);
-                    }}
-                    className="text-xs font-bold text-[#2F6FED] hover:underline cursor-pointer"
-                  >
-                    Back to Sign Up
-                  </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        vibrateLight();
+                        setShowPreviousAccounts(false);
+                        setStep(1);
+                      }}
+                      className="w-full py-2 px-3 rounded-2xl text-white/50 hover:text-white text-xs font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      Back to Sign Up
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -830,7 +762,6 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 onClick={() => {
                   vibrateLight();
                   setShowPreviousAccounts(true);
-                  setShowCredentialsForm(false);
                 }}
                 className="w-full mb-3.5 py-2 px-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#2F6FED]/40 text-xs text-white/80 hover:text-white flex items-center justify-between transition-all cursor-pointer group shrink-0"
               >

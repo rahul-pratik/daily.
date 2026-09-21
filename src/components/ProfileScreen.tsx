@@ -78,6 +78,7 @@ interface ProfileScreenProps {
   onOpenDossier?: () => void;
   onUserUpdated?: (user: User) => void;
   onOpenNotifications?: () => void;
+  onSwitchAccount?: () => void;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
@@ -110,6 +111,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onOpenDossier,
   onUserUpdated,
   onOpenNotifications,
+  onSwitchAccount,
 }) => {
   // Clean profile tabs: Proofs, Tweets, Collections, and Drafts
   const [profileTab, setProfileTab] = useState<'proofs' | 'tweets' | 'collections' | 'drafts'>(
@@ -1600,6 +1602,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         onResetData={onResetData}
         onUserUpdated={onUserUpdated}
         onOpenNotifications={onOpenNotifications}
+        onSwitchAccount={onSwitchAccount}
       />
 
       {/* PERSON DOSSIER FULLSCREEN MODAL (Opened from Settings) */}

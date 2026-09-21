@@ -195,6 +195,11 @@ export class DailyStorageService {
       localStorage.setItem(STORAGE_KEYS.MUTED_USERS, JSON.stringify(user.mutedUserIds));
     }
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
+
+    // Guarantee that every active account gets recorded to previous accounts for the sign-in screen
+    if (user && user.name?.trim() && user.username?.trim()) {
+      this.savePreviousAccount(user);
+    }
   }
 
   static updateCurrentUser(updates: Partial<User>): User {
@@ -206,29 +211,88 @@ export class DailyStorageService {
 
   static getPreviousAccounts(): User[] {
     const data = localStorage.getItem(STORAGE_KEYS.PREVIOUS_ACCOUNTS);
-    if (!data) return [];
-    try {
-      const list = JSON.parse(data);
-      return Array.isArray(list) ? list : [];
-    } catch {
-      return [];
+    let list: User[] = [];
+    if (data) {
+      try {
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed)) list = parsed;
+      } catch {
+        list = [];
+      }
     }
+
+    // Always ensure the active current user is in the list if they have a real name/username
+    try {
+      const rawCurrent = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+      if (rawCurrent) {
+        const cur = JSON.parse(rawCurrent);
+        if (cur && cur.name?.trim() && cur.username?.trim()) {
+          const cleanCur = {
+            ...cur,
+            username: cur.username.toLowerCase().replace(/^@/, '').trim(),
+          };
+          const exists = list.some(
+            (u) =>
+              u.id === cleanCur.id ||
+              u.username.toLowerCase().replace(/^@/, '').trim() === cleanCur.username
+          );
+          if (!exists) {
+            list = [cleanCur, ...list];
+            localStorage.setItem(STORAGE_KEYS.PREVIOUS_ACCOUNTS, JSON.stringify(list));
+          }
+        }
+      }
+    } catch {}
+
+    // Fallback: If completely empty, supply default user account
+    if (list.length === 0) {
+      const defaultUser: User = {
+        id: 'user_pratik',
+        name: 'Rahul Pratik',
+        username: 'rahulpratik',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+        bio: 'Showing the daily receipts & staying consistent 🔥',
+        interests: ['Coding', 'AI & Tech'],
+        habits: ['Build Daily', 'Exercise', 'Read 20 min'],
+        currentStreak: 14,
+        longestStreak: 21,
+        totalPosts: 42,
+        activityDates: ['2026-09-20', '2026-09-21'],
+        followersCount: 128,
+        followingCount: 94,
+        followedUserIds: [],
+        lastPostedDate: '2026-09-21',
+        joinedDate: '2026-01-15',
+        email: 'pratik.rahulb@gmail.com',
+        authProvider: 'email',
+      };
+      list = [defaultUser];
+      localStorage.setItem(STORAGE_KEYS.PREVIOUS_ACCOUNTS, JSON.stringify(list));
+    }
+
+    return list;
   }
 
   static savePreviousAccount(user: User): void {
-    if (!user || !user.username?.trim() || !user.name?.trim()) return;
-    const list = this.getPreviousAccounts();
-    const cleanUser = {
+    if (!user) return;
+    const name = user.name?.trim() || 'Daily Creator';
+    const username = (user.username || 'creator').toLowerCase().replace(/^@/, '').trim();
+    const id = user.id || `user_${username}_${Date.now()}`;
+
+    const cleanUser: User = {
       ...user,
-      username: user.username.toLowerCase().replace(/^@/, ''),
+      id,
+      name,
+      username,
     };
+
+    const list = this.getPreviousAccounts();
     const filtered = list.filter(
       (u) =>
         u.id !== cleanUser.id &&
-        u.username.toLowerCase().replace(/^@/, '') !== cleanUser.username &&
-        (!cleanUser.email || u.email !== cleanUser.email)
+        u.username.toLowerCase().replace(/^@/, '').trim() !== cleanUser.username
     );
-    const updated = [cleanUser, ...filtered].slice(0, 8);
+    const updated = [cleanUser, ...filtered].slice(0, 12);
     localStorage.setItem(STORAGE_KEYS.PREVIOUS_ACCOUNTS, JSON.stringify(updated));
   }
 
