@@ -151,18 +151,6 @@ export class DailyStorageService {
         user.avatar = DEFAULT_USER_AVATAR;
         changed = true;
       }
-      // Sanitize: If stale user was Rahul Pratik or user_pratik, purge so it is not stored for everyone
-      if (
-        user.id === 'user_pratik' ||
-        user.name === 'Rahul Pratik' ||
-        user.email === 'pratik.rahulb@gmail.com' ||
-        user.username === 'rahulpratik'
-      ) {
-        localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
-        localStorage.removeItem(STORAGE_KEYS.ONBOARDED);
-        this.saveCurrentUser(INITIAL_CURRENT_USER);
-        return INITIAL_CURRENT_USER;
-      }
       if (changed) {
         this.saveCurrentUser(user);
       }
@@ -188,10 +176,8 @@ export class DailyStorageService {
     // Guarantee that every active genuine account gets recorded to previous accounts
     if (
       user &&
-      user.name?.trim() &&
-      user.username?.trim() &&
-      user.id !== 'user_pratik' &&
-      user.name !== 'Rahul Pratik'
+      (user.name?.trim() || user.username?.trim()) &&
+      user.username !== 'alexrivera'
     ) {
       this.savePreviousAccount(user);
     }
@@ -216,14 +202,9 @@ export class DailyStorageService {
       }
     }
 
-    // Sanitize: Purge any dummy/test accounts so they are not shown to everyone
+    // Sanitize: Purge any dummy/test accounts with empty credentials or old placeholders
     list = list.filter(
-      (u) =>
-        u &&
-        u.id !== 'user_pratik' &&
-        u.name !== 'Rahul Pratik' &&
-        u.username !== 'rahulpratik' &&
-        u.email !== 'pratik.rahulb@gmail.com'
+      (u) => u && (u.name?.trim() || u.username?.trim()) && u.username !== 'alexrivera'
     );
 
     // Always ensure the active current user is in the list if they have a real name/username
@@ -233,14 +214,12 @@ export class DailyStorageService {
         const cur = JSON.parse(rawCurrent);
         if (
           cur &&
-          cur.name?.trim() &&
-          cur.username?.trim() &&
-          cur.id !== 'user_pratik' &&
-          cur.name !== 'Rahul Pratik'
+          (cur.name?.trim() || cur.username?.trim()) &&
+          cur.username !== 'alexrivera'
         ) {
           const cleanCur = {
             ...cur,
-            username: cur.username.toLowerCase().replace(/^@/, '').trim(),
+            username: (cur.username || 'creator').toLowerCase().replace(/^@/, '').trim(),
           };
           const exists = list.some(
             (u) =>
@@ -260,8 +239,10 @@ export class DailyStorageService {
 
   static savePreviousAccount(user: User): void {
     if (!user) return;
-    if (user.id === 'user_pratik' || user.name === 'Rahul Pratik' || user.email === 'pratik.rahulb@gmail.com') return;
-    const name = user.name?.trim() || 'Daily Creator';
+    if (!user.name?.trim() && !user.username?.trim()) return;
+    if (user.username === 'alexrivera') return;
+
+    const name = user.name?.trim() || user.username?.trim() || 'Daily Creator';
     const username = (user.username || 'creator').toLowerCase().replace(/^@/, '').trim();
     const id = user.id || `user_${username}_${Date.now()}`;
 
@@ -299,18 +280,7 @@ export class DailyStorageService {
     try {
       const list = JSON.parse(data);
       if (!Array.isArray(list)) return [];
-      const cleaned = list.filter(
-        (c) =>
-          c &&
-          c.userId !== 'user_pratik' &&
-          c.name !== 'Rahul Pratik' &&
-          c.username !== 'rahulpratik' &&
-          c.email !== 'pratik.rahulb@gmail.com'
-      );
-      if (cleaned.length !== list.length) {
-        localStorage.setItem(STORAGE_KEYS.REGISTERED_CREDENTIALS, JSON.stringify(cleaned));
-      }
-      return cleaned;
+      return list.filter((c) => c && c.email);
     } catch {
       return [];
     }

@@ -35,6 +35,7 @@ import {
   Cloud,
   Database,
   RefreshCw,
+  Copy,
 } from 'lucide-react';
 import { User as UserType, Post, PostDraft } from '../types';
 import { DailyStorageService } from '../services/storage';
@@ -45,6 +46,7 @@ import {
   syncAllAccountsToSupabase,
   syncUserToSupabase,
 } from '../services/supabase';
+import { SUPABASE_SQL_SCHEMA } from '../services/supabaseSchema';
 
 interface ProfileSettingsModalProps {
   isOpen: boolean;
@@ -88,8 +90,17 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
   const [supabaseSyncStatus, setSupabaseSyncStatus] = useState<string | null>(null);
   const [isSyncingSupabase, setIsSyncingSupabase] = useState(false);
   const [showSupabaseConfig, setShowSupabaseConfig] = useState(false);
+  const [showSqlSchemaModal, setShowSqlSchemaModal] = useState(false);
+  const [copiedSql, setCopiedSql] = useState(false);
   const [supabaseUrlInput, setSupabaseUrlInput] = useState(() => getSupabaseConfig().url || '');
   const [supabaseKeyInput, setSupabaseKeyInput] = useState(() => getSupabaseConfig().anonKey || '');
+  const [storedAccounts, setStoredAccounts] = useState<UserType[]>(() => DailyStorageService.getPreviousAccounts());
+
+  useEffect(() => {
+    if (isOpen) {
+      setStoredAccounts(DailyStorageService.getPreviousAccounts());
+    }
+  }, [isOpen, currentUser]);
 
   // Blocked Users Management View State
   const [activeView, setActiveView] = useState<'main' | 'blocked_users'>('main');
@@ -977,39 +988,111 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
               <ChevronRight className="w-4 h-4 text-white/30 group-hover:text-white group-hover:translate-x-0.5 transition-all shrink-0" />
             </button>
 
-            {/* 5. Switch Account (In Personal Tools & Hubs alongside Dossier, Analytics, Saved, Drafts) */}
-            <button
-              type="button"
-              id="settings-switch-account-btn"
-              onClick={() => {
-                vibrateLight();
-                onClose();
-                if (onSwitchAccount) {
-                  onSwitchAccount();
-                }
-              }}
-              className="w-full p-3.5 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-[#2F6FED]/40 transition-all flex items-center justify-between text-left group cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-[#2F6FED] shrink-0 group-hover:scale-105 transition-transform">
-                  <Users className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-black text-white group-hover:text-[#2F6FED] transition-colors">
-                      Switch Account
-                    </span>
-                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-[#2F6FED]/15 text-[#2F6FED] border border-[#2F6FED]/30">
-                      {previousAccounts.length} {previousAccounts.length === 1 ? 'account' : 'accounts'}
-                    </span>
+            {/* 5. Switch Account & Accounts On Device Drawer */}
+            <div className="p-3.5 rounded-2xl bg-white/[0.04] border border-white/10 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-[#2F6FED] shrink-0">
+                    <Users className="w-5 h-5" />
                   </div>
-                  <p className="text-[10px] text-white/50 mt-0.5">
-                    Open sign-in screen to switch between accounts or create a new profile
-                  </p>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-white">
+                        Switch Account
+                      </span>
+                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-[#2F6FED]/15 text-[#2F6FED] border border-[#2F6FED]/30">
+                        {storedAccounts.length} {storedAccounts.length === 1 ? 'account' : 'accounts'}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-white/50 mt-0.5">
+                      Switch between your active profiles or sign in to another account
+                    </p>
+                  </div>
                 </div>
+
+                <button
+                  type="button"
+                  id="settings-switch-account-btn"
+                  onClick={() => {
+                    vibrateLight();
+                    onClose();
+                    if (onSwitchAccount) {
+                      onSwitchAccount();
+                    }
+                  }}
+                  className="py-1.5 px-3 rounded-xl bg-[#2F6FED] hover:bg-blue-600 text-white font-bold text-xs flex items-center gap-1 cursor-pointer transition-all shadow-sm"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add / Sign In</span>
+                </button>
               </div>
-              <ChevronRight className="w-4 h-4 text-white/30 group-hover:text-white group-hover:translate-x-0.5 transition-all shrink-0" />
-            </button>
+
+              {/* Accounts list stored on this device */}
+              <div className="space-y-2 pt-1 border-t border-white/5">
+                {storedAccounts.map((account) => {
+                  const isActive =
+                    account.id === currentUser.id ||
+                    (account.username &&
+                      currentUser.username &&
+                      account.username.toLowerCase().replace(/^@/, '') ===
+                        currentUser.username.toLowerCase().replace(/^@/, ''));
+                  return (
+                    <div
+                      key={account.id || account.username}
+                      className={`w-full p-2.5 rounded-xl border flex items-center justify-between transition-all ${
+                        isActive
+                          ? 'bg-[#2F6FED]/10 border-[#2F6FED]/40'
+                          : 'bg-white/5 border-white/10 hover:border-white/20'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <img
+                          src={account.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80'}
+                          alt={account.name}
+                          referrerPolicy="no-referrer"
+                          className="w-8 h-8 rounded-full object-cover border border-white/20 shrink-0"
+                        />
+                        <div className="min-w-0 text-left">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-white truncate">
+                              {account.name || 'Daily Creator'}
+                            </span>
+                            {isActive && (
+                              <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/15 px-1.5 py-0.2 rounded-full border border-emerald-500/30">
+                                Active
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-white/50 font-mono block truncate">
+                            @{account.username?.toLowerCase().replace(/^@/, '') || 'creator'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {!isActive ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            vibrateLight();
+                            DailyStorageService.saveCurrentUser(account);
+                            DailyStorageService.savePreviousAccount(account);
+                            if (onUserUpdated) {
+                              onUserUpdated(account);
+                            }
+                            setStoredAccounts(DailyStorageService.getPreviousAccounts());
+                          }}
+                          className="py-1 px-2.5 rounded-lg bg-white/10 hover:bg-[#2F6FED] text-white font-bold text-[11px] transition-colors cursor-pointer"
+                        >
+                          Switch
+                        </button>
+                      ) : (
+                        <span className="text-[10px] text-white/40 font-mono pr-1">Current</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           {/* Account & Storage Actions */}
@@ -1060,6 +1143,16 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isSyncingSupabase ? 'animate-spin' : ''}`} />
                   <span>{isSyncingSupabase ? 'Syncing...' : 'Sync Accounts to Supabase'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowSqlSchemaModal(true)}
+                  className="py-2 px-3 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 font-bold text-xs border border-emerald-500/30 transition-colors flex items-center gap-1 cursor-pointer"
+                  title="View SQL DDL script for Supabase SQL Editor"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>SQL Tables</span>
                 </button>
 
                 <button
@@ -1195,6 +1288,77 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
             </button>
           </div>
         </div>
+        )}
+        {/* Supabase SQL Editor Tables Modal */}
+        {showSqlSchemaModal && (
+          <div className="absolute inset-0 z-50 bg-[#0A0A0A] rounded-[32px] p-6 flex flex-col justify-between border border-white/20 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                  <Database className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Supabase SQL Editor Schema</h3>
+                  <p className="text-xs text-white/50">Run in your Supabase Dashboard &gt; SQL Editor</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateLight();
+                  setShowSqlSchemaModal(false);
+                }}
+                className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/50 hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-hidden flex flex-col my-3 space-y-2.5">
+              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs flex items-center justify-between">
+                <span>Includes <code>profiles</code>, <code>posts</code>, unique username index &amp; auth triggers.</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    vibrateLight();
+                    navigator.clipboard.writeText(SUPABASE_SQL_SCHEMA);
+                    setCopiedSql(true);
+                    setTimeout(() => setCopiedSql(false), 2500);
+                  }}
+                  className="py-1 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-md"
+                >
+                  {copiedSql ? (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Copy SQL</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto rounded-xl bg-black/80 border border-white/10 p-3.5 font-mono text-[11px] text-emerald-300/90 leading-relaxed select-all">
+                <pre className="whitespace-pre-wrap font-mono">{SUPABASE_SQL_SCHEMA}</pre>
+              </div>
+            </div>
+
+            <div className="shrink-0 flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateLight();
+                  setShowSqlSchemaModal(false);
+                }}
+                className="py-2.5 px-5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>

@@ -270,6 +270,89 @@ export interface AuthResult {
 }
 
 /**
+ * Check whether a username @... is already taken in the Supabase database or locally.
+ * Enforces strictly unique handles across the entire app.
+ */
+export async function isUsernameTakenInSupabase(
+  username: string,
+  excludeUserId?: string
+): Promise<{ taken: boolean; error?: string }> {
+  const clean = username.trim().toLowerCase().replace(/^@/, '').replace(/[^a-z0-9_]/g, '');
+  if (!clean) return { taken: false };
+
+  // Reserved usernames
+  const RESERVED_USERNAMES = [
+    'admin',
+    'system',
+    'daily',
+    'support',
+    'official',
+    'help',
+    'root',
+    'api',
+    'team',
+  ];
+  if (RESERVED_USERNAMES.includes(clean)) {
+    return { taken: true };
+  }
+
+  // 1. Check local users
+  const allLocalUsers = DailyStorageService.getAllUsers();
+  const takenLocally = allLocalUsers.some(
+    (u) =>
+      u.username?.toLowerCase().replace(/^@/, '').trim() === clean &&
+      u.id !== excludeUserId &&
+      u.id !== 'user_me'
+  );
+  if (takenLocally) {
+    return { taken: true };
+  }
+
+  // 2. Check Supabase database if configured
+  const client = getSupabaseClient();
+  if (!client) {
+    return { taken: false };
+  }
+
+  try {
+    // Check in 'profiles' table
+    let pQuery = client
+      .from('profiles')
+      .select('id, username')
+      .ilike('username', clean);
+
+    if (excludeUserId) {
+      pQuery = pQuery.neq('id', excludeUserId);
+    }
+
+    const { data: profileMatches, error: pErr } = await pQuery;
+    if (profileMatches && profileMatches.length > 0) {
+      return { taken: true };
+    }
+
+    // Check in 'users' table if it exists
+    let uQuery = client
+      .from('users')
+      .select('id, username')
+      .ilike('username', clean);
+
+    if (excludeUserId) {
+      uQuery = uQuery.neq('id', excludeUserId);
+    }
+
+    const { data: userMatches } = await uQuery;
+    if (userMatches && userMatches.length > 0) {
+      return { taken: true };
+    }
+
+    return { taken: false };
+  } catch (err: any) {
+    console.warn('Supabase username check notice:', err);
+    return { taken: false, error: err?.message };
+  }
+}
+
+/**
  * Sign up a new user with Email and Password via Supabase Auth
  * Strictly uses the genuine password entered by the user, calls Supabase Auth signUp,
  * and handles email verification and database synchronization.
@@ -314,8 +397,17 @@ export async function supabaseSignUpWithEmail(
     .toLowerCase()
     .replace(/[^a-z0-9_]/g, '');
 
+  // Strictly enforce username uniqueness before creating account!
+  const usernameCheck = await isUsernameTakenInSupabase(cleanUsername);
+  if (usernameCheck.taken) {
+    return {
+      success: false,
+      error: `The username @${cleanUsername} is already registered to another creator. Please pick a unique username.`,
+    };
+  }
+
   try {
-    const redirectTo = window.location.origin;
+    const redirectTo = window.location.href.split('#')[0].split('?')[0].replace(/\/$/, '') || window.location.origin;
     const { data, error } = await client.auth.signUp({
       email: cleanEmail,
       password, // Genuine password entered by the user!
@@ -522,7 +614,10 @@ export async function supabaseSignInWithGoogle(): Promise<AuthResult> {
   }
 
   try {
-    const redirectTo = window.location.origin;
+    const redirectTo =
+      window.location.href.split('#')[0].split('?')[0].replace(/\/$/, '') ||
+      window.location.origin;
+
     const { data, error } = await client.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -667,3 +762,97 @@ export async function supabaseGetSession(): Promise<Session | null> {
     return null;
   }
 }
+
+/**
+ * Complete authentication by setting session from an OAuth callback URL, hash, or access token.
+ * Especially helpful if Supabase redirected to localhost:3000/#access_token=... or if running in an iframe.
+ */
+export async function supabaseSetSessionFromUrl(urlOrToken: string): Promise<AuthResult> {
+  const client = getSupabaseClient();
+  if (!client) {
+    return {
+      success: false,
+      error: 'Supabase client is not initialized. Please verify your Supabase configuration.',
+    };
+  }
+
+  try {
+    const raw = urlOrToken.trim();
+    let hashPart = '';
+
+    if (raw.includes('#')) {
+      hashPart = raw.split('#')[1];
+    } else if (raw.includes('?')) {
+      hashPart = raw.split('?')[1];
+    } else {
+      hashPart = raw;
+    }
+
+    const params = new URLSearchParams(hashPart);
+    const accessToken = params.get('access_token') || (raw.startsWith('ey') ? raw : null);
+    const refreshToken = params.get('refresh_token') || '';
+
+    if (!accessToken) {
+      return {
+        success: false,
+        error: 'No access token found in the pasted URL or token string.',
+      };
+    }
+
+    const { data, error } = await client.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+
+    if (error) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+
+    if (data.user) {
+      const meta = data.user.user_metadata || {};
+      const userEmail = data.user.email || '';
+      const name = meta.full_name || meta.name || userEmail.split('@')[0] || 'Daily Creator';
+      const username = (meta.username || userEmail.split('@')[0] || 'creator')
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, '');
+
+      const userObj: User = createDefaultUserObject(
+        data.user.id,
+        userEmail,
+        name,
+        username,
+        meta.avatar_url || meta.picture || DEFAULT_USER_AVATAR,
+        meta.bio,
+        'google'
+      );
+
+      // Persist to Supabase profiles/users tables
+      await syncUserToSupabase(userObj);
+
+      DailyStorageService.saveCurrentUser(userObj);
+      DailyStorageService.savePreviousAccount(userObj);
+      DailyStorageService.setOnboarded(true);
+
+      return {
+        success: true,
+        user: data.user,
+        session: data.session,
+        provider: 'google',
+      };
+    }
+
+    return {
+      success: false,
+      error: 'Failed to retrieve user from token session.',
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || 'Failed to apply login token.',
+    };
+  }
+}
+

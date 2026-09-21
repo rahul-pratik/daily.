@@ -636,10 +636,22 @@ export default function App() {
   };
 
   // Edit Profile Save
-  const handleSaveProfile = (updatedProps: Partial<User>) => {
+  const handleSaveProfile = async (updatedProps: Partial<User>) => {
     const updated = { ...currentUser, ...updatedProps };
     setCurrentUser(updated);
     DailyStorageService.saveCurrentUser(updated);
+    DailyStorageService.savePreviousAccount(updated);
+
+    // Update in memory users list as well
+    setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+
+    // Sync directly to Supabase
+    try {
+      await syncUserToSupabase(updated);
+    } catch (err) {
+      console.warn('Supabase profile sync notice:', err);
+    }
+
     setIsEditProfileOpen(false);
   };
 

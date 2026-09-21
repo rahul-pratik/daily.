@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { X, Flame, Check, Upload, Save, Trophy, AtSign, Plus, RotateCcw } from 'lucide-react';
+import { X, Flame, Check, Upload, Save, Trophy, AtSign, Plus, RotateCcw, AlertCircle } from 'lucide-react';
 import { User, AVAILABLE_INTERESTS, Challenge, DEFAULT_USER_AVATAR } from '../types';
 import { vibrateLight } from '../services/haptics';
 import { DailyStorageService } from '../services/storage';
+import { isUsernameTakenInSupabase } from '../services/supabase';
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -25,6 +26,8 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   const [showChallengePicker, setShowChallengePicker] = useState(false);
   const [showMentionPicker, setShowMentionPicker] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [isCheckingUsername, setIsCheckingUsername] = useState(false);
 
   if (!isOpen) return null;
 
@@ -123,11 +126,25 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     }
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '') || currentUser.username.toLowerCase().replace(/[^a-z0-9_]/g, '');
+    const currentClean = currentUser.username.toLowerCase().replace(/[^a-z0-9_]/g, '');
+
+    if (cleanUsername !== currentClean) {
+      setIsCheckingUsername(true);
+      const isTaken = await isUsernameTakenInSupabase(cleanUsername, currentUser.id);
+      setIsCheckingUsername(false);
+      if (isTaken) {
+        setUsernameError(`@${cleanUsername} is already registered by another creator. Please pick a unique handle.`);
+        vibrateLight();
+        return;
+      }
+    }
+
     onSave({
       name: name.trim() || currentUser.name,
-      username: username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '') || currentUser.username,
+      username: cleanUsername,
       avatar,
       bio: bio.trim(),
       interests,
@@ -202,13 +219,36 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-white/70 mb-1">Username</label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-3 py-2 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-xl text-xs text-white outline-none"
-              />
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-white/70">
+                  Username
+                </label>
+                {isCheckingUsername && (
+                  <span className="text-[10px] text-[#2F6FED] font-medium animate-pulse">
+                    Checking uniqueness...
+                  </span>
+                )}
+              </div>
+              <div className="relative flex items-center">
+                <span className="absolute left-3 text-white/40 font-mono text-xs">@</span>
+                <input
+                  type="text"
+                  value={username.replace(/^@/, '')}
+                  onChange={(e) => {
+                    setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''));
+                    if (usernameError) setUsernameError(null);
+                  }}
+                  className={`w-full pl-7 pr-3 py-2 bg-white/5 border rounded-xl text-xs text-white outline-none font-mono ${
+                    usernameError ? 'border-red-500/50 focus:border-red-500' : 'border-white/10 focus:border-[#2F6FED]'
+                  }`}
+                />
+              </div>
+              {usernameError && (
+                <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-red-400 font-medium">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 text-red-400" />
+                  <span>{usernameError}</span>
+                </div>
+              )}
             </div>
           </div>
 

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Flame,
   Check,
@@ -30,6 +30,7 @@ import {
   supabaseSignInWithApple,
   syncUserToSupabase,
   supabaseResendConfirmationEmail,
+  isUsernameTakenInSupabase,
 } from '../services/supabase';
 import { PasswordComplexityValidator } from './PasswordComplexityValidator';
 import { validatePasswordComplexity } from '../utils/passwordValidator';
@@ -113,9 +114,43 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     return DailyStorageService.getPreviousAccounts();
   }, [showPreviousAccounts]);
 
+  const [remoteUsernameTaken, setRemoteUsernameTaken] = useState<boolean>(false);
+  const [checkingRemoteUsername, setCheckingRemoteUsername] = useState<boolean>(false);
+
+  // Debounced check against Supabase database for username availability
+  useEffect(() => {
+    const clean = username.trim().toLowerCase().replace(/^@/, '').replace(/[^a-z0-9_]/g, '');
+    if (!clean || clean.length < 2) {
+      setRemoteUsernameTaken(false);
+      setCheckingRemoteUsername(false);
+      return;
+    }
+
+    let isMounted = true;
+    setCheckingRemoteUsername(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await isUsernameTakenInSupabase(clean);
+        if (isMounted) {
+          setRemoteUsernameTaken(res.taken);
+        }
+      } catch {
+        // Non-blocking fallback
+      } finally {
+        if (isMounted) {
+          setCheckingRemoteUsername(false);
+        }
+      }
+    }, 350);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [username]);
+
   // Username availability detection:
-  // ONLY flags as taken if the exact username already belongs to a registered user.
-  // No false-positive prefix or substring blocks (e.g. @rahulpratik will NOT be blocked by @rahul).
+  // Enforces global uniqueness across both local accounts and Supabase database.
   const usernameStatus = useMemo(() => {
     const clean = username.trim().toLowerCase().replace(/^@/, '').replace(/[^a-z0-9_]/g, '');
     if (!clean) return { isAvailable: true, message: '', suggestion: '' };
@@ -131,19 +166,19 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
       ])
     ).filter(Boolean);
 
-    // Exact match only
-    const exactTaken = takenList.find((u) => u === clean);
+    // Exact match check locally or in Supabase
+    const exactTaken = takenList.find((u) => u === clean) || (remoteUsernameTaken ? clean : null);
     if (exactTaken) {
       const suggested = `${clean}_daily`;
       return {
         isAvailable: false,
-        message: `This username @${clean} is already taken`,
+        message: `This username @${clean} is already taken by another creator`,
         suggestion: suggested,
       };
     }
 
     return { isAvailable: true, message: '', suggestion: '' };
-  }, [username]);
+  }, [username, remoteUsernameTaken]);
 
   if (!isOpen) return null;
 
@@ -1176,9 +1211,16 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
                 {/* Username input with exact availability check */}
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-white/70 mb-1">
-                    Username <span className="text-[#2F6FED]">*</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-white/70">
+                      Username <span className="text-[#2F6FED]">*</span>
+                    </label>
+                    {checkingRemoteUsername && (
+                      <span className="text-[10px] text-[#2F6FED] font-medium animate-pulse">
+                        Checking uniqueness...
+                      </span>
+                    )}
+                  </div>
                   <div className="relative flex items-center">
                     <span className="absolute left-3.5 text-white/40 text-xs font-mono">@</span>
                     <input
