@@ -1,4 +1,4 @@
-import { User, Post, Message, Group, PersonalHabit, Community, AppNotification, ProofCollection, UserNote } from '../types';
+import { User, Post, Message, Group, PersonalHabit, Community, AppNotification, ProofCollection, UserNote, DEFAULT_USER_AVATAR } from '../types';
 
 // Helper to generate past dates
 export const getPastDate = (daysAgo: number): string => {
@@ -86,10 +86,10 @@ export const INITIAL_USER_NOTES: UserNote[] = [
 
 export const INITIAL_CURRENT_USER: User = {
   id: 'user_me',
-  name: 'Alex Rivera',
-  username: 'alexrivera',
-  avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
-  bio: 'Building apps daily 🚀 | Morning runner & coffee enthusiast ☕️',
+  name: '',
+  username: '',
+  avatar: DEFAULT_USER_AVATAR,
+  bio: '',
   interests: ['Coding', 'AI & Tech', 'Startups', 'Fitness & Gym', 'Design & UI/UX'],
   habits: ['Gym', 'Build Projects', 'Run', 'Read'],
   currentStreak: 7,

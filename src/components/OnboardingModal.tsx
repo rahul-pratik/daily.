@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Flame,
-  Sparkles,
   Check,
   ArrowRight,
   ArrowLeft,
@@ -12,12 +11,20 @@ import {
   EyeOff,
   RotateCcw,
   ShieldCheck,
-  CheckCircle2,
   KeyRound,
-  User as UserIcon,
+  AlertCircle,
+  Sparkles,
 } from 'lucide-react';
 import { User, AVAILABLE_INTERESTS, DEFAULT_USER_AVATAR } from '../types';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
+import { DailyStorageService } from '../services/storage';
+import {
+  isSupabaseConfigured,
+  supabaseSignInWithEmail,
+  supabaseSignUpWithEmail,
+  supabaseSignInWithGoogle,
+  supabaseSignInWithApple,
+} from '../services/supabase';
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -33,14 +40,13 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   // Steps: 1 = Create Profile, 2 = Interests, 3 = Login / Auth
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
-  // Profile data
-  const [name, setName] = useState(initialUser.name || '');
-  const [username, setUsername] = useState(initialUser.username || '');
-  const [avatar, setAvatar] = useState(initialUser.avatar || DEFAULT_USER_AVATAR);
-  const [hasCustomAvatar, setHasCustomAvatar] = useState(
-    Boolean(initialUser.avatar && initialUser.avatar !== DEFAULT_USER_AVATAR)
-  );
-  const [bio, setBio] = useState(initialUser.bio || '');
+  // Profile data starts clean without default Alex Rivera / @alexrivera / default bio
+  const isAlexRivera =
+    initialUser.name === 'Alex Rivera' || initialUser.username === 'alexrivera';
+  const [name, setName] = useState(isAlexRivera ? '' : (initialUser.name || ''));
+  const [username, setUsername] = useState(isAlexRivera ? '' : (initialUser.username || ''));
+  const [avatar, setAvatar] = useState(DEFAULT_USER_AVATAR);
+  const [bio, setBio] = useState(isAlexRivera ? '' : (initialUser.bio || ''));
 
   // Interests data
   const [selectedInterests, setSelectedInterests] = useState<string[]>(
@@ -56,6 +62,67 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [authLoading, setAuthLoading] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [authSuccessNotice, setAuthSuccessNotice] = useState<string | null>(null);
+
+  // Username availability & similarity detection
+  const usernameStatus = useMemo(() => {
+    const clean = username.trim().toLowerCase().replace(/^@/, '').replace(/[^a-z0-9_]/g, '');
+    if (!clean) return { isAvailable: true, message: '', suggestion: '' };
+
+    const allUsers = DailyStorageService.getAllUsers();
+    const takenList = Array.from(
+      new Set([
+        ...allUsers.map((u) => (u.username || '').toLowerCase().replace(/^@/, '')),
+        'alexrivera',
+        'rahul',
+        'sarahcodes',
+        'marcus_fit',
+        'anisha_reads',
+        'biswajit_dev',
+        'soumya_t',
+        'abhisek_c',
+        'elena_r',
+        'davidk',
+        'daily',
+        'admin',
+        'support',
+        'system',
+      ])
+    ).filter(Boolean);
+
+    // Exact match
+    const exactTaken = takenList.find((u) => u === clean);
+    if (exactTaken) {
+      const suggested = `${clean}_daily`;
+      return {
+        isAvailable: false,
+        message: `This username @${clean} is already taken`,
+        suggestion: suggested,
+      };
+    }
+
+    // Similarity check: strip underscores/numbers and check if identical or strong prefix
+    const cleanStripped = clean.replace(/[^a-z]/g, '');
+    const similar = takenList.find((u) => {
+      if (u === clean) return true;
+      const uStripped = u.replace(/[^a-z]/g, '');
+      if (cleanStripped.length >= 3 && uStripped === cleanStripped) return true;
+      if (clean.length >= 4 && (u.startsWith(clean) || clean.startsWith(u))) return true;
+      return false;
+    });
+
+    if (similar) {
+      const randomSuffix = Math.floor(10 + Math.random() * 89);
+      const suggested = `${clean}_${randomSuffix}`;
+      return {
+        isAvailable: false,
+        message: `This username @${clean} is already taken or similar to @${similar}`,
+        suggestion: suggested,
+      };
+    }
+
+    return { isAvailable: true, message: '', suggestion: '' };
+  }, [username]);
 
   if (!isOpen) return null;
 
@@ -76,7 +143,6 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
       reader.onloadend = () => {
         if (typeof reader.result === 'string') {
           setAvatar(reader.result);
-          setHasCustomAvatar(true);
         }
       };
       reader.readAsDataURL(file);
@@ -86,20 +152,25 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const handleResetToDefaultAvatar = () => {
     vibrateLight();
     setAvatar(DEFAULT_USER_AVATAR);
-    setHasCustomAvatar(false);
   };
 
   // Finalize onboarding after authenticating with selected credentials
-  const handleAuthComplete = (provider: 'google' | 'apple' | 'email', userEmail?: string) => {
+  const handleAuthComplete = (
+    provider: 'google' | 'apple' | 'email',
+    userEmail?: string,
+    overrideUser?: Partial<User>
+  ) => {
     vibrateStreakMilestone();
-    const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '') || 'creator';
+    const cleanUsername =
+      (overrideUser?.username || username).trim().toLowerCase().replace(/[^a-z0-9_]/g, '') ||
+      (userEmail ? userEmail.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '') : 'creator');
     const finalEmail = userEmail || `${cleanUsername}@dailyapp.io`;
 
     onComplete({
-      name: name.trim() || 'Daily Creator',
+      name: (overrideUser?.name || name).trim() || 'Daily Creator',
       username: cleanUsername,
-      avatar: avatar || DEFAULT_USER_AVATAR,
-      bio: bio.trim() || 'Showing the daily receipts & staying consistent 🔥',
+      avatar: overrideUser?.avatar || avatar || DEFAULT_USER_AVATAR,
+      bio: (overrideUser?.bio || bio).trim() || 'Showing the daily receipts & staying consistent 🔥',
       interests: selectedInterests.length > 0 ? selectedInterests : ['Coding', 'AI & Tech'],
       habits: initialUser.habits || ['Build Daily', 'Exercise', 'Read 20 min'],
       email: finalEmail,
@@ -107,34 +178,64 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     });
   };
 
-  // Google Sign-In Handler
-  const handleGoogleLogin = () => {
+  // Google Sign-In Handler via Supabase
+  const handleGoogleLogin = async () => {
     setAuthError(null);
+    setAuthSuccessNotice(null);
     setAuthLoading('google');
     vibrateLight();
-    setTimeout(() => {
+
+    try {
+      const res = await supabaseSignInWithGoogle();
+      if (!res.success) {
+        setAuthError(res.error || 'Google sign-in failed. Please try again.');
+        setAuthLoading(null);
+        return;
+      }
+
+      // If Supabase triggered OAuth redirect, it redirects. If local fallback:
+      setTimeout(() => {
+        setAuthLoading(null);
+        const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '') || 'google_user';
+        handleAuthComplete('google', `${cleanUsername}@gmail.com`);
+      }, 400);
+    } catch (err: any) {
       setAuthLoading(null);
-      const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '') || 'user';
-      handleAuthComplete('google', `${cleanUsername}@gmail.com`);
-    }, 600);
+      setAuthError(err?.message || 'Google sign-in error occurred.');
+    }
   };
 
-  // Apple Sign-In Handler
-  const handleAppleLogin = () => {
+  // Apple Sign-In Handler via Supabase
+  const handleAppleLogin = async () => {
     setAuthError(null);
+    setAuthSuccessNotice(null);
     setAuthLoading('apple');
     vibrateLight();
-    setTimeout(() => {
+
+    try {
+      const res = await supabaseSignInWithApple();
+      if (!res.success) {
+        setAuthError(res.error || 'Apple sign-in failed. Please try again.');
+        setAuthLoading(null);
+        return;
+      }
+
+      setTimeout(() => {
+        setAuthLoading(null);
+        const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '') || 'apple_user';
+        handleAuthComplete('apple', `${cleanUsername}@privaterelay.appleid.com`);
+      }, 400);
+    } catch (err: any) {
       setAuthLoading(null);
-      const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '') || 'user';
-      handleAuthComplete('apple', `${cleanUsername}@privaterelay.appleid.com`);
-    }, 600);
+      setAuthError(err?.message || 'Apple sign-in error occurred.');
+    }
   };
 
-  // Email Sign-In / Sign-Up Handler
-  const handleEmailSubmit = (e: React.FormEvent) => {
+  // Email Sign-In / Sign-Up Handler via Supabase
+  const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
+    setAuthSuccessNotice(null);
 
     if (!email.trim() || !email.includes('@')) {
       setAuthError('Please enter a valid email address.');
@@ -147,17 +248,64 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
     setAuthLoading('email');
     vibrateLight();
-    setTimeout(() => {
+
+    try {
+      const cleanUsername =
+        username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '') ||
+        email.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '');
+      const cleanName = name.trim() || email.split('@')[0];
+
+      if (authMode === 'signup') {
+        const res = await supabaseSignUpWithEmail(email.trim(), password, {
+          name: cleanName,
+          username: cleanUsername,
+          avatar,
+          bio: bio.trim(),
+        });
+
+        if (!res.success) {
+          setAuthError(res.error || 'Failed to create account.');
+          setAuthLoading(null);
+          return;
+        }
+
+        setAuthLoading(null);
+        handleAuthComplete('email', email.trim());
+      } else {
+        // Sign In mode
+        const res = await supabaseSignInWithEmail(email.trim(), password);
+
+        if (!res.success) {
+          setAuthError(res.error || 'Invalid email or password.');
+          setAuthLoading(null);
+          return;
+        }
+
+        setAuthLoading(null);
+        const meta = res.user?.user_metadata || {};
+        const resolvedName = meta.full_name || meta.name || cleanName;
+        const resolvedUsername = meta.username || cleanUsername;
+        const resolvedAvatar = meta.avatar_url || avatar;
+        const resolvedBio = meta.bio || bio;
+
+        handleAuthComplete('email', email.trim(), {
+          name: resolvedName,
+          username: resolvedUsername,
+          avatar: resolvedAvatar,
+          bio: resolvedBio,
+        });
+      }
+    } catch (err: any) {
       setAuthLoading(null);
-      handleAuthComplete('email', email.trim());
-    }, 600);
+      setAuthError(err?.message || 'Authentication error.');
+    }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
       <div className="w-full max-w-md bg-[#0A0A0A] border border-white/10 rounded-[32px] p-5 sm:p-6 shadow-2xl relative text-white flex flex-col max-h-[92vh] overflow-hidden">
-        {/* Progress indicator */}
-        <div className="flex items-center justify-between mb-4 shrink-0">
+        {/* Welcome to Daily header bar */}
+        <div className="flex items-center justify-between mb-3 shrink-0">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
               <Flame className="w-4 h-4 text-[#2F6FED] fill-[#2F6FED]" />
@@ -182,6 +330,27 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           </div>
         </div>
 
+        {/* Button for users who already have an account - placed directly below "Welcome to Daily" */}
+        {step === 1 && (
+          <button
+            type="button"
+            onClick={() => {
+              vibrateLight();
+              setAuthMode('signin');
+              setStep(3);
+            }}
+            className="w-full mb-3.5 py-2 px-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#2F6FED]/40 text-xs text-white/80 hover:text-white flex items-center justify-between transition-all cursor-pointer group shrink-0"
+          >
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="font-medium">Already have an account?</span>
+            </div>
+            <span className="text-[#2F6FED] group-hover:text-blue-400 font-bold text-[11px] flex items-center gap-1">
+              Sign in / Sign up <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+            </span>
+          </button>
+        )}
+
         {/* =================================================================== */}
         {/* STEP 1: CREATE PROFILE SCREEN                                       */}
         {/* =================================================================== */}
@@ -194,10 +363,10 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               </p>
             </div>
 
-            {/* Avatar picker - User adds own photo or keeps default */}
+            {/* Avatar section - Strictly defaults to default avatar */}
             <div className="flex flex-col items-center py-2">
               <div className="relative group">
-                <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-white/20 shadow-xl ring-2 ring-[#2F6FED]/30 bg-black/60 flex items-center justify-center">
+                <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-white/20 shadow-xl ring-2 ring-[#2F6FED]/30 bg-[#18181b] flex items-center justify-center">
                   <img
                     src={avatar}
                     alt="Avatar Preview"
@@ -227,7 +396,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   className="text-xs font-bold px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/15 text-white cursor-pointer transition-colors flex items-center gap-1.5"
                 >
                   <Upload className="w-3.5 h-3.5 text-[#2F6FED]" />
-                  {hasCustomAvatar ? 'Change Photo' : 'Upload Your Photo'}
+                  {avatar !== DEFAULT_USER_AVATAR ? 'Change Photo' : 'Upload Photo'}
                   <input
                     id="onboarding-avatar-btn"
                     type="file"
@@ -237,19 +406,21 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   />
                 </label>
 
-                {hasCustomAvatar && (
+                {avatar !== DEFAULT_USER_AVATAR && (
                   <button
                     type="button"
                     onClick={handleResetToDefaultAvatar}
-                    className="text-xs font-medium px-3 py-1.5 rounded-full text-white/50 hover:text-white/80 hover:bg-white/5 transition-colors flex items-center gap-1"
+                    className="text-xs font-medium px-3 py-1.5 rounded-full text-white/50 hover:text-white/80 hover:bg-white/5 transition-colors flex items-center gap-1 cursor-pointer"
                   >
                     <RotateCcw className="w-3 h-3" />
                     Reset to Default
                   </button>
                 )}
               </div>
-              <p className="text-[10px] text-white/40 mt-1.5">
-                {hasCustomAvatar ? 'Custom photo added' : 'Using default avatar (you can upload anytime)'}
+
+              {/* Explicit status: Only have "Using default avatar you can upload anytime" */}
+              <p className="text-[11px] text-white/50 mt-2 text-center font-medium">
+                Using default avatar (you can upload anytime)
               </p>
             </div>
 
@@ -262,12 +433,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Alex Rivera"
+                placeholder="Enter your full name"
                 className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors"
               />
             </div>
 
-            {/* Username input */}
+            {/* Username input with availability & similarity alert */}
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-white/70 mb-1">
                 Username <span className="text-[#2F6FED]">*</span>
@@ -278,16 +449,45 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="alexrivera"
-                  className="w-full pl-8 pr-3.5 py-2.5 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors font-mono"
+                  placeholder="choose_username"
+                  className={`w-full pl-8 pr-3.5 py-2.5 bg-white/5 border rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors font-mono ${
+                    !usernameStatus.isAvailable
+                      ? 'border-amber-500/60 focus:border-amber-500'
+                      : 'border-white/10 focus:border-[#2F6FED]'
+                  }`}
                 />
               </div>
+
+              {/* Username Taken / Similar Warning & Clickable Suggestion */}
+              {!usernameStatus.isAvailable && usernameStatus.message && (
+                <div className="mt-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex flex-col gap-1.5 animate-in fade-in duration-150">
+                  <div className="flex items-center gap-1.5 font-bold text-amber-300">
+                    <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span>{usernameStatus.message}</span>
+                  </div>
+                  {usernameStatus.suggestion && (
+                    <div className="text-[11px] text-white/70 flex items-center gap-1.5 flex-wrap">
+                      <span>You can use:</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateLight();
+                          setUsername(usernameStatus.suggestion);
+                        }}
+                        className="font-mono font-bold text-[#2F6FED] hover:underline bg-[#2F6FED]/15 hover:bg-[#2F6FED]/25 px-2 py-0.5 rounded-lg border border-[#2F6FED]/30 inline-flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        @{usernameStatus.suggestion}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Bio input */}
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-white/70 mb-1">
-                Short Bio
+                Bio
               </label>
               <textarea
                 value={bio}
@@ -308,8 +508,8 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 vibrateLight();
                 setStep(2);
               }}
-              disabled={!name.trim() || !username.trim()}
-              className="w-full mt-2 py-3 rounded-2xl bg-[#2F6FED] text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-blue-600 active:scale-[0.99] transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-lg shadow-[#2F6FED]/20"
+              disabled={!name.trim() || !username.trim() || !usernameStatus.isAvailable}
+              className="w-full mt-2 py-3 rounded-2xl bg-[#2F6FED] text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-blue-600 active:scale-[0.99] transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-lg shadow-[#2F6FED]/20 cursor-pointer"
             >
               Continue to Interests <ArrowRight className="w-4 h-4" />
             </button>
@@ -358,7 +558,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   vibrateLight();
                   setStep(1);
                 }}
-                className="w-1/3 py-3 rounded-2xl bg-white/5 hover:bg-white/10 text-white/70 font-bold text-xs border border-white/10 transition-colors flex items-center justify-center gap-1"
+                className="w-1/3 py-3 rounded-2xl bg-white/5 hover:bg-white/10 text-white/70 font-bold text-xs border border-white/10 transition-colors flex items-center justify-center gap-1 cursor-pointer"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 Back
@@ -370,7 +570,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   setStep(3);
                 }}
                 disabled={selectedInterests.length === 0}
-                className="w-2/3 py-3 rounded-2xl bg-[#2F6FED] text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-blue-600 active:scale-[0.99] transition-all disabled:opacity-30 shadow-lg shadow-[#2F6FED]/20"
+                className="w-2/3 py-3 rounded-2xl bg-[#2F6FED] text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-blue-600 active:scale-[0.99] transition-all disabled:opacity-30 shadow-lg shadow-[#2F6FED]/20 cursor-pointer"
               >
                 Continue to Sign In <ArrowRight className="w-4 h-4" />
               </button>
@@ -379,41 +579,68 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         )}
 
         {/* =================================================================== */}
-        {/* STEP 3: AUTH / LOGIN SCREEN (GOOGLE, APPLE, EMAIL)                  */}
+        {/* STEP 3: AUTH / LOGIN SCREEN (SUPABASE: GOOGLE, APPLE, EMAIL)        */}
         {/* =================================================================== */}
         {step === 3 && (
           <div className="flex flex-col flex-1 min-h-0 overflow-y-auto pr-1">
-            {/* Identity Summary Card */}
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-3 flex items-center justify-between mb-3 shrink-0">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <img
-                  src={avatar}
-                  alt={name}
-                  referrerPolicy="no-referrer"
-                  className="w-10 h-10 rounded-full object-cover border border-white/20 shrink-0"
-                />
-                <div className="min-w-0">
-                  <span className="text-xs font-bold text-white block truncate">{name}</span>
-                  <span className="text-[10px] text-white/50 font-mono block truncate">
-                    @{username.toLowerCase()}
-                  </span>
+            {/* Identity Summary Card (if profile filled) */}
+            {(name.trim() || username.trim()) && (
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-3 flex items-center justify-between mb-3 shrink-0">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <img
+                    src={avatar}
+                    alt={name || 'User'}
+                    referrerPolicy="no-referrer"
+                    className="w-10 h-10 rounded-full object-cover border border-white/20 shrink-0"
+                  />
+                  <div className="min-w-0">
+                    <span className="text-xs font-bold text-white block truncate">
+                      {name || 'Daily Member'}
+                    </span>
+                    {username && (
+                      <span className="text-[10px] text-white/50 font-mono block truncate">
+                        @{username.toLowerCase()}
+                      </span>
+                    )}
+                  </div>
                 </div>
+                {selectedInterests.length > 0 && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#2F6FED]/20 text-[#2F6FED] border border-[#2F6FED]/30 shrink-0">
+                    {selectedInterests.length} {selectedInterests.length === 1 ? 'topic' : 'topics'}
+                  </span>
+                )}
               </div>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#2F6FED]/20 text-[#2F6FED] border border-[#2F6FED]/30 shrink-0">
-                {selectedInterests.length} {selectedInterests.length === 1 ? 'topic' : 'topics'}
-              </span>
-            </div>
+            )}
 
             <div className="mb-3 shrink-0">
-              <h2 className="text-xl font-black text-white">Sign in to Daily</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-black text-white">
+                  {authMode === 'signin' ? 'Sign in to Daily' : 'Create your Daily account'}
+                </h2>
+                {isSupabaseConfigured() && (
+                  <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Supabase
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-white/50 mt-0.5">
-                Authenticate your account to sync streaks and connect with the community.
+                {authMode === 'signin'
+                  ? 'Sign in to sync your streaks and connect with the community.'
+                  : 'Complete your registration to preserve your proof history across devices.'}
               </p>
             </div>
 
             {authError && (
-              <div className="mb-3 p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium">
-                {authError}
+              <div className="mb-3 p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium flex items-center gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>{authError}</span>
+              </div>
+            )}
+
+            {authSuccessNotice && (
+              <div className="mb-3 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-medium">
+                {authSuccessNotice}
               </div>
             )}
 
@@ -451,7 +678,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 <span>Continue with Google</span>
               </button>
 
-              {/* Apple Login Button */}
+              {/* Apple Login Button - Official Apple Silhouette */}
               <button
                 type="button"
                 onClick={handleAppleLogin}
@@ -461,8 +688,8 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 {authLoading === 'apple' ? (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 ) : (
-                  <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 170 170">
-                    <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.35.13-9.16-1.9-14.42-6.08-3.69-3.04-7.69-7.8-12-14.28-6.19-9.35-11.1-20.02-14.73-32.01-3.63-11.99-5.45-23.3-5.45-33.93 0-14.89 3.81-27.12 11.43-36.68 7.62-9.56 17.03-14.44 28.23-14.65 4.35 0 9.4 1.15 15.15 3.45 5.75 2.3 9.4 3.52 10.96 3.66 2.01 0 5.86-1.28 11.55-3.83 5.69-2.56 10.6-3.72 14.73-3.48 10.45.64 19.14 4.89 26.08 12.75-9.35 5.66-13.92 13.62-13.72 23.88.2 10.45 4.35 18.94 12.45 25.48 4.02 3.35 8.52 5.75 13.5 7.2-2.12 6.53-4.58 13.06-7.38 19.59zM119.22 33.72c0-7.39 2.68-14.32 8.04-20.78 5.36-6.46 12.06-10.45 20.1-11.94.13 1.13.2 2.12.2 2.98 0 7.39-2.82 14.49-8.46 21.3-5.64 6.81-12.44 10.63-20.4 11.46-.39-1.02-.58-2.03-.58-3.02z" />
+                  <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
+                    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.47c.65-.79 1.1-1.89.98-2.99-.95.04-2.1.63-2.78 1.42-.59.68-1.12 1.77-.98 2.85 1.06.08 2.14-.54 2.78-1.28z" />
                   </svg>
                 )}
                 <span>Continue with Apple</span>
@@ -491,6 +718,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
+                    required
                     className="w-full pl-9 pr-3.5 py-2.5 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors"
                   />
                 </div>
@@ -507,12 +735,14 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter password (min 6 chars)"
+                    required
+                    minLength={6}
                     className="w-full pl-9 pr-9 py-2.5 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 text-white/40 hover:text-white transition-colors"
+                    className="absolute right-3 text-white/40 hover:text-white transition-colors cursor-pointer"
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
                     {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -523,8 +753,11 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               <div className="flex items-center justify-between text-[11px] pt-0.5">
                 <button
                   type="button"
-                  onClick={() => setAuthMode(authMode === 'signin' ? 'signup' : 'signin')}
-                  className="text-[#2F6FED] hover:underline font-medium"
+                  onClick={() => {
+                    setAuthMode(authMode === 'signin' ? 'signup' : 'signin');
+                    setAuthError(null);
+                  }}
+                  className="text-[#2F6FED] hover:underline font-medium cursor-pointer"
                 >
                   {authMode === 'signin'
                     ? "New to Daily? Create account"
@@ -542,7 +775,9 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 ) : (
                   <>
                     <KeyRound className="w-4 h-4" />
-                    <span>{authMode === 'signin' ? 'Sign In & Enter Daily' : 'Create Account & Enter Daily'}</span>
+                    <span>
+                      {authMode === 'signin' ? 'Sign In & Enter Daily' : 'Create Account & Enter Daily'}
+                    </span>
                   </>
                 )}
               </button>
@@ -554,17 +789,17 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 type="button"
                 onClick={() => {
                   vibrateLight();
-                  setStep(2);
+                  setStep(1);
                 }}
-                className="py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 font-bold text-xs border border-white/10 transition-colors flex items-center gap-1.5"
+                className="py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 font-bold text-xs border border-white/10 transition-colors flex items-center gap-1.5 cursor-pointer"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
-                Back to Interests
+                Back to Profile
               </button>
 
               <span className="text-[10px] text-white/40 flex items-center gap-1">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                Secure credentials
+                Secure Supabase Auth
               </span>
             </div>
           </div>

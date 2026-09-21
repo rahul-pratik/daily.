@@ -26,6 +26,7 @@ import {
   ChallengeLeaderboardSquad,
   ChallengeLeaderboard,
   ChallengeWeeklyRecap,
+  DEFAULT_USER_AVATAR,
 } from '../types';
 import { INITIAL_CURRENT_USER, SAMPLE_USERS, INITIAL_POSTS, INITIAL_MESSAGES, SAMPLE_GROUPS, INITIAL_PERSONAL_HABITS, INITIAL_COMMUNITIES, INITIAL_NOTIFICATIONS, INITIAL_USER_NOTES, getPastDate } from '../data/mockData';
 import { INITIAL_COMMUNITY_DISCUSSIONS } from '../data/communityDiscussionsData';
@@ -127,6 +128,13 @@ export class DailyStorageService {
         user.mutedUserIds = [];
         changed = true;
       }
+      if (!this.isOnboarded() && (user.name === 'Alex Rivera' || user.username === 'alexrivera')) {
+        user.name = '';
+        user.username = '';
+        user.bio = '';
+        user.avatar = DEFAULT_USER_AVATAR;
+        changed = true;
+      }
       if (changed) {
         this.saveCurrentUser(user);
       }
@@ -148,6 +156,13 @@ export class DailyStorageService {
       localStorage.setItem(STORAGE_KEYS.MUTED_USERS, JSON.stringify(user.mutedUserIds));
     }
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
+  }
+
+  static updateCurrentUser(updates: Partial<User>): User {
+    const current = this.getCurrentUser();
+    const updated: User = { ...current, ...updates };
+    this.saveCurrentUser(updated);
+    return updated;
   }
 
   static getAllUsers(): User[] {

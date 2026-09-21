@@ -19,7 +19,9 @@ import {
   ChallengeInvitePreview,
   SharedPostPreview,
   UserProfileSharePreview,
+  DEFAULT_USER_AVATAR,
 } from './types';
+import { supabase } from './services/supabase';
 import { DailyStorageService } from './services/storage';
 import { TopHeader, BottomNavigation } from './components/Navigation';
 import { HomeFeed } from './components/HomeFeed';
@@ -269,6 +271,38 @@ export default function App() {
     DailyStorageService.setOnboarded(true);
     setIsOnboarded(true);
   };
+
+  // Sync Supabase Auth session if redirected via OAuth or active token
+  useEffect(() => {
+    if (!supabase) return;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        const meta = session.user.user_metadata || {};
+        const userEmail = session.user.email || '';
+        const name = meta.full_name || meta.name || userEmail.split('@')[0] || '';
+        const username = (meta.username || userEmail.split('@')[0] || '').toLowerCase().replace(/[^a-z0-9_]/g, '');
+        const avatar = meta.avatar_url || meta.picture || DEFAULT_USER_AVATAR;
+
+        setCurrentUser((prev) => {
+          const updated: User = {
+            ...prev,
+            name: name || prev.name || 'Daily Creator',
+            username: username || prev.username || 'creator',
+            avatar: avatar || prev.avatar || DEFAULT_USER_AVATAR,
+            email: userEmail || prev.email,
+          };
+          DailyStorageService.saveCurrentUser(updated);
+          return updated;
+        });
+        DailyStorageService.setOnboarded(true);
+        setIsOnboarded(true);
+      }
+    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, []);
 
   // Toggle Like on a Post
   const handleToggleLike = (postId: string) => {
