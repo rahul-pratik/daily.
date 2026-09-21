@@ -13,7 +13,7 @@ import {
   ShieldCheck,
   KeyRound,
   AlertCircle,
-  Sparkles,
+  UserX,
 } from 'lucide-react';
 import { User, AVAILABLE_INTERESTS, DEFAULT_USER_AVATAR } from '../types';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
@@ -40,6 +40,10 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   // Steps: 1 = Create Profile, 2 = Interests, 3 = Login / Auth
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
+  // Separate view for account switcher (when clicking "Already have an account? Sign in")
+  const [showPreviousAccounts, setShowPreviousAccounts] = useState(false);
+  const [showCredentialsForm, setShowCredentialsForm] = useState(false);
+
   // Profile data starts clean without default Alex Rivera / @alexrivera / default bio
   const isAlexRivera =
     initialUser.name === 'Alex Rivera' || initialUser.username === 'alexrivera';
@@ -62,9 +66,15 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [authLoading, setAuthLoading] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [authSuccessNotice, setAuthSuccessNotice] = useState<string | null>(null);
 
-  // Username availability & similarity detection
+  // Previously signed in accounts on this device
+  const previousAccounts = useMemo(() => {
+    return DailyStorageService.getPreviousAccounts();
+  }, [showPreviousAccounts]);
+
+  // Username availability detection:
+  // ONLY flags as taken if the exact username already belongs to a registered user.
+  // No false-positive prefix or substring blocks (e.g. @rahulpratik will NOT be blocked by @rahul).
   const usernameStatus = useMemo(() => {
     const clean = username.trim().toLowerCase().replace(/^@/, '').replace(/[^a-z0-9_]/g, '');
     if (!clean) return { isAvailable: true, message: '', suggestion: '' };
@@ -73,50 +83,20 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     const takenList = Array.from(
       new Set([
         ...allUsers.map((u) => (u.username || '').toLowerCase().replace(/^@/, '')),
-        'alexrivera',
-        'rahul',
-        'sarahcodes',
-        'marcus_fit',
-        'anisha_reads',
-        'biswajit_dev',
-        'soumya_t',
-        'abhisek_c',
-        'elena_r',
-        'davidk',
-        'daily',
         'admin',
-        'support',
         'system',
+        'daily',
+        'support',
       ])
     ).filter(Boolean);
 
-    // Exact match
+    // Exact match only
     const exactTaken = takenList.find((u) => u === clean);
     if (exactTaken) {
       const suggested = `${clean}_daily`;
       return {
         isAvailable: false,
         message: `This username @${clean} is already taken`,
-        suggestion: suggested,
-      };
-    }
-
-    // Similarity check: strip underscores/numbers and check if identical or strong prefix
-    const cleanStripped = clean.replace(/[^a-z]/g, '');
-    const similar = takenList.find((u) => {
-      if (u === clean) return true;
-      const uStripped = u.replace(/[^a-z]/g, '');
-      if (cleanStripped.length >= 3 && uStripped === cleanStripped) return true;
-      if (clean.length >= 4 && (u.startsWith(clean) || clean.startsWith(u))) return true;
-      return false;
-    });
-
-    if (similar) {
-      const randomSuffix = Math.floor(10 + Math.random() * 89);
-      const suggested = `${clean}_${randomSuffix}`;
-      return {
-        isAvailable: false,
-        message: `This username @${clean} is already taken or similar to @${similar}`,
         suggestion: suggested,
       };
     }
@@ -154,6 +134,13 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     setAvatar(DEFAULT_USER_AVATAR);
   };
 
+  // Select an existing account previously signed in
+  const handleSelectExistingAccount = (account: User) => {
+    vibrateStreakMilestone();
+    DailyStorageService.savePreviousAccount(account);
+    onComplete(account);
+  };
+
   // Finalize onboarding after authenticating with selected credentials
   const handleAuthComplete = (
     provider: 'google' | 'apple' | 'email',
@@ -181,7 +168,6 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   // Google Sign-In Handler via Supabase
   const handleGoogleLogin = async () => {
     setAuthError(null);
-    setAuthSuccessNotice(null);
     setAuthLoading('google');
     vibrateLight();
 
@@ -193,7 +179,6 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
         return;
       }
 
-      // If Supabase triggered OAuth redirect, it redirects. If local fallback:
       setTimeout(() => {
         setAuthLoading(null);
         const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '') || 'google_user';
@@ -208,7 +193,6 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   // Apple Sign-In Handler via Supabase
   const handleAppleLogin = async () => {
     setAuthError(null);
-    setAuthSuccessNotice(null);
     setAuthLoading('apple');
     vibrateLight();
 
@@ -235,7 +219,6 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
-    setAuthSuccessNotice(null);
 
     if (!email.trim() || !email.includes('@')) {
       setAuthError('Please enter a valid email address.');
@@ -304,505 +287,774 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
       <div className="w-full max-w-md bg-[#0A0A0A] border border-white/10 rounded-[32px] p-5 sm:p-6 shadow-2xl relative text-white flex flex-col max-h-[92vh] overflow-hidden">
-        {/* Welcome to Daily header bar */}
-        <div className="flex items-center justify-between mb-3 shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
-              <Flame className="w-4 h-4 text-[#2F6FED] fill-[#2F6FED]" />
-            </div>
-            <span className="font-bold text-xs uppercase tracking-wider text-white/50">
-              Welcome to Daily
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            {[1, 2, 3].map((s) => (
-              <div
-                key={s}
-                className={`h-1.5 rounded-full transition-all duration-300 ${
-                  s === step
-                    ? 'w-6 bg-[#2F6FED]'
-                    : s < step
-                    ? 'w-3 bg-[#2F6FED]/50'
-                    : 'w-3 bg-white/10'
-                }`}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Button for users who already have an account - placed directly below "Welcome to Daily" */}
-        {step === 1 && (
-          <button
-            type="button"
-            onClick={() => {
-              vibrateLight();
-              setAuthMode('signin');
-              setStep(3);
-            }}
-            className="w-full mb-3.5 py-2 px-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#2F6FED]/40 text-xs text-white/80 hover:text-white flex items-center justify-between transition-all cursor-pointer group shrink-0"
-          >
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="font-medium">Already have an account?</span>
-            </div>
-            <span className="text-[#2F6FED] group-hover:text-blue-400 font-bold text-[11px] flex items-center gap-1">
-              Sign in / Sign up <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-            </span>
-          </button>
-        )}
-
+        
         {/* =================================================================== */}
-        {/* STEP 1: CREATE PROFILE SCREEN                                       */}
+        {/* PREVIOUSLY SIGNED-IN ACCOUNTS SCREEN                                */}
+        {/* Opened when clicking "Already have an account? Sign in"             */}
         {/* =================================================================== */}
-        {step === 1 && (
-          <div className="space-y-4 flex-1 overflow-y-auto pr-1">
-            <div>
-              <h2 className="text-xl font-black text-white">Create your profile</h2>
-              <p className="text-xs text-white/50 mt-1">
-                Add your details and photo to begin tracking your daily proofs.
-              </p>
-            </div>
-
-            {/* Avatar section - Strictly defaults to default avatar */}
-            <div className="flex flex-col items-center py-2">
-              <div className="relative group">
-                <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-white/20 shadow-xl ring-2 ring-[#2F6FED]/30 bg-[#18181b] flex items-center justify-center">
-                  <img
-                    src={avatar}
-                    alt="Avatar Preview"
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <label
-                  htmlFor="onboarding-avatar-file"
-                  className="absolute bottom-0 right-0 p-2 bg-[#2F6FED] hover:bg-blue-600 border-2 border-[#0A0A0A] rounded-full text-white cursor-pointer shadow-lg transition-all hover:scale-110 active:scale-95 flex items-center justify-center"
-                  title="Upload your photo"
-                >
-                  <Upload className="w-4 h-4" />
-                  <input
-                    id="onboarding-avatar-file"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                  />
-                </label>
+        {showPreviousAccounts ? (
+          <div className="flex flex-col flex-1 min-h-0">
+            {/* Header with Back button to Sign Up */}
+            <div className="flex items-center gap-2.5 mb-4 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateLight();
+                  setShowPreviousAccounts(false);
+                  setShowCredentialsForm(false);
+                }}
+                className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-white/70 hover:text-white transition-colors cursor-pointer"
+                aria-label="Back to Sign Up"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+              <div>
+                <h2 className="text-xl font-black text-white">Sign In</h2>
+                <p className="text-xs text-white/50">
+                  {previousAccounts.length > 0 && !showCredentialsForm
+                    ? 'Select an account previously signed in'
+                    : 'Access your account'}
+                </p>
               </div>
+            </div>
 
-              <div className="flex items-center gap-2 mt-3">
-                <label
-                  htmlFor="onboarding-avatar-btn"
-                  className="text-xs font-bold px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/15 text-white cursor-pointer transition-colors flex items-center gap-1.5"
-                >
-                  <Upload className="w-3.5 h-3.5 text-[#2F6FED]" />
-                  {avatar !== DEFAULT_USER_AVATAR ? 'Change Photo' : 'Upload Photo'}
-                  <input
-                    id="onboarding-avatar-btn"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                  />
-                </label>
+            {/* CASE A: Has previous accounts on this device */}
+            {previousAccounts.length > 0 && !showCredentialsForm ? (
+              <div className="flex flex-col flex-1 min-h-0">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-white/40 mb-2 shrink-0">
+                  Accounts on this device
+                </div>
 
-                {avatar !== DEFAULT_USER_AVATAR && (
+                <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 my-1">
+                  {previousAccounts.map((account) => (
+                    <div
+                      key={account.id || account.username}
+                      onClick={() => handleSelectExistingAccount(account)}
+                      className="w-full p-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#2F6FED]/50 transition-all flex items-center justify-between group cursor-pointer active:scale-[0.99]"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="relative">
+                          <img
+                            src={account.avatar || DEFAULT_USER_AVATAR}
+                            alt={account.name}
+                            referrerPolicy="no-referrer"
+                            className="w-11 h-11 rounded-full object-cover border border-white/20 shrink-0"
+                          />
+                          <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-[#0A0A0A]" />
+                        </div>
+                        <div className="min-w-0 text-left">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-white block truncate group-hover:text-[#2F6FED] transition-colors">
+                              {account.name}
+                            </span>
+                            {(account.currentStreak ?? 0) > 0 && (
+                              <span className="text-[10px] font-black text-amber-400 flex items-center gap-0.5 shrink-0 bg-amber-500/10 px-1.5 py-0.5 rounded-full border border-amber-500/20">
+                                <Flame className="w-2.5 h-2.5 fill-current" />
+                                {account.currentStreak}d
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[11px] text-white/50 font-mono block truncate">
+                            @{account.username.toLowerCase().replace(/^@/, '')}
+                          </span>
+                          {account.email && (
+                            <span className="text-[10px] text-white/40 block truncate">
+                              {account.email}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 text-[#2F6FED] text-xs font-bold shrink-0">
+                        <span className="hidden sm:inline">Open</span>
+                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="pt-3 mt-2 border-t border-white/10 flex flex-col gap-2 shrink-0">
                   <button
                     type="button"
-                    onClick={handleResetToDefaultAvatar}
-                    className="text-xs font-medium px-3 py-1.5 rounded-full text-white/50 hover:text-white/80 hover:bg-white/5 transition-colors flex items-center gap-1 cursor-pointer"
+                    onClick={() => {
+                      vibrateLight();
+                      setShowCredentialsForm(true);
+                      setAuthMode('signin');
+                    }}
+                    className="w-full py-2.5 px-3 rounded-2xl bg-white/5 hover:bg-white/10 text-white/80 hover:text-white font-bold text-xs border border-white/10 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    <RotateCcw className="w-3 h-3" />
-                    Reset to Default
+                    <KeyRound className="w-3.5 h-3.5 text-[#2F6FED]" />
+                    Sign in to another account (Email or Social)
                   </button>
-                )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vibrateLight();
+                      setShowPreviousAccounts(false);
+                      setShowCredentialsForm(false);
+                      setStep(1);
+                    }}
+                    className="w-full py-2 px-3 rounded-2xl text-white/50 hover:text-white text-xs font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    Back to Sign Up
+                  </button>
+                </div>
               </div>
+            ) : !showCredentialsForm ? (
+              /* CASE B: No previous accounts found on this device */
+              <div className="flex flex-col flex-1 items-center justify-center py-6 text-center">
+                <div className="w-16 h-16 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-center mb-4 text-white/30">
+                  <UserX className="w-8 h-8" />
+                </div>
+                <h3 className="text-base font-bold text-white mb-1">No Accounts Currently</h3>
+                <p className="text-xs text-white/50 max-w-[280px] mb-6 leading-relaxed">
+                  No previously signed-in accounts were found on this device. Create your profile to get started.
+                </p>
 
-              {/* Explicit status: Only have "Using default avatar you can upload anytime" */}
-              <p className="text-[11px] text-white/50 mt-2 text-center font-medium">
-                Using default avatar (you can upload anytime)
-              </p>
-            </div>
+                <div className="w-full space-y-2.5 max-w-xs">
+                  {/* Primary requested button: Back to sign up screen */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vibrateLight();
+                      setShowPreviousAccounts(false);
+                      setStep(1);
+                    }}
+                    className="w-full py-3 rounded-2xl bg-[#2F6FED] text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-blue-600 active:scale-[0.99] transition-all shadow-lg shadow-[#2F6FED]/20 cursor-pointer"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    Back to Sign Up
+                  </button>
 
-            {/* Name input */}
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-white/70 mb-1">
-                Full Name <span className="text-[#2F6FED]">*</span>
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Enter your full name"
-                className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors"
-              />
-            </div>
-
-            {/* Username input with availability & similarity alert */}
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-white/70 mb-1">
-                Username <span className="text-[#2F6FED]">*</span>
-              </label>
-              <div className="relative flex items-center">
-                <span className="absolute left-3.5 text-white/40 text-xs font-mono">@</span>
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="choose_username"
-                  className={`w-full pl-8 pr-3.5 py-2.5 bg-white/5 border rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors font-mono ${
-                    !usernameStatus.isAvailable
-                      ? 'border-amber-500/60 focus:border-amber-500'
-                      : 'border-white/10 focus:border-[#2F6FED]'
-                  }`}
-                />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vibrateLight();
+                      setShowCredentialsForm(true);
+                      setAuthMode('signin');
+                    }}
+                    className="w-full py-2.5 px-3 rounded-2xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white font-bold text-xs border border-white/10 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <KeyRound className="w-3.5 h-3.5 text-[#2F6FED]" />
+                    Sign in with Email or Social
+                  </button>
+                </div>
               </div>
-
-              {/* Username Taken / Similar Warning & Clickable Suggestion */}
-              {!usernameStatus.isAvailable && usernameStatus.message && (
-                <div className="mt-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex flex-col gap-1.5 animate-in fade-in duration-150">
-                  <div className="flex items-center gap-1.5 font-bold text-amber-300">
-                    <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                    <span>{usernameStatus.message}</span>
+            ) : (
+              /* Secondary option: Sign in with credentials (Supabase: Email, Google, Apple) */
+              <div className="flex flex-col flex-1 min-h-0 overflow-y-auto pr-1">
+                {authError && (
+                  <div className="mb-3 p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{authError}</span>
                   </div>
-                  {usernameStatus.suggestion && (
-                    <div className="text-[11px] text-white/70 flex items-center gap-1.5 flex-wrap">
-                      <span>You can use:</span>
+                )}
+
+                <div className="space-y-2 shrink-0 mb-3">
+                  <button
+                    type="button"
+                    onClick={handleGoogleLogin}
+                    disabled={!!authLoading}
+                    className="w-full py-2.5 px-4 rounded-2xl bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs flex items-center justify-center gap-2.5 shadow-md active:scale-[0.99] transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                      <path
+                        fill="#4285F4"
+                        d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
+                      />
+                      <path
+                        fill="#34A853"
+                        d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.24v3.15C3.26 21.36 7.34 24 12 24z"
+                      />
+                      <path
+                        fill="#FBBC05"
+                        d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.24C.45 8.15 0 9.92 0 12s.45 3.85 1.24 5.42l4.04-3.15z"
+                      />
+                      <path
+                        fill="#EA4335"
+                        d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.24 6.58l4.04 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                      />
+                    </svg>
+                    <span>Continue with Google</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleAppleLogin}
+                    disabled={!!authLoading}
+                    className="w-full py-2.5 px-4 rounded-2xl bg-[#141416] hover:bg-[#1f1f24] border border-white/20 text-white font-bold text-xs flex items-center justify-center gap-2.5 shadow-md active:scale-[0.99] transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
+                      <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.47c.65-.79 1.1-1.89.98-2.99-.95.04-2.1.63-2.78 1.42-.59.68-1.12 1.77-.98 2.85 1.06.08 2.14-.54 2.78-1.28z" />
+                    </svg>
+                    <span>Continue with Apple</span>
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-3 my-2 shrink-0">
+                  <div className="h-[1px] bg-white/10 flex-1" />
+                  <span className="text-[10px] uppercase font-bold text-white/40 tracking-wider">
+                    or with email
+                  </span>
+                  <div className="h-[1px] bg-white/10 flex-1" />
+                </div>
+
+                <form onSubmit={handleEmailSubmit} className="space-y-2.5">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-white/60 mb-1">
+                      Email
+                    </label>
+                    <div className="relative flex items-center">
+                      <Mail className="absolute left-3.5 w-3.5 h-3.5 text-white/40" />
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="you@example.com"
+                        required
+                        className="w-full pl-9 pr-3.5 py-2.5 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-white/60 mb-1">
+                      Password
+                    </label>
+                    <div className="relative flex items-center">
+                      <Lock className="absolute left-3.5 w-3.5 h-3.5 text-white/40" />
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Enter password"
+                        required
+                        className="w-full pl-9 pr-9 py-2.5 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors"
+                      />
                       <button
                         type="button"
-                        onClick={() => {
-                          vibrateLight();
-                          setUsername(usernameStatus.suggestion);
-                        }}
-                        className="font-mono font-bold text-[#2F6FED] hover:underline bg-[#2F6FED]/15 hover:bg-[#2F6FED]/25 px-2 py-0.5 rounded-lg border border-[#2F6FED]/30 inline-flex items-center gap-1 cursor-pointer transition-colors"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 text-white/40 hover:text-white transition-colors cursor-pointer"
                       >
-                        @{usernameStatus.suggestion}
+                        {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                       </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={!!authLoading || !email.trim() || !password}
+                    className="w-full py-3 rounded-2xl bg-[#2F6FED] text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-blue-600 active:scale-[0.99] transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-lg shadow-[#2F6FED]/20 cursor-pointer mt-1"
+                  >
+                    {authLoading === 'email' ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <KeyRound className="w-4 h-4" />
+                        <span>Sign In & Enter Daily</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+
+                <div className="pt-3 mt-3 border-t border-white/10 flex items-center justify-between shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vibrateLight();
+                      setShowCredentialsForm(false);
+                    }}
+                    className="text-xs font-bold text-white/60 hover:text-white flex items-center gap-1 cursor-pointer"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    {previousAccounts.length > 0 ? 'Back to Accounts' : 'Back'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vibrateLight();
+                      setShowPreviousAccounts(false);
+                      setShowCredentialsForm(false);
+                      setStep(1);
+                    }}
+                    className="text-xs font-bold text-[#2F6FED] hover:underline cursor-pointer"
+                  >
+                    Back to Sign Up
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* =================================================================== */
+          /* STANDARD ONBOARDING SIGN-UP FLOW (STEP 1, 2, 3)                     */
+          /* =================================================================== */
+          <>
+            {/* Welcome to Daily header bar */}
+            <div className="flex items-center justify-between mb-3 shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
+                  <Flame className="w-4 h-4 text-[#2F6FED] fill-[#2F6FED]" />
+                </div>
+                <span className="font-bold text-xs uppercase tracking-wider text-white/50">
+                  Welcome to Daily
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {[1, 2, 3].map((s) => (
+                  <div
+                    key={s}
+                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                      s === step
+                        ? 'w-6 bg-[#2F6FED]'
+                        : s < step
+                        ? 'w-3 bg-[#2F6FED]/50'
+                        : 'w-3 bg-white/10'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Button for users who already have an account - placed directly below "Welcome to Daily" */}
+            {/* Strictly labeled "Sign in" as requested */}
+            {step === 1 && (
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateLight();
+                  setShowPreviousAccounts(true);
+                  setShowCredentialsForm(false);
+                }}
+                className="w-full mb-3.5 py-2 px-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#2F6FED]/40 text-xs text-white/80 hover:text-white flex items-center justify-between transition-all cursor-pointer group shrink-0"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                  <span className="font-medium text-white/90">Already have an account?</span>
+                </div>
+                <span className="text-[#2F6FED] group-hover:text-blue-400 font-bold text-[11px] flex items-center gap-1">
+                  Sign in <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                </span>
+              </button>
+            )}
+
+            {/* STEP 1: CREATE PROFILE SCREEN */}
+            {step === 1 && (
+              <div className="space-y-4 flex-1 overflow-y-auto pr-1">
+                <div>
+                  <h2 className="text-xl font-black text-white">Create your profile</h2>
+                  <p className="text-xs text-white/50 mt-1">
+                    Add your details and photo to begin tracking your daily proofs.
+                  </p>
+                </div>
+
+                {/* Avatar section - Strictly defaults to default avatar */}
+                <div className="flex flex-col items-center py-2">
+                  <div className="relative group">
+                    <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-white/20 shadow-xl ring-2 ring-[#2F6FED]/30 bg-[#18181b] flex items-center justify-center">
+                      <img
+                        src={avatar}
+                        alt="Avatar Preview"
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <label
+                      htmlFor="onboarding-avatar-file"
+                      className="absolute bottom-0 right-0 p-2 bg-[#2F6FED] hover:bg-blue-600 border-2 border-[#0A0A0A] rounded-full text-white cursor-pointer shadow-lg transition-all hover:scale-110 active:scale-95 flex items-center justify-center"
+                      title="Upload your photo"
+                    >
+                      <Upload className="w-4 h-4" />
+                      <input
+                        id="onboarding-avatar-file"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="flex items-center gap-2 mt-3">
+                    <label
+                      htmlFor="onboarding-avatar-btn"
+                      className="text-xs font-bold px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/15 text-white cursor-pointer transition-colors flex items-center gap-1.5"
+                    >
+                      <Upload className="w-3.5 h-3.5 text-[#2F6FED]" />
+                      {avatar !== DEFAULT_USER_AVATAR ? 'Change Photo' : 'Upload Photo'}
+                      <input
+                        id="onboarding-avatar-btn"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                      />
+                    </label>
+
+                    {avatar !== DEFAULT_USER_AVATAR && (
+                      <button
+                        type="button"
+                        onClick={handleResetToDefaultAvatar}
+                        className="text-xs font-medium px-3 py-1.5 rounded-full text-white/50 hover:text-white/80 hover:bg-white/5 transition-colors flex items-center gap-1 cursor-pointer"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        Reset to Default
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Explicit status: Only have "Using default avatar (you can upload anytime)" */}
+                  <p className="text-[11px] text-white/50 mt-2 text-center font-medium">
+                    Using default avatar (you can upload anytime)
+                  </p>
+                </div>
+
+                {/* Name input */}
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-white/70 mb-1">
+                    Full Name <span className="text-[#2F6FED]">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Enter your full name"
+                    className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors"
+                  />
+                </div>
+
+                {/* Username input with exact availability check */}
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-white/70 mb-1">
+                    Username <span className="text-[#2F6FED]">*</span>
+                  </label>
+                  <div className="relative flex items-center">
+                    <span className="absolute left-3.5 text-white/40 text-xs font-mono">@</span>
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="choose_username"
+                      className={`w-full pl-8 pr-3.5 py-2.5 bg-white/5 border rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors font-mono ${
+                        !usernameStatus.isAvailable
+                          ? 'border-amber-500/60 focus:border-amber-500'
+                          : 'border-white/10 focus:border-[#2F6FED]'
+                      }`}
+                    />
+                  </div>
+
+                  {/* Username Taken Warning & Clickable Suggestion (Only triggers if exact match exists!) */}
+                  {!usernameStatus.isAvailable && usernameStatus.message && (
+                    <div className="mt-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex flex-col gap-1.5 animate-in fade-in duration-150">
+                      <div className="flex items-center gap-1.5 font-bold text-amber-300">
+                        <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                        <span>{usernameStatus.message}</span>
+                      </div>
+                      {usernameStatus.suggestion && (
+                        <div className="text-[11px] text-white/70 flex items-center gap-1.5 flex-wrap">
+                          <span>You can use:</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              vibrateLight();
+                              setUsername(usernameStatus.suggestion);
+                            }}
+                            className="font-mono font-bold text-[#2F6FED] hover:underline bg-[#2F6FED]/15 hover:bg-[#2F6FED]/25 px-2 py-0.5 rounded-lg border border-[#2F6FED]/30 inline-flex items-center gap-1 cursor-pointer transition-colors"
+                          >
+                            @{usernameStatus.suggestion}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
-            </div>
 
-            {/* Bio input */}
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-white/70 mb-1">
-                Bio
-              </label>
-              <textarea
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                placeholder="What are you building, practicing, or improving daily?"
-                rows={2}
-                maxLength={140}
-                className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors resize-none"
-              />
-              <span className="text-[10px] font-mono text-white/30 block text-right mt-0.5">
-                {bio.length}/140
-              </span>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                vibrateLight();
-                setStep(2);
-              }}
-              disabled={!name.trim() || !username.trim() || !usernameStatus.isAvailable}
-              className="w-full mt-2 py-3 rounded-2xl bg-[#2F6FED] text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-blue-600 active:scale-[0.99] transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-lg shadow-[#2F6FED]/20 cursor-pointer"
-            >
-              Continue to Interests <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-
-        {/* =================================================================== */}
-        {/* STEP 2: WHAT ARE YOUR INTERESTS SCREEN                              */}
-        {/* =================================================================== */}
-        {step === 2 && (
-          <div className="flex flex-col flex-1 min-h-0">
-            <div className="mb-3 shrink-0">
-              <h2 className="text-xl font-black text-white">What are your interests?</h2>
-              <p className="text-xs text-white/50 mt-1">
-                Select topics you want to see in your daily feed and track proofs for.
-              </p>
-            </div>
-
-            <div className="flex-1 overflow-y-auto pr-1.5 -mr-1.5 my-1">
-              <div className="flex flex-wrap gap-2 py-1">
-                {AVAILABLE_INTERESTS.map((interest) => {
-                  const isSelected = selectedInterests.includes(interest);
-                  return (
-                    <button
-                      key={interest}
-                      type="button"
-                      onClick={() => toggleInterest(interest)}
-                      className={`px-3.5 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 border cursor-pointer ${
-                        isSelected
-                          ? 'bg-[#2F6FED] text-white border-[#2F6FED] shadow-md shadow-[#2F6FED]/20 scale-105'
-                          : 'bg-white/5 text-white/60 border-white/10 hover:border-white/20 hover:text-white'
-                      }`}
-                    >
-                      {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                      {interest}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 pt-3 mt-2 border-t border-white/10 shrink-0">
-              <button
-                type="button"
-                onClick={() => {
-                  vibrateLight();
-                  setStep(1);
-                }}
-                className="w-1/3 py-3 rounded-2xl bg-white/5 hover:bg-white/10 text-white/70 font-bold text-xs border border-white/10 transition-colors flex items-center justify-center gap-1 cursor-pointer"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                Back
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  vibrateLight();
-                  setStep(3);
-                }}
-                disabled={selectedInterests.length === 0}
-                className="w-2/3 py-3 rounded-2xl bg-[#2F6FED] text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-blue-600 active:scale-[0.99] transition-all disabled:opacity-30 shadow-lg shadow-[#2F6FED]/20 cursor-pointer"
-              >
-                Continue to Sign In <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* =================================================================== */}
-        {/* STEP 3: AUTH / LOGIN SCREEN (SUPABASE: GOOGLE, APPLE, EMAIL)        */}
-        {/* =================================================================== */}
-        {step === 3 && (
-          <div className="flex flex-col flex-1 min-h-0 overflow-y-auto pr-1">
-            {/* Identity Summary Card (if profile filled) */}
-            {(name.trim() || username.trim()) && (
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-3 flex items-center justify-between mb-3 shrink-0">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <img
-                    src={avatar}
-                    alt={name || 'User'}
-                    referrerPolicy="no-referrer"
-                    className="w-10 h-10 rounded-full object-cover border border-white/20 shrink-0"
+                {/* Bio input */}
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-white/70 mb-1">
+                    Bio
+                  </label>
+                  <textarea
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    placeholder="What are you building, practicing, or improving daily?"
+                    rows={2}
+                    maxLength={140}
+                    className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors resize-none"
                   />
-                  <div className="min-w-0">
-                    <span className="text-xs font-bold text-white block truncate">
-                      {name || 'Daily Member'}
-                    </span>
-                    {username && (
-                      <span className="text-[10px] text-white/50 font-mono block truncate">
-                        @{username.toLowerCase()}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                {selectedInterests.length > 0 && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#2F6FED]/20 text-[#2F6FED] border border-[#2F6FED]/30 shrink-0">
-                    {selectedInterests.length} {selectedInterests.length === 1 ? 'topic' : 'topics'}
+                  <span className="text-[10px] font-mono text-white/30 block text-right mt-0.5">
+                    {bio.length}/140
                   </span>
-                )}
-              </div>
-            )}
-
-            <div className="mb-3 shrink-0">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-black text-white">
-                  {authMode === 'signin' ? 'Sign in to Daily' : 'Create your Daily account'}
-                </h2>
-                {isSupabaseConfigured() && (
-                  <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    Supabase
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-white/50 mt-0.5">
-                {authMode === 'signin'
-                  ? 'Sign in to sync your streaks and connect with the community.'
-                  : 'Complete your registration to preserve your proof history across devices.'}
-              </p>
-            </div>
-
-            {authError && (
-              <div className="mb-3 p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium flex items-center gap-1.5">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                <span>{authError}</span>
-              </div>
-            )}
-
-            {authSuccessNotice && (
-              <div className="mb-3 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-medium">
-                {authSuccessNotice}
-              </div>
-            )}
-
-            {/* Quick Provider Credentials: Google & Apple */}
-            <div className="space-y-2 shrink-0">
-              {/* Google Login Button */}
-              <button
-                type="button"
-                onClick={handleGoogleLogin}
-                disabled={!!authLoading}
-                className="w-full py-2.5 px-4 rounded-2xl bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs flex items-center justify-center gap-2.5 shadow-md active:scale-[0.99] transition-all disabled:opacity-50 cursor-pointer"
-              >
-                {authLoading === 'google' ? (
-                  <div className="w-4 h-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                    <path
-                      fill="#4285F4"
-                      d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
-                    />
-                    <path
-                      fill="#34A853"
-                      d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.24v3.15C3.26 21.36 7.34 24 12 24z"
-                    />
-                    <path
-                      fill="#FBBC05"
-                      d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.24C.45 8.15 0 9.92 0 12s.45 3.85 1.24 5.42l4.04-3.15z"
-                    />
-                    <path
-                      fill="#EA4335"
-                      d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.24 6.58l4.04 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-                    />
-                  </svg>
-                )}
-                <span>Continue with Google</span>
-              </button>
-
-              {/* Apple Login Button - Official Apple Silhouette */}
-              <button
-                type="button"
-                onClick={handleAppleLogin}
-                disabled={!!authLoading}
-                className="w-full py-2.5 px-4 rounded-2xl bg-[#141416] hover:bg-[#1f1f24] border border-white/20 text-white font-bold text-xs flex items-center justify-center gap-2.5 shadow-md active:scale-[0.99] transition-all disabled:opacity-50 cursor-pointer"
-              >
-                {authLoading === 'apple' ? (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
-                    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.47c.65-.79 1.1-1.89.98-2.99-.95.04-2.1.63-2.78 1.42-.59.68-1.12 1.77-.98 2.85 1.06.08 2.14-.54 2.78-1.28z" />
-                  </svg>
-                )}
-                <span>Continue with Apple</span>
-              </button>
-            </div>
-
-            {/* Divider */}
-            <div className="flex items-center gap-3 my-3 shrink-0">
-              <div className="h-[1px] bg-white/10 flex-1" />
-              <span className="text-[10px] uppercase font-bold text-white/40 tracking-wider">
-                or with email
-              </span>
-              <div className="h-[1px] bg-white/10 flex-1" />
-            </div>
-
-            {/* Email & Password Credentials Form */}
-            <form onSubmit={handleEmailSubmit} className="space-y-2.5">
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-white/60 mb-1">
-                  Email Address
-                </label>
-                <div className="relative flex items-center">
-                  <Mail className="absolute left-3.5 w-3.5 h-3.5 text-white/40" />
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    required
-                    className="w-full pl-9 pr-3.5 py-2.5 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors"
-                  />
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-white/60 mb-1">
-                  Password
-                </label>
-                <div className="relative flex items-center">
-                  <Lock className="absolute left-3.5 w-3.5 h-3.5 text-white/40" />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter password (min 6 chars)"
-                    required
-                    minLength={6}
-                    className="w-full pl-9 pr-9 py-2.5 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 text-white/40 hover:text-white transition-colors cursor-pointer"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  >
-                    {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between text-[11px] pt-0.5">
                 <button
                   type="button"
                   onClick={() => {
-                    setAuthMode(authMode === 'signin' ? 'signup' : 'signin');
-                    setAuthError(null);
+                    vibrateLight();
+                    setStep(2);
                   }}
-                  className="text-[#2F6FED] hover:underline font-medium cursor-pointer"
+                  disabled={!name.trim() || !username.trim() || !usernameStatus.isAvailable}
+                  className="w-full mt-2 py-3 rounded-2xl bg-[#2F6FED] text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-blue-600 active:scale-[0.99] transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-lg shadow-[#2F6FED]/20 cursor-pointer"
                 >
-                  {authMode === 'signin'
-                    ? "New to Daily? Create account"
-                    : 'Already have an account? Sign in'}
+                  Continue to Interests <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
+            )}
 
-              <button
-                type="submit"
-                disabled={!!authLoading || !email.trim() || !password}
-                className="w-full py-3 rounded-2xl bg-[#2F6FED] text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-blue-600 active:scale-[0.99] transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-lg shadow-[#2F6FED]/20 cursor-pointer"
-              >
-                {authLoading === 'email' ? (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <KeyRound className="w-4 h-4" />
-                    <span>
-                      {authMode === 'signin' ? 'Sign In & Enter Daily' : 'Create Account & Enter Daily'}
-                    </span>
-                  </>
+            {/* STEP 2: WHAT ARE YOUR INTERESTS SCREEN */}
+            {step === 2 && (
+              <div className="flex flex-col flex-1 min-h-0">
+                <div className="mb-3 shrink-0">
+                  <h2 className="text-xl font-black text-white">What are your interests?</h2>
+                  <p className="text-xs text-white/50 mt-1">
+                    Select topics you want to see in your daily feed and track proofs for.
+                  </p>
+                </div>
+
+                <div className="flex-1 overflow-y-auto pr-1.5 -mr-1.5 my-1">
+                  <div className="flex flex-wrap gap-2 py-1">
+                    {AVAILABLE_INTERESTS.map((interest) => {
+                      const isSelected = selectedInterests.includes(interest);
+                      return (
+                        <button
+                          key={interest}
+                          type="button"
+                          onClick={() => toggleInterest(interest)}
+                          className={`px-3.5 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 border cursor-pointer ${
+                            isSelected
+                              ? 'bg-[#2F6FED] text-white border-[#2F6FED] shadow-md shadow-[#2F6FED]/20 scale-105'
+                              : 'bg-white/5 text-white/60 border-white/10 hover:border-white/20 hover:text-white'
+                          }`}
+                        >
+                          {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                          {interest}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 pt-3 mt-2 border-t border-white/10 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vibrateLight();
+                      setStep(1);
+                    }}
+                    className="w-1/3 py-3 rounded-2xl bg-white/5 hover:bg-white/10 text-white/70 font-bold text-xs border border-white/10 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vibrateLight();
+                      setStep(3);
+                    }}
+                    disabled={selectedInterests.length === 0}
+                    className="w-2/3 py-3 rounded-2xl bg-[#2F6FED] text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-blue-600 active:scale-[0.99] transition-all disabled:opacity-30 shadow-lg shadow-[#2F6FED]/20 cursor-pointer"
+                  >
+                    Continue to Sign Up <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 3: AUTH / LOGIN SCREEN (SUPABASE: GOOGLE, APPLE, EMAIL) */}
+            {step === 3 && (
+              <div className="flex flex-col flex-1 min-h-0 overflow-y-auto pr-1">
+                {(name.trim() || username.trim()) && (
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-3 flex items-center justify-between mb-3 shrink-0">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <img
+                        src={avatar}
+                        alt={name || 'User'}
+                        referrerPolicy="no-referrer"
+                        className="w-10 h-10 rounded-full object-cover border border-white/20 shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold text-white block truncate">
+                          {name || 'Daily Member'}
+                        </span>
+                        {username && (
+                          <span className="text-[10px] text-white/50 font-mono block truncate">
+                            @{username.toLowerCase()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {selectedInterests.length > 0 && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#2F6FED]/20 text-[#2F6FED] border border-[#2F6FED]/30 shrink-0">
+                        {selectedInterests.length} {selectedInterests.length === 1 ? 'topic' : 'topics'}
+                      </span>
+                    )}
+                  </div>
                 )}
-              </button>
-            </form>
 
-            {/* Back Button */}
-            <div className="pt-3 mt-2 border-t border-white/10 flex items-center justify-between shrink-0">
-              <button
-                type="button"
-                onClick={() => {
-                  vibrateLight();
-                  setStep(1);
-                }}
-                className="py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 font-bold text-xs border border-white/10 transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                Back to Profile
-              </button>
+                <div className="mb-3 shrink-0">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-black text-white">Create your account</h2>
+                    {isSupabaseConfigured() && (
+                      <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        Supabase
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-white/50 mt-0.5">
+                    Complete your registration to preserve your daily streaks across devices.
+                  </p>
+                </div>
 
-              <span className="text-[10px] text-white/40 flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                Secure Supabase Auth
-              </span>
-            </div>
-          </div>
+                {authError && (
+                  <div className="mb-3 p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{authError}</span>
+                  </div>
+                )}
+
+                <div className="space-y-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleGoogleLogin}
+                    disabled={!!authLoading}
+                    className="w-full py-2.5 px-4 rounded-2xl bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs flex items-center justify-center gap-2.5 shadow-md active:scale-[0.99] transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    {authLoading === 'google' ? (
+                      <div className="w-4 h-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                        <path
+                          fill="#4285F4"
+                          d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.24v3.15C3.26 21.36 7.34 24 12 24z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.24C.45 8.15 0 9.92 0 12s.45 3.85 1.24 5.42l4.04-3.15z"
+                        />
+                        <path
+                          fill="#EA4335"
+                          d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.24 6.58l4.04 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                        />
+                      </svg>
+                    )}
+                    <span>Continue with Google</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleAppleLogin}
+                    disabled={!!authLoading}
+                    className="w-full py-2.5 px-4 rounded-2xl bg-[#141416] hover:bg-[#1f1f24] border border-white/20 text-white font-bold text-xs flex items-center justify-center gap-2.5 shadow-md active:scale-[0.99] transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    {authLoading === 'apple' ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
+                        <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.47c.65-.79 1.1-1.89.98-2.99-.95.04-2.1.63-2.78 1.42-.59.68-1.12 1.77-.98 2.85 1.06.08 2.14-.54 2.78-1.28z" />
+                      </svg>
+                    )}
+                    <span>Continue with Apple</span>
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-3 my-3 shrink-0">
+                  <div className="h-[1px] bg-white/10 flex-1" />
+                  <span className="text-[10px] uppercase font-bold text-white/40 tracking-wider">
+                    or with email
+                  </span>
+                  <div className="h-[1px] bg-white/10 flex-1" />
+                </div>
+
+                <form onSubmit={handleEmailSubmit} className="space-y-2.5">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-white/60 mb-1">
+                      Email Address
+                    </label>
+                    <div className="relative flex items-center">
+                      <Mail className="absolute left-3.5 w-3.5 h-3.5 text-white/40" />
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="you@example.com"
+                        required
+                        className="w-full pl-9 pr-3.5 py-2.5 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-white/60 mb-1">
+                      Password
+                    </label>
+                    <div className="relative flex items-center">
+                      <Lock className="absolute left-3.5 w-3.5 h-3.5 text-white/40" />
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Enter password (min 6 chars)"
+                        required
+                        minLength={6}
+                        className="w-full pl-9 pr-9 py-2.5 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 text-white/40 hover:text-white transition-colors cursor-pointer"
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={!!authLoading || !email.trim() || !password}
+                    className="w-full py-3 rounded-2xl bg-[#2F6FED] text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-blue-600 active:scale-[0.99] transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-lg shadow-[#2F6FED]/20 cursor-pointer mt-1"
+                  >
+                    {authLoading === 'email' ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <KeyRound className="w-4 h-4" />
+                        <span>Create Account & Enter Daily</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+
+                <div className="pt-3 mt-2 border-t border-white/10 flex items-center justify-between shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vibrateLight();
+                      setStep(2);
+                    }}
+                    className="py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 font-bold text-xs border border-white/10 transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    Back to Interests
+                  </button>
+
+                  <span className="text-[10px] text-white/40 flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                    Secure Supabase Auth
+                  </span>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

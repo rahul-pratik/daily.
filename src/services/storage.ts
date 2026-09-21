@@ -60,6 +60,7 @@ const STORAGE_KEYS = {
   THEME_MODE: 'daily_app_theme_mode_v1',
   HAPTICS_ENABLED: 'daily_app_haptics_enabled_v1',
   CUSTOM_HASHTAGS: 'daily_app_custom_hashtags_v1',
+  PREVIOUS_ACCOUNTS: 'daily_app_previous_accounts_v1',
 };
 
 // Current reference date (today in the app context)
@@ -163,6 +164,44 @@ export class DailyStorageService {
     const updated: User = { ...current, ...updates };
     this.saveCurrentUser(updated);
     return updated;
+  }
+
+  static getPreviousAccounts(): User[] {
+    const data = localStorage.getItem(STORAGE_KEYS.PREVIOUS_ACCOUNTS);
+    if (!data) return [];
+    try {
+      const list = JSON.parse(data);
+      return Array.isArray(list) ? list : [];
+    } catch {
+      return [];
+    }
+  }
+
+  static savePreviousAccount(user: User): void {
+    if (!user || !user.username?.trim() || !user.name?.trim()) return;
+    const list = this.getPreviousAccounts();
+    const cleanUser = {
+      ...user,
+      username: user.username.toLowerCase().replace(/^@/, ''),
+      currentStreak: user.currentStreak ?? (user as any).streak ?? 0,
+    };
+    const filtered = list.filter(
+      (u) =>
+        u.id !== cleanUser.id &&
+        u.username.toLowerCase().replace(/^@/, '') !== cleanUser.username &&
+        (!cleanUser.email || u.email !== cleanUser.email)
+    );
+    const updated = [cleanUser, ...filtered].slice(0, 8);
+    localStorage.setItem(STORAGE_KEYS.PREVIOUS_ACCOUNTS, JSON.stringify(updated));
+  }
+
+  static removePreviousAccount(userIdOrUsername: string): void {
+    const target = userIdOrUsername.toLowerCase().replace(/^@/, '');
+    const list = this.getPreviousAccounts();
+    const filtered = list.filter(
+      (u) => u.id !== userIdOrUsername && u.username.toLowerCase().replace(/^@/, '') !== target
+    );
+    localStorage.setItem(STORAGE_KEYS.PREVIOUS_ACCOUNTS, JSON.stringify(filtered));
   }
 
   static getAllUsers(): User[] {

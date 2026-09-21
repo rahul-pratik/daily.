@@ -268,6 +268,7 @@ export default function App() {
     const updated = { ...currentUser, ...updatedUserProps };
     setCurrentUser(updated);
     DailyStorageService.saveCurrentUser(updated);
+    DailyStorageService.savePreviousAccount(updated);
     DailyStorageService.setOnboarded(true);
     setIsOnboarded(true);
   };
@@ -275,7 +276,7 @@ export default function App() {
   // Sync Supabase Auth session if redirected via OAuth or active token
   useEffect(() => {
     if (!supabase) return;
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: { user?: { user_metadata?: Record<string, any>; email?: string } } | null) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         const meta = session.user.user_metadata || {};
         const userEmail = session.user.email || '';
@@ -292,6 +293,7 @@ export default function App() {
             email: userEmail || prev.email,
           };
           DailyStorageService.saveCurrentUser(updated);
+          DailyStorageService.savePreviousAccount(updated);
           return updated;
         });
         DailyStorageService.setOnboarded(true);
