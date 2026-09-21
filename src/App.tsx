@@ -21,7 +21,7 @@ import {
   UserProfileSharePreview,
   DEFAULT_USER_AVATAR,
 } from './types';
-import { supabase } from './services/supabase';
+import { supabase, isSupabaseConfigured, getSupabaseClient } from './services/supabase';
 import { DailyStorageService } from './services/storage';
 import { TopHeader, BottomNavigation } from './components/Navigation';
 import { HomeFeed } from './components/HomeFeed';
@@ -283,8 +283,10 @@ export default function App() {
 
   // Sync Supabase Auth session if redirected via OAuth or active token
   useEffect(() => {
-    if (!supabase) return;
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    if (!isSupabaseConfigured()) return;
+    const client = getSupabaseClient();
+    if (!client?.auth) return;
+    const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         const meta = session.user.user_metadata || {};
         const userEmail = session.user.email || '';

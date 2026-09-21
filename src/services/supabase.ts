@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient, User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { DailyStorageService } from './storage';
 import { User, DEFAULT_USER_AVATAR } from '../types';
+import { validatePasswordComplexity } from '../utils/passwordValidator';
 
 const ENV_SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const ENV_SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
@@ -49,7 +50,20 @@ export const getSupabaseClient = (): SupabaseClient | null => {
 export const supabase: SupabaseClient | null = new Proxy({} as any, {
   get(_target, prop) {
     const client = getSupabaseClient();
-    if (!client) return undefined;
+    if (!client) {
+      if (prop === 'auth') {
+        return {
+          onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+          getSession: async () => ({ data: { session: null }, error: null }),
+          getUser: async () => ({ data: { user: null }, error: null }),
+          signInWithPassword: async () => ({ data: { user: null, session: null }, error: new Error('Supabase is not configured.') }),
+          signUp: async () => ({ data: { user: null, session: null }, error: new Error('Supabase is not configured.') }),
+          signInWithOAuth: async () => ({ data: { provider: '', url: '' }, error: new Error('Supabase is not configured.') }),
+          signOut: async () => ({ error: null }),
+        };
+      }
+      return undefined;
+    }
     const val = (client as any)[prop];
     return typeof val === 'function' ? val.bind(client) : val;
   },
@@ -263,10 +277,11 @@ export async function supabaseSignUpWithEmail(
     };
   }
 
-  if (!password || password.length < 6) {
+  const passwordValidation = validatePasswordComplexity(password);
+  if (!passwordValidation.isValid) {
     return {
       success: false,
-      error: 'Password must be at least 6 characters long.',
+      error: `Password requirement missing: ${passwordValidation.errors.join(', ')}.`,
     };
   }
 

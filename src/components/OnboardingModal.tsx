@@ -30,6 +30,8 @@ import {
   supabaseSignInWithApple,
   syncUserToSupabase,
 } from '../services/supabase';
+import { PasswordComplexityValidator } from './PasswordComplexityValidator';
+import { validatePasswordComplexity } from '../utils/passwordValidator';
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -81,6 +83,14 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [authLoading, setAuthLoading] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
+
+  // Direct Sign-In credentials state (used in Accounts Switcher / Sign-In modal view)
+  const [showDirectSignIn, setShowDirectSignIn] = useState(false);
+  const [directEmail, setDirectEmail] = useState('');
+  const [directPassword, setDirectPassword] = useState('');
+  const [showDirectPassword, setShowDirectPassword] = useState(false);
+  const [directAuthLoading, setDirectAuthLoading] = useState(false);
+  const [directAuthError, setDirectAuthError] = useState<string | null>(null);
 
   // Google Account Chooser & Supabase Inline Configuration States
   const [showGoogleChooser, setShowGoogleChooser] = useState(false);
@@ -364,8 +374,16 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
       setAuthError('Please enter a valid email address.');
       return;
     }
-    if (password.length < 6) {
-      setAuthError('Password must be at least 6 characters.');
+    
+    if (!password) {
+      setAuthError('Please enter your password.');
+      return;
+    }
+
+    const validation = validatePasswordComplexity(password);
+    if (!validation.isValid) {
+      setAuthError(`Password requirement missing: ${validation.errors.join(', ')}`);
+      vibrateLight();
       return;
     }
 
@@ -429,6 +447,60 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     } catch (err: any) {
       setAuthLoading(null);
       setAuthError(err?.message || 'Authentication error.');
+    }
+  };
+
+  // Direct Sign-In Handler (used in Account Switcher screen)
+  const handleDirectSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setDirectAuthError(null);
+
+    const cleanEmail = directEmail.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setDirectAuthError('Please enter a valid email address.');
+      return;
+    }
+
+    if (!directPassword) {
+      setDirectAuthError('Please enter your password.');
+      return;
+    }
+
+    const validation = validatePasswordComplexity(directPassword);
+    if (!validation.isValid) {
+      setDirectAuthError(`Password requirement missing: ${validation.errors.join(', ')}`);
+      vibrateLight();
+      return;
+    }
+
+    setDirectAuthLoading(true);
+    vibrateLight();
+
+    try {
+      const res = await supabaseSignInWithEmail(cleanEmail, directPassword);
+      if (!res.success) {
+        setDirectAuthError(res.error || 'Incorrect email or password. Please verify your credentials and try again.');
+        setDirectAuthLoading(false);
+        return;
+      }
+
+      setDirectAuthLoading(false);
+      const meta = res.user?.user_metadata || {};
+      const resolvedName = meta.full_name || meta.name || cleanEmail.split('@')[0];
+      const resolvedUsername = (meta.username || cleanEmail.split('@')[0]).toLowerCase().replace(/[^a-z0-9_]/g, '');
+      const resolvedAvatar = meta.avatar_url || DEFAULT_USER_AVATAR;
+      const resolvedBio = meta.bio || '';
+
+      handleAuthComplete('email', cleanEmail, {
+        id: res.user?.id,
+        name: resolvedName,
+        username: resolvedUsername,
+        avatar: resolvedAvatar,
+        bio: resolvedBio,
+      });
+    } catch (err: any) {
+      setDirectAuthLoading(false);
+      setDirectAuthError(err?.message || 'Authentication error.');
     }
   };
 
@@ -721,7 +793,161 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               )}
             </div>
 
-            {previousAccounts.length > 0 ? (
+            {/* View Selector: Saved Accounts vs Direct Email Sign-In */}
+            <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 mb-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateLight();
+                  setShowDirectSignIn(false);
+                  setDirectAuthError(null);
+                }}
+                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  !showDirectSignIn
+                    ? 'bg-[#2F6FED] text-white shadow-md shadow-[#2F6FED]/20'
+                    : 'text-white/60 hover:text-white'
+                }`}
+              >
+                Saved Accounts {previousAccounts.length > 0 ? `(${previousAccounts.length})` : ''}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  vibrateLight();
+                  setShowDirectSignIn(true);
+                  setDirectAuthError(null);
+                }}
+                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  showDirectSignIn
+                    ? 'bg-[#2F6FED] text-white shadow-md shadow-[#2F6FED]/20'
+                    : 'text-white/60 hover:text-white'
+                }`}
+              >
+                Sign In with Email
+              </button>
+            </div>
+
+            {showDirectSignIn ? (
+              /* DIRECT EMAIL & PASSWORD SIGN-IN VIEW WITH REAL-TIME COMPLEXITY VALIDATOR */
+              <div className="flex flex-col flex-1 min-h-0 overflow-y-auto pr-1 space-y-3">
+                {directAuthError && (
+                  <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium flex items-center gap-1.5 shrink-0">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{directAuthError}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleDirectSignIn} className="space-y-3 shrink-0">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-white/60 mb-1">
+                      Email Address
+                    </label>
+                    <div className="relative flex items-center">
+                      <Mail className="absolute left-3.5 w-3.5 h-3.5 text-white/40" />
+                      <input
+                        type="email"
+                        value={directEmail}
+                        onChange={(e) => {
+                          setDirectEmail(e.target.value);
+                          if (directAuthError) setDirectAuthError(null);
+                        }}
+                        placeholder="you@example.com"
+                        required
+                        className="w-full pl-9 pr-3.5 py-2.5 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-white/60">
+                        Password
+                      </label>
+                      <span className="text-[10px] text-white/40">Min 8 chars, special & digit</span>
+                    </div>
+                    <div className="relative flex items-center">
+                      <Lock className="absolute left-3.5 w-3.5 h-3.5 text-white/40" />
+                      <input
+                        type={showDirectPassword ? 'text' : 'password'}
+                        value={directPassword}
+                        onChange={(e) => {
+                          setDirectPassword(e.target.value);
+                          if (directAuthError) setDirectAuthError(null);
+                        }}
+                        placeholder="Enter your account password"
+                        required
+                        className="w-full pl-9 pr-9 py-2.5 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowDirectPassword(!showDirectPassword)}
+                        className="absolute right-3 text-white/40 hover:text-white transition-colors cursor-pointer"
+                        aria-label={showDirectPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showDirectPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+
+                    {/* Real-time Password Complexity Validator */}
+                    <PasswordComplexityValidator
+                      password={directPassword}
+                      isDirty={directPassword.length > 0}
+                      title="Password Complexity Check"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={directAuthLoading || !directEmail.trim() || !directPassword}
+                    className="w-full py-3 rounded-2xl bg-[#2F6FED] text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-blue-600 active:scale-[0.99] transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-lg shadow-[#2F6FED]/20 cursor-pointer mt-1"
+                  >
+                    {directAuthLoading ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <KeyRound className="w-4 h-4" />
+                        <span>Sign In to Daily</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+
+                <div className="pt-2 border-t border-white/10 flex flex-col gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleStartMakeNewAccount}
+                    className="w-full py-2.5 px-3 rounded-2xl bg-white/5 hover:bg-white/10 text-white/80 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <span>+ Need an Account? Sign Up</span>
+                  </button>
+                  {onClose ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        vibrateLight();
+                        onClose();
+                      }}
+                      className="w-full py-2 px-3 rounded-2xl text-white/50 hover:text-white text-xs font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      Back to App
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        vibrateLight();
+                        setShowPreviousAccounts(false);
+                        setStep(1);
+                      }}
+                      className="w-full py-2 px-3 rounded-2xl text-white/50 hover:text-white text-xs font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      Back to Sign Up
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : previousAccounts.length > 0 ? (
               <div className="flex flex-col flex-1 min-h-0">
                 <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-white/40 mb-2 shrink-0">
                   <span>Accounts on this device ({previousAccounts.length})</span>
@@ -825,16 +1051,28 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 <div className="w-16 h-16 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-center mb-4 text-white/30">
                   <UserX className="w-8 h-8" />
                 </div>
-                <h3 className="text-base font-bold text-white mb-1">No Accounts Currently</h3>
+                <h3 className="text-base font-bold text-white mb-1">No Saved Accounts</h3>
                 <p className="text-xs text-white/50 max-w-[280px] mb-6 leading-relaxed">
-                  No previously signed-in accounts were found on this device. Create your profile to get started.
+                  No previous accounts found on this device. Sign in with your email or register a new profile.
                 </p>
 
                 <div className="w-full space-y-2.5 max-w-xs">
                   <button
                     type="button"
-                    onClick={handleStartMakeNewAccount}
+                    onClick={() => {
+                      vibrateLight();
+                      setShowDirectSignIn(true);
+                    }}
                     className="w-full py-3 rounded-2xl bg-[#2F6FED] text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-blue-600 active:scale-[0.99] transition-all shadow-lg shadow-[#2F6FED]/20 cursor-pointer"
+                  >
+                    <Mail className="w-4 h-4" />
+                    <span>Sign In with Email</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleStartMakeNewAccount}
+                    className="w-full py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 active:scale-[0.99] transition-all cursor-pointer"
                   >
                     <span>+ Make a New Account</span>
                   </button>
@@ -1174,26 +1412,65 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   </div>
                 )}
 
-                <div className="mb-3 shrink-0">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-black text-white">Create your account</h2>
-                    {isSupabaseConfigured() ? (
-                      <span className="inline-flex items-center gap-1.5 text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        Supabase Connected
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setShowSupabaseSetup(!showSupabaseSetup)}
-                        className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20 hover:bg-amber-500/20 cursor-pointer"
-                      >
-                        {showSupabaseSetup ? 'Close Setup' : 'Connect Supabase'}
-                      </button>
-                    )}
+                {/* Mode Selector: Create Account vs Sign In */}
+                <div className="flex items-center justify-between mb-2 shrink-0">
+                  <div className="inline-flex p-1 bg-white/5 border border-white/10 rounded-2xl">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        vibrateLight();
+                        setAuthMode('signup');
+                        setAuthError(null);
+                      }}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        authMode === 'signup'
+                          ? 'bg-[#2F6FED] text-white shadow-md shadow-[#2F6FED]/20'
+                          : 'text-white/60 hover:text-white'
+                      }`}
+                    >
+                      Create Account
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        vibrateLight();
+                        setAuthMode('signin');
+                        setAuthError(null);
+                      }}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        authMode === 'signin'
+                          ? 'bg-[#2F6FED] text-white shadow-md shadow-[#2F6FED]/20'
+                          : 'text-white/60 hover:text-white'
+                      }`}
+                    >
+                      Sign In
+                    </button>
                   </div>
+
+                  {isSupabaseConfigured() ? (
+                    <span className="inline-flex items-center gap-1.5 text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      Supabase Connected
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowSupabaseSetup(!showSupabaseSetup)}
+                      className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20 hover:bg-amber-500/20 cursor-pointer"
+                    >
+                      {showSupabaseSetup ? 'Close Setup' : 'Connect Supabase'}
+                    </button>
+                  )}
+                </div>
+
+                <div className="mb-3 shrink-0">
+                  <h2 className="text-xl font-black text-white">
+                    {authMode === 'signup' ? 'Create your account' : 'Sign in to your account'}
+                  </h2>
                   <p className="text-xs text-white/50 mt-0.5">
-                    Complete your registration to preserve your daily streaks across devices.
+                    {authMode === 'signup'
+                      ? 'Complete your registration to preserve your daily streaks across devices.'
+                      : 'Enter your credentials to continue your daily streak.'}
                   </p>
                 </div>
 
@@ -1316,18 +1593,25 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-white/60 mb-1">
-                      Password
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-white/60">
+                        Password
+                      </label>
+                      <span className="text-[10px] text-white/40">
+                        {authMode === 'signup' ? 'Min 8 chars, special & digit' : 'Enter credentials'}
+                      </span>
+                    </div>
                     <div className="relative flex items-center">
                       <Lock className="absolute left-3.5 w-3.5 h-3.5 text-white/40" />
                       <input
                         type={showPassword ? 'text' : 'password'}
                         value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Enter password (min 6 chars)"
+                        onChange={(e) => {
+                          setPassword(e.target.value);
+                          if (authError) setAuthError(null);
+                        }}
+                        placeholder={authMode === 'signup' ? 'Create a secure password' : 'Enter your password'}
                         required
-                        minLength={6}
                         className="w-full pl-9 pr-9 py-2.5 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors"
                       />
                       <button
@@ -1339,6 +1623,13 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                         {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                       </button>
                     </div>
+
+                    {/* Real-time Password Complexity Validator */}
+                    <PasswordComplexityValidator
+                      password={password}
+                      isDirty={password.length > 0}
+                      title={authMode === 'signup' ? 'Security Requirements' : 'Password Complexity Check'}
+                    />
                   </div>
 
                   <button
@@ -1351,10 +1642,38 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                     ) : (
                       <>
                         <KeyRound className="w-4 h-4" />
-                        <span>Create Account & Enter Daily</span>
+                        <span>{authMode === 'signup' ? 'Create Account & Enter Daily' : 'Sign In to Daily'}</span>
                       </>
                     )}
                   </button>
+
+                  <div className="text-center pt-1">
+                    {authMode === 'signup' ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateLight();
+                          setAuthMode('signin');
+                          setAuthError(null);
+                        }}
+                        className="text-[11px] text-white/50 hover:text-white transition-colors cursor-pointer"
+                      >
+                        Already have an account? <span className="text-[#2F6FED] font-bold">Sign in</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateLight();
+                          setAuthMode('signup');
+                          setAuthError(null);
+                        }}
+                        className="text-[11px] text-white/50 hover:text-white transition-colors cursor-pointer"
+                      >
+                        Don't have an account? <span className="text-[#2F6FED] font-bold">Sign up</span>
+                      </button>
+                    )}
+                  </div>
                 </form>
 
                 <div className="pt-3 mt-2 border-t border-white/10 flex items-center justify-between shrink-0">
