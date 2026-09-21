@@ -30,6 +30,7 @@ import {
   Ban,
   UserCheck,
   ShieldCheck,
+  LogOut,
 } from 'lucide-react';
 import { User as UserType, Post, PostDraft } from '../types';
 import { DailyStorageService } from '../services/storage';
@@ -977,6 +978,32 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                   </div>
                   <p className="text-[10px] text-white/50 mt-0.5">
                     Review blocked accounts & restore feed visibility
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-white/30 group-hover:text-white group-hover:translate-x-0.5 transition-all shrink-0" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                vibrateLight();
+                DailyStorageService.savePreviousAccount(currentUser);
+                DailyStorageService.setOnboarded(false);
+                window.location.reload();
+              }}
+              className="w-full p-3.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all flex items-center justify-between text-left group cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center text-white/80 shrink-0">
+                  <LogOut className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-white group-hover:text-[#2F6FED] transition-colors">
+                    Log Out & Switch Account
+                  </span>
+                  <p className="text-[10px] text-white/40 mt-0.5">
+                    Save current session to previous accounts and return to sign in
                   </p>
                 </div>
               </div>

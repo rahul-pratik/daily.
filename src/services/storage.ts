@@ -61,7 +61,45 @@ const STORAGE_KEYS = {
   HAPTICS_ENABLED: 'daily_app_haptics_enabled_v1',
   CUSTOM_HASHTAGS: 'daily_app_custom_hashtags_v1',
   PREVIOUS_ACCOUNTS: 'daily_app_previous_accounts_v1',
+  REGISTERED_CREDENTIALS: 'daily_app_registered_credentials_v1',
 };
+
+export interface RegisteredUserCredential {
+  email: string;
+  password: string;
+  userId: string;
+  username: string;
+  name: string;
+  avatar?: string;
+  bio?: string;
+  authProvider: 'email' | 'google' | 'apple';
+  createdAt: string;
+}
+
+const INITIAL_REGISTERED_CREDENTIALS: RegisteredUserCredential[] = [
+  {
+    email: 'pratik.rahulb@gmail.com',
+    password: 'daily2026!',
+    userId: 'user_pratik',
+    username: 'rahulpratik',
+    name: 'Rahul Pratik',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+    bio: 'Showing the daily receipts & staying consistent 🔥',
+    authProvider: 'email',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    email: 'alex.rivera@dailyapp.io',
+    password: 'daily2026!',
+    userId: 'user_me',
+    username: 'alexrivera',
+    name: 'Alex Rivera',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+    bio: 'Building products daily 🚀',
+    authProvider: 'email',
+    createdAt: new Date().toISOString(),
+  },
+];
 
 // Current reference date (today in the app context)
 export const getTodayDateString = (): string => {
@@ -183,7 +221,6 @@ export class DailyStorageService {
     const cleanUser = {
       ...user,
       username: user.username.toLowerCase().replace(/^@/, ''),
-      currentStreak: user.currentStreak ?? (user as any).streak ?? 0,
     };
     const filtered = list.filter(
       (u) =>
@@ -202,6 +239,71 @@ export class DailyStorageService {
       (u) => u.id !== userIdOrUsername && u.username.toLowerCase().replace(/^@/, '') !== target
     );
     localStorage.setItem(STORAGE_KEYS.PREVIOUS_ACCOUNTS, JSON.stringify(filtered));
+  }
+
+  static getRegisteredCredentials(): RegisteredUserCredential[] {
+    const data = localStorage.getItem(STORAGE_KEYS.REGISTERED_CREDENTIALS);
+    if (!data) {
+      localStorage.setItem(STORAGE_KEYS.REGISTERED_CREDENTIALS, JSON.stringify(INITIAL_REGISTERED_CREDENTIALS));
+      return INITIAL_REGISTERED_CREDENTIALS;
+    }
+    try {
+      const list = JSON.parse(data);
+      if (!Array.isArray(list) || list.length === 0) {
+        localStorage.setItem(STORAGE_KEYS.REGISTERED_CREDENTIALS, JSON.stringify(INITIAL_REGISTERED_CREDENTIALS));
+        return INITIAL_REGISTERED_CREDENTIALS;
+      }
+      return list;
+    } catch {
+      return INITIAL_REGISTERED_CREDENTIALS;
+    }
+  }
+
+  static registerAccountCredentials(credential: RegisteredUserCredential): void {
+    const list = this.getRegisteredCredentials();
+    const cleanEmail = credential.email.trim().toLowerCase();
+    const filtered = list.filter((c) => c.email.toLowerCase() !== cleanEmail);
+    const updated = [...filtered, { ...credential, email: cleanEmail }];
+    localStorage.setItem(STORAGE_KEYS.REGISTERED_CREDENTIALS, JSON.stringify(updated));
+  }
+
+  static verifyEmailPassword(email: string, password: string): {
+    success: boolean;
+    error?: string;
+    credential?: RegisteredUserCredential;
+  } {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) {
+      return { success: false, error: 'Please enter your email address.' };
+    }
+    if (!password) {
+      return { success: false, error: 'Please enter your password.' };
+    }
+    const list = this.getRegisteredCredentials();
+    const found = list.find(
+      (c) =>
+        c.email.toLowerCase() === cleanEmail ||
+        c.username.toLowerCase() === cleanEmail.replace(/^@/, '')
+    );
+    if (!found) {
+      return {
+        success: false,
+        error: 'Incorrect email or password. No registered account found with this email.',
+      };
+    }
+    if (found.password !== password) {
+      return {
+        success: false,
+        error: 'Incorrect email or password. The password you entered is incorrect.',
+      };
+    }
+    return { success: true, credential: found };
+  }
+
+  static isEmailRegistered(email: string): boolean {
+    const cleanEmail = email.trim().toLowerCase();
+    const list = this.getRegisteredCredentials();
+    return list.some((c) => c.email.toLowerCase() === cleanEmail);
   }
 
   static getAllUsers(): User[] {
