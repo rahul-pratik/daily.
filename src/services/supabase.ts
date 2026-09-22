@@ -871,28 +871,39 @@ export async function supabaseSetSessionFromUrl(urlOrToken: string): Promise<Aut
       };
     }
 
+    let authUser: any = null;
+    let authSession: any = null;
+
     const { data, error } = await client.auth.setSession({
       access_token: accessToken,
-      refresh_token: refreshToken,
+      refresh_token: refreshToken || '',
     });
 
-    if (error) {
-      return {
-        success: false,
-        error: error.message,
-      };
+    if (!error && data?.user) {
+      authUser = data.user;
+      authSession = data.session;
+    } else {
+      // Fallback: directly fetch user with the access token
+      const { data: userData, error: userError } = await client.auth.getUser(accessToken);
+      if (userError || !userData?.user) {
+        return {
+          success: false,
+          error: error?.message || userError?.message || 'Invalid or expired access token.',
+        };
+      }
+      authUser = userData.user;
     }
 
-    if (data.user) {
-      const meta = data.user.user_metadata || {};
-      const userEmail = data.user.email || '';
+    if (authUser) {
+      const meta = authUser.user_metadata || {};
+      const userEmail = authUser.email || '';
       const name = meta.full_name || meta.name || userEmail.split('@')[0] || 'Daily Creator';
       const username = (meta.username || userEmail.split('@')[0] || 'creator')
         .toLowerCase()
         .replace(/[^a-z0-9_]/g, '');
 
       const userObj: User = createDefaultUserObject(
-        data.user.id,
+        authUser.id,
         userEmail,
         name,
         username,
@@ -910,8 +921,8 @@ export async function supabaseSetSessionFromUrl(urlOrToken: string): Promise<Aut
 
       return {
         success: true,
-        user: data.user,
-        session: data.session,
+        user: authUser,
+        session: authSession,
         provider: 'google',
       };
     }
@@ -927,4 +938,7 @@ export async function supabaseSetSessionFromUrl(urlOrToken: string): Promise<Aut
     };
   }
 }
+
+export const supabaseCompleteSessionFromUrlOrToken = supabaseSetSessionFromUrl;
+
 

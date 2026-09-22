@@ -31,6 +31,7 @@ import {
   syncUserToSupabase,
   supabaseResendConfirmationEmail,
   isUsernameTakenInSupabase,
+  supabaseCompleteSessionFromUrlOrToken,
 } from '../services/supabase';
 import { PasswordComplexityValidator } from './PasswordComplexityValidator';
 import { validatePasswordComplexity } from '../utils/passwordValidator';
@@ -102,6 +103,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const [supabaseUrlInput, setSupabaseUrlInput] = useState(() => getSupabaseConfig().url || '');
   const [supabaseKeyInput, setSupabaseKeyInput] = useState(() => getSupabaseConfig().anonKey || '');
   const [supabaseStatusMsg, setSupabaseStatusMsg] = useState<string | null>(null);
+
+  // Instant token / redirected URL sign-in state
+  const [pastedTokenUrl, setPastedTokenUrl] = useState('');
+  const [tokenLoginLoading, setTokenLoginLoading] = useState(false);
+  const [showRedirectHelp, setShowRedirectHelp] = useState(false);
+  const [copiedRedirectField, setCopiedRedirectField] = useState<string | null>(null);
 
   const [socialConnecting, setSocialConnecting] = useState<{
     provider: 'apple';
@@ -296,6 +303,54 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     } catch (err: any) {
       setAuthLoading(null);
       setAuthError(err?.message || 'Google authentication error occurred.');
+    }
+  };
+
+  // Instant login from pasted localhost:3000/#access_token=... URL or token string
+  const handleCompleteFromPastedToken = async () => {
+    if (!pastedTokenUrl.trim()) return;
+    setAuthError(null);
+    setTokenLoginLoading(true);
+    vibrateLight();
+    try {
+      const res = await supabaseCompleteSessionFromUrlOrToken(pastedTokenUrl.trim());
+      if (res.success && res.user) {
+        vibrateStreakMilestone();
+        const meta = res.user.user_metadata || {};
+        const userEmail = res.user.email || '';
+        const fallbackName = meta.full_name || meta.name || userEmail.split('@')[0] || 'Daily Creator';
+        const fallbackUsername = (meta.username || userEmail.split('@')[0] || 'creator')
+          .toLowerCase()
+          .replace(/[^a-z0-9_]/g, '');
+
+        const userObj: User = {
+          ...initialUser,
+          id: res.user.id,
+          email: userEmail,
+          name: fallbackName,
+          username: fallbackUsername,
+          avatar: meta.avatar_url || meta.picture || initialUser.avatar || DEFAULT_USER_AVATAR,
+          authProvider: 'google',
+        };
+
+        DailyStorageService.saveCurrentUser(userObj);
+        DailyStorageService.savePreviousAccount(userObj);
+        DailyStorageService.setOnboarded(true);
+
+        try {
+          await syncUserToSupabase(userObj);
+        } catch (e) {
+          console.warn('Sync notice on token auth:', e);
+        }
+
+        onComplete(userObj);
+      } else {
+        setAuthError(res.error || 'Failed to authenticate from pasted URL. Make sure it contains access_token=');
+      }
+    } catch (err: any) {
+      setAuthError(err?.message || 'Failed to complete login from token.');
+    } finally {
+      setTokenLoginLoading(false);
     }
   };
 
@@ -1537,6 +1592,91 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                     )}
                     <span>Continue with Apple</span>
                   </button>
+                </div>
+
+                {/* Instant Token Login / Redirect to localhost helper */}
+                <div className="mt-2.5 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-left">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-amber-400 font-bold text-xs">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>Redirected to localhost:3000?</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowRedirectHelp(!showRedirectHelp)}
+                      className="text-[11px] text-amber-300 hover:text-amber-200 underline font-semibold cursor-pointer transition-colors"
+                    >
+                      {showRedirectHelp ? 'Hide fix' : '1-Min Supabase Fix'}
+                    </button>
+                  </div>
+
+                  <p className="text-[11px] text-white/70 mt-1 leading-snug">
+                    Paste the <code className="text-amber-300 font-mono text-[10px]">localhost:3000/#access_token=...</code> URL from your browser address bar to log in right now:
+                  </p>
+
+                  <div className="mt-2 flex gap-1.5">
+                    <input
+                      type="text"
+                      placeholder="Paste redirected localhost:3000 URL here"
+                      value={pastedTokenUrl}
+                      onChange={(e) => setPastedTokenUrl(e.target.value)}
+                      className="flex-1 min-w-0 px-3 py-1.5 rounded-xl bg-black/50 border border-white/20 text-white text-xs placeholder:text-white/30 focus:outline-none focus:border-amber-400"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleCompleteFromPastedToken}
+                      disabled={tokenLoginLoading || !pastedTokenUrl.trim()}
+                      className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-bold text-xs cursor-pointer transition-colors shrink-0"
+                    >
+                      {tokenLoginLoading ? 'Logging in...' : 'Sign In'}
+                    </button>
+                  </div>
+
+                  {showRedirectHelp && (
+                    <div className="mt-3 pt-2.5 border-t border-white/10 text-[11px] space-y-2 text-white/80">
+                      <p className="font-semibold text-white">To fix future Google logins automatically:</p>
+                      <ol className="list-decimal list-inside space-y-2 text-white/70">
+                        <li>
+                          Open <a href="https://supabase.com/dashboard/project/_/auth/url-configuration" target="_blank" rel="noreferrer" className="text-amber-300 underline font-semibold">Supabase Dashboard &gt; Authentication &gt; URL Configuration</a>
+                        </li>
+                        <li>
+                          Set <strong>Site URL</strong> to:
+                          <div className="mt-1 flex items-center justify-between gap-2 p-1.5 bg-black/50 rounded-lg font-mono text-[10px] text-emerald-400 break-all">
+                            <span>{typeof window !== 'undefined' ? window.location.origin : 'https://...'}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(window.location.origin);
+                                setCopiedRedirectField('site');
+                                setTimeout(() => setCopiedRedirectField(null), 2000);
+                              }}
+                              className="px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 text-white text-[10px] font-sans font-bold shrink-0 cursor-pointer"
+                            >
+                              {copiedRedirectField === 'site' ? 'Copied!' : 'Copy'}
+                            </button>
+                          </div>
+                        </li>
+                        <li>
+                          In <strong>Redirect URLs</strong>, add:
+                          <div className="mt-1 flex items-center justify-between gap-2 p-1.5 bg-black/50 rounded-lg font-mono text-[10px] text-emerald-400 break-all">
+                            <span>{typeof window !== 'undefined' ? `${window.location.origin}/**` : 'https://.../**'}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(`${window.location.origin}/**`);
+                                setCopiedRedirectField('redirect');
+                                setTimeout(() => setCopiedRedirectField(null), 2000);
+                              }}
+                              className="px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 text-white text-[10px] font-sans font-bold shrink-0 cursor-pointer"
+                            >
+                              {copiedRedirectField === 'redirect' ? 'Copied!' : 'Copy'}
+                            </button>
+                          </div>
+                        </li>
+                        <li>Click <strong>Save</strong> at the bottom of that page in Supabase.</li>
+                      </ol>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-3 my-3 shrink-0">
