@@ -16,6 +16,7 @@ import {
   UserX,
   User as UserIcon,
   CheckCircle,
+  Crop,
 } from 'lucide-react';
 import { User, AVAILABLE_INTERESTS, DEFAULT_USER_AVATAR } from '../types';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
@@ -35,6 +36,7 @@ import {
 } from '../services/supabase';
 import { PasswordComplexityValidator } from './PasswordComplexityValidator';
 import { validatePasswordComplexity } from '../utils/passwordValidator';
+import { ImageCropModal } from './ImageCropModal';
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -104,11 +106,9 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const [supabaseKeyInput, setSupabaseKeyInput] = useState(() => getSupabaseConfig().anonKey || '');
   const [supabaseStatusMsg, setSupabaseStatusMsg] = useState<string | null>(null);
 
-  // Instant token / redirected URL sign-in state
-  const [pastedTokenUrl, setPastedTokenUrl] = useState('');
-  const [tokenLoginLoading, setTokenLoginLoading] = useState(false);
-  const [showRedirectHelp, setShowRedirectHelp] = useState(false);
-  const [copiedRedirectField, setCopiedRedirectField] = useState<string | null>(null);
+  // Profile Photo Cropping state
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+  const [isCropOpen, setIsCropOpen] = useState<boolean>(false);
 
   const [socialConnecting, setSocialConnecting] = useState<{
     provider: 'apple';
@@ -205,10 +205,20 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
       const reader = new FileReader();
       reader.onloadend = () => {
         if (typeof reader.result === 'string') {
-          setAvatar(reader.result);
+          setCropImageSrc(reader.result);
+          setIsCropOpen(true);
         }
       };
       reader.readAsDataURL(file);
+      e.target.value = '';
+    }
+  };
+
+  const handleOpenCropperForCurrent = () => {
+    if (avatar) {
+      vibrateLight();
+      setCropImageSrc(avatar);
+      setIsCropOpen(true);
     }
   };
 
@@ -306,54 +316,6 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     }
   };
 
-  // Instant login from pasted localhost:3000/#access_token=... URL or token string
-  const handleCompleteFromPastedToken = async () => {
-    if (!pastedTokenUrl.trim()) return;
-    setAuthError(null);
-    setTokenLoginLoading(true);
-    vibrateLight();
-    try {
-      const res = await supabaseCompleteSessionFromUrlOrToken(pastedTokenUrl.trim());
-      if (res.success && res.user) {
-        vibrateStreakMilestone();
-        const meta = res.user.user_metadata || {};
-        const userEmail = res.user.email || '';
-        const fallbackName = meta.full_name || meta.name || userEmail.split('@')[0] || 'Daily Creator';
-        const fallbackUsername = (meta.username || userEmail.split('@')[0] || 'creator')
-          .toLowerCase()
-          .replace(/[^a-z0-9_]/g, '');
-
-        const userObj: User = {
-          ...initialUser,
-          id: res.user.id,
-          email: userEmail,
-          name: fallbackName,
-          username: fallbackUsername,
-          avatar: meta.avatar_url || meta.picture || initialUser.avatar || DEFAULT_USER_AVATAR,
-          authProvider: 'google',
-        };
-
-        DailyStorageService.saveCurrentUser(userObj);
-        DailyStorageService.savePreviousAccount(userObj);
-        DailyStorageService.setOnboarded(true);
-
-        try {
-          await syncUserToSupabase(userObj);
-        } catch (e) {
-          console.warn('Sync notice on token auth:', e);
-        }
-
-        onComplete(userObj);
-      } else {
-        setAuthError(res.error || 'Failed to authenticate from pasted URL. Make sure it contains access_token=');
-      }
-    } catch (err: any) {
-      setAuthError(err?.message || 'Failed to complete login from token.');
-    } finally {
-      setTokenLoginLoading(false);
-    }
-  };
-
   // Inline Supabase project credentials setup handler
   const handleSaveSupabaseConfig = () => {
     if (!supabaseUrlInput.trim() || !supabaseKeyInput.trim()) {
@@ -371,38 +333,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     }
   };
 
-  // Apple Sign-In Handler via Supabase / Apple ID popup
-  const handleAppleLogin = async () => {
-    setAuthError(null);
-    setAuthLoading('apple');
+  // Apple Sign-In Handler
+  const handleAppleLogin = () => {
     vibrateLight();
-
-    try {
-      const appleAuthUrl = 'https://appleid.apple.com';
-      try {
-        window.open(appleAuthUrl, 'apple_signin_popup', 'width=520,height=650,left=150,top=100');
-      } catch {}
-
-      const res = await supabaseSignInWithApple();
-      if (!res.success) {
-        setAuthError(res.error || 'Apple sign-in failed. Please try again.');
-        setAuthLoading(null);
-        return;
-      }
-
-      const defaultAppleEmail = `${(name.trim() || 'apple_user').toLowerCase().replace(/[^a-z0-9]/g, '')}@icloud.com`;
-      setSocialConnecting({
-        provider: 'apple',
-        email: email.trim().includes('@icloud.com') || email.trim().includes('@apple')
-          ? email.trim()
-          : defaultAppleEmail,
-        name: name.trim() || 'Apple User',
-      });
-      setAuthLoading(null);
-    } catch (err: any) {
-      setAuthLoading(null);
-      setAuthError(err?.message || 'Apple sign-in error occurred.');
-    }
+    const msg = 'Apple Sign-In is currently in developer preview. Please continue with Google or Email.';
+    setAuthError(msg);
+    setDirectAuthError(msg);
   };
 
   // Confirm Apple Connection
@@ -858,6 +794,45 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   </div>
                 )}
 
+                {/* Social Sign-In Options (Google and Apple) */}
+                <div className="space-y-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleGoogleLogin}
+                    disabled={!!authLoading}
+                    className="w-full py-2.5 px-4 rounded-2xl bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs flex items-center justify-center gap-2.5 shadow-md active:scale-[0.99] transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    {authLoading === 'google' ? (
+                      <div className="w-4 h-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z" />
+                        <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.24v3.15C3.26 21.36 7.34 24 12 24z" />
+                        <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.24C.45 8.15 0 9.92 0 12s.45 3.85 1.24 5.42l4.04-3.15z" />
+                        <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.24 6.58l4.04 3.15c.95-2.83 3.6-4.98 6.72-4.98z" />
+                      </svg>
+                    )}
+                    <span>Continue with Google</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleAppleLogin}
+                    className="w-full py-2.5 px-4 rounded-2xl bg-[#141416] hover:bg-[#1f1f24] border border-white/20 text-white font-bold text-xs flex items-center justify-center gap-2.5 shadow-md active:scale-[0.99] transition-all cursor-pointer"
+                  >
+                    <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
+                      <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.47c.65-.79 1.1-1.89.98-2.99-.95.04-2.1.63-2.78 1.42-.59.68-1.12 1.77-.98 2.85 1.06.08 2.14-.54 2.78-1.28z" />
+                    </svg>
+                    <span>Continue with Apple</span>
+                  </button>
+
+                  <div className="flex items-center gap-3 my-1">
+                    <div className="h-[1px] bg-white/10 flex-1" />
+                    <span className="text-[10px] uppercase font-bold text-white/40 tracking-wider">or with email</span>
+                    <div className="h-[1px] bg-white/10 flex-1" />
+                  </div>
+                </div>
+
                 <form onSubmit={handleDirectSignIn} className="space-y-3 shrink-0">
                   <div>
                     <label className="block text-[10px] font-bold uppercase tracking-wider text-white/60 mb-1">
@@ -1216,7 +1191,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                     </label>
                   </div>
 
-                  <div className="flex items-center gap-2 mt-3">
+                  <div className="flex items-center gap-2 mt-3 flex-wrap justify-center">
                     <label
                       htmlFor="onboarding-avatar-btn"
                       className="text-xs font-bold px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/15 text-white cursor-pointer transition-colors flex items-center gap-1.5"
@@ -1231,6 +1206,17 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                         className="hidden"
                       />
                     </label>
+
+                    {avatar && (
+                      <button
+                        type="button"
+                        onClick={handleOpenCropperForCurrent}
+                        className="text-xs font-bold px-3 py-1.5 rounded-full bg-[#2F6FED]/15 hover:bg-[#2F6FED]/25 text-[#2F6FED] border border-[#2F6FED]/30 transition-colors flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Crop className="w-3.5 h-3.5" />
+                        Crop Photo
+                      </button>
+                    )}
 
                     {avatar !== DEFAULT_USER_AVATAR && (
                       <button
@@ -1594,91 +1580,6 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   </button>
                 </div>
 
-                {/* Instant Token Login / Redirect to localhost helper */}
-                <div className="mt-2.5 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-left">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-amber-400 font-bold text-xs">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                      <span>Redirected to localhost:3000?</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowRedirectHelp(!showRedirectHelp)}
-                      className="text-[11px] text-amber-300 hover:text-amber-200 underline font-semibold cursor-pointer transition-colors"
-                    >
-                      {showRedirectHelp ? 'Hide fix' : '1-Min Supabase Fix'}
-                    </button>
-                  </div>
-
-                  <p className="text-[11px] text-white/70 mt-1 leading-snug">
-                    Paste the <code className="text-amber-300 font-mono text-[10px]">localhost:3000/#access_token=...</code> URL from your browser address bar to log in right now:
-                  </p>
-
-                  <div className="mt-2 flex gap-1.5">
-                    <input
-                      type="text"
-                      placeholder="Paste redirected localhost:3000 URL here"
-                      value={pastedTokenUrl}
-                      onChange={(e) => setPastedTokenUrl(e.target.value)}
-                      className="flex-1 min-w-0 px-3 py-1.5 rounded-xl bg-black/50 border border-white/20 text-white text-xs placeholder:text-white/30 focus:outline-none focus:border-amber-400"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleCompleteFromPastedToken}
-                      disabled={tokenLoginLoading || !pastedTokenUrl.trim()}
-                      className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-bold text-xs cursor-pointer transition-colors shrink-0"
-                    >
-                      {tokenLoginLoading ? 'Logging in...' : 'Sign In'}
-                    </button>
-                  </div>
-
-                  {showRedirectHelp && (
-                    <div className="mt-3 pt-2.5 border-t border-white/10 text-[11px] space-y-2 text-white/80">
-                      <p className="font-semibold text-white">To fix future Google logins automatically:</p>
-                      <ol className="list-decimal list-inside space-y-2 text-white/70">
-                        <li>
-                          Open <a href="https://supabase.com/dashboard/project/_/auth/url-configuration" target="_blank" rel="noreferrer" className="text-amber-300 underline font-semibold">Supabase Dashboard &gt; Authentication &gt; URL Configuration</a>
-                        </li>
-                        <li>
-                          Set <strong>Site URL</strong> to:
-                          <div className="mt-1 flex items-center justify-between gap-2 p-1.5 bg-black/50 rounded-lg font-mono text-[10px] text-emerald-400 break-all">
-                            <span>{typeof window !== 'undefined' ? window.location.origin : 'https://...'}</span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                navigator.clipboard.writeText(window.location.origin);
-                                setCopiedRedirectField('site');
-                                setTimeout(() => setCopiedRedirectField(null), 2000);
-                              }}
-                              className="px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 text-white text-[10px] font-sans font-bold shrink-0 cursor-pointer"
-                            >
-                              {copiedRedirectField === 'site' ? 'Copied!' : 'Copy'}
-                            </button>
-                          </div>
-                        </li>
-                        <li>
-                          In <strong>Redirect URLs</strong>, add:
-                          <div className="mt-1 flex items-center justify-between gap-2 p-1.5 bg-black/50 rounded-lg font-mono text-[10px] text-emerald-400 break-all">
-                            <span>{typeof window !== 'undefined' ? `${window.location.origin}/**` : 'https://.../**'}</span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                navigator.clipboard.writeText(`${window.location.origin}/**`);
-                                setCopiedRedirectField('redirect');
-                                setTimeout(() => setCopiedRedirectField(null), 2000);
-                              }}
-                              className="px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 text-white text-[10px] font-sans font-bold shrink-0 cursor-pointer"
-                            >
-                              {copiedRedirectField === 'redirect' ? 'Copied!' : 'Copy'}
-                            </button>
-                          </div>
-                        </li>
-                        <li>Click <strong>Save</strong> at the bottom of that page in Supabase.</li>
-                      </ol>
-                    </div>
-                  )}
-                </div>
-
                 <div className="flex items-center gap-3 my-3 shrink-0">
                   <div className="h-[1px] bg-white/10 flex-1" />
                   <span className="text-[10px] uppercase font-bold text-white/40 tracking-wider">
@@ -1812,6 +1713,22 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           </>
         )}
       </div>
+
+      {/* Image Cropping Modal for Avatar */}
+      <ImageCropModal
+        isOpen={isCropOpen}
+        imageSrc={cropImageSrc || avatar}
+        onCropComplete={(croppedUrl) => {
+          setAvatar(croppedUrl);
+          setIsCropOpen(false);
+          setCropImageSrc(null);
+        }}
+        onCancel={() => {
+          setIsCropOpen(false);
+          setCropImageSrc(null);
+        }}
+        title="Crop Profile Photo"
+      />
     </div>
   );
 };

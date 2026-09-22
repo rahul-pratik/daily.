@@ -21,7 +21,13 @@ import {
   UserProfileSharePreview,
   DEFAULT_USER_AVATAR,
 } from './types';
-import { supabase, isSupabaseConfigured, getSupabaseClient, syncUserToSupabase } from './services/supabase';
+import {
+  supabase,
+  isSupabaseConfigured,
+  getSupabaseClient,
+  syncUserToSupabase,
+  supabaseSetSessionFromUrl,
+} from './services/supabase';
 import { logAuthStateChangeDiagnostic } from './services/authDiagnostic';
 import { DailyStorageService } from './services/storage';
 import { TopHeader, BottomNavigation } from './components/Navigation';
@@ -274,6 +280,7 @@ export default function App() {
     DailyStorageService.setOnboarded(true);
     setIsOnboarded(true);
     setIsAccountSwitcherOpen(false);
+    setCurrentTab('home');
   };
 
   // Switch Account Trigger from Profile Settings
@@ -282,11 +289,61 @@ export default function App() {
     setIsAccountSwitcherOpen(true);
   };
 
-  // Sync Supabase Auth session if redirected via OAuth or active token, with diagnostic logging
+  // Sync Supabase Auth session if redirected via OAuth or active token, with direct production routing
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
     const client = getSupabaseClient();
     if (!client?.auth) return;
+
+    // Handle OAuth redirect callback directly (both PKCE ?code= and Implicit hash #access_token=)
+    // Ensures immediate routing to the home feed in the production environment without manual localhost redirects
+    const handleOAuthCallback = async () => {
+      if (typeof window === 'undefined') return;
+
+      const currentUrl = window.location.href;
+      const url = new URL(currentUrl);
+      const code = url.searchParams.get('code');
+      const errorParam = url.searchParams.get('error') || url.searchParams.get('error_description');
+      const hasAuthHash = window.location.hash.includes('access_token') || window.location.hash.includes('refresh_token');
+
+      if (errorParam) {
+        console.warn('OAuth callback error parameter received:', errorParam);
+        window.history.replaceState(null, document.title, window.location.pathname);
+        return;
+      }
+
+      // Handle PKCE code callback
+      if (code) {
+        try {
+          const { data, error } = await client.auth.exchangeCodeForSession(code);
+          if (!error && data?.session?.user) {
+            setIsOnboarded(true);
+            setIsAccountSwitcherOpen(false);
+            setCurrentTab('home');
+            window.history.replaceState(null, document.title, window.location.pathname);
+          }
+        } catch (codeErr) {
+          console.warn('Code exchange notice:', codeErr);
+        }
+      }
+
+      // Handle implicit hash callback
+      if (hasAuthHash) {
+        try {
+          const res = await supabaseSetSessionFromUrl(currentUrl);
+          if (res.success && res.user) {
+            setIsOnboarded(true);
+            setIsAccountSwitcherOpen(false);
+            setCurrentTab('home');
+            window.history.replaceState(null, document.title, window.location.pathname);
+          }
+        } catch (err) {
+          console.warn('OAuth URL session parse notice:', err);
+        }
+      }
+    };
+
+    handleOAuthCallback();
 
     // Check initial session on boot
     client.auth.getSession().then(({ data: { session } }) => {
@@ -377,9 +434,17 @@ export default function App() {
         setCurrentUser(updated);
         setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
         setIsOnboarded(true);
+        setIsAccountSwitcherOpen(false);
+        setCurrentTab('home');
 
-        // Clean URL hash if it contains OAuth / confirmation tokens
-        if (window.location.hash.includes('access_token') || window.location.hash.includes('type=')) {
+        // Clean URL hash or search params if they contain OAuth / confirmation tokens
+        if (
+          typeof window !== 'undefined' &&
+          (window.location.hash.includes('access_token') ||
+            window.location.hash.includes('type=') ||
+            window.location.search.includes('code=') ||
+            window.location.search.includes('error='))
+        ) {
           window.history.replaceState(null, document.title, window.location.pathname);
         }
       } else if (event === 'SIGNED_OUT') {

@@ -686,9 +686,7 @@ export async function supabaseSignInWithGoogle(): Promise<AuthResult> {
   }
 
   try {
-    const redirectTo =
-      window.location.href.split('#')[0].split('?')[0].replace(/\/$/, '') ||
-      window.location.origin;
+    const redirectTo = window.location.origin;
 
     const { data, error } = await client.auth.signInWithOAuth({
       provider: 'google',
@@ -709,7 +707,25 @@ export async function supabaseSignInWithGoogle(): Promise<AuthResult> {
     }
 
     if (data?.url) {
-      // Genuinely navigate to Google OAuth confirmation / account chooser screen!
+      const isIframe = typeof window !== 'undefined' && window.self !== window.top;
+      if (isIframe) {
+        try {
+          if (window.top) {
+            window.top.location.href = data.url;
+            return {
+              success: true,
+              popupOpened: true,
+            };
+          }
+        } catch {
+          window.open(data.url, '_blank');
+          return {
+            success: true,
+            popupOpened: true,
+          };
+        }
+      }
+
       window.location.assign(data.url);
       return {
         success: true,
@@ -837,7 +853,7 @@ export async function supabaseGetSession(): Promise<Session | null> {
 
 /**
  * Complete authentication by setting session from an OAuth callback URL, hash, or access token.
- * Especially helpful if Supabase redirected to localhost:3000/#access_token=... or if running in an iframe.
+ * Seamlessly validates session in production environment and across iframe contexts.
  */
 export async function supabaseSetSessionFromUrl(urlOrToken: string): Promise<AuthResult> {
   const client = getSupabaseClient();

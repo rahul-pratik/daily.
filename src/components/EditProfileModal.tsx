@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { X, Flame, Check, Upload, Save, Trophy, AtSign, Plus, RotateCcw, AlertCircle } from 'lucide-react';
+import { X, Flame, Check, Upload, Save, Trophy, AtSign, Plus, RotateCcw, AlertCircle, Crop } from 'lucide-react';
 import { User, AVAILABLE_INTERESTS, Challenge, DEFAULT_USER_AVATAR } from '../types';
 import { vibrateLight } from '../services/haptics';
 import { DailyStorageService } from '../services/storage';
 import { isUsernameTakenInSupabase } from '../services/supabase';
+import { ImageCropModal } from './ImageCropModal';
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -28,6 +29,10 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   const [mentionQuery, setMentionQuery] = useState('');
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+
+  // Photo Cropping state
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+  const [isCropOpen, setIsCropOpen] = useState<boolean>(false);
 
   if (!isOpen) return null;
 
@@ -116,13 +121,24 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      vibrateLight();
       const reader = new FileReader();
       reader.onloadend = () => {
         if (typeof reader.result === 'string') {
-          setAvatar(reader.result);
+          setCropImageSrc(reader.result);
+          setIsCropOpen(true);
         }
       };
       reader.readAsDataURL(file);
+      e.target.value = '';
+    }
+  };
+
+  const handleOpenCropperForCurrent = () => {
+    if (avatar) {
+      vibrateLight();
+      setCropImageSrc(avatar);
+      setIsCropOpen(true);
     }
   };
 
@@ -135,7 +151,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       setIsCheckingUsername(true);
       const isTaken = await isUsernameTakenInSupabase(cleanUsername, currentUser.id);
       setIsCheckingUsername(false);
-      if (isTaken) {
+      if (isTaken.taken) {
         setUsernameError(`@${cleanUsername} is already registered by another creator. Please pick a unique handle.`);
         vibrateLight();
         return;
@@ -187,12 +203,23 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               </label>
             </div>
 
-            <div className="flex items-center gap-2 mt-2.5">
+            <div className="flex items-center gap-2 mt-2.5 flex-wrap justify-center">
               <label className="text-[11px] font-bold px-3 py-1 rounded-full bg-white/10 hover:bg-white/15 text-white cursor-pointer transition-colors flex items-center gap-1.5">
                 <Upload className="w-3 h-3 text-[#2F6FED]" />
                 Upload New Photo
                 <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
               </label>
+
+              {avatar && (
+                <button
+                  type="button"
+                  onClick={handleOpenCropperForCurrent}
+                  className="text-[11px] font-bold px-3 py-1 rounded-full bg-[#2F6FED]/15 hover:bg-[#2F6FED]/25 text-[#2F6FED] border border-[#2F6FED]/30 transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                  <Crop className="w-3 h-3" />
+                  Crop Photo
+                </button>
+              )}
 
               {avatar !== DEFAULT_USER_AVATAR && (
                 <button
@@ -461,6 +488,22 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           </div>
         </form>
       </div>
+
+      {/* Profile Photo Cropping Modal */}
+      <ImageCropModal
+        isOpen={isCropOpen}
+        imageSrc={cropImageSrc || avatar}
+        onCropComplete={(croppedUrl) => {
+          setAvatar(croppedUrl);
+          setIsCropOpen(false);
+          setCropImageSrc(null);
+        }}
+        onCancel={() => {
+          setIsCropOpen(false);
+          setCropImageSrc(null);
+        }}
+        title="Crop Profile Photo"
+      />
     </div>
   );
 };
