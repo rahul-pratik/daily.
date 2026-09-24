@@ -1,30 +1,4 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
-/**
- * Supabase SQL DDL Schema Script
- * This script is provided for users to paste directly into the Supabase SQL Editor
- * to provision all 15 tables, unique username indexes, and bulletproof RLS policies:
- * 1. users
- * 2. profiles
- * 3. posts
- * 4. challenges
- * 5. challenges_members
- * 6. saves
- * 7. drafts
- * 8. likes
- * 9. comments
- * 10. follows
- * 11. communities
- * 12. community_members
- * 13. messages
- * 14. notifications
- * 15. reports
- */
-
-export const SUPABASE_SQL_SCHEMA = `-- ==============================================================================
+-- ==============================================================================
 -- DAILY APP - PRODUCTION SUPABASE DATABASE SCHEMA & BULLETPROOF RLS POLICIES
 -- Contains all 15 tables requested:
 --  1. users
@@ -245,6 +219,7 @@ CREATE TABLE IF NOT EXISTS public.community_members (
   CONSTRAINT unique_community_user_member UNIQUE (community_id, user_id)
 );
 
+-- Backward compatibility alias
 CREATE OR REPLACE VIEW public.members AS SELECT * FROM public.community_members;
 
 -- ==============================================================================
@@ -314,6 +289,7 @@ ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
 -- ==============================================================================
 
 -- 1. USERS & PROFILES POLICIES
+-- Rule: Users can only edit their own profile
 DROP POLICY IF EXISTS "Users are readable by everyone" ON public.users;
 CREATE POLICY "Users are readable by everyone"
   ON public.users FOR SELECT USING (true);
@@ -347,6 +323,7 @@ CREATE POLICY "Users can delete own profile"
   ON public.profiles FOR DELETE USING (auth.uid()::text = id);
 
 -- 2. POSTS POLICIES
+-- Rule: Users can only delete their own posts (and edit their own posts)
 DROP POLICY IF EXISTS "Posts are readable by everyone" ON public.posts;
 CREATE POLICY "Posts are readable by everyone"
   ON public.posts FOR SELECT USING (true);
@@ -427,6 +404,7 @@ CREATE POLICY "Users can delete their own drafts"
   ON public.drafts FOR DELETE USING (auth.uid()::text = user_id);
 
 -- 6. LIKES POLICIES
+-- Rule: Users can't modify someone else's likes
 DROP POLICY IF EXISTS "Likes are readable by everyone" ON public.likes;
 CREATE POLICY "Likes are readable by everyone"
   ON public.likes FOR SELECT USING (true);
@@ -444,6 +422,7 @@ CREATE POLICY "Users can only remove their own likes"
   ON public.likes FOR DELETE USING (auth.uid()::text = user_id);
 
 -- 7. COMMENTS POLICIES
+-- Rule: Users can't modify someone else's comments
 DROP POLICY IF EXISTS "Comments are readable by everyone" ON public.comments;
 CREATE POLICY "Comments are readable by everyone"
   ON public.comments FOR SELECT USING (true);
@@ -503,6 +482,7 @@ CREATE POLICY "Users can leave communities"
   ON public.community_members FOR DELETE USING (auth.uid()::text = user_id);
 
 -- 10. MESSAGES POLICIES
+-- Rule: Private messages aren't publicly readable
 DROP POLICY IF EXISTS "Private messages aren't publicly readable" ON public.messages;
 CREATE POLICY "Private messages aren't publicly readable"
   ON public.messages FOR SELECT
@@ -559,6 +539,7 @@ CREATE POLICY "Users can insert reports"
 
 -- ==============================================================================
 -- 13. STORAGE BUCKET CONFIGURATION & MEDIA ACCESS CONTROLS
+-- Rule: Uploaded media has appropriate access controls
 -- ==============================================================================
 INSERT INTO storage.buckets (id, name, public) 
 VALUES ('media', 'media', true),
@@ -566,16 +547,19 @@ VALUES ('media', 'media', true),
        ('proofs', 'proofs', true)
 ON CONFLICT (id) DO UPDATE SET public = true;
 
+-- Public can view uploaded media assets
 DROP POLICY IF EXISTS "Public can view media" ON storage.objects;
 CREATE POLICY "Public can view media"
   ON storage.objects FOR SELECT
   USING (bucket_id IN ('media', 'avatars', 'proofs'));
 
+-- Authenticated creators can upload media to their own folders
 DROP POLICY IF EXISTS "Authenticated users can upload media" ON storage.objects;
 CREATE POLICY "Authenticated users can upload media"
   ON storage.objects FOR INSERT
   WITH CHECK (bucket_id IN ('media', 'avatars', 'proofs'));
 
+-- Creators can only update or delete their own media
 DROP POLICY IF EXISTS "Users can update own media" ON storage.objects;
 CREATE POLICY "Users can update own media"
   ON storage.objects FOR UPDATE
@@ -585,4 +569,3 @@ DROP POLICY IF EXISTS "Users can delete own media" ON storage.objects;
 CREATE POLICY "Users can delete own media"
   ON storage.objects FOR DELETE
   USING (bucket_id IN ('media', 'avatars', 'proofs') AND (auth.uid()::text = owner::text OR auth.role() = 'anon'));
-`;

@@ -64,9 +64,9 @@ export interface BackButtonActions {
 
 function getActiveLayers(s: BackButtonState): string[] {
   const layers: string[] = [];
-  if (s.currentTab !== 'home') {
-    layers.push(`tab_${s.currentTab}`);
-  }
+  // Notice: Tabs (home, streak, discover, messages, profile, dossier) are parallel top-level
+  // destinations, NOT back-stack layers. Do not push tab as a layer to avoid jumping back to home
+  // or resetting when switching browser tabs.
   if (s.currentTab === 'streak') {
     if (s.activeChallengeScreen) {
       layers.push(`challenge_details_${s.activeChallengeScreen.id}`);
@@ -129,6 +129,11 @@ export function usePhoneBackButton(
     }
 
     const handlePopState = () => {
+      // Ignore spurious popstate events when tab/document is not visible
+      if (document.visibilityState !== 'visible') {
+        return;
+      }
+
       // If triggered programmatically by in-app back/close, consume and ignore
       if (isProgrammaticBackRef.current) {
         isProgrammaticBackRef.current = false;
@@ -138,9 +143,9 @@ export function usePhoneBackButton(
       const s = stateRef.current;
       const act = actionsRef.current;
 
-      // Close topmost layer in priority order
+      // Close topmost layer in precise priority order
       if (s.isQuitModalOpen) {
-        // If quit confirmation modal is already open, pressing back dismisses it and stays
+        // If quit confirmation modal is already open, pressing back dismisses it and stays in the app
         act.closeQuitModal();
         window.history.pushState({ __daily_guard: true, depth: historyDepthRef.current }, '');
         return;
@@ -191,21 +196,20 @@ export function usePhoneBackButton(
           act.closeChallengeScreen();
         }
       } else if (s.currentTab === 'discover' && s.showJoinedCommunities) {
-        // Return to Discover/Explore screen from joined communities
+        // Return to Discover/Explore communities screen from joined communities
         if (act.closeJoinedCommunities) {
           act.closeJoinedCommunities();
         }
       } else if (s.currentTab === 'messages' && (s.activeChatUserId || s.activeGroupId)) {
+        // Return to Messages inbox list from active conversation
         act.closeActiveChat();
       } else if (s.currentTab === 'dossier') {
         act.closeDossier();
-      } else if (s.currentTab !== 'home') {
-        act.goToTab(s.previousTab && s.previousTab !== s.currentTab ? s.previousTab : 'home');
       } else {
-        // User is at the HOME screen with no open layers or modals
-        // Prompt exit confirmation: "Do you wanna quit? Yes / No"
+        // User is at a root screen with no open sub-screens or modals
+        // Prompt quit confirmation modal: "Do you wanna quit? Yes / No"
         act.promptQuitApp();
-        // Restore guard state so if user chooses "No, Stay", next back press prompts again
+        // Restore guard state so if user chooses "No, Stay", subsequent back press prompts again
         window.history.pushState({ __daily_guard: true, depth: historyDepthRef.current }, '');
       }
 

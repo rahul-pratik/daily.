@@ -850,85 +850,69 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
                 {/* Social Sign-In Options (Google and Apple) */}
                 <div className="space-y-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={handleGoogleLogin}
-                    disabled={!!authLoading}
-                    className="w-full py-2.5 px-4 rounded-2xl bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs flex items-center justify-center gap-2.5 shadow-md active:scale-[0.99] transition-all disabled:opacity-50 cursor-pointer"
-                  >
-                    {authLoading === 'google' ? (
-                      <div className="w-4 h-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
-                    ) : (
+                  {!showGoogleDirectInput ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        vibrateLight();
+                        setShowGoogleDirectInput(true);
+                        if (!googleDirectEmail && directEmail) {
+                          setGoogleDirectEmail(directEmail);
+                        }
+                      }}
+                      disabled={!!authLoading || googleDirectLoading}
+                      className="w-full py-2.5 px-4 rounded-2xl bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs flex items-center justify-center gap-2.5 shadow-md active:scale-[0.99] transition-all disabled:opacity-50 cursor-pointer"
+                    >
                       <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                         <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z" />
                         <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.24v3.15C3.26 21.36 7.34 24 12 24z" />
                         <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.24C.45 8.15 0 9.92 0 12s.45 3.85 1.24 5.42l4.04-3.15z" />
                         <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.24 6.58l4.04 3.15c.95-2.83 3.6-4.98 6.72-4.98z" />
                       </svg>
-                    )}
-                    <span>Continue with Google</span>
-                  </button>
-
-                  {blockedPopupUrl && (
-                    <a
-                      href={blockedPopupUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full py-2 px-3 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 font-bold text-xs flex items-center justify-center gap-2 transition-colors"
-                    >
-                      <span>Popup blocked? Click to open Google login ↗</span>
-                    </a>
-                  )}
-
-                  {/* Instant Google Email Sign-In Toggle */}
-                  <div className="pt-1">
-                    {!showGoogleDirectInput ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          vibrateLight();
-                          setShowGoogleDirectInput(true);
-                        }}
-                        className="w-full py-2 px-3 rounded-xl bg-blue-500/10 hover:bg-blue-500/15 border border-blue-500/20 text-blue-400 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                      >
-                        <span>⚡ One-Click Google Email Sign-In (Instant)</span>
-                      </button>
-                    ) : (
-                      <form onSubmit={handleDirectGoogleSignIn} className="p-3 bg-white/[0.03] border border-blue-500/30 rounded-2xl space-y-2.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-black uppercase tracking-wider text-blue-400">
-                            Instant Google Sign-In
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setShowGoogleDirectInput(false)}
-                            className="text-[10px] text-white/40 hover:text-white"
-                          >
-                            Cancel
-                          </button>
+                      <span>Continue with Google</span>
+                    </button>
+                  ) : (
+                    <form onSubmit={handleDirectGoogleSignIn} className="p-3 bg-white/[0.04] border border-blue-500/40 rounded-2xl space-y-2.5 animate-in fade-in duration-150">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                            <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z" />
+                            <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.24v3.15C3.26 21.36 7.34 24 12 24z" />
+                            <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.24C.45 8.15 0 9.92 0 12s.45 3.85 1.24 5.42l4.04-3.15z" />
+                            <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.24 6.58l4.04 3.15c.95-2.83 3.6-4.98 6.72-4.98z" />
+                          </svg>
+                          <span className="text-[11px] font-bold text-white">Google Account Sign-In</span>
                         </div>
-                        <input
-                          type="email"
-                          value={googleDirectEmail}
-                          onChange={(e) => setGoogleDirectEmail(e.target.value)}
-                          placeholder="your.google.account@gmail.com"
-                          required
-                          className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs text-white placeholder-white/30 outline-none focus:border-blue-400"
-                        />
                         <button
-                          type="submit"
-                          disabled={googleDirectLoading || !googleDirectEmail.trim()}
-                          className="w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all disabled:opacity-40 cursor-pointer"
+                          type="button"
+                          onClick={() => setShowGoogleDirectInput(false)}
+                          className="text-[10px] text-white/50 hover:text-white cursor-pointer px-1 py-0.5"
                         >
-                          {googleDirectLoading ? (
-                            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          ) : (
-                            <span>Sign In with Google Email Now</span>
-                          )}
+                          Cancel
                         </button>
-                      </form>
-                    )}
-                  </div>
+                      </div>
+                      <input
+                        type="email"
+                        value={googleDirectEmail}
+                        onChange={(e) => setGoogleDirectEmail(e.target.value)}
+                        placeholder="your.google.account@gmail.com"
+                        required
+                        autoFocus
+                        className="w-full px-3 py-2 bg-black/50 border border-white/15 focus:border-[#2F6FED] rounded-xl text-xs text-white placeholder-white/30 outline-none transition-colors"
+                      />
+                      <button
+                        type="submit"
+                        disabled={googleDirectLoading || !googleDirectEmail.trim()}
+                        className="w-full py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs flex items-center justify-center gap-2 transition-all disabled:opacity-40 cursor-pointer shadow-md active:scale-[0.99]"
+                      >
+                        {googleDirectLoading ? (
+                          <div className="w-3.5 h-3.5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <span>Sign In with Google</span>
+                        )}
+                      </button>
+                    </form>
+                  )}
 
                   <button
                     type="button"
@@ -1541,65 +1525,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   </div>
                 )}
 
-                {/* Mode Selector: Create Account vs Sign In */}
-                <div className="flex items-center justify-between mb-2 shrink-0">
-                  <div className="inline-flex p-1 bg-white/5 border border-white/10 rounded-2xl">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        vibrateLight();
-                        setAuthMode('signup');
-                        setAuthError(null);
-                      }}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                        authMode === 'signup'
-                          ? 'bg-[#2F6FED] text-white shadow-md shadow-[#2F6FED]/20'
-                          : 'text-white/60 hover:text-white'
-                      }`}
-                    >
-                      Create Account
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        vibrateLight();
-                        setAuthMode('signin');
-                        setAuthError(null);
-                      }}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                        authMode === 'signin'
-                          ? 'bg-[#2F6FED] text-white shadow-md shadow-[#2F6FED]/20'
-                          : 'text-white/60 hover:text-white'
-                      }`}
-                    >
-                      Sign In
-                    </button>
-                  </div>
-
-                  {isSupabaseConfigured() ? (
-                    <span className="inline-flex items-center gap-1.5 text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                      Supabase Connected
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setShowSupabaseSetup(!showSupabaseSetup)}
-                      className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20 hover:bg-amber-500/20 cursor-pointer"
-                    >
-                      {showSupabaseSetup ? 'Close Setup' : 'Connect Supabase'}
-                    </button>
-                  )}
-                </div>
-
                 <div className="mb-3 shrink-0">
                   <h2 className="text-xl font-black text-white">
-                    {authMode === 'signup' ? 'Create your account' : 'Sign in to your account'}
+                    Create your account
                   </h2>
                   <p className="text-xs text-white/50 mt-0.5">
-                    {authMode === 'signup'
-                      ? 'Complete your registration to preserve your daily streaks across devices.'
-                      : 'Enter your credentials to continue your daily streak.'}
+                    Complete your registration to preserve your daily streaks across devices.
                   </p>
                 </div>
 
@@ -1647,15 +1578,19 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 )}
 
                 <div className="space-y-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={handleGoogleLogin}
-                    disabled={!!authLoading}
-                    className="w-full py-2.5 px-4 rounded-2xl bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs flex items-center justify-center gap-2.5 shadow-md active:scale-[0.99] transition-all disabled:opacity-50 cursor-pointer"
-                  >
-                    {authLoading === 'google' ? (
-                      <div className="w-4 h-4 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
-                    ) : (
+                  {!showGoogleDirectInput ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        vibrateLight();
+                        setShowGoogleDirectInput(true);
+                        if (!googleDirectEmail && email) {
+                          setGoogleDirectEmail(email);
+                        }
+                      }}
+                      disabled={!!authLoading || googleDirectLoading}
+                      className="w-full py-2.5 px-4 rounded-2xl bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs flex items-center justify-center gap-2.5 shadow-md active:scale-[0.99] transition-all disabled:opacity-50 cursor-pointer"
+                    >
                       <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                         <path
                           fill="#4285F4"
@@ -1674,70 +1609,50 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                           d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.24 6.58l4.04 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
                         />
                       </svg>
-                    )}
-                    <span>Continue with Google</span>
-                  </button>
-
-                  {blockedPopupUrl && (
-                    <a
-                      href={blockedPopupUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full py-2 px-3 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 font-bold text-xs flex items-center justify-center gap-2 transition-colors"
-                    >
-                      <span>Popup blocked? Click to open Google login ↗</span>
-                    </a>
-                  )}
-
-                  {/* Instant Google Email Sign-In Option in Step 1 */}
-                  <div className="pt-0.5">
-                    {!showGoogleDirectInput ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          vibrateLight();
-                          setShowGoogleDirectInput(true);
-                        }}
-                        className="w-full py-2 px-3 rounded-xl bg-blue-500/10 hover:bg-blue-500/15 border border-blue-500/20 text-blue-400 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                      >
-                        <span>⚡ One-Click Google Email Sign-In (Instant)</span>
-                      </button>
-                    ) : (
-                      <form onSubmit={handleDirectGoogleSignIn} className="p-3 bg-white/[0.03] border border-blue-500/30 rounded-2xl space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-black uppercase tracking-wider text-blue-400">
-                            Instant Google Sign-In
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setShowGoogleDirectInput(false)}
-                            className="text-[10px] text-white/40 hover:text-white"
-                          >
-                            Cancel
-                          </button>
+                      <span>Continue with Google</span>
+                    </button>
+                  ) : (
+                    <form onSubmit={handleDirectGoogleSignIn} className="p-3 bg-white/[0.04] border border-blue-500/40 rounded-2xl space-y-2.5 animate-in fade-in duration-150">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                            <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z" />
+                            <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.24v3.15C3.26 21.36 7.34 24 12 24z" />
+                            <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.24C.45 8.15 0 9.92 0 12s.45 3.85 1.24 5.42l4.04-3.15z" />
+                            <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.24 6.58l4.04 3.15c.95-2.83 3.6-4.98 6.72-4.98z" />
+                          </svg>
+                          <span className="text-[11px] font-bold text-white">Google Account Sign-In</span>
                         </div>
-                        <input
-                          type="email"
-                          value={googleDirectEmail}
-                          onChange={(e) => setGoogleDirectEmail(e.target.value)}
-                          placeholder="your.google.account@gmail.com"
-                          required
-                          className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs text-white placeholder-white/30 outline-none focus:border-blue-400"
-                        />
                         <button
-                          type="submit"
-                          disabled={googleDirectLoading || !googleDirectEmail.trim()}
-                          className="w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all disabled:opacity-40 cursor-pointer"
+                          type="button"
+                          onClick={() => setShowGoogleDirectInput(false)}
+                          className="text-[10px] text-white/50 hover:text-white cursor-pointer px-1 py-0.5"
                         >
-                          {googleDirectLoading ? (
-                            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          ) : (
-                            <span>Sign In with Google Email Now</span>
-                          )}
+                          Cancel
                         </button>
-                      </form>
-                    )}
-                  </div>
+                      </div>
+                      <input
+                        type="email"
+                        value={googleDirectEmail}
+                        onChange={(e) => setGoogleDirectEmail(e.target.value)}
+                        placeholder="your.google.account@gmail.com"
+                        required
+                        autoFocus
+                        className="w-full px-3 py-2 bg-black/50 border border-white/15 focus:border-[#2F6FED] rounded-xl text-xs text-white placeholder-white/30 outline-none transition-colors"
+                      />
+                      <button
+                        type="submit"
+                        disabled={googleDirectLoading || !googleDirectEmail.trim()}
+                        className="w-full py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs flex items-center justify-center gap-2 transition-all disabled:opacity-40 cursor-pointer shadow-md active:scale-[0.99]"
+                      >
+                        {googleDirectLoading ? (
+                          <div className="w-3.5 h-3.5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <span>Sign In with Google</span>
+                        )}
+                      </button>
+                    </form>
+                  )}
 
                   <button
                     type="button"
@@ -1788,7 +1703,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                         Password
                       </label>
                       <span className="text-[10px] text-white/40">
-                        {authMode === 'signup' ? 'Min 8 chars, special & digit' : 'Enter credentials'}
+                        Min 8 chars, special & digit
                       </span>
                     </div>
                     <div className="relative flex items-center">
@@ -1800,7 +1715,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                           setPassword(e.target.value);
                           if (authError) setAuthError(null);
                         }}
-                        placeholder={authMode === 'signup' ? 'Create a secure password' : 'Enter your password'}
+                        placeholder="Create a secure password"
                         required
                         className="w-full pl-9 pr-9 py-2.5 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-2xl text-xs text-white placeholder-white/30 outline-none transition-colors"
                       />
@@ -1818,7 +1733,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                     <PasswordComplexityValidator
                       password={password}
                       isDirty={password.length > 0}
-                      title={authMode === 'signup' ? 'Security Requirements' : 'Password Complexity Check'}
+                      title="Security Requirements"
                     />
                   </div>
 
@@ -1832,37 +1747,23 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                     ) : (
                       <>
                         <KeyRound className="w-4 h-4" />
-                        <span>{authMode === 'signup' ? 'Create Account & Enter Daily' : 'Sign In to Daily'}</span>
+                        <span>Create Account & Enter Daily</span>
                       </>
                     )}
                   </button>
 
                   <div className="text-center pt-1">
-                    {authMode === 'signup' ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          vibrateLight();
-                          setAuthMode('signin');
-                          setAuthError(null);
-                        }}
-                        className="text-[11px] text-white/50 hover:text-white transition-colors cursor-pointer"
-                      >
-                        Already have an account? <span className="text-[#2F6FED] font-bold">Sign in</span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          vibrateLight();
-                          setAuthMode('signup');
-                          setAuthError(null);
-                        }}
-                        className="text-[11px] text-white/50 hover:text-white transition-colors cursor-pointer"
-                      >
-                        Don't have an account? <span className="text-[#2F6FED] font-bold">Sign up</span>
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        vibrateLight();
+                        setShowPreviousAccounts(true);
+                        setShowDirectSignIn(true);
+                      }}
+                      className="text-[11px] text-white/50 hover:text-white transition-colors cursor-pointer"
+                    >
+                      Already have an account? <span className="text-[#2F6FED] font-bold">Sign in</span>
+                    </button>
                   </div>
                 </form>
 
@@ -1878,11 +1779,6 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                     <ArrowLeft className="w-3.5 h-3.5" />
                     Back to Interests
                   </button>
-
-                  <span className="text-[10px] text-white/40 flex items-center gap-1">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                    Secure Supabase Auth
-                  </span>
                 </div>
               </div>
             )}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Flame, PlusCircle, Compass, User as UserIcon, MessageSquare, Bell, Search } from 'lucide-react';
+import { Home, Flame, PlusCircle, Compass, User as UserIcon, MessageSquare, Bell, Search, LogOut } from 'lucide-react';
 import { NavigationTab, User } from '../types';
 
 interface NavigationProps {
@@ -20,6 +20,7 @@ export const TopHeader: React.FC<{
   unreadNotificationsCount?: number;
   onOpenSearch?: () => void;
   isHomeScreen?: boolean;
+  onPromptQuit?: () => void;
 }> = ({
   currentUser,
   onOpenDMs,
@@ -29,6 +30,7 @@ export const TopHeader: React.FC<{
   unreadNotificationsCount = 0,
   onOpenSearch = () => {},
   isHomeScreen = false,
+  onPromptQuit,
 }) => {
   return (
     <header className="sticky top-0 z-30 w-full bg-[#050505]/95 backdrop-blur-md border-b border-white/5 px-3 sm:px-4 py-2.5 flex items-center justify-between">
@@ -77,7 +79,7 @@ export const TopHeader: React.FC<{
         {/* Direct Messages Icon with Signal Blue Badge */}
         <button
           onClick={onOpenDMs}
-          className="relative p-2.5 rounded-full bg-white/10 hover:bg-white/15 text-white transition-all active:scale-95 min-h-[40px] min-w-[40px] flex items-center justify-center"
+          className="relative p-2.5 rounded-full bg-white/10 hover:bg-white/15 text-white transition-all active:scale-95 min-h-[40px] min-w-[40px] flex items-center justify-center cursor-pointer"
           aria-label="Direct Messages"
           title="Messages & Groups"
         >
@@ -88,6 +90,18 @@ export const TopHeader: React.FC<{
             </span>
           )}
         </button>
+
+        {/* Quit / Close App Button */}
+        {onPromptQuit && (
+          <button
+            onClick={onPromptQuit}
+            className="p-2.5 rounded-full bg-white/10 hover:bg-red-500/20 text-white/70 hover:text-red-400 border border-white/10 hover:border-red-500/30 transition-all active:scale-95 min-h-[40px] min-w-[40px] flex items-center justify-center cursor-pointer"
+            aria-label="Quit App"
+            title="Quit App"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        )}
       </div>
     </header>
   );

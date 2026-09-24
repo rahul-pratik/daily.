@@ -30,6 +30,29 @@ import {
 } from '../types';
 import { INITIAL_CURRENT_USER, SAMPLE_USERS, INITIAL_POSTS, INITIAL_MESSAGES, SAMPLE_GROUPS, INITIAL_PERSONAL_HABITS, INITIAL_COMMUNITIES, INITIAL_NOTIFICATIONS, INITIAL_USER_NOTES, getPastDate } from '../data/mockData';
 import { INITIAL_COMMUNITY_DISCUSSIONS } from '../data/communityDiscussionsData';
+import {
+  syncUserAndProfileToSupabase,
+  syncPostToSupabase,
+  deletePostFromSupabase,
+  syncChallengeToSupabase,
+  syncChallengeMemberToSupabase,
+  removeChallengeMemberFromSupabase,
+  syncSaveToSupabase,
+  removeSaveFromSupabase,
+  syncDraftToSupabase,
+  deleteDraftFromSupabase,
+  syncLikeToSupabase,
+  removeLikeFromSupabase,
+  syncCommentToSupabase,
+  syncFollowToSupabase,
+  removeFollowFromSupabase,
+  syncCommunityToSupabase,
+  syncCommunityMemberToSupabase,
+  removeCommunityMemberFromSupabase,
+  syncMessageToSupabase,
+  syncNotificationToSupabase,
+  syncReportToSupabase,
+} from './supabaseDataSync';
 
 const STORAGE_KEYS = {
   CURRENT_USER: 'daily_app_current_user_v1',
@@ -180,6 +203,11 @@ export class DailyStorageService {
       user.username !== 'alexrivera'
     ) {
       this.savePreviousAccount(user);
+    }
+
+    // Persist to Supabase users and profiles tables
+    if (user && user.id) {
+      syncUserAndProfileToSupabase(user);
     }
   }
 
@@ -656,15 +684,25 @@ export class DailyStorageService {
     });
     this.saveAllUsers(updatedUsers);
 
+    // Sync to Supabase follows table
+    if (isFollowing) {
+      removeFollowFromSupabase(currentUser.id, targetUserId);
+    } else {
+      syncFollowToSupabase(currentUser.id, targetUserId);
+    }
+
     return { currentUser: updatedCurrentUser, updatedUsers };
   }
 
   // Toggle Like on Post
   static toggleLikePost(postId: string): Post[] {
+    const currentUser = this.getCurrentUser();
+    let isNowLiked = false;
     const posts = this.getAllPosts();
     const updated = posts.map(post => {
       if (post.id === postId) {
         const liked = !post.likedByMe;
+        isNowLiked = liked;
         return {
           ...post,
           likedByMe: liked,
@@ -674,6 +712,14 @@ export class DailyStorageService {
       return post;
     });
     this.saveAllPosts(updated);
+
+    // Sync to Supabase likes table
+    if (isNowLiked) {
+      syncLikeToSupabase(currentUser.id, postId);
+    } else {
+      removeLikeFromSupabase(currentUser.id, postId);
+    }
+
     return updated;
   }
 
@@ -703,6 +749,10 @@ export class DailyStorageService {
     });
 
     this.saveAllPosts(updated);
+
+    // Sync to Supabase comments table
+    syncCommentToSupabase(postId, newComment);
+
     return { posts: updated, comment: newComment };
   }
 
@@ -827,6 +877,7 @@ export class DailyStorageService {
 
       const posts = this.getAllPosts();
       this.saveAllPosts([newPost, ...posts]);
+      syncPostToSupabase(newPost);
 
       return {
         post: newPost,
@@ -870,6 +921,7 @@ export class DailyStorageService {
 
       const posts = this.getAllPosts();
       this.saveAllPosts([newPost, ...posts]);
+      syncPostToSupabase(newPost);
 
       return {
         post: newPost,
@@ -931,6 +983,9 @@ export class DailyStorageService {
     // Also remove from saved posts
     const savedIds = this.getSavedPostIds().filter((id) => id !== postId);
     this.saveSavedPostIds(savedIds);
+
+    // Sync deletion to Supabase posts table
+    deletePostFromSupabase(postId);
 
     let updatedUser = currentUser;
     let wasTodayPost = false;
@@ -1014,10 +1069,19 @@ export class DailyStorageService {
   }
 
   static toggleSavePost(postId: string): { savedPostIds: string[]; isSaved: boolean } {
+    const currentUser = this.getCurrentUser();
     const current = this.getSavedPostIds();
     const isSaved = current.includes(postId);
     const updated = isSaved ? current.filter((id) => id !== postId) : [postId, ...current];
     this.saveSavedPostIds(updated);
+
+    // Sync to Supabase saves table
+    if (isSaved) {
+      removeSaveFromSupabase(currentUser.id, postId);
+    } else {
+      syncSaveToSupabase(currentUser.id, postId);
+    }
+
     return { savedPostIds: updated, isSaved: !isSaved };
   }
 
@@ -1038,9 +1102,14 @@ export class DailyStorageService {
   }
 
   static reportPost(postId: string, reason: string): { reportedPostIds: string[]; success: boolean } {
+    const currentUser = this.getCurrentUser();
     const current = this.getReportedPostIds();
     const updated = Array.from(new Set([...current, postId]));
     this.saveReportedPostIds(updated);
+
+    // Sync to Supabase reports table
+    syncReportToSupabase(currentUser.id, 'post', postId, reason);
+
     return { reportedPostIds: updated, success: true };
   }
 
@@ -1453,6 +1522,10 @@ export class DailyStorageService {
     }
 
     this.saveAllDrafts(userId, drafts);
+
+    // Sync to Supabase drafts table
+    syncDraftToSupabase(savedItem, userId);
+
     return { draft: savedItem, drafts };
   }
 
@@ -1463,6 +1536,10 @@ export class DailyStorageService {
     if (updated.length === 0) {
       localStorage.removeItem(`${STORAGE_KEYS.POST_DRAFT}_${userId}`);
     }
+
+    // Sync to Supabase drafts table
+    deleteDraftFromSupabase(draftId);
+
     return updated;
   }
 
@@ -1657,6 +1734,14 @@ export class DailyStorageService {
     });
 
     this.saveAllCommunities(updated);
+
+    // Sync to Supabase communities and community_members tables
+    if (status === 'joined') {
+      syncCommunityMemberToSupabase(communityId, currentUser.id);
+    } else if (status === 'left') {
+      removeCommunityMemberFromSupabase(communityId, currentUser.id);
+    }
+
     return { communities: updated, status };
   }
 
@@ -1718,6 +1803,11 @@ export class DailyStorageService {
     const currentCommunities = this.getAllCommunities();
     const updated = [newCommunity, ...currentCommunities];
     this.saveAllCommunities(updated);
+
+    // Sync to Supabase communities and community_members tables
+    syncCommunityToSupabase(newCommunity);
+    syncCommunityMemberToSupabase(newCommunity.id, currentUser.id, 'creator');
+
     return newCommunity;
   }
 
@@ -2122,6 +2212,9 @@ export class DailyStorageService {
 
     const messages = this.getAllMessages();
     this.saveAllMessages([...messages, newMsg]);
+
+    // Sync to Supabase messages table
+    syncMessageToSupabase(newMsg);
 
     // Update group last activity if applicable
     if (params.groupId) {
@@ -2962,6 +3055,11 @@ export class DailyStorageService {
     };
     const updated = [newNotif, ...current];
     this.saveAllNotifications(updated);
+
+    // Sync to Supabase notifications table
+    const currentUser = this.getCurrentUser();
+    syncNotificationToSupabase(newNotif, currentUser.id);
+
     return updated;
   }
 
@@ -3717,6 +3815,11 @@ export class DailyStorageService {
     const all = this.getAllChallenges();
     const updated = [newChallenge, ...all];
     this.saveAllChallenges(updated);
+
+    // Sync to Supabase challenges and challenges_members tables
+    syncChallengeToSupabase(newChallenge);
+    syncChallengeMemberToSupabase(newChallenge.id, currentUser.id, currentUser.currentStreak);
+
     return newChallenge;
   }
 
@@ -3782,6 +3885,14 @@ export class DailyStorageService {
     });
 
     this.saveAllChallenges(updated);
+
+    // Sync to Supabase challenges_members table
+    if (joined) {
+      syncChallengeMemberToSupabase(challengeId, currentUser.id, currentUser.currentStreak);
+    } else {
+      removeChallengeMemberFromSupabase(challengeId, currentUser.id);
+    }
+
     const targetChallenge = updated.find((c) => c.id === challengeId)!;
     return { challenge: targetChallenge, joined, isCompleted };
   }

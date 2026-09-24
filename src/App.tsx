@@ -78,7 +78,7 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState<NavigationTab>(() => {
     if (typeof window !== 'undefined') {
       try {
-        const stored = sessionStorage.getItem('daily_active_tab') as NavigationTab;
+        const stored = (localStorage.getItem('daily_active_tab') || sessionStorage.getItem('daily_active_tab')) as NavigationTab;
         if (stored && ['home', 'streak', 'discover', 'messages', 'profile', 'dossier'].includes(stored)) {
           return stored;
         }
@@ -105,12 +105,38 @@ export default function App() {
     setCurrentTab(tab);
     try {
       if (typeof window !== 'undefined') {
+        localStorage.setItem('daily_active_tab', tab);
         sessionStorage.setItem('daily_active_tab', tab);
       }
     } catch (e) {
       // ignore
     }
   };
+
+  // Ensure active tab stays intact when switching tabs in the browser and returning
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        try {
+          const stored = (localStorage.getItem('daily_active_tab') || sessionStorage.getItem('daily_active_tab')) as NavigationTab;
+          if (stored && ['home', 'streak', 'discover', 'messages', 'profile', 'dossier'].includes(stored)) {
+            setCurrentTab((prev) => (prev !== stored ? stored : prev));
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+    };
+  }, []);
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchInitialQuery, setSearchInitialQuery] = useState('');
@@ -1765,9 +1791,9 @@ export default function App() {
                 👋
               </div>
               <div className="space-y-1">
-                <h3 className="text-base font-black text-white tracking-tight">Do you want to quit?</h3>
+                <h3 className="text-base font-black text-white tracking-tight">Quit Daily?</h3>
                 <p className="text-xs text-white/60">
-                  Are you sure you want to quit the app? Your active streaks and daily receipts are safely saved.
+                  Do you wanna quit? Choose <span className="text-red-400 font-bold">Yes</span> to close the app or <span className="text-white font-bold">No</span> to stay.
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-3 pt-2">
