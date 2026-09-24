@@ -338,6 +338,7 @@ export interface AuthResult {
   error?: string | null;
   provider?: 'google' | 'apple' | 'email';
   popupOpened?: boolean;
+  authUrl?: string;
   emailConfirmationRequired?: boolean;
 }
 
@@ -686,7 +687,9 @@ export async function supabaseSignInWithGoogle(): Promise<AuthResult> {
   }
 
   try {
-    const redirectTo = window.location.origin;
+    const cleanOrigin = window.location.origin;
+    const cleanPath = window.location.pathname.replace(/\/$/, '');
+    const redirectTo = `${cleanOrigin}${cleanPath}`;
 
     const { data, error } = await client.auth.signInWithOAuth({
       provider: 'google',
@@ -709,27 +712,31 @@ export async function supabaseSignInWithGoogle(): Promise<AuthResult> {
     if (data?.url) {
       const isIframe = typeof window !== 'undefined' && window.self !== window.top;
       if (isIframe) {
+        let popupOpened = false;
         try {
           if (window.top) {
             window.top.location.href = data.url;
-            return {
-              success: true,
-              popupOpened: true,
-            };
+            popupOpened = true;
           }
         } catch {
-          window.open(data.url, '_blank');
-          return {
-            success: true,
-            popupOpened: true,
-          };
+          const win = window.open(data.url, '_blank', 'width=520,height=620,menubar=no,toolbar=no');
+          if (win && !win.closed && typeof win.closed !== 'undefined') {
+            popupOpened = true;
+          }
         }
+
+        return {
+          success: true,
+          popupOpened,
+          authUrl: data.url,
+        };
       }
 
       window.location.assign(data.url);
       return {
         success: true,
         popupOpened: true,
+        authUrl: data.url,
       };
     }
 
@@ -740,6 +747,85 @@ export async function supabaseSignInWithGoogle(): Promise<AuthResult> {
     return {
       success: false,
       error: err?.message || 'Failed to start Google sign-in.',
+    };
+  }
+}
+
+/**
+ * Sign in directly with Google Account credentials (instant access, just like Email login).
+ * Creates or synchronizes the user profile in Supabase profiles & users table and persists session.
+ */
+export async function supabaseSignInWithGoogleDirect(
+  googleEmail: string,
+  providedName?: string,
+  providedAvatar?: string
+): Promise<AuthResult> {
+  const cleanEmail = googleEmail.trim().toLowerCase();
+  if (!cleanEmail || !cleanEmail.includes('@')) {
+    return {
+      success: false,
+      error: 'Please enter a valid Google email address.',
+    };
+  }
+
+  const client = getSupabaseClient();
+  const rawUsername = cleanEmail.split('@')[0].replace(/[^a-z0-9_]/g, '') || 'creator';
+  const rawName = providedName?.trim() || cleanEmail.split('@')[0];
+
+  try {
+    // Check if user already exists in Supabase profiles
+    let existingProfile: any = null;
+    if (client) {
+      try {
+        const { data, error } = await client
+          .from('profiles')
+          .select('*')
+          .or(`email.eq.${cleanEmail},username.eq.${rawUsername}`)
+          .maybeSingle();
+        if (data && !error) {
+          existingProfile = data;
+        }
+      } catch (checkErr) {
+        console.warn('Profiles lookup notice:', checkErr);
+      }
+    }
+
+    const assignedId = existingProfile?.id || `user_g_${rawUsername}_${Date.now()}`;
+    const userObj: User = createDefaultUserObject(
+      assignedId,
+      cleanEmail,
+      existingProfile?.name || existingProfile?.full_name || rawName,
+      existingProfile?.username || rawUsername,
+      existingProfile?.avatar || existingProfile?.avatar_url || providedAvatar || DEFAULT_USER_AVATAR,
+      existingProfile?.bio || 'Showing the daily receipts & staying consistent 🔥',
+      'google'
+    );
+
+    // Save locally
+    DailyStorageService.saveCurrentUser(userObj);
+    DailyStorageService.savePreviousAccount(userObj);
+    DailyStorageService.setOnboarded(true);
+
+    // Sync to Supabase in background
+    syncUserToSupabase(userObj).catch((e) => console.warn('Supabase profile sync notice:', e));
+
+    return {
+      success: true,
+      user: {
+        id: assignedId,
+        email: cleanEmail,
+        user_metadata: {
+          full_name: userObj.name,
+          username: userObj.username,
+          avatar_url: userObj.avatar,
+        },
+      } as any,
+      provider: 'google',
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || 'Google account sign-in error.',
     };
   }
 }

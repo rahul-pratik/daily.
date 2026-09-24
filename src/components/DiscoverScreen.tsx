@@ -38,6 +38,8 @@ interface DiscoverScreenProps {
   onToggleJoinCommunity?: (communityId: string) => void;
   onCreateCommunity?: () => void;
   onRefresh?: () => Promise<void> | void;
+  showJoinedCommunities?: boolean;
+  onSetShowJoinedCommunities?: (open: boolean) => void;
 }
 
 type EntityTypeFilter = 'all' | 'people' | 'communities';
@@ -53,12 +55,17 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
   onToggleJoinCommunity,
   onCreateCommunity,
   onRefresh,
+  showJoinedCommunities: controlledShowJoined,
+  onSetShowJoinedCommunities,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilterTag, setActiveFilterTag] = useState<string | null>(null);
   const [entityFilter, setEntityFilter] = useState<EntityTypeFilter>('all');
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
-  const [showJoinedCommunities, setShowJoinedCommunities] = useState(false);
+  
+  const [internalShowJoined, setInternalShowJoined] = useState(false);
+  const showJoinedCommunities = controlledShowJoined !== undefined ? controlledShowJoined : internalShowJoined;
+  const setShowJoinedCommunities = onSetShowJoinedCommunities || setInternalShowJoined;
 
   // Calculate match percentage for a user based on overlapping interests and habits
   const calculateMatchScore = (otherUser: User): number => {

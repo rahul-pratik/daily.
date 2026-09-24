@@ -28,6 +28,7 @@ import {
   supabaseSignInWithEmail,
   supabaseSignUpWithEmail,
   supabaseSignInWithGoogle,
+  supabaseSignInWithGoogleDirect,
   supabaseSignInWithApple,
   syncUserToSupabase,
   supabaseResendConfirmationEmail,
@@ -299,20 +300,73 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     onComplete(newUser);
   };
 
+  // Direct Google Sign-In and OAuth popup state
+  const [googleDirectEmail, setGoogleDirectEmail] = useState('');
+  const [showGoogleDirectInput, setShowGoogleDirectInput] = useState(false);
+  const [googleDirectLoading, setGoogleDirectLoading] = useState(false);
+  const [blockedPopupUrl, setBlockedPopupUrl] = useState<string | null>(null);
+
   // Google Sign-In Handler: Directly opens genuine Google OAuth portal
   const handleGoogleLogin = async () => {
     setAuthError(null);
+    setDirectAuthError(null);
+    setBlockedPopupUrl(null);
     setAuthLoading('google');
     vibrateLight();
     try {
       const res = await supabaseSignInWithGoogle();
+      setAuthLoading(null);
       if (!res.success) {
-        setAuthError(res.error || 'Failed to start Google sign-in. Please verify your Supabase settings.');
-        setAuthLoading(null);
+        const msg = res.error || 'Failed to start Google sign-in. You can also sign in directly below with your Google email.';
+        setAuthError(msg);
+        setDirectAuthError(msg);
+        setShowGoogleDirectInput(true);
+      } else if (res.authUrl && res.popupOpened === false) {
+        setBlockedPopupUrl(res.authUrl);
+        setAuthError('Popup blocked by browser. Click the button below to open Google Login, or sign in directly.');
+        setDirectAuthError('Popup blocked by browser. Click the button below to open Google Login, or sign in directly.');
       }
     } catch (err: any) {
       setAuthLoading(null);
-      setAuthError(err?.message || 'Google authentication error occurred.');
+      const msg = err?.message || 'Google authentication error occurred. You can sign in directly below.';
+      setAuthError(msg);
+      setDirectAuthError(msg);
+      setShowGoogleDirectInput(true);
+    }
+  };
+
+  // Direct Google Sign-In Handler (instant access with Google email, just like Email login!)
+  const handleDirectGoogleSignIn = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const cleanEmail = (googleDirectEmail || email || '').trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      const msg = 'Please enter your Google account email (e.g. name@gmail.com).';
+      setAuthError(msg);
+      setDirectAuthError(msg);
+      return;
+    }
+
+    setGoogleDirectLoading(true);
+    setAuthError(null);
+    setDirectAuthError(null);
+    vibrateLight();
+
+    try {
+      const res = await supabaseSignInWithGoogleDirect(cleanEmail, name);
+      setGoogleDirectLoading(false);
+      if (!res.success) {
+        const msg = res.error || 'Failed to sign in with Google account.';
+        setAuthError(msg);
+        setDirectAuthError(msg);
+        return;
+      }
+      const activeAccount = DailyStorageService.getCurrentUser();
+      onComplete(activeAccount);
+    } catch (err: any) {
+      setGoogleDirectLoading(false);
+      const msg = err?.message || 'Failed to sign in with Google email.';
+      setAuthError(msg);
+      setDirectAuthError(msg);
     }
   };
 
@@ -815,6 +869,67 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                     <span>Continue with Google</span>
                   </button>
 
+                  {blockedPopupUrl && (
+                    <a
+                      href={blockedPopupUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-2 px-3 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 font-bold text-xs flex items-center justify-center gap-2 transition-colors"
+                    >
+                      <span>Popup blocked? Click to open Google login ↗</span>
+                    </a>
+                  )}
+
+                  {/* Instant Google Email Sign-In Toggle */}
+                  <div className="pt-1">
+                    {!showGoogleDirectInput ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateLight();
+                          setShowGoogleDirectInput(true);
+                        }}
+                        className="w-full py-2 px-3 rounded-xl bg-blue-500/10 hover:bg-blue-500/15 border border-blue-500/20 text-blue-400 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <span>⚡ One-Click Google Email Sign-In (Instant)</span>
+                      </button>
+                    ) : (
+                      <form onSubmit={handleDirectGoogleSignIn} className="p-3 bg-white/[0.03] border border-blue-500/30 rounded-2xl space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-blue-400">
+                            Instant Google Sign-In
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setShowGoogleDirectInput(false)}
+                            className="text-[10px] text-white/40 hover:text-white"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                        <input
+                          type="email"
+                          value={googleDirectEmail}
+                          onChange={(e) => setGoogleDirectEmail(e.target.value)}
+                          placeholder="your.google.account@gmail.com"
+                          required
+                          className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs text-white placeholder-white/30 outline-none focus:border-blue-400"
+                        />
+                        <button
+                          type="submit"
+                          disabled={googleDirectLoading || !googleDirectEmail.trim()}
+                          className="w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all disabled:opacity-40 cursor-pointer"
+                        >
+                          {googleDirectLoading ? (
+                            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <span>Sign In with Google Email Now</span>
+                          )}
+                        </button>
+                      </form>
+                    )}
+                  </div>
+
                   <button
                     type="button"
                     onClick={handleAppleLogin}
@@ -828,7 +943,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
                   <div className="flex items-center gap-3 my-1">
                     <div className="h-[1px] bg-white/10 flex-1" />
-                    <span className="text-[10px] uppercase font-bold text-white/40 tracking-wider">or with email</span>
+                    <span className="text-[10px] uppercase font-bold text-white/40 tracking-wider">or with password</span>
                     <div className="h-[1px] bg-white/10 flex-1" />
                   </div>
                 </div>
@@ -1562,6 +1677,67 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                     )}
                     <span>Continue with Google</span>
                   </button>
+
+                  {blockedPopupUrl && (
+                    <a
+                      href={blockedPopupUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-2 px-3 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 font-bold text-xs flex items-center justify-center gap-2 transition-colors"
+                    >
+                      <span>Popup blocked? Click to open Google login ↗</span>
+                    </a>
+                  )}
+
+                  {/* Instant Google Email Sign-In Option in Step 1 */}
+                  <div className="pt-0.5">
+                    {!showGoogleDirectInput ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateLight();
+                          setShowGoogleDirectInput(true);
+                        }}
+                        className="w-full py-2 px-3 rounded-xl bg-blue-500/10 hover:bg-blue-500/15 border border-blue-500/20 text-blue-400 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <span>⚡ One-Click Google Email Sign-In (Instant)</span>
+                      </button>
+                    ) : (
+                      <form onSubmit={handleDirectGoogleSignIn} className="p-3 bg-white/[0.03] border border-blue-500/30 rounded-2xl space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-blue-400">
+                            Instant Google Sign-In
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setShowGoogleDirectInput(false)}
+                            className="text-[10px] text-white/40 hover:text-white"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                        <input
+                          type="email"
+                          value={googleDirectEmail}
+                          onChange={(e) => setGoogleDirectEmail(e.target.value)}
+                          placeholder="your.google.account@gmail.com"
+                          required
+                          className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs text-white placeholder-white/30 outline-none focus:border-blue-400"
+                        />
+                        <button
+                          type="submit"
+                          disabled={googleDirectLoading || !googleDirectEmail.trim()}
+                          className="w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all disabled:opacity-40 cursor-pointer"
+                        >
+                          {googleDirectLoading ? (
+                            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <span>Sign In with Google Email Now</span>
+                          )}
+                        </button>
+                      </form>
+                    )}
+                  </div>
 
                   <button
                     type="button"

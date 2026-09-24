@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { NavigationTab, User, Post, Community } from '../types';
+import { NavigationTab, User, Post, Community, Challenge } from '../types';
 import { UniversalShareItem } from '../components/UniversalShareModal';
 
 export interface BackButtonState {
@@ -26,6 +26,11 @@ export interface BackButtonState {
   activeGroupId: string | null;
   activeDossierUser: User | null;
   currentUser: User;
+  // Sub-screen and Exit Confirmation states
+  isCohortDiscussionsOpen?: boolean;
+  activeChallengeScreen?: Challenge | null;
+  showJoinedCommunities?: boolean;
+  isQuitModalOpen?: boolean;
 }
 
 export interface BackButtonActions {
@@ -49,12 +54,29 @@ export interface BackButtonActions {
   closeActiveChat: () => void;
   closeDossier: () => void;
   goToTab: (tab: NavigationTab) => void;
+  // Sub-screen & Exit Actions
+  closeCohortDiscussions?: () => void;
+  closeChallengeScreen?: () => void;
+  closeJoinedCommunities?: () => void;
+  promptQuitApp: () => void;
+  closeQuitModal: () => void;
 }
 
 function getActiveLayers(s: BackButtonState): string[] {
   const layers: string[] = [];
   if (s.currentTab !== 'home') {
     layers.push(`tab_${s.currentTab}`);
+  }
+  if (s.currentTab === 'streak') {
+    if (s.activeChallengeScreen) {
+      layers.push(`challenge_details_${s.activeChallengeScreen.id}`);
+    }
+    if (s.isCohortDiscussionsOpen) {
+      layers.push('cohort_discussions');
+    }
+  }
+  if (s.currentTab === 'discover' && s.showJoinedCommunities) {
+    layers.push('joined_communities');
   }
   if (s.currentTab === 'messages' && (s.activeChatUserId || s.activeGroupId)) {
     layers.push(`chat_${s.activeChatUserId || s.activeGroupId}`);
@@ -79,6 +101,7 @@ function getActiveLayers(s: BackButtonState): string[] {
   if (s.activeCommunityHub) layers.push('community_hub');
   if (s.activeProfileUser) layers.push(`profile_${s.activeProfileUser.id}`);
   if (s.universalShareItem) layers.push('universal_share');
+  if (s.isQuitModalOpen) layers.push('quit_modal');
   return layers;
 }
 
@@ -95,12 +118,14 @@ export function usePhoneBackButton(
   stateRef.current = state;
   actionsRef.current = actions;
 
-  // Initialize base history state on mount
+  // Initialize base and home guard history state on mount
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     if (!window.history.state || !window.history.state.__daily_root) {
       window.history.replaceState({ __daily_root: true, depth: 0 }, '');
+      window.history.pushState({ __daily_guard: true, depth: 1 }, '');
+      historyDepthRef.current = 1;
     }
 
     const handlePopState = () => {
@@ -114,6 +139,13 @@ export function usePhoneBackButton(
       const act = actionsRef.current;
 
       // Close topmost layer in priority order
+      if (s.isQuitModalOpen) {
+        // If quit confirmation modal is already open, pressing back dismisses it and stays
+        act.closeQuitModal();
+        window.history.pushState({ __daily_guard: true, depth: historyDepthRef.current }, '');
+        return;
+      }
+
       if (s.universalShareItem) {
         act.closeUniversalShare();
       } else if (s.activeProfileUser) {
@@ -148,12 +180,33 @@ export function usePhoneBackButton(
         act.closeDeletePost();
       } else if (s.celebrationOpen) {
         act.closeCelebration();
+      } else if (s.currentTab === 'streak' && s.isCohortDiscussionsOpen) {
+        // Return to Challenges screen from cohort discussions
+        if (act.closeCohortDiscussions) {
+          act.closeCohortDiscussions();
+        }
+      } else if (s.currentTab === 'streak' && s.activeChallengeScreen) {
+        // Return to Challenges screen from challenge details
+        if (act.closeChallengeScreen) {
+          act.closeChallengeScreen();
+        }
+      } else if (s.currentTab === 'discover' && s.showJoinedCommunities) {
+        // Return to Discover/Explore screen from joined communities
+        if (act.closeJoinedCommunities) {
+          act.closeJoinedCommunities();
+        }
       } else if (s.currentTab === 'messages' && (s.activeChatUserId || s.activeGroupId)) {
         act.closeActiveChat();
       } else if (s.currentTab === 'dossier') {
         act.closeDossier();
       } else if (s.currentTab !== 'home') {
         act.goToTab(s.previousTab && s.previousTab !== s.currentTab ? s.previousTab : 'home');
+      } else {
+        // User is at the HOME screen with no open layers or modals
+        // Prompt exit confirmation: "Do you wanna quit? Yes / No"
+        act.promptQuitApp();
+        // Restore guard state so if user chooses "No, Stay", next back press prompts again
+        window.history.pushState({ __daily_guard: true, depth: historyDepthRef.current }, '');
       }
 
       historyDepthRef.current = Math.max(0, historyDepthRef.current - 1);

@@ -10,6 +10,7 @@ import {
   Message,
   Group,
   Community,
+  Challenge,
   NavigationTab,
   ReportReason,
   AppNotification,
@@ -74,8 +75,43 @@ export default function App() {
   const [isAccountSwitcherOpen, setIsAccountSwitcherOpen] = useState<boolean>(false);
 
   // UI Navigation & Modals
-  const [currentTab, setCurrentTab] = useState<NavigationTab>('home');
+  const [currentTab, setCurrentTab] = useState<NavigationTab>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = sessionStorage.getItem('daily_active_tab') as NavigationTab;
+        if (stored && ['home', 'streak', 'discover', 'messages', 'profile', 'dossier'].includes(stored)) {
+          return stored;
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+    return 'home';
+  });
   const [previousTab, setPreviousTab] = useState<NavigationTab>('home');
+  const [isCohortDiscussionsOpen, setIsCohortDiscussionsOpen] = useState(false);
+  const [activeChallengeScreen, setActiveChallengeScreen] = useState<Challenge | null>(null);
+  const [showJoinedCommunities, setShowJoinedCommunities] = useState(false);
+  const [isQuitModalOpen, setIsQuitModalOpen] = useState(false);
+  const [isAppExited, setIsAppExited] = useState(false);
+
+  // Centralized Tab Navigation that persists state across tab changes and browser focus
+  const handleSelectTab = (tab: NavigationTab) => {
+    if (tab !== 'messages') {
+      setActiveChatUserId(null);
+      setActiveGroupId(null);
+    }
+    setPreviousTab(currentTab);
+    setCurrentTab(tab);
+    try {
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('daily_active_tab', tab);
+      }
+    } catch (e) {
+      // ignore
+    }
+  };
+
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchInitialQuery, setSearchInitialQuery] = useState('');
   const [searchInitialTab, setSearchInitialTab] = useState<SearchWish>('all');
@@ -236,6 +272,10 @@ export default function App() {
       activeGroupId,
       activeDossierUser,
       currentUser,
+      isCohortDiscussionsOpen,
+      activeChallengeScreen,
+      showJoinedCommunities,
+      isQuitModalOpen,
     },
     {
       closeUniversalShare: () => setUniversalShareItem(null),
@@ -255,6 +295,11 @@ export default function App() {
       closeAddToCollection: () => setSelectedPostForCollection(null),
       closeDeletePost: () => setPostPendingDelete(null),
       closeCelebration: () => setCelebrationState((prev) => ({ ...prev, isOpen: false })),
+      closeCohortDiscussions: () => setIsCohortDiscussionsOpen(false),
+      closeChallengeScreen: () => setActiveChallengeScreen(null),
+      closeJoinedCommunities: () => setShowJoinedCommunities(false),
+      promptQuitApp: () => setIsQuitModalOpen(true),
+      closeQuitModal: () => setIsQuitModalOpen(false),
       closeActiveChat: () => {
         setActiveChatUserId(null);
         setActiveGroupId(null);
@@ -264,12 +309,24 @@ export default function App() {
           setActiveProfileUser(activeDossierUser);
           setActiveDossierUser(null);
         } else {
-          setCurrentTab('profile');
+          handleSelectTab('profile');
         }
       },
-      goToTab: (tab) => setCurrentTab(tab),
+      goToTab: (tab) => handleSelectTab(tab),
     }
   );
+
+  // Handle Quit App Confirmation
+  const handleConfirmQuitApp = () => {
+    setIsQuitModalOpen(false);
+    vibrateLight();
+    try {
+      window.close();
+    } catch (e) {
+      console.warn('window.close notice:', e);
+    }
+    setIsAppExited(true);
+  };
 
   // Onboarding & Account Switcher completion handler
   const handleCompleteOnboarding = (updatedUserProps: Partial<User>) => {
@@ -280,7 +337,7 @@ export default function App() {
     DailyStorageService.setOnboarded(true);
     setIsOnboarded(true);
     setIsAccountSwitcherOpen(false);
-    setCurrentTab('home');
+    handleSelectTab('home');
   };
 
   // Switch Account Trigger from Profile Settings
@@ -303,11 +360,19 @@ export default function App() {
       const currentUrl = window.location.href;
       const url = new URL(currentUrl);
       const code = url.searchParams.get('code');
-      const errorParam = url.searchParams.get('error') || url.searchParams.get('error_description');
+      let errorParam = url.searchParams.get('error') || url.searchParams.get('error_description');
+
+      // Also check hash for errors returned by Supabase OAuth redirect
+      if (!errorParam && window.location.hash.includes('error=')) {
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+        errorParam = hashParams.get('error_description') || hashParams.get('error');
+      }
+
       const hasAuthHash = window.location.hash.includes('access_token') || window.location.hash.includes('refresh_token');
 
       if (errorParam) {
         console.warn('OAuth callback error parameter received:', errorParam);
+        showToast(`Google Sign-In notice: ${decodeURIComponent(errorParam)}`);
         window.history.replaceState(null, document.title, window.location.pathname);
         return;
       }
@@ -319,7 +384,7 @@ export default function App() {
           if (!error && data?.session?.user) {
             setIsOnboarded(true);
             setIsAccountSwitcherOpen(false);
-            setCurrentTab('home');
+            handleSelectTab('home');
             window.history.replaceState(null, document.title, window.location.pathname);
           }
         } catch (codeErr) {
@@ -334,7 +399,7 @@ export default function App() {
           if (res.success && res.user) {
             setIsOnboarded(true);
             setIsAccountSwitcherOpen(false);
-            setCurrentTab('home');
+            handleSelectTab('home');
             window.history.replaceState(null, document.title, window.location.pathname);
           }
         } catch (err) {
@@ -435,7 +500,10 @@ export default function App() {
         setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
         setIsOnboarded(true);
         setIsAccountSwitcherOpen(false);
-        setCurrentTab('home');
+        // Only route to home if the user was just onboarded or was actively in the account switcher
+        if (!DailyStorageService.isOnboarded() || isAccountSwitcherOpen) {
+          handleSelectTab('home');
+        }
 
         // Clean URL hash or search params if they contain OAuth / confirmation tokens
         if (
@@ -968,7 +1036,7 @@ export default function App() {
 
     if (isMe) {
       setActiveProfileUser(null);
-      setCurrentTab('profile');
+      handleSelectTab('profile');
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
@@ -991,7 +1059,7 @@ export default function App() {
 
     if (isMe) {
       setActiveProfileUser(null);
-      setCurrentTab('profile');
+      handleSelectTab('profile');
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
@@ -1110,22 +1178,43 @@ export default function App() {
   const handleOpenDMs = (userId?: string | null, groupId?: string | null) => {
     setGroups(DailyStorageService.getAllGroups());
     setMessages(DailyStorageService.getAllMessages());
-    if (currentTab !== 'messages') {
-      setPreviousTab(currentTab);
-    }
-    setCurrentTab('messages');
+    handleSelectTab('messages');
     setActiveChatUserId(userId || null);
     setActiveGroupId(groupId || null);
   };
 
   const handleOpenChallenge = (challengeId: string) => {
     setSelectedChallengeId(challengeId);
-    setCurrentTab('streak');
+    handleSelectTab('streak');
   };
 
   const handleOpenDMWithGroup = (groupId: string) => {
     handleOpenDMs(null, groupId);
   };
+
+  if (isAppExited) {
+    return (
+      <div className={`min-h-screen ${theme === 'light' ? 'bg-[#f8fafc] text-[#0f172a]' : 'bg-[#050505] text-white'} flex flex-col items-center justify-center p-6 text-center select-none`}>
+        <div className="w-16 h-16 rounded-3xl bg-blue-600/10 border border-blue-500/20 text-blue-400 flex items-center justify-center text-3xl mb-4 shadow-lg">
+          ⚡
+        </div>
+        <h1 className="text-2xl font-black mb-2 tracking-tight">Daily App Closed</h1>
+        <p className="text-xs text-white/50 max-w-xs mb-6 leading-relaxed">
+          You exited the app. Keep your streaks and daily progress intact when you come back!
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            setIsAppExited(false);
+            handleSelectTab('home');
+          }}
+          className="py-3 px-6 rounded-2xl bg-[#2F6FED] hover:bg-blue-600 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-blue-500/25 active:scale-95 transition-all cursor-pointer"
+        >
+          Re-open Daily
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen ${theme === 'light' ? 'bg-[#f8fafc] text-[#0f172a]' : 'bg-[#050505] text-white'} flex justify-center font-sans antialiased selection:bg-[#2F6FED] selection:text-white`}>
@@ -1137,7 +1226,7 @@ export default function App() {
             currentUser={currentUser}
             onOpenDMs={() => handleOpenDMs()}
             unreadCount={unreadMessagesCount}
-            onSelectTab={setCurrentTab}
+            onSelectTab={handleSelectTab}
             unreadNotificationsCount={unreadNotificationsCount}
             onOpenNotifications={() => setIsNotificationsOpen(true)}
             onOpenSearch={() => {
@@ -1160,7 +1249,7 @@ export default function App() {
               onToggleFollow={handleToggleFollow}
               onSendDM={handleStartDMWithUser}
               onOpenCreate={() => setIsCreateOpen(true)}
-              onSelectTab={setCurrentTab}
+              onSelectTab={handleSelectTab}
               onViewUser={handleViewSimplifiedUser}
               savedPostIds={savedPostIds}
               reportedPostIds={reportedPostIds}
@@ -1205,6 +1294,10 @@ export default function App() {
               onClearInitialChallenge={() => setSelectedChallengeId(null)}
               onOpenNotifications={() => setIsNotificationsOpen(true)}
               onUserUpdated={setCurrentUser}
+              isCohortDiscussionsView={isCohortDiscussionsOpen}
+              onSetIsCohortDiscussionsView={setIsCohortDiscussionsOpen}
+              activeChallengeScreen={activeChallengeScreen}
+              onSetActiveChallengeScreen={setActiveChallengeScreen}
             />
           )}
 
@@ -1220,6 +1313,8 @@ export default function App() {
               onToggleJoinCommunity={handleToggleJoinCommunity}
               onCreateCommunity={() => setIsCreateCommunityOpen(true)}
               onRefresh={handleFeedRefresh}
+              showJoinedCommunities={showJoinedCommunities}
+              onSetShowJoinedCommunities={setShowJoinedCommunities}
             />
           )}
 
@@ -1272,7 +1367,7 @@ export default function App() {
               }}
               onOpenDossier={() => {
                 setActiveDossierUser(currentUser);
-                setCurrentTab('dossier');
+                handleSelectTab('dossier');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
               onUserUpdated={(u) => setCurrentUser(u)}
@@ -1290,7 +1385,7 @@ export default function App() {
                   setActiveProfileUser(activeDossierUser);
                   setActiveDossierUser(null);
                 } else {
-                  setCurrentTab('profile');
+                  handleSelectTab('profile');
                 }
               }}
               onSendMessage={(target) => {
@@ -1346,7 +1441,7 @@ export default function App() {
                 }
               }}
               onBack={() => {
-                setCurrentTab(previousTab === 'messages' ? 'home' : previousTab);
+                handleSelectTab(previousTab === 'messages' ? 'home' : previousTab);
                 setActiveChatUserId(null);
                 setActiveGroupId(null);
               }}
@@ -1358,13 +1453,7 @@ export default function App() {
         {currentTab !== 'messages' && (
           <BottomNavigation
             currentTab={currentTab}
-            onSelectTab={(tab) => {
-              if (tab !== 'messages') {
-                setActiveChatUserId(null);
-                setActiveGroupId(null);
-              }
-              setCurrentTab(tab);
-            }}
+            onSelectTab={(tab) => handleSelectTab(tab)}
             currentUser={currentUser}
             onOpenDMs={() => handleOpenDMs()}
             unreadMessagesCount={unreadMessagesCount}
@@ -1495,7 +1584,7 @@ export default function App() {
             onOpenDossier={(targetUser) => {
               setActiveDossierUser(targetUser || activeProfileUser || currentUser);
               setActiveProfileUser(null);
-              setCurrentTab('dossier');
+              handleSelectTab('dossier');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
             onOpenCommunity={(community) => {
@@ -1533,14 +1622,14 @@ export default function App() {
               setActiveChatUserId(userId);
               setActiveGroupId(null);
               setActiveProfileUser(null);
-              setCurrentTab('messages');
+              handleSelectTab('messages');
               setUniversalShareItem(null);
             }}
             onOpenGroupChat={(groupId) => {
               setActiveGroupId(groupId);
               setActiveChatUserId(null);
               setActiveProfileUser(null);
-              setCurrentTab('messages');
+              handleSelectTab('messages');
               setUniversalShareItem(null);
             }}
           />
@@ -1652,7 +1741,7 @@ export default function App() {
           initialTab={searchInitialTab}
           onSelectChallenge={(challengeId) => {
             setSelectedChallengeId(challengeId);
-            setCurrentTab('streak');
+            handleSelectTab('streak');
           }}
         />
 
@@ -1667,6 +1756,42 @@ export default function App() {
             }
           }}
         />
+
+        {/* Quit Confirmation Dialog on Mobile Back Button at Home Screen */}
+        {isQuitModalOpen && (
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+            <div className="w-full max-w-sm bg-[#121216] border border-white/15 rounded-3xl p-6 shadow-2xl space-y-4 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center mx-auto text-2xl">
+                👋
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-black text-white tracking-tight">Do you want to quit?</h3>
+                <p className="text-xs text-white/60">
+                  Are you sure you want to quit the app? Your active streaks and daily receipts are safely saved.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    vibrateLight();
+                    setIsQuitModalOpen(false);
+                  }}
+                  className="py-2.5 px-4 rounded-2xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs uppercase tracking-wider transition-all cursor-pointer active:scale-95"
+                >
+                  No, Stay
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmQuitApp}
+                  className="py-2.5 px-4 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-red-600/30 cursor-pointer active:scale-95"
+                >
+                  Yes, Quit
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Global Toast Notification */}
         {toastMessage && (

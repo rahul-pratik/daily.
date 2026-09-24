@@ -41,6 +41,10 @@ interface ChallengesScreenProps {
   onClearInitialChallenge?: () => void;
   onOpenNotifications?: () => void;
   onUserUpdated?: (user: User) => void;
+  isCohortDiscussionsView?: boolean;
+  onSetIsCohortDiscussionsView?: (open: boolean) => void;
+  activeChallengeScreen?: Challenge | null;
+  onSetActiveChallengeScreen?: (challenge: Challenge | null) => void;
 }
 
 export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
@@ -61,16 +65,28 @@ export const ChallengesScreen: React.FC<ChallengesScreenProps> = ({
   onClearInitialChallenge,
   onOpenNotifications,
   onUserUpdated,
+  isCohortDiscussionsView: controlledCohortView,
+  onSetIsCohortDiscussionsView,
+  activeChallengeScreen: controlledActiveChallenge,
+  onSetActiveChallengeScreen,
 }) => {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTab, setSelectedTab] = useState<'all' | 'squads' | 'solo' | 'joined'>('all');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [isCreateChallengeOpen, setIsCreateChallengeOpen] = useState(false);
-  const [activeChallengeScreen, setActiveChallengeScreen] = useState<Challenge | null>(null);
+  
+  const [internalActiveChallenge, setInternalActiveChallenge] = useState<Challenge | null>(null);
+  const activeChallengeScreen = controlledActiveChallenge !== undefined ? controlledActiveChallenge : internalActiveChallenge;
+  const setActiveChallengeScreen = onSetActiveChallengeScreen || setInternalActiveChallenge;
+
   const [initialChallengeTab, setInitialChallengeTab] = useState<'proofs' | 'leaderboard' | 'squads' | 'chat'>('proofs');
   const [expandedChallengeId, setExpandedChallengeId] = useState<string | null>(null);
-  const [isCohortDiscussionsView, setIsCohortDiscussionsView] = useState(false);
+  
+  const [internalCohortView, setInternalCohortView] = useState(false);
+  const isCohortDiscussionsView = controlledCohortView !== undefined ? controlledCohortView : internalCohortView;
+  const setIsCohortDiscussionsView = onSetIsCohortDiscussionsView || setInternalCohortView;
+
   const [cohortSearchQuery, setCohortSearchQuery] = useState('');
 
   useEffect(() => {
