@@ -412,22 +412,23 @@ export class DailyStorageService {
       if (this.memoryPostsCache && this.memoryPostsCache.length > 0) {
         return this.memoryPostsCache.map((p) => this.ensurePostEngagement(p));
       }
-      this.saveAllPosts(INITIAL_POSTS);
-      return INITIAL_POSTS;
+      return [];
     }
     try {
       const parsed: Post[] = JSON.parse(data);
       if (!Array.isArray(parsed)) {
-        this.saveAllPosts(INITIAL_POSTS);
-        return INITIAL_POSTS;
+        return [];
       }
-      this.memoryPostsCache = parsed;
-      return parsed.map((p) => this.ensurePostEngagement(p));
+      // Filter out legacy mock post IDs to ensure genuine real post feed
+      const mockIds = new Set(INITIAL_POSTS.map((p) => p.id));
+      const cleanPosts = parsed.filter((p) => p && !mockIds.has(p.id));
+      this.memoryPostsCache = cleanPosts;
+      return cleanPosts.map((p) => this.ensurePostEngagement(p));
     } catch {
       if (this.memoryPostsCache && this.memoryPostsCache.length > 0) {
         return this.memoryPostsCache.map((p) => this.ensurePostEngagement(p));
       }
-      return INITIAL_POSTS;
+      return [];
     }
   }
 

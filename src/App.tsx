@@ -29,8 +29,13 @@ import {
   syncUserToSupabase,
   supabaseSetSessionFromUrl,
 } from './services/supabase';
+import {
+  createRealPost,
+  fetchFeedPostsFromSupabase,
+  deleteRealPost,
+} from './services/supabasePosts';
 import { logAuthStateChangeDiagnostic } from './services/authDiagnostic';
-import { DailyStorageService } from './services/storage';
+import { DailyStorageService, getTodayDateString, getYesterdayDateString } from './services/storage';
 import { TopHeader, BottomNavigation } from './components/Navigation';
 import { HomeFeed } from './components/HomeFeed';
 import { ChallengesScreen } from './components/ChallengesScreen';
@@ -555,6 +560,25 @@ export default function App() {
     };
   }, []);
 
+  // Fetch real posts from Supabase database on app startup
+  useEffect(() => {
+    let isMounted = true;
+    fetchFeedPostsFromSupabase()
+      .then((res) => {
+        if (!isMounted) return;
+        if (res.success) {
+          setPosts(res.posts);
+          DailyStorageService.saveAllPosts(res.posts);
+        }
+      })
+      .catch((err) => {
+        console.warn('Initial Supabase feed fetch notice:', err);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   // Toggle Like on a Post
   const handleToggleLike = (postId: string) => {
     const updatedPosts = DailyStorageService.toggleLikePost(postId);
@@ -595,8 +619,8 @@ export default function App() {
     showToast(isMuted ? 'User muted — posts hidden from HomeFeed' : 'User unmuted');
   };
 
-  // Create Post Handler with Streak and Confetti Animation
-  const handleCreatePost = (payload: {
+  // Real Supabase Post Creation Handler with Storage Upload, Streak and Confetti Animation
+  const handleCreatePost = async (payload: {
     content: string;
     imageUrl?: string;
     imageUrls?: string[];
@@ -606,36 +630,95 @@ export default function App() {
     communityId?: string;
     communityName?: string;
     isCollage?: boolean;
-  }) => {
-    // Guardrail: Ensure someone's proof doesn't get posted directly into community or challenges
+  }): Promise<{ success: boolean; error?: string }> => {
     const safePayload = {
       ...payload,
       isMainPost: true,
       communityId: undefined,
       communityName: undefined,
     };
+
     try {
-      const result = DailyStorageService.createPost(safePayload);
-      if (result.error) {
-        showToast(result.error);
-        return;
+      // 1. Upload photo to Supabase Storage & insert record into Supabase `posts` table
+      const opResult = await createRealPost({
+        userId: currentUser.id,
+        user: currentUser,
+        content: safePayload.content,
+        imageInput: safePayload.imageUrl,
+        imageUrls: safePayload.imageUrls,
+        photoCaptions: safePayload.photoCaptions,
+        tags: safePayload.tags,
+        category: safePayload.tags && safePayload.tags[0] ? safePayload.tags[0] : 'General',
+        communityId: safePayload.communityId,
+        communityName: safePayload.communityName,
+        isCollage: safePayload.isCollage,
+      });
+
+      if (!opResult.success || !opResult.post) {
+        showToast(opResult.error || 'Failed to publish post to Supabase.');
+        return { success: false, error: opResult.error };
       }
-      setPosts(DailyStorageService.getAllPosts());
-      setCurrentUser(result.updatedUser);
+
+      const confirmedPost = opResult.post;
+
+      // 2. Only after database confirmation, update the user's streak and local storage
+      const today = getTodayDateString();
+      const yesterday = getYesterdayDateString();
+      const alreadyPostedToday = currentUser.lastPostedDate === today;
+      let newCurrentStreak = currentUser.currentStreak;
+      let newActivityDates = [...currentUser.activityDates];
+      let isNewStreakDay = false;
+
+      if (!alreadyPostedToday) {
+        const isConsecutive = currentUser.lastPostedDate === yesterday;
+        if (isConsecutive || currentUser.currentStreak === 0) {
+          newCurrentStreak = currentUser.currentStreak + 1;
+        } else {
+          newCurrentStreak = 1;
+        }
+        isNewStreakDay = true;
+      }
+
+      if (!newActivityDates.includes(today)) {
+        newActivityDates = [today, ...newActivityDates];
+      }
+
+      const updatedUser: User = {
+        ...currentUser,
+        currentStreak: newCurrentStreak,
+        longestStreak: Math.max(currentUser.longestStreak, newCurrentStreak),
+        totalPosts: currentUser.totalPosts + 1,
+        activityDates: newActivityDates,
+        lastPostedDate: today,
+      };
+
+      DailyStorageService.saveCurrentUser(updatedUser);
+      setCurrentUser(updatedUser);
+
+      // 3. Update posts feed with confirmed post
+      setPosts((prev) => {
+        const next = [confirmedPost, ...prev.filter((p) => p.id !== confirmedPost.id)];
+        DailyStorageService.saveAllPosts(next);
+        return next;
+      });
+
       setIsCreateOpen(false);
 
-      // Tactile haptic vibration feedback on submission
+      // 4. Feedback & celebration
       vibratePostSubmit();
-
-      // Trigger post celebration modal (Nice Post !! Great Proofs!!)
+      showToast('Daily proof published successfully! ✓');
       setCelebrationState({
         isOpen: true,
-        streakCount: result.updatedUser.currentStreak,
-        isNewStreakDay: result.isNewStreakDay,
+        streakCount: updatedUser.currentStreak,
+        isNewStreakDay,
       });
-    } catch (err) {
+
+      return { success: true };
+    } catch (err: any) {
       console.error('Failed to create post:', err);
-      showToast('Could not save post. Please try with fewer photos or smaller images.');
+      const msg = err?.message || 'Could not publish post. Please check your connection.';
+      showToast(msg);
+      return { success: false, error: msg };
     }
   };
 
@@ -889,8 +972,9 @@ export default function App() {
     }
   };
 
-  const executeDeletePost = (postId: string) => {
+  const executeDeletePost = async (postId: string) => {
     vibrateStreakMilestone();
+    const postToDelete = posts.find((p) => p.id === postId);
     const { posts: updatedPosts, updatedUser } = DailyStorageService.deletePost(postId);
     const filtered = (updatedPosts || []).filter((p) => p.id !== postId);
     setPosts(filtered);
@@ -903,6 +987,12 @@ export default function App() {
     if (insightsPost && insightsPost.id === postId) {
       setInsightsPost(null);
     }
+
+    try {
+      await deleteRealPost(postId, currentUser.id, postToDelete?.imageUrl);
+    } catch (delErr) {
+      console.warn('Backend post delete notice:', delErr);
+    }
   };
 
   // Open Post Analytics/Insights
@@ -911,8 +1001,19 @@ export default function App() {
   };
 
   // Feed Refresh Handler
-  const handleFeedRefresh = () => {
-    setPosts(DailyStorageService.getAllPosts());
+  const handleFeedRefresh = async () => {
+    try {
+      const res = await fetchFeedPostsFromSupabase();
+      if (res.success) {
+        setPosts(res.posts);
+        DailyStorageService.saveAllPosts(res.posts);
+      } else {
+        setPosts(DailyStorageService.getAllPosts());
+      }
+    } catch (err) {
+      console.warn('Feed refresh error:', err);
+      setPosts(DailyStorageService.getAllPosts());
+    }
     setNotifications(DailyStorageService.getAllNotifications());
   };
 

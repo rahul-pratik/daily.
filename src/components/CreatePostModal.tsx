@@ -39,11 +39,14 @@ import {
   ZoomIn,
   Sliders,
   Square,
+  Mic,
+  MicOff,
 } from 'lucide-react';
 import { User, Post, Community, PostDraft } from '../types';
 import { getTodayDateString, DailyStorageService } from '../services/storage';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
 import { cropAndCompressImage, AspectRatioType, SquareCropOptions } from '../utils/imageCompressor';
+import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 
 interface CreatePostModalProps {
   isOpen: boolean;
@@ -69,7 +72,7 @@ interface CreatePostModalProps {
     communityId?: string;
     communityName?: string;
     isCollage?: boolean;
-  }) => void;
+  }) => Promise<{ success: boolean; error?: string } | void> | void;
   onAppendPhotosToTodayPost?: (newImageUrls: string[]) => void;
   onViewMyPost?: (postId: string) => void;
   onDraftSaved?: (draft: PostDraft) => void;
@@ -143,6 +146,22 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const hasInitializedRef = useRef(false);
+
+  // Submitting state for real Supabase publishing flow
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Web Speech API dictation integration
+  const {
+    isSupported: isSpeechSupported,
+    isListening: isSpeechListening,
+    toggleListening: toggleSpeechListening,
+    stopListening: stopSpeechListening,
+    error: speechError,
+  } = useSpeechRecognition({
+    onResult: (transcriptChunk) => {
+      setContent((prev) => (prev ? `${prev} ${transcriptChunk}`.trim() : transcriptChunk));
+    },
+  });
 
   const today = getTodayDateString();
   const hasPostedToday = DailyStorageService.hasUserPostedMainToday(currentUser.id);
@@ -701,44 +720,74 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     }, 1200);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!content.trim()) return;
+    if (isSubmitting) return;
+
+    const primaryImg = imageUrls[coverIndex] || imageUrls[0] || imageUrl.trim() || undefined;
+    const hasAnyImage = Boolean(primaryImg || imageUrls.length > 0);
+    const trimmedContent = content.trim();
+
+    // Validation: Require text or photo
+    if (!trimmedContent && !hasAnyImage) {
+      showToast('Please add some text or select a photo to publish your post.');
+      return;
+    }
 
     if (isScheduleMode) {
       handleQueueScheduledPost();
       return;
     }
 
-    vibrateStreakMilestone();
-    const primaryImg = imageUrls[coverIndex] || imageUrls[0] || imageUrl.trim() || undefined;
-    const contentHashtags = extractHashtagsFromText(content);
-    const mergedTags = Array.from(new Set([...selectedTags, ...contentHashtags]));
-    onSubmitPost({
-      content: content.trim(),
-      imageUrl: primaryImg,
-      imageUrls: imageUrls.length > 0 ? imageUrls : (primaryImg ? [primaryImg] : undefined),
-      photoCaptions: photoCaptions.some((c) => c && c.trim()) ? photoCaptions : undefined,
-      tags: mergedTags.length > 0 ? mergedTags : ['DailyProof'],
-      isMainPost: true,
-      isCollage: isCollageGenerated,
-    });
-
-    if (currentDraftId) {
-      DailyStorageService.deleteDraft(currentUser.id, currentDraftId);
+    // Stop speech recognition if still dictating
+    if (isSpeechListening) {
+      stopSpeechListening();
     }
 
-    try {
-      localStorage.removeItem(LAST_DRAFT_STORAGE_KEY);
-    } catch {}
+    setIsSubmitting(true);
+    vibrateStreakMilestone();
+    const contentHashtags = extractHashtagsFromText(content);
+    const mergedTags = Array.from(new Set([...selectedTags, ...contentHashtags]));
 
-    setContent('');
-    setImageUrl('');
-    setImageUrls([]);
-    setPhotoCaptions([]);
-    setSelectedTags(['Building']);
-    setIsCollageGenerated(false);
-    onClose();
+    try {
+      const result = await onSubmitPost({
+        content: trimmedContent,
+        imageUrl: primaryImg,
+        imageUrls: imageUrls.length > 0 ? imageUrls : (primaryImg ? [primaryImg] : undefined),
+        photoCaptions: photoCaptions.some((c) => c && c.trim()) ? photoCaptions : undefined,
+        tags: mergedTags.length > 0 ? mergedTags : ['DailyProof'],
+        isMainPost: true,
+        isCollage: isCollageGenerated,
+      });
+
+      // If submission failed in backend/Supabase, keep form state and notify user
+      if (result && typeof result === 'object' && 'success' in result && !result.success) {
+        showToast(result.error || 'Failed to save post to Supabase. Please retry.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (currentDraftId) {
+        DailyStorageService.deleteDraft(currentUser.id, currentDraftId);
+      }
+
+      try {
+        localStorage.removeItem(LAST_DRAFT_STORAGE_KEY);
+      } catch {}
+
+      setContent('');
+      setImageUrl('');
+      setImageUrls([]);
+      setPhotoCaptions([]);
+      setSelectedTags(['Building']);
+      setIsCollageGenerated(false);
+      setIsSubmitting(false);
+      onClose();
+    } catch (err: any) {
+      console.error('Post submission error:', err);
+      showToast(err?.message || 'Could not publish post. Please check your connection and retry.');
+      setIsSubmitting(false);
+    }
   };
 
   const formattedScheduledPreview = new Date(scheduledDateTime).toLocaleString([], {
@@ -1105,9 +1154,58 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                     <span>Reflection & Main Caption</span>
                   </label>
                   <div className="flex items-center gap-2">
+                    {isSpeechSupported && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateLight();
+                          toggleSpeechListening();
+                        }}
+                        className={`px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                          isSpeechListening
+                            ? 'bg-red-500/20 text-red-400 border border-red-500/40 animate-pulse'
+                            : 'bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/10'
+                        }`}
+                        title={isSpeechListening ? 'Stop dictation' : 'Dictate with speech'}
+                      >
+                        {isSpeechListening ? (
+                          <>
+                            <MicOff className="w-3 h-3 text-red-400" />
+                            <span>Listening...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Mic className="w-3 h-3 text-[#2F6FED]" />
+                            <span>Dictate</span>
+                          </>
+                        )}
+                      </button>
+                    )}
                     <span className="text-[10px] text-white/40">{content.length} chars</span>
                   </div>
                 </div>
+
+                {/* Speech Dictation Status Feedback */}
+                {isSpeechListening && (
+                  <div className="px-3 py-1.5 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center justify-between text-[11px] text-red-400">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                      <span>Dictating thoughts... Speak clearly into microphone</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={stopSpeechListening}
+                      className="text-red-400 hover:text-white font-bold underline text-[10px] cursor-pointer"
+                    >
+                      Done
+                    </button>
+                  </div>
+                )}
+                {speechError && (
+                  <div className="px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-xl text-[10px] text-amber-400">
+                    {speechError}
+                  </div>
+                )}
 
                 <div className="relative">
                   <textarea
@@ -1345,15 +1443,25 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                 ) : (
                   <button
                     type="submit"
-                    disabled={!content.trim()}
-                    className={`flex-1 py-3 px-4 rounded-2xl font-black text-xs transition-all shadow-lg flex items-center justify-center gap-2 min-h-[44px] ${
-                      content.trim()
-                        ? 'bg-[#2F6FED] hover:bg-[#2861d6] text-white shadow-[#2F6FED]/20 hover:scale-[1.01]'
+                    id="post-daily-proof-btn"
+                    disabled={(!content.trim() && imageUrls.length === 0 && !imageUrl.trim()) || isProcessingImages || isSubmitting}
+                    className={`flex-1 py-3 px-4 rounded-2xl font-black text-xs transition-all shadow-lg flex items-center justify-center gap-2 min-h-[44px] cursor-pointer ${
+                      (content.trim() || imageUrls.length > 0 || imageUrl.trim()) && !isProcessingImages && !isSubmitting
+                        ? 'bg-[#2F6FED] hover:bg-[#2861d6] text-white shadow-[#2F6FED]/20 hover:scale-[1.01] active:scale-[0.99]'
                         : 'bg-white/10 text-white/30 cursor-not-allowed'
                     }`}
                   >
-                    <Flame className="w-4 h-4 fill-current" />
-                    <span>Post Daily Proof</span>
+                    {isSubmitting ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                        <span>Publishing to Supabase...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Flame className="w-4 h-4 fill-current" />
+                        <span>Post Daily Proof</span>
+                      </>
+                    )}
                   </button>
                 )}
               </div>

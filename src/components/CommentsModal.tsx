@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, Send, Flame, Heart } from 'lucide-react';
+import { X, Send, Flame, Heart, Mic, MicOff } from 'lucide-react';
 import { Post, User } from '../types';
+import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 
 interface CommentsModalProps {
   post: Post | null;
@@ -18,6 +19,12 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({
   onViewUser,
 }) => {
   const [commentText, setCommentText] = useState('');
+
+  const { isSupported, isListening, startListening, stopListening, toggleListening, error: speechError } = useSpeechRecognition({
+    onResult: (transcriptChunk) => {
+      setCommentText((prev) => (prev ? `${prev} ${transcriptChunk}`.trim() : transcriptChunk));
+    },
+  });
 
   if (!post) return null;
 
@@ -46,6 +53,9 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!commentText.trim()) return;
+    if (isListening) {
+      stopListening();
+    }
     onAddComment(post.id, commentText.trim());
     setCommentText('');
   };
@@ -139,6 +149,28 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({
           )}
         </div>
 
+        {/* Speech recognition feedback banner if active or error */}
+        {isListening && (
+          <div className="px-4 py-1.5 bg-red-500/10 border-t border-red-500/20 flex items-center justify-between text-[11px] text-red-400">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              <span>Listening to dictation... Speak clearly</span>
+            </div>
+            <button
+              type="button"
+              onClick={stopListening}
+              className="text-red-400 hover:text-white font-medium underline text-[10px]"
+            >
+              Done
+            </button>
+          </div>
+        )}
+        {speechError && (
+          <div className="px-4 py-1 bg-amber-500/10 text-[10px] text-amber-400">
+            {speechError}
+          </div>
+        )}
+
         {/* Comment input form */}
         <form onSubmit={handleSubmit} className="p-3 border-t border-white/5 bg-[#0A0A0A] flex items-center gap-2">
           <img
@@ -147,13 +179,29 @@ export const CommentsModal: React.FC<CommentsModalProps> = ({
             referrerPolicy="no-referrer"
             className="w-7 h-7 rounded-full object-cover border border-white/10"
           />
-          <input
-            type="text"
-            value={commentText}
-            onChange={(e) => setCommentText(e.target.value)}
-            placeholder={`Add a comment as ${currentUser.username}...`}
-            className="flex-1 px-3 py-2 bg-white/5 border border-white/10 focus:border-blue-500 rounded-xl text-xs text-white placeholder-white/30 outline-none transition-colors"
-          />
+          <div className="relative flex-1 flex items-center">
+            <input
+              type="text"
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              placeholder={`Add a comment as ${currentUser.username}...`}
+              className="w-full pl-3 pr-8 py-2 bg-white/5 border border-white/10 focus:border-blue-500 rounded-xl text-xs text-white placeholder-white/30 outline-none transition-colors"
+            />
+            {isSupported && (
+              <button
+                type="button"
+                onClick={toggleListening}
+                title={isListening ? 'Stop dictation' : 'Dictate with speech'}
+                className={`absolute right-2 p-1 rounded-lg transition-colors ${
+                  isListening
+                    ? 'text-red-400 hover:text-red-300 animate-pulse'
+                    : 'text-white/40 hover:text-white/80'
+                }`}
+              >
+                {isListening ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+              </button>
+            )}
+          </div>
           <button
             type="submit"
             disabled={!commentText.trim()}

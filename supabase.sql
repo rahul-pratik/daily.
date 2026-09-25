@@ -1,30 +1,4 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
-/**
- * Supabase SQL DDL Schema Script
- * This script is provided for users to paste directly into the Supabase SQL Editor
- * to provision all 15 tables, unique username indexes, and bulletproof RLS policies:
- * 1. users
- * 2. profiles
- * 3. posts
- * 4. challenges
- * 5. challenges_members
- * 6. saves
- * 7. drafts
- * 8. likes
- * 9. comments
- * 10. follows
- * 11. communities
- * 12. community_members
- * 13. messages
- * 14. notifications
- * 15. reports
- */
-
-export const SUPABASE_SQL_SCHEMA = `-- ==============================================================================
+-- ==============================================================================
 -- DAILY APP - PRODUCTION SUPABASE DATABASE SCHEMA & BULLETPROOF RLS POLICIES
 -- Contains all 15 tables:
 --  1. users
@@ -147,8 +121,11 @@ END $$;
 CREATE TABLE IF NOT EXISTS public.posts (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   user_id TEXT NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  image_url TEXT NOT NULL,
+  image_url TEXT,
+  image TEXT,
   caption TEXT,
+  content TEXT,
+  tags TEXT[] DEFAULT '{}',
   challenge_title TEXT,
   category TEXT DEFAULT 'General',
   habit_tag TEXT,
@@ -160,8 +137,48 @@ CREATE TABLE IF NOT EXISTS public.posts (
   author_name TEXT,
   author_username TEXT,
   author_avatar TEXT,
-  created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Defensive schema adjustments in case posts table was previously created with strict NOT NULL image_url
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' AND table_name = 'posts' AND column_name = 'image_url' AND is_nullable = 'NO'
+  ) THEN
+    ALTER TABLE public.posts ALTER COLUMN image_url DROP NOT NULL;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' AND table_name = 'posts' AND column_name = 'content'
+  ) THEN
+    ALTER TABLE public.posts ADD COLUMN content TEXT;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' AND table_name = 'posts' AND column_name = 'image'
+  ) THEN
+    ALTER TABLE public.posts ADD COLUMN image TEXT;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' AND table_name = 'posts' AND column_name = 'tags'
+  ) THEN
+    ALTER TABLE public.posts ADD COLUMN tags TEXT[] DEFAULT '{}';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' AND table_name = 'posts' AND column_name = 'updated_at'
+  ) THEN
+    ALTER TABLE public.posts ADD COLUMN updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL;
+  END IF;
+END $$;
 
 -- ==============================================================================
 -- 4. CHALLENGES TABLE
@@ -505,7 +522,6 @@ DROP POLICY IF EXISTS "Creators can delete their challenges" ON public.challenge
 CREATE POLICY "Creators can delete their challenges"
   ON public.challenges FOR DELETE USING (auth.uid()::text = creator_id);
 
--- Challenge members are readable by everyone
 DROP POLICY IF EXISTS "Challenge members are readable by everyone" ON public.challenges_members;
 CREATE POLICY "Challenge members are readable by everyone"
   ON public.challenges_members FOR SELECT USING (true);
@@ -696,7 +712,8 @@ DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = 'storage') THEN
     INSERT INTO storage.buckets (id, name, public) 
-    VALUES ('media', 'media', true),
+    VALUES ('posts', 'posts', true),
+           ('media', 'media', true),
            ('avatars', 'avatars', true),
            ('proofs', 'proofs', true)
     ON CONFLICT (id) DO UPDATE SET public = true;
@@ -705,28 +722,27 @@ BEGIN
     DROP POLICY IF EXISTS "Public can view media" ON storage.objects;
     CREATE POLICY "Public can view media"
       ON storage.objects FOR SELECT
-      USING (bucket_id IN ('media', 'avatars', 'proofs'));
+      USING (bucket_id IN ('posts', 'media', 'avatars', 'proofs'));
 
     -- Authenticated creators can upload media
     DROP POLICY IF EXISTS "Authenticated users can upload media" ON storage.objects;
     CREATE POLICY "Authenticated users can upload media"
       ON storage.objects FOR INSERT
-      WITH CHECK (bucket_id IN ('media', 'avatars', 'proofs'));
+      WITH CHECK (bucket_id IN ('posts', 'media', 'avatars', 'proofs'));
 
     -- Creators can only update or delete their own media
     DROP POLICY IF EXISTS "Users can update own media" ON storage.objects;
     CREATE POLICY "Users can update own media"
       ON storage.objects FOR UPDATE
-      USING (bucket_id IN ('media', 'avatars', 'proofs') AND (auth.uid()::text = owner::text OR auth.role() = 'anon'));
+      USING (bucket_id IN ('posts', 'media', 'avatars', 'proofs') AND (auth.uid()::text = owner::text OR auth.role() = 'anon'));
 
     -- Creators can delete own media
     DROP POLICY IF EXISTS "Users can delete own media" ON storage.objects;
     CREATE POLICY "Users can delete own media"
       ON storage.objects FOR DELETE
-      USING (bucket_id IN ('media', 'avatars', 'proofs') AND (auth.uid()::text = owner::text OR auth.role() = 'anon'));
+      USING (bucket_id IN ('posts', 'media', 'avatars', 'proofs') AND (auth.uid()::text = owner::text OR auth.role() = 'anon'));
   END IF;
 EXCEPTION
   WHEN OTHERS THEN
     RAISE NOTICE 'Storage bucket setup notice: %', SQLERRM;
 END $$;
-`;
