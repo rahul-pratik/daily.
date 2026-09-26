@@ -37,7 +37,7 @@ import {
   RefreshCw,
   Copy,
 } from 'lucide-react';
-import { User as UserType, Post, PostDraft } from '../types';
+import { User as UserType, Post, PostDraft, ContentReport } from '../types';
 import { DailyStorageService } from '../services/storage';
 import { vibrateLight, vibrateStreakMilestone } from '../services/haptics';
 import {
@@ -110,18 +110,47 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
     }
   }, [isOpen, currentUser]);
 
-  // Blocked Users Management View State
-  const [activeView, setActiveView] = useState<'main' | 'blocked_users'>('main');
+  // Blocked Users & Content Moderation View State
+  const [activeView, setActiveView] = useState<'main' | 'blocked_users' | 'moderation'>('main');
   const [blockedUsers, setBlockedUsers] = useState<UserType[]>([]);
   const [searchBlockedQuery, setSearchBlockedQuery] = useState('');
   const [unblockedToastMessage, setUnblockedToastMessage] = useState<string | null>(null);
+  const [reports, setReports] = useState<ContentReport[]>([]);
+  const [allModerationPosts, setAllModerationPosts] = useState<Post[]>([]);
+  const [moderationToast, setModerationToast] = useState<string | null>(null);
 
-  // Sync blocked users whenever modal opens or blocked IDs change
+  // Sync blocked users and reports whenever modal opens
   useEffect(() => {
     if (isOpen) {
       setBlockedUsers(DailyStorageService.getBlockedUsers());
+      setReports(DailyStorageService.getAllReports());
+      setAllModerationPosts(DailyStorageService.getAllPosts());
     }
   }, [isOpen, currentUser.blockedUserIds]);
+
+  const handleModeratePost = (
+    postId: string,
+    status: 'published' | 'removed',
+    reason: string,
+    reportId?: string
+  ) => {
+    vibrateLight();
+    DailyStorageService.moderatePost(postId, status, reason, currentUser.id);
+    if (reportId) {
+      DailyStorageService.updateReportStatus(
+        reportId,
+        status === 'removed' ? 'resolved' : 'dismissed'
+      );
+    }
+    setReports(DailyStorageService.getAllReports());
+    setAllModerationPosts(DailyStorageService.getAllPosts());
+    setModerationToast(
+      status === 'removed'
+        ? 'Post removed and moderation reason recorded.'
+        : 'Post reviewed and restored to feed.'
+    );
+    setTimeout(() => setModerationToast(null), 3000);
+  };
 
   // Previous accounts list for switcher count and quick selection
   const previousAccounts = useMemo(() => {
@@ -344,6 +373,30 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                 <p className="text-[11px] text-white/50">Manage accounts hidden from your HomeFeed</p>
               </div>
             </div>
+          ) : activeView === 'moderation' ? (
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                id="settings-moderation-back-btn"
+                onClick={() => {
+                  vibrateLight();
+                  setActiveView('main');
+                }}
+                className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
+                aria-label="Back to settings"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <div>
+                <h2 className="text-base font-black text-white flex items-center gap-2">
+                  <span>Content Safety & Moderation</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 font-mono">
+                    {reports.filter((r) => r.status === 'pending').length} pending
+                  </span>
+                </h2>
+                <p className="text-[11px] text-white/50">Human moderation queue & safety review</p>
+              </div>
+            </div>
           ) : (
             <div>
               <h2 className="text-base font-black text-white flex items-center gap-2">
@@ -482,6 +535,136 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                 >
                   Clear search
                 </button>
+              </div>
+            )}
+          </div>
+        ) : activeView === 'moderation' ? (
+          <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0 mt-0.5">
+                <ShieldAlert className="w-4 h-4" />
+              </div>
+              <div className="flex-1">
+                <h4 className="text-xs font-bold text-white">Daily V1 Content Safety Queue</h4>
+                <p className="text-[11px] text-white/60 mt-0.5 leading-relaxed">
+                  Reported posts are placed under review and never promoted. Moderators can remove violating posts (recording the reason) or dismiss reports.
+                </p>
+              </div>
+            </div>
+
+            {moderationToast && (
+              <div className="p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-400" />
+                <span>{moderationToast}</span>
+              </div>
+            )}
+
+            {reports.length === 0 ? (
+              <div className="p-8 rounded-2xl bg-white/[0.02] border border-white/10 text-center flex flex-col items-center justify-center space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                  <ShieldCheck className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-white">No Content Reports</h4>
+                  <p className="text-xs text-white/50 max-w-xs mt-1 leading-relaxed">
+                    All submitted post and user safety reports will appear here for human review.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {reports.map((rep) => {
+                  const targetPost = rep.post_id
+                    ? allModerationPosts.find((p) => p.id === rep.post_id)
+                    : undefined;
+                  return (
+                    <div
+                      key={rep.id}
+                      className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 space-y-2.5"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500/15 text-red-400 border border-red-500/30">
+                            {rep.reason}
+                          </span>
+                          <span className="text-[10px] font-mono text-white/40">
+                            {rep.post_id ? 'Post Report' : 'User Report'}
+                          </span>
+                        </div>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase ${
+                            rep.status === 'resolved'
+                              ? 'bg-red-500/20 text-red-300'
+                              : rep.status === 'dismissed'
+                              ? 'bg-emerald-500/20 text-emerald-300'
+                              : 'bg-amber-500/20 text-amber-300'
+                          }`}
+                        >
+                          {rep.status}
+                        </span>
+                      </div>
+
+                      {rep.description && (
+                        <p className="text-xs text-white/80 bg-black/40 p-2.5 rounded-xl border border-white/5">
+                          "{rep.description}"
+                        </p>
+                      )}
+
+                      {targetPost && (
+                        <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/10 space-y-1">
+                          <div className="flex items-center justify-between text-[10px] text-white/50">
+                            <span>Author: @{targetPost.username}</span>
+                            <span>Status: {targetPost.moderation_status || 'published'}</span>
+                          </div>
+                          <p className="text-xs text-white/90 line-clamp-2">{targetPost.content}</p>
+                          {targetPost.moderation_reason && (
+                            <p className="text-[10px] text-red-400 font-mono">
+                              Reason recorded: {targetPost.moderation_reason}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-[10px] text-white/30 font-mono">
+                          ID: {rep.id.slice(-8)} • {new Date(rep.created_at).toLocaleDateString()}
+                        </span>
+                        {rep.post_id && (
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleModeratePost(
+                                  rep.post_id!,
+                                  'published',
+                                  'Reviewed and approved by moderator',
+                                  rep.id
+                                )
+                              }
+                              className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-[11px] font-bold transition-colors cursor-pointer"
+                            >
+                              Keep Post
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleModeratePost(
+                                  rep.post_id!,
+                                  'removed',
+                                  `Removed for ${rep.reason}${rep.description ? ': ' + rep.description : ''}`,
+                                  rep.id
+                                )
+                              }
+                              className="px-2.5 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 text-[11px] font-bold transition-colors cursor-pointer"
+                            >
+                              Remove Post
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1220,6 +1403,45 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                 </div>
               )}
             </div>
+
+            {/* Content Safety & Moderation Entry */}
+            <button
+              type="button"
+              id="settings-moderation-btn"
+              onClick={() => {
+                vibrateLight();
+                setReports(DailyStorageService.getAllReports());
+                setAllModerationPosts(DailyStorageService.getAllPosts());
+                setActiveView('moderation');
+              }}
+              className="w-full p-3.5 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-amber-500/30 transition-all flex items-center justify-between text-left group cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0 group-hover:scale-105 transition-transform">
+                  <ShieldAlert className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-white group-hover:text-amber-300 transition-colors">
+                      Content Safety & Moderation
+                    </span>
+                    <span
+                      className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                        reports.filter((r) => r.status === 'pending').length > 0
+                          ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                          : 'bg-white/5 text-white/50 border-white/10'
+                      }`}
+                    >
+                      {reports.length} reports
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-white/50 mt-0.5">
+                    Review reported posts, moderate content & safety logs
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-white/30 group-hover:text-white group-hover:translate-x-0.5 transition-all shrink-0" />
+            </button>
 
             {/* Blocked Users Management Entry */}
             <button

@@ -27,6 +27,9 @@ import {
   ChallengeLeaderboard,
   ChallengeWeeklyRecap,
   DEFAULT_USER_AVATAR,
+  ContentReport,
+  PostModerationStatus,
+  ReportReason,
 } from '../types';
 import { INITIAL_CURRENT_USER, SAMPLE_USERS, INITIAL_POSTS, INITIAL_MESSAGES, SAMPLE_GROUPS, INITIAL_PERSONAL_HABITS, INITIAL_COMMUNITIES, INITIAL_NOTIFICATIONS, INITIAL_USER_NOTES, getPastDate } from '../data/mockData';
 import { INITIAL_COMMUNITY_DISCUSSIONS } from '../data/communityDiscussionsData';
@@ -52,12 +55,14 @@ import {
   syncMessageToSupabase,
   syncNotificationToSupabase,
   syncReportToSupabase,
+  syncPostModerationToSupabase,
 } from './supabaseDataSync';
 
 const STORAGE_KEYS = {
   CURRENT_USER: 'daily_app_current_user_v1',
   USERS: 'daily_app_users_v1',
   POSTS: 'daily_app_posts_v1',
+  CONTENT_REPORTS: 'daily_app_content_reports_v1',
   MESSAGES: 'daily_app_messages_v1',
   GROUPS: 'daily_app_groups_v1',
   COMMUNITIES: 'daily_app_communities_v1',
@@ -156,7 +161,21 @@ export class DailyStorageService {
         changed = true;
       }
       if (!Array.isArray(user.proofCollections)) {
-        user.proofCollections = INITIAL_CURRENT_USER.proofCollections || [];
+        user.proofCollections = [];
+        changed = true;
+      } else if (user.proofCollections.some((c) => ['col_running', 'col_coding', 'col_gym'].includes(c.id))) {
+        user.proofCollections = user.proofCollections.filter((c) => !['col_running', 'col_coding', 'col_gym'].includes(c.id));
+        changed = true;
+      }
+      if (user.id === 'user_me' && user.currentStreak === 7 && user.totalPosts === 24) {
+        user.currentStreak = 0;
+        user.longestStreak = 0;
+        user.totalPosts = 0;
+        user.activityDates = [];
+        user.followersCount = 0;
+        user.followingCount = 0;
+        user.followedUserIds = [];
+        user.lastPostedDate = null;
         changed = true;
       }
       if (!Array.isArray(user.blockedUserIds)) {
@@ -690,6 +709,24 @@ export class DailyStorageService {
       removeFollowFromSupabase(currentUser.id, targetUserId);
     } else {
       syncFollowToSupabase(currentUser.id, targetUserId);
+      const targetUser = users.find(u => u.id === targetUserId);
+      if (targetUser) {
+        this.addNotification({
+          type: 'follow',
+          actorId: currentUser.id,
+          actorName: currentUser.name || currentUser.username || 'Someone',
+          actorUsername: currentUser.username || 'creator',
+          actorAvatar: currentUser.avatar,
+          actorStreak: currentUser.currentStreak,
+          recipientId: targetUserId,
+          targetId: targetUserId,
+          targetPreview: 'Started following you',
+          message: `started following @${targetUser.username}`,
+          isRead: false,
+          timestamp: Date.now(),
+          createdAt: 'Just now',
+        });
+      }
     }
 
     return { currentUser: updatedCurrentUser, updatedUsers };
@@ -717,6 +754,24 @@ export class DailyStorageService {
     // Sync to Supabase likes table
     if (isNowLiked) {
       syncLikeToSupabase(currentUser.id, postId);
+      const targetPost = posts.find((p) => p.id === postId);
+      if (targetPost) {
+        this.addNotification({
+          type: 'cheer',
+          actorId: currentUser.id,
+          actorName: currentUser.name || currentUser.username || 'Someone',
+          actorUsername: currentUser.username || 'creator',
+          actorAvatar: currentUser.avatar,
+          actorStreak: currentUser.currentStreak,
+          recipientId: targetPost.userId,
+          targetId: postId,
+          targetPreview: targetPost.content?.substring(0, 45) || 'daily proof',
+          message: 'cheered your daily proof',
+          isRead: false,
+          timestamp: Date.now(),
+          createdAt: 'Just now',
+        });
+      }
     } else {
       removeLikeFromSupabase(currentUser.id, postId);
     }
@@ -748,11 +803,29 @@ export class DailyStorageService {
       }
       return post;
     });
-
     this.saveAllPosts(updated);
 
-    // Sync to Supabase comments table
+    // Sync to Supabase
     syncCommentToSupabase(postId, newComment);
+
+    const targetPost = posts.find((p) => p.id === postId);
+    if (targetPost) {
+      this.addNotification({
+        type: 'comment',
+        actorId: user.id,
+        actorName: user.name || user.username || 'Someone',
+        actorUsername: user.username || 'creator',
+        actorAvatar: user.avatar,
+        actorStreak: user.currentStreak,
+        recipientId: targetPost.userId,
+        targetId: postId,
+        targetPreview: content.substring(0, 45),
+        message: `commented: "${content.substring(0, 35)}"`,
+        isRead: false,
+        timestamp: Date.now(),
+        createdAt: 'Just now',
+      });
+    }
 
     return { posts: updated, comment: newComment };
   }
@@ -1086,7 +1159,7 @@ export class DailyStorageService {
     return { savedPostIds: updated, isSaved: !isSaved };
   }
 
-  // Reported Posts
+  // Reported Posts & Moderation
   static getReportedPostIds(): string[] {
     const data = localStorage.getItem(STORAGE_KEYS.REPORTED_POSTS);
     if (!data) return [];
@@ -1102,16 +1175,192 @@ export class DailyStorageService {
     localStorage.setItem(STORAGE_KEYS.REPORTED_POSTS, JSON.stringify(ids));
   }
 
-  static reportPost(postId: string, reason: string): { reportedPostIds: string[]; success: boolean } {
+  // --- CONTENT SAFETY & HUMAN MODERATION (V1) ---
+  static getAllReports(): ContentReport[] {
+    const data = localStorage.getItem(STORAGE_KEYS.CONTENT_REPORTS);
+    if (!data) return [];
+    try {
+      const parsed = JSON.parse(data);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  static saveAllReports(reports: ContentReport[]): void {
+    localStorage.setItem(STORAGE_KEYS.CONTENT_REPORTS, JSON.stringify(reports));
+  }
+
+  static createReport(reportData: {
+    post_id?: string;
+    reported_user_id?: string;
+    reason: ReportReason | string;
+    description?: string;
+    reporter_id?: string;
+  }): { report: ContentReport; success: boolean } {
     const currentUser = this.getCurrentUser();
-    const current = this.getReportedPostIds();
-    const updated = Array.from(new Set([...current, postId]));
-    this.saveReportedPostIds(updated);
+    const reporterId = reportData.reporter_id || currentUser.id;
+    const reportId = `report_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
-    // Sync to Supabase reports table
-    syncReportToSupabase(currentUser.id, 'post', postId, reason);
+    const newReport: ContentReport = {
+      id: reportId,
+      reporter_id: reporterId,
+      post_id: reportData.post_id,
+      reported_user_id: reportData.reported_user_id,
+      reason: reportData.reason,
+      description: reportData.description || '',
+      status: 'pending',
+      created_at: new Date().toISOString(),
+    };
 
-    return { reportedPostIds: updated, success: true };
+    const existingReports = this.getAllReports();
+    this.saveAllReports([newReport, ...existingReports]);
+
+    // If a post is reported:
+    if (reportData.post_id) {
+      // 1. Hide from reporter's feed
+      const current = this.getReportedPostIds();
+      this.saveReportedPostIds(Array.from(new Set([...current, reportData.post_id])));
+
+      // 2. Mark moderation_status as 'under_review' so it is NOT automatically promoted or featured
+      const allPosts = this.getAllPosts();
+      const updatedPosts = allPosts.map((p) => {
+        if (p.id === reportData.post_id) {
+          return {
+            ...p,
+            isReported: true,
+            moderation_status: (p.moderation_status === 'removed' ? 'removed' : 'under_review') as PostModerationStatus,
+          };
+        }
+        return p;
+      });
+      this.saveAllPosts(updatedPosts);
+    }
+
+    // Sync to Supabase
+    syncReportToSupabase({
+      id: newReport.id,
+      reporter_id: newReport.reporter_id,
+      post_id: newReport.post_id,
+      reported_user_id: newReport.reported_user_id,
+      reason: newReport.reason,
+      description: newReport.description,
+      status: newReport.status,
+      created_at: newReport.created_at,
+    });
+
+    // Notify the user about the report submission
+    this.addNotification({
+      type: 'cheer',
+      actorId: 'system_safety',
+      actorName: 'Daily Trust & Safety',
+      actorUsername: 'safety',
+      actorAvatar: DEFAULT_USER_AVATAR,
+      actorStreak: 100,
+      recipientId: newReport.reporter_id,
+      targetId: newReport.id,
+      targetPreview: `Report #${newReport.id.slice(-6)} received (${newReport.reason}).`,
+      message: `received your report (${newReport.reason}). Human moderation will review this.`,
+      isRead: false,
+      timestamp: Date.now(),
+      createdAt: 'Just now',
+    });
+
+    return { report: newReport, success: true };
+  }
+
+  static reportPost(
+    postId: string,
+    reason: string,
+    description: string = ''
+  ): { reportedPostIds: string[]; success: boolean; report?: ContentReport } {
+    const allPosts = this.getAllPosts();
+    const targetPost = allPosts.find((p) => p.id === postId);
+
+    const { report } = this.createReport({
+      post_id: postId,
+      reported_user_id: targetPost?.userId,
+      reason,
+      description,
+    });
+
+    return {
+      reportedPostIds: this.getReportedPostIds(),
+      success: true,
+      report,
+    };
+  }
+
+  static reportUser(
+    reportedUserId: string,
+    reason: string,
+    description: string = ''
+  ): { success: boolean; report?: ContentReport } {
+    const { report } = this.createReport({
+      reported_user_id: reportedUserId,
+      reason,
+      description,
+    });
+
+    return { success: true, report };
+  }
+
+  static updateReportStatus(
+    reportId: string,
+    status: ContentReport['status']
+  ): void {
+    const reports = this.getAllReports();
+    const updated = reports.map((r) => (r.id === reportId ? { ...r, status } : r));
+    this.saveAllReports(updated);
+  }
+
+  static moderatePost(
+    postId: string,
+    status: PostModerationStatus,
+    reason?: string,
+    moderatorId?: string
+  ): { success: boolean; post?: Post } {
+    const currentUser = this.getCurrentUser();
+    const effectiveModerator = moderatorId || currentUser.username || currentUser.id;
+    const nowIso = new Date().toISOString();
+
+    const allPosts = this.getAllPosts();
+    let updatedTargetPost: Post | undefined;
+
+    const nextPosts = allPosts.map((p) => {
+      if (p.id === postId) {
+        updatedTargetPost = {
+          ...p,
+          moderation_status: status,
+          moderation_reason: reason || 'Violation of community safety standards',
+          moderated_at: nowIso,
+          moderated_by: effectiveModerator,
+          isReported: status === 'removed',
+        };
+        return updatedTargetPost;
+      }
+      return p;
+    });
+
+    this.saveAllPosts(nextPosts);
+
+    // Update corresponding reports
+    const reports = this.getAllReports();
+    const updatedReports = reports.map((r) => {
+      if (r.post_id === postId) {
+        return {
+          ...r,
+          status: (status === 'removed' ? 'resolved' : 'reviewed') as ContentReport['status'],
+        };
+      }
+      return r;
+    });
+    this.saveAllReports(updatedReports);
+
+    // Sync moderation record to Supabase
+    syncPostModerationToSupabase(postId, status, reason, effectiveModerator);
+
+    return { success: true, post: updatedTargetPost };
   }
 
   // Groups
@@ -1667,14 +1916,15 @@ export class DailyStorageService {
     };
 
     if (!data) {
-      this.saveAllCommunities(INITIAL_COMMUNITIES);
-      return INITIAL_COMMUNITIES;
+      return [];
     }
     try {
       const parsed = JSON.parse(data);
-      return Array.isArray(parsed) ? cleanDefaultBanners(parsed) : INITIAL_COMMUNITIES;
+      const mockIds = ['comm_thirties_india', 'comm_code100', 'comm_indie_founders', 'comm_morning_runners', 'comm_deep_reading', 'comm_ai_explorers'];
+      const realCommunities = Array.isArray(parsed) ? parsed.filter((c: Community) => !mockIds.includes(c.id)) : [];
+      return cleanDefaultBanners(realCommunities);
     } catch {
-      return INITIAL_COMMUNITIES;
+      return [];
     }
   }
 
@@ -1739,6 +1989,21 @@ export class DailyStorageService {
     // Sync to Supabase communities and community_members tables
     if (status === 'joined') {
       syncCommunityMemberToSupabase(communityId, currentUser.id);
+      this.addNotification({
+        type: 'community_approved',
+        actorId: currentUser.id,
+        actorName: currentUser.name || currentUser.username || 'You',
+        actorUsername: currentUser.username || 'creator',
+        actorAvatar: currentUser.avatar,
+        actorStreak: currentUser.currentStreak,
+        recipientId: currentUser.id,
+        targetId: communityId,
+        targetPreview: 'Joined community space',
+        message: 'joined a community space',
+        isRead: false,
+        timestamp: Date.now(),
+        createdAt: 'Just now',
+      });
     } else if (status === 'left') {
       removeCommunityMemberFromSupabase(communityId, currentUser.id);
     }
@@ -1808,6 +2073,22 @@ export class DailyStorageService {
     // Sync to Supabase communities and community_members tables
     syncCommunityToSupabase(newCommunity);
     syncCommunityMemberToSupabase(newCommunity.id, currentUser.id, 'creator');
+
+    this.addNotification({
+      type: 'community_approved',
+      actorId: currentUser.id,
+      actorName: currentUser.name || currentUser.username || 'You',
+      actorUsername: currentUser.username || 'creator',
+      actorAvatar: currentUser.avatar,
+      actorStreak: currentUser.currentStreak,
+      recipientId: currentUser.id,
+      targetId: newCommunity.id,
+      targetPreview: `Created community: "${newCommunity.name}"`,
+      message: `created community "${newCommunity.name}"`,
+      isRead: false,
+      timestamp: Date.now(),
+      createdAt: 'Just now',
+    });
 
     return newCommunity;
   }
@@ -2881,24 +3162,41 @@ export class DailyStorageService {
   static filterPostsForHomeFeed(posts: Post[]): Post[] {
     const blockedSet = this.getBlockedUserSet();
     const mutedSet = this.getMutedUserSet();
-    if (blockedSet.size === 0 && mutedSet.size === 0) {
-      return posts;
-    }
-    return posts.filter((post) => !blockedSet.has(post.userId) && !mutedSet.has(post.userId));
+    const reportedIds = new Set(this.getReportedPostIds());
+
+    return posts.filter((post) => {
+      // 1. Content Safety V1: Only display posts with published status; exclude under_review and removed
+      if (post.moderation_status === 'removed' || post.moderation_status === 'under_review') {
+        return false;
+      }
+
+      // 2. Hide blocked & muted creators
+      if (blockedSet.has(post.userId) || mutedSet.has(post.userId)) {
+        return false;
+      }
+
+      // 3. Hide reported posts from normal feed
+      if (post.isReported || reportedIds.has(post.id)) {
+        return false;
+      }
+
+      return true;
+    });
   }
 
   // Personal Habits Management
   static getPersonalHabits(): PersonalHabit[] {
     const data = localStorage.getItem(STORAGE_KEYS.HABITS);
     if (!data) {
-      this.savePersonalHabits(INITIAL_PERSONAL_HABITS);
-      return INITIAL_PERSONAL_HABITS;
+      return [];
     }
     try {
       const parsed = JSON.parse(data);
-      return Array.isArray(parsed) ? parsed : INITIAL_PERSONAL_HABITS;
+      if (!Array.isArray(parsed)) return [];
+      const mockHabitIds = ['habit_1', 'habit_2', 'habit_3', 'habit_4', 'habit_5'];
+      return parsed.filter((h: PersonalHabit) => !mockHabitIds.includes(h.id));
     } catch {
-      return INITIAL_PERSONAL_HABITS;
+      return [];
     }
   }
 
@@ -3004,19 +3302,18 @@ export class DailyStorageService {
     const data = localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS);
     let list: AppNotification[] = [];
     if (!data) {
-      list = [...INITIAL_NOTIFICATIONS];
-      this.saveAllNotifications(list);
-      return list;
+      return [];
     }
     try {
       const parsed = JSON.parse(data);
-      list = Array.isArray(parsed) ? parsed : [...INITIAL_NOTIFICATIONS];
+      list = Array.isArray(parsed) ? parsed : [];
     } catch {
-      list = [...INITIAL_NOTIFICATIONS];
+      list = [];
     }
 
-    // Clean up any legacy or hardcoded notif_squad_invite_demo notification
-    const cleaned = list.filter((n) => n.id !== 'notif_squad_invite_demo');
+    // Clean up any legacy or mock notifications
+    const mockNotifIds = ['notif_1', 'notif_2', 'notif_3', 'notif_4', 'notif_5', 'notif_squad_invite_demo'];
+    const cleaned = list.filter((n) => !mockNotifIds.includes(n.id));
     if (cleaned.length !== list.length) {
       list = cleaned;
       this.saveAllNotifications(list);
@@ -3237,472 +3534,24 @@ export class DailyStorageService {
   // CHALLENGES ENGINE
   // ==========================================
   static getInitialChallenges(): Challenge[] {
-    return [
-      {
-        id: 'challenge_duo_builder',
-        title: 'Startup Sprint: 30-Day Duo Builder',
-        description: 'Team up with an accountability partner (2 builders). Ship features and submit daily progress receipts together!',
-        icon: '🚀',
-        category: 'Coding',
-        tag: 'DuoSprint',
-        durationDays: 30,
-        deadlineDate: '2026-09-30',
-        createdBy: 'user_sarah',
-        createdByName: 'Sarah Chen',
-        createdAt: '2026-08-01',
-        participantsCount: 8420,
-        participantIds: ['user_me', 'user_marcus', 'user_sarah', 'user_david', 'user_aryan', 'user_priya'],
-        completedUserIds: [],
-        challengeType: 'group',
-        teamSize: 2,
-        teams: [
-          {
-            id: 'team_titans_duo',
-            challengeId: 'challenge_duo_builder',
-            name: 'Code Titans',
-            motto: 'Ship fast, break limits',
-            leaderId: 'user_me',
-            leaderName: 'Alex Rivera',
-            maxMembers: 2,
-            memberIds: ['user_me', 'user_marcus'],
-            members: [
-              {
-                userId: 'user_me',
-                userName: 'Alex Rivera',
-                userUsername: 'alexrivera',
-                userAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
-                userStreak: 21,
-                joinedAt: '2026-08-01',
-                role: 'leader',
-              },
-              {
-                userId: 'user_marcus',
-                userName: 'Marcus Vance',
-                userUsername: 'marcus_fit',
-                userAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80',
-                userStreak: 27,
-                joinedAt: '2026-08-01',
-                role: 'member',
-              },
-            ],
-            createdAt: '2026-08-01',
-            totalCheckinsCount: 38,
-          },
-          {
-            id: 'team_nexus_duo',
-            challengeId: 'challenge_duo_builder',
-            name: 'Nexus Forge',
-            motto: 'Zero downtime builders',
-            leaderId: 'user_sarah',
-            leaderName: 'Sarah Chen',
-            maxMembers: 2,
-            memberIds: ['user_sarah', 'user_david'],
-            members: [
-              {
-                userId: 'user_sarah',
-                userName: 'Sarah Chen',
-                userUsername: 'sarahcodes',
-                userAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80',
-                userStreak: 21,
-                joinedAt: '2026-08-01',
-                role: 'leader',
-              },
-              {
-                userId: 'user_david',
-                userName: 'David Kim',
-                userUsername: 'davidk_dev',
-                userAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
-                userStreak: 19,
-                joinedAt: '2026-08-01',
-                role: 'member',
-              },
-            ],
-            createdAt: '2026-08-01',
-            totalCheckinsCount: 36,
-          },
-        ],
-        userPostDates: {
-          user_me: [
-            getPastDate(17), getPastDate(16), getPastDate(15), getPastDate(14),
-            getPastDate(13), getPastDate(12), getPastDate(11), getPastDate(10),
-            getPastDate(9), getPastDate(8), getPastDate(7), getPastDate(6),
-            getPastDate(5), getPastDate(4), getPastDate(3), getPastDate(2),
-            getPastDate(1)
-          ],
-          user_marcus: [
-            getPastDate(17), getPastDate(16), getPastDate(15), getPastDate(14),
-            getPastDate(13), getPastDate(12), getPastDate(11), getPastDate(10),
-            getPastDate(9), getPastDate(8), getPastDate(7), getPastDate(6),
-            getPastDate(5), getPastDate(4), getPastDate(3), getPastDate(2),
-            getPastDate(1)
-          ],
-          user_sarah: [
-            getPastDate(20), getPastDate(19), getPastDate(18), getPastDate(17),
-            getPastDate(16), getPastDate(15), getPastDate(14), getPastDate(13),
-            getPastDate(12), getPastDate(11), getPastDate(10), getPastDate(9),
-            getPastDate(8), getPastDate(7), getPastDate(6), getPastDate(5),
-            getPastDate(4), getPastDate(3), getPastDate(2), getPastDate(1),
-            getPastDate(0)
-          ],
-        },
-      },
-      {
-        id: 'challenge_trio_spartan',
-        title: 'Trio 21-Day Spartan Conditioning',
-        description: 'Group challenge for 3 individuals per squad. Daily calisthenics, cold plunge, or intense cardio. Complete accountability.',
-        icon: '⚔️',
-        category: 'Fitness',
-        tag: 'TrioSpartan',
-        durationDays: 21,
-        deadlineDate: '2026-09-25',
-        createdBy: 'user_marcus',
-        createdByName: 'Marcus Vance',
-        createdAt: '2026-08-05',
-        participantsCount: 5120,
-        participantIds: ['user_me', 'user_marcus', 'user_elena'],
-        completedUserIds: [],
-        challengeType: 'group',
-        teamSize: 3,
-        teams: [
-          {
-            id: 'team_iron_triad',
-            challengeId: 'challenge_trio_spartan',
-            name: 'Iron Triad',
-            motto: 'No weak links',
-            leaderId: 'user_marcus',
-            leaderName: 'Marcus Vance',
-            maxMembers: 3,
-            memberIds: ['user_marcus', 'user_me', 'user_elena'],
-            members: [
-              {
-                userId: 'user_marcus',
-                userName: 'Marcus Vance',
-                userUsername: 'marcus_fit',
-                userAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80',
-                userStreak: 27,
-                joinedAt: '2026-08-05',
-                role: 'leader',
-              },
-              {
-                userId: 'user_me',
-                userName: 'Alex Rivera',
-                userUsername: 'alexrivera',
-                userAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
-                userStreak: 21,
-                joinedAt: '2026-08-05',
-                role: 'member',
-              },
-              {
-                userId: 'user_elena',
-                userName: 'Elena Rostova',
-                userUsername: 'elena_r',
-                userAvatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&auto=format&fit=crop&q=80',
-                userStreak: 12,
-                joinedAt: '2026-08-05',
-                role: 'member',
-              },
-            ],
-            createdAt: '2026-08-05',
-            totalCheckinsCount: 29,
-          },
-          {
-            id: 'team_spartan_strike',
-            challengeId: 'challenge_trio_spartan',
-            name: 'Spartan Strike Force',
-            motto: 'Strength through daily grit',
-            leaderId: 'user_sarah',
-            leaderName: 'Sarah Chen',
-            maxMembers: 3,
-            memberIds: ['user_sarah', 'user_david'],
-            members: [
-              {
-                userId: 'user_sarah',
-                userName: 'Sarah Chen',
-                userUsername: 'sarahcodes',
-                userAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80',
-                userStreak: 21,
-                joinedAt: '2026-08-05',
-                role: 'leader',
-              },
-              {
-                userId: 'user_david',
-                userName: 'David Kim',
-                userUsername: 'davidk_dev',
-                userAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
-                userStreak: 19,
-                joinedAt: '2026-08-05',
-                role: 'member',
-              },
-            ],
-            createdAt: '2026-08-05',
-            totalCheckinsCount: 24,
-          },
-        ],
-        userPostDates: {
-          user_me: [
-            getPastDate(6), getPastDate(5), getPastDate(4), getPastDate(3),
-            getPastDate(2), getPastDate(1)
-          ],
-          user_marcus: [
-            getPastDate(6), getPastDate(5), getPastDate(4), getPastDate(3),
-            getPastDate(2), getPastDate(1)
-          ],
-        },
-      },
-      {
-        id: 'challenge_build_30',
-        title: '30 Days of Solo Building',
-        description: 'Build and ship real working software every single day for 30 consecutive days. Individual accountability.',
-        icon: '💻',
-        category: 'Coding',
-        tag: 'Building',
-        durationDays: 30,
-        deadlineDate: '2026-09-30',
-        createdBy: 'user_sarah',
-        createdByName: 'Sarah Chen',
-        createdAt: '2026-08-01',
-        participantsCount: 12438,
-        participantIds: ['user_me', 'user_sarah', 'user_david', 'user_aryan', 'user_priya'],
-        completedUserIds: [],
-        challengeType: 'individual',
-        userPostDates: {
-          user_me: [
-            getPastDate(17), getPastDate(16), getPastDate(15), getPastDate(14),
-            getPastDate(13), getPastDate(12), getPastDate(11), getPastDate(10),
-            getPastDate(9), getPastDate(8), getPastDate(7), getPastDate(6),
-            getPastDate(5), getPastDate(4), getPastDate(3), getPastDate(2),
-            getPastDate(1)
-          ],
-          user_sarah: [
-            getPastDate(20), getPastDate(19), getPastDate(18), getPastDate(17),
-            getPastDate(16), getPastDate(15), getPastDate(14), getPastDate(13),
-            getPastDate(12), getPastDate(11), getPastDate(10), getPastDate(9),
-            getPastDate(8), getPastDate(7), getPastDate(6), getPastDate(5),
-            getPastDate(4), getPastDate(3), getPastDate(2), getPastDate(1),
-            getPastDate(0)
-          ],
-        },
-      },
-      {
-        id: 'challenge_fitness_60',
-        title: '60-Day Fitness Mastery',
-        description: 'Workout and physical conditioning proof every single day. No excuses. Photo receipts mandatory.',
-        icon: '🏋️‍♂️',
-        category: 'Fitness',
-        tag: 'Fitness',
-        durationDays: 60,
-        deadlineDate: '2026-10-31',
-        createdBy: 'user_marcus',
-        createdByName: 'Marcus Vance',
-        createdAt: '2026-08-01',
-        participantsCount: 8920,
-        participantIds: ['user_me', 'user_marcus', 'user_elena'],
-        completedUserIds: [],
-        challengeType: 'individual',
-        userPostDates: {
-          user_me: [
-            getPastDate(10), getPastDate(9), getPastDate(8), getPastDate(7),
-            getPastDate(6), getPastDate(5), getPastDate(4), getPastDate(3),
-            getPastDate(2), getPastDate(1)
-          ],
-        },
-      },
-      {
-        id: 'challenge_reading_30',
-        title: '30 Days of Deep Reading',
-        description: 'Read 25+ pages daily and photograph key margin notes or book highlights.',
-        icon: '📚',
-        category: 'Learning',
-        tag: 'Reading',
-        durationDays: 30,
-        deadlineDate: '2026-09-30',
-        createdBy: 'user_elena',
-        createdByName: 'Elena Rostova',
-        createdAt: '2026-08-10',
-        participantsCount: 6410,
-        participantIds: ['user_sarah', 'user_elena'],
-        completedUserIds: [],
-        challengeType: 'individual',
-        userPostDates: {},
-      },
-      {
-        id: 'challenge_dawn_21',
-        title: '21-Day 5:00 AM Dawn Protocol',
-        description: 'Rise before dawn, log morning sunlight/study proof, and seize the day.',
-        icon: '🌅',
-        category: 'Mindset',
-        tag: 'EarlyRise',
-        durationDays: 21,
-        deadlineDate: '2026-09-21',
-        createdBy: 'user_me',
-        createdByName: 'Alex Rivera',
-        createdAt: '2026-08-15',
-        participantsCount: 4230,
-        participantIds: ['user_me', 'user_marcus', 'user_priya'],
-        completedUserIds: [],
-        challengeType: 'individual',
-        userPostDates: {
-          user_me: [
-            getPastDate(6), getPastDate(5), getPastDate(4), getPastDate(3),
-            getPastDate(2), getPastDate(1)
-          ],
-        },
-      },
-    ];
+    return [];
   }
 
   static getInitialChallengeProgressPosts(): ChallengeProgressPost[] {
-    return [
-      {
-        id: 'cpost_group_1',
-        challengeId: 'challenge_duo_builder',
-        userId: 'user_marcus',
-        userName: 'Marcus Vance',
-        userUsername: 'marcus_fit',
-        userAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80',
-        userStreak: 27,
-        dayNumber: 18,
-        imageUrl: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=1000&auto=format&fit=crop&q=80',
-        text: 'Day 18 of Duo Sprint! @alexrivera knocked out the back-end while I hooked up WebSocket signals.',
-        createdAt: '1h ago',
-        postDate: getTodayDateString(),
-        cheersCount: 42,
-        cheeredByMe: true,
-        challengeType: 'group',
-        teamId: 'team_titans_duo',
-        teamName: 'Code Titans',
-        teamMembers: [
-          { userId: 'user_me', userName: 'Alex Rivera', userAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80' },
-          { userId: 'user_marcus', userName: 'Marcus Vance', userAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80' }
-        ],
-      },
-      {
-        id: 'cpost_1',
-        challengeId: 'challenge_duo_builder',
-        userId: 'user_sarah',
-        userName: 'Sarah Chen',
-        userUsername: 'sarahcodes',
-        userAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80',
-        userStreak: 21,
-        dayNumber: 21,
-        imageUrl: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=1000&auto=format&fit=crop&q=80',
-        text: 'Day 21 of Duo Sprint with @davidk_dev! Built out rate-limiting and error alerts.',
-        createdAt: '2h ago',
-        postDate: getTodayDateString(),
-        cheersCount: 28,
-        cheeredByMe: true,
-        challengeType: 'group',
-        teamId: 'team_nexus_duo',
-        teamName: 'Nexus Forge',
-      },
-      {
-        id: 'cpost_2',
-        challengeId: 'challenge_build_30',
-        userId: 'user_david',
-        userName: 'David Kim',
-        userUsername: 'davidk_dev',
-        userAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
-        userStreak: 19,
-        dayNumber: 19,
-        imageUrl: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=1000&auto=format&fit=crop&q=80',
-        text: 'Day 19: Cleaned up Postgres schema migrations and verified connection pool latency.',
-        createdAt: '4h ago',
-        postDate: getTodayDateString(),
-        cheersCount: 14,
-        challengeType: 'individual',
-      },
-      {
-        id: 'cpost_3',
-        challengeId: 'challenge_fitness_60',
-        userId: 'user_marcus',
-        userName: 'Marcus Vance',
-        userUsername: 'marcus_fit',
-        userAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80',
-        userStreak: 27,
-        dayNumber: 27,
-        imageUrl: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1000&auto=format&fit=crop&q=80',
-        text: 'Day 27/60: Heavy deadlifts + 30 min incline treadmill walk. Staying locked in.',
-        createdAt: '1h ago',
-        postDate: getTodayDateString(),
-        cheersCount: 35,
-        cheeredByMe: true,
-        challengeType: 'individual',
-      },
-      {
-        id: 'cpost_4',
-        challengeId: 'challenge_dawn_21',
-        userId: 'user_marcus',
-        userName: 'Marcus Vance',
-        userUsername: 'marcus_fit',
-        userAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80',
-        userStreak: 14,
-        dayNumber: 14,
-        imageUrl: 'https://images.unsplash.com/photo-1470246973918-29a93221c455?w=1000&auto=format&fit=crop&q=80',
-        text: 'Day 14: Up at 4:55 AM. 10m breathing + 45m deep book study before dawn.',
-        createdAt: '5h ago',
-        postDate: getTodayDateString(),
-        cheersCount: 19,
-        challengeType: 'individual',
-      },
-    ];
+    return [];
   }
 
   static getAllChallenges(): Challenge[] {
     const data = localStorage.getItem(STORAGE_KEYS.CHALLENGES);
-    let challenges: Challenge[] = [];
-    if (!data) {
-      challenges = this.getInitialChallenges();
-      this.saveAllChallenges(challenges);
-      return challenges;
-    }
+    if (!data) return [];
     try {
-      challenges = JSON.parse(data);
+      const parsed = JSON.parse(data);
+      if (!Array.isArray(parsed)) return [];
+      const mockIds = ['challenge_duo_builder', 'challenge_build_30', 'challenge_fitness_60', 'challenge_dawn_21', 'challenge_reading_15', 'challenge_trio_spartan'];
+      return parsed.filter((c: Challenge) => !mockIds.includes(c.id));
     } catch {
-      challenges = this.getInitialChallenges();
-      this.saveAllChallenges(challenges);
-      return challenges;
+      return [];
     }
-
-    // Ensure team_spartan_strike exists for squad invite
-    const trio = challenges.find((c) => c.id === 'challenge_trio_spartan');
-    if (trio && (!trio.teams || !trio.teams.some((t) => t.id === 'team_spartan_strike'))) {
-      if (!trio.teams) trio.teams = [];
-      trio.teams.push({
-        id: 'team_spartan_strike',
-        challengeId: 'challenge_trio_spartan',
-        name: 'Spartan Strike Force',
-        motto: 'Strength through daily grit',
-        leaderId: 'user_sarah',
-        leaderName: 'Sarah Chen',
-        maxMembers: 3,
-        memberIds: ['user_sarah', 'user_david'],
-        members: [
-          {
-            userId: 'user_sarah',
-            userName: 'Sarah Chen',
-            userUsername: 'sarahcodes',
-            userAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80',
-            userStreak: 21,
-            joinedAt: '2026-08-05',
-            role: 'leader',
-          },
-          {
-            userId: 'user_david',
-            userName: 'David Kim',
-            userUsername: 'davidk_dev',
-            userAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
-            userStreak: 19,
-            joinedAt: '2026-08-05',
-            role: 'member',
-          },
-        ],
-        createdAt: '2026-08-05',
-        totalCheckinsCount: 24,
-      });
-      this.saveAllChallenges(challenges);
-    }
-
-    return challenges;
   }
 
   static saveAllChallenges(challenges: Challenge[]): void {
@@ -3821,6 +3670,22 @@ export class DailyStorageService {
     syncChallengeToSupabase(newChallenge);
     syncChallengeMemberToSupabase(newChallenge.id, currentUser.id, currentUser.currentStreak);
 
+    this.addNotification({
+      type: 'challenge_invite',
+      actorId: currentUser.id,
+      actorName: currentUser.name || currentUser.username || 'You',
+      actorUsername: currentUser.username || 'creator',
+      actorAvatar: currentUser.avatar,
+      actorStreak: currentUser.currentStreak,
+      recipientId: currentUser.id,
+      targetId: newChallenge.id,
+      targetPreview: `Created challenge: "${newChallenge.title}"`,
+      message: `started challenge "${newChallenge.title}"`,
+      isRead: false,
+      timestamp: Date.now(),
+      createdAt: 'Just now',
+    });
+
     return newChallenge;
   }
 
@@ -3890,6 +3755,21 @@ export class DailyStorageService {
     // Sync to Supabase challenges_members table
     if (joined) {
       syncChallengeMemberToSupabase(challengeId, currentUser.id, currentUser.currentStreak);
+      this.addNotification({
+        type: 'challenge_invite',
+        actorId: currentUser.id,
+        actorName: currentUser.name || currentUser.username || 'You',
+        actorUsername: currentUser.username || 'creator',
+        actorAvatar: currentUser.avatar,
+        actorStreak: currentUser.currentStreak,
+        recipientId: currentUser.id,
+        targetId: challengeId,
+        targetPreview: 'Joined challenge',
+        message: 'joined a challenge cohort',
+        isRead: false,
+        timestamp: Date.now(),
+        createdAt: 'Just now',
+      });
     } else {
       removeChallengeMemberFromSupabase(challengeId, currentUser.id);
     }

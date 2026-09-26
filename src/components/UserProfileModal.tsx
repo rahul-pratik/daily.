@@ -25,6 +25,7 @@ import {
   VolumeX,
   Volume2,
   Ban,
+  Flag,
 } from 'lucide-react';
 import { User, Post, ProofCollection, Community } from '../types';
 import { vibrateLight } from '../services/haptics';
@@ -52,6 +53,7 @@ interface UserProfileModalProps {
   onViewUser?: (user: User) => void;
   onShareCommunity?: (community: Community) => void;
   onShareUser?: (user: User) => void;
+  onReportUser?: (user: User) => void;
 }
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
@@ -73,6 +75,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onViewUser,
   onShareCommunity,
   onShareUser,
+  onReportUser,
 }) => {
   const [activeTab, setActiveTab] = useState<'proofs' | 'tweets' | 'collections' | 'communities'>('proofs');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -457,6 +460,29 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                         </span>
                         <span className="text-[10px] text-white/50 block font-normal truncate">
                           {isBlocked ? 'Allow interactions and posts' : 'Hide posts and block interactions'}
+                        </span>
+                      </div>
+                    </button>
+
+                    {/* Report User Option */}
+                    <button
+                      type="button"
+                      id="profile-report-option-btn"
+                      onClick={() => {
+                        setShowMoreOptions(false);
+                        if (onReportUser) {
+                          onReportUser(user);
+                        }
+                      }}
+                      className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold text-amber-400 hover:bg-amber-500/10 flex items-center gap-2.5 transition-colors cursor-pointer mt-0.5"
+                    >
+                      <Flag className="w-4 h-4 text-amber-400 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <span className="block font-bold">
+                          Report @{user.username}
+                        </span>
+                        <span className="text-[10px] text-white/50 block font-normal truncate">
+                          Report harassment, spam, or policy violation
                         </span>
                       </div>
                     </button>

@@ -478,27 +478,61 @@ export async function syncNotificationToSupabase(
   }
 }
 
-// 12. REPORTS
-export async function syncReportToSupabase(
-  reporterId: string,
-  entityType: 'post' | 'user' | 'message' | 'comment',
-  entityId: string,
-  reason: ReportReason | string,
-  details?: string
+// 12. CONTENT SAFETY & REPORTS
+export async function syncReportToSupabase(report: {
+  id?: string;
+  reporter_id: string;
+  post_id?: string;
+  reported_user_id?: string;
+  reason: ReportReason | string;
+  description?: string;
+  status?: 'pending' | 'reviewed' | 'resolved' | 'dismissed';
+  created_at?: string;
+  entityType?: 'post' | 'user' | 'message' | 'comment';
+  entityId?: string;
+  details?: string;
+}): Promise<void> {
+  const client = getSupabaseClient();
+  if (!client) return;
+
+  try {
+    const payload = {
+      id: report.id || `report_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      reporter_id: report.reporter_id,
+      post_id: report.post_id || (report.entityType === 'post' ? report.entityId : null),
+      reported_user_id: report.reported_user_id || (report.entityType === 'user' ? report.entityId : null),
+      reason: String(report.reason),
+      description: report.description || report.details || '',
+      status: report.status || 'pending',
+      created_at: report.created_at || new Date().toISOString(),
+      entity_type: report.entityType || (report.post_id ? 'post' : 'user'),
+      entity_id: report.entityId || report.post_id || report.reported_user_id || '',
+      details: report.description || report.details || null,
+    };
+    await client.from('reports').insert(payload);
+  } catch (err) {
+    console.warn('Supabase report sync notice:', err);
+  }
+}
+
+// 13. POST MODERATION
+export async function syncPostModerationToSupabase(
+  postId: string,
+  status: 'published' | 'under_review' | 'removed',
+  reason?: string,
+  moderatorId?: string
 ): Promise<void> {
   const client = getSupabaseClient();
   if (!client) return;
 
   try {
-    await client.from('reports').insert({
-      reporter_id: reporterId,
-      entity_type: entityType,
-      entity_id: entityId,
-      reason: String(reason),
-      details: details || null,
-      created_at: new Date().toISOString(),
-    });
+    await client.from('posts').update({
+      moderation_status: status,
+      moderation_reason: reason || null,
+      moderated_at: new Date().toISOString(),
+      moderated_by: moderatorId || null,
+    }).eq('id', postId);
   } catch (err) {
-    console.warn('Supabase report sync notice:', err);
+    console.warn('Supabase post moderation sync notice:', err);
   }
 }

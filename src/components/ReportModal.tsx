@@ -1,62 +1,109 @@
 import React, { useState } from 'react';
-import { Flag, X, CheckCircle2, ShieldAlert, AlertTriangle } from 'lucide-react';
+import { Flag, X, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { Post, ReportReason } from '../types';
+
+export interface ReportTarget {
+  type: 'post' | 'user';
+  post?: Post | null;
+  user?: { id: string; username: string; name?: string; avatar?: string } | null;
+}
 
 interface ReportModalProps {
   isOpen: boolean;
-  post: Post | null;
+  target?: ReportTarget | null;
+  // Backwards compatibility with post prop
+  post?: Post | null;
   onClose: () => void;
-  onConfirmReport: (postId: string, reason: ReportReason, details?: string) => void;
+  onConfirmReport: (params: {
+    type: 'post' | 'user';
+    postId?: string;
+    reportedUserId?: string;
+    reason: ReportReason;
+    description: string;
+  }) => void;
 }
 
-const REPORT_OPTIONS: { id: ReportReason; label: string; description: string }[] = [
+const REPORT_REASONS: { id: ReportReason; label: string; description: string }[] = [
   {
-    id: 'spam',
-    label: 'Spam or Promotional',
-    description: 'Repetitive messages, commercial ads, or automated link spam.',
+    id: 'Hate / racism',
+    label: 'Hate / racism',
+    description: 'Hate speech, racial slurs, attacks against protected groups, or discrimination.',
   },
   {
-    id: 'misleading',
-    label: 'Fake Streak or Misleading',
-    description: 'Inaccurate check-in, fake milestone claim, or stolen media.',
+    id: 'Sexual / nudity',
+    label: 'Sexual / nudity',
+    description: 'Explicit sexual content, pornography, or nudity intended to be sexual.',
   },
   {
-    id: 'inappropriate',
-    label: 'Inappropriate or Sensitive',
-    description: 'Explicit imagery, dangerous activities, or suggestive material.',
+    id: 'Harassment / bullying',
+    label: 'Harassment / bullying',
+    description: 'Targeted harassment, intimidation, hostile bullying, or doxxing private info.',
   },
   {
-    id: 'harassment',
-    label: 'Harassment or Hostility',
-    description: 'Targeted attacks, offensive language, or discouraging comments.',
+    id: 'Violence / threats',
+    label: 'Violence / threats',
+    description: 'Threats of harm, glorification of serious violence, or dangerous weapons.',
   },
   {
-    id: 'other',
-    label: 'Other Issue',
-    description: 'Violates community guidelines or personal safety.',
+    id: 'Spam',
+    label: 'Spam',
+    description: 'Repetitive promotional messages, automated bots, or deceptive links.',
+  },
+  {
+    id: 'Scam / fraud',
+    label: 'Scam / fraud',
+    description: 'Financial fraud, crypto scams, deceptive promises, or impersonation.',
+  },
+  {
+    id: 'Illegal content',
+    label: 'Illegal content',
+    description: 'Illegal goods, illicit substances, or promotion of dangerous illegal activities.',
+  },
+  {
+    id: 'Other',
+    label: 'Other',
+    description: 'Other violations of Daily community safety rules and terms.',
   },
 ];
 
 export const ReportModal: React.FC<ReportModalProps> = ({
   isOpen,
+  target: propTarget,
   post,
   onClose,
   onConfirmReport,
 }) => {
-  const [selectedReason, setSelectedReason] = useState<ReportReason>('spam');
-  const [additionalDetails, setAdditionalDetails] = useState('');
+  const target: ReportTarget | null = propTarget || (post ? { type: 'post', post } : null);
+
+  const [selectedReason, setSelectedReason] = useState<ReportReason>('Hate / racism');
+  const [description, setDescription] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  if (!isOpen || !post) return null;
+  if (!isOpen || !target) return null;
+
+  const isPostReport = target.type === 'post' && Boolean(target.post);
+  const reportedUsername = isPostReport
+    ? target.post?.username
+    : target.user?.username || 'user';
+  const reportedUserId = isPostReport
+    ? target.post?.userId
+    : target.user?.id;
+  const postId = isPostReport ? target.post?.id : undefined;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onConfirmReport(post.id, selectedReason, additionalDetails);
+    onConfirmReport({
+      type: target.type,
+      postId,
+      reportedUserId,
+      reason: selectedReason,
+      description: description.trim(),
+    });
     setIsSubmitted(true);
     setTimeout(() => {
       setIsSubmitted(false);
-      setAdditionalDetails('');
-      setSelectedReason('spam');
+      setDescription('');
+      setSelectedReason('Hate / racism');
       onClose();
     }, 1500);
   };
@@ -71,9 +118,11 @@ export const ReportModal: React.FC<ReportModalProps> = ({
               <Flag className="w-4 h-4 fill-red-400/20" />
             </div>
             <div>
-              <h2 className="font-bold text-sm text-white">Report Post</h2>
+              <h2 className="font-bold text-sm text-white">
+                {isPostReport ? 'Report Content' : 'Report User'}
+              </h2>
               <span className="text-[10px] text-white/40 font-mono">
-                Post by @{post.username}
+                @{reportedUsername}
               </span>
             </div>
           </div>
@@ -94,23 +143,23 @@ export const ReportModal: React.FC<ReportModalProps> = ({
             </div>
             <h3 className="font-bold text-base text-white">Report Received</h3>
             <p className="text-xs text-white/60 max-w-xs mx-auto">
-              Thank you for keeping Daily authentic and safe. Our moderation team has flagged this post for review.
+              Thank you for keeping Daily safe and authentic. Your report has been submitted to human moderators for review.
             </p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="p-5 space-y-4">
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <label className="text-xs font-bold text-white/80 block">
-                Why are you reporting this post?
+                Select a violation reason
               </label>
               <p className="text-[11px] text-white/40">
-                Your report remains anonymous to the creator.
+                Daily does not tolerate hate, nudity, harassment, violence, scams, or illegal material.
               </p>
             </div>
 
             {/* Reasons List */}
-            <div className="space-y-2 max-h-[42vh] overflow-y-auto pr-1">
-              {REPORT_OPTIONS.map((opt) => {
+            <div className="space-y-2 max-h-[38vh] overflow-y-auto pr-1 no-scrollbar">
+              {REPORT_REASONS.map((opt) => {
                 const isSelected = selectedReason === opt.id;
                 return (
                   <button
@@ -133,8 +182,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                       {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                     </div>
 
-                    <div>
-                      <span className="text-xs font-bold block text-white">
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold block text-white truncate">
                         {opt.label}
                       </span>
                       <span className="text-[11px] text-white/40 mt-0.5 block leading-snug">
@@ -146,17 +195,17 @@ export const ReportModal: React.FC<ReportModalProps> = ({
               })}
             </div>
 
-            {/* Additional note */}
+            {/* Additional note / description */}
             <div>
               <label className="text-[11px] font-semibold text-white/50 block mb-1">
-                Additional context (optional)
+                Description / Context
               </label>
               <textarea
-                value={additionalDetails}
-                onChange={(e) => setAdditionalDetails(e.target.value)}
-                placeholder="Help us understand the issue..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Provide specific details to help moderators evaluate this report..."
                 rows={2}
-                maxLength={200}
+                maxLength={400}
                 className="w-full bg-white/5 border border-white/10 rounded-xl p-2.5 text-xs text-white placeholder-white/20 focus:outline-none focus:border-red-500/50 resize-none"
               />
             </div>

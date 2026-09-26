@@ -19,7 +19,6 @@ import {
 import { AppNotification, NotificationType, User, Post } from '../types';
 import { vibrateLight, vibrateSuccess } from '../services/haptics';
 import { DailyStorageService } from '../services/storage';
-import { DummySquadInviteNotification } from './DummySquadInviteNotification';
 
 interface NotificationsModalProps {
   isOpen: boolean;
@@ -416,27 +415,6 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                   ? 'All caught up! You have zero unread notifications.'
                   : 'When people like your proofs, comment, or start following you, updates will show up here.'}
               </p>
-            </div>
-          )}
-
-          {/* Dummy Squad Invite Notification Component appended to visualize invitations */}
-          {(activeFilter === 'all' || activeFilter === 'challenge') && (
-            <div className="pt-2 border-t border-white/10 mt-3">
-              <DummySquadInviteNotification
-                onOpenChallenge={(cid) => {
-                  if (onOpenChallenge) {
-                    onOpenChallenge(cid);
-                    onClose();
-                  }
-                }}
-                onAccept={() => {
-                  try {
-                    DailyStorageService.joinChallengeTeam('challenge_trio_spartan', 'team_spartan_strike');
-                  } catch {
-                    // ignore
-                  }
-                }}
-              />
             </div>
           )}
         </div>

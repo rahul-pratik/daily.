@@ -127,14 +127,39 @@ export interface Post {
   sharesCount?: number;
   isChallengeRecap?: boolean;
   challengeRecapData?: ChallengeWeeklyRecap;
+  moderation_status?: PostModerationStatus;
+  moderation_reason?: string;
+  moderated_at?: string;
+  moderated_by?: string;
 }
 
+export type PostModerationStatus = 'published' | 'under_review' | 'removed';
+
 export type ReportReason =
+  | 'Hate / racism'
+  | 'Sexual / nudity'
+  | 'Harassment / bullying'
+  | 'Violence / threats'
+  | 'Spam'
+  | 'Scam / fraud'
+  | 'Illegal content'
+  | 'Other'
   | 'spam'
   | 'inappropriate'
   | 'harassment'
   | 'misleading'
   | 'other';
+
+export interface ContentReport {
+  id: string;
+  reporter_id: string;
+  post_id?: string;
+  reported_user_id?: string;
+  reason: ReportReason | string;
+  description: string;
+  status: 'pending' | 'reviewed' | 'resolved' | 'dismissed';
+  created_at: string;
+}
 
 export interface SharedPostPreview {
   id: string;
