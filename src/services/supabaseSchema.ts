@@ -688,7 +688,37 @@ CREATE POLICY "Users can insert reports"
   WITH CHECK (auth.uid()::text = reporter_id OR auth.role() = 'anon');
 
 -- ==============================================================================
--- 15. STORAGE BUCKET CONFIGURATION & MEDIA ACCESS CONTROLS
+-- 15. TAGS & HASHTAGS TABLE
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.tags (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  name TEXT UNIQUE NOT NULL,
+  created_by TEXT,
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.tags ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Tags are readable by everyone" ON public.tags;
+CREATE POLICY "Tags are readable by everyone" ON public.tags FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Anyone can insert tags" ON public.tags;
+CREATE POLICY "Anyone can insert tags" ON public.tags FOR INSERT WITH CHECK (true);
+
+-- Ensure posts table has challenge_id, community_id, and tags columns
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'posts' AND column_name = 'challenge_id') THEN
+    ALTER TABLE public.posts ADD COLUMN challenge_id TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'posts' AND column_name = 'community_id') THEN
+    ALTER TABLE public.posts ADD COLUMN community_id TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'posts' AND column_name = 'tags') THEN
+    ALTER TABLE public.posts ADD COLUMN tags TEXT[] DEFAULT '{}';
+  END IF;
+END $$;
+
+-- ==============================================================================
+-- 16. STORAGE BUCKET CONFIGURATION & MEDIA ACCESS CONTROLS ('posts', 'media', 'proofs')
 -- Rule: Uploaded media has appropriate access controls
 -- Wrapped safely in a block in case storage extension is configured differently
 -- ==============================================================================
@@ -696,7 +726,8 @@ DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = 'storage') THEN
     INSERT INTO storage.buckets (id, name, public) 
-    VALUES ('media', 'media', true),
+    VALUES ('posts', 'posts', true),
+           ('media', 'media', true),
            ('avatars', 'avatars', true),
            ('proofs', 'proofs', true)
     ON CONFLICT (id) DO UPDATE SET public = true;
@@ -705,25 +736,25 @@ BEGIN
     DROP POLICY IF EXISTS "Public can view media" ON storage.objects;
     CREATE POLICY "Public can view media"
       ON storage.objects FOR SELECT
-      USING (bucket_id IN ('media', 'avatars', 'proofs'));
+      USING (bucket_id IN ('posts', 'media', 'avatars', 'proofs'));
 
     -- Authenticated creators can upload media
     DROP POLICY IF EXISTS "Authenticated users can upload media" ON storage.objects;
     CREATE POLICY "Authenticated users can upload media"
       ON storage.objects FOR INSERT
-      WITH CHECK (bucket_id IN ('media', 'avatars', 'proofs'));
+      WITH CHECK (bucket_id IN ('posts', 'media', 'avatars', 'proofs'));
 
     -- Creators can only update or delete their own media
     DROP POLICY IF EXISTS "Users can update own media" ON storage.objects;
     CREATE POLICY "Users can update own media"
       ON storage.objects FOR UPDATE
-      USING (bucket_id IN ('media', 'avatars', 'proofs') AND (auth.uid()::text = owner::text OR auth.role() = 'anon'));
+      USING (bucket_id IN ('posts', 'media', 'avatars', 'proofs'));
 
     -- Creators can delete own media
     DROP POLICY IF EXISTS "Users can delete own media" ON storage.objects;
     CREATE POLICY "Users can delete own media"
       ON storage.objects FOR DELETE
-      USING (bucket_id IN ('media', 'avatars', 'proofs') AND (auth.uid()::text = owner::text OR auth.role() = 'anon'));
+      USING (bucket_id IN ('posts', 'media', 'avatars', 'proofs'));
   END IF;
 EXCEPTION
   WHEN OTHERS THEN

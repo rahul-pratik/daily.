@@ -27,6 +27,7 @@ import { FeedSortDropdown } from './FeedSortDropdown';
 import { handleHorizontalWheelScroll } from '../utils/scroll';
 import { vibrateLight } from '../services/haptics';
 import { DailyStorageService } from '../services/storage';
+import { syncHashtagToSupabase, fetchHashtagsFromSupabase } from '../services/supabaseDataSync';
 
 interface HomeFeedProps {
   posts: Post[];
@@ -481,12 +482,28 @@ export const HomeFeed: React.FC<HomeFeedProps> = ({
     return Array.from(tags).filter(Boolean);
   }, [unblockedPosts, feedRevision]);
 
+  // Load hashtags from Supabase so tags created by any account show across accounts
+  useEffect(() => {
+    let active = true;
+    fetchHashtagsFromSupabase()
+      .then((tags) => {
+        if (!active || !tags.length) return;
+        tags.forEach((t) => DailyStorageService.addCustomHashtag(t));
+        setFeedRevision((r) => r + 1);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const handleCreateCustomTag = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const clean = newTagInput.replace(/^#/, '').trim().toLowerCase();
     if (!clean) return;
     vibrateLight();
     DailyStorageService.addCustomHashtag(clean);
+    syncHashtagToSupabase(clean, currentUser.id).catch(() => {});
     setNewTagInput('');
     setIsCreatingTag(false);
     setActiveTag(clean);

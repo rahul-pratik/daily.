@@ -10,10 +10,12 @@ import {
   Comment,
   Community,
   Challenge,
+  ChallengeProgressPost,
   Message,
   AppNotification,
   PostDraft,
   ReportReason,
+  DEFAULT_USER_AVATAR,
 } from '../types';
 
 /**
@@ -535,4 +537,346 @@ export async function syncPostModerationToSupabase(
   } catch (err) {
     console.warn('Supabase post moderation sync notice:', err);
   }
+}
+
+// 14. REAL USERS FETCHING FROM SUPABASE
+export async function fetchUsersFromSupabase(): Promise<{ success: boolean; users: User[]; error?: string }> {
+  const client = getSupabaseClient();
+  if (!client) {
+    return { success: false, users: [], error: 'Supabase client not configured' };
+  }
+
+  try {
+    // Try fetching from profiles first, fallback to users table
+    let rows: any[] | null = null;
+    let queryError: any = null;
+
+    try {
+      const res = await client.from('profiles').select('*').order('created_at', { ascending: false });
+      rows = res.data;
+      queryError = res.error;
+    } catch (e) {
+      queryError = e;
+    }
+
+    if (queryError || !rows) {
+      const res = await client.from('users').select('*').order('created_at', { ascending: false });
+      rows = res.data;
+      queryError = res.error;
+    }
+
+    if (queryError) {
+      console.warn('Could not fetch users from Supabase:', queryError);
+      return { success: false, users: [], error: queryError.message };
+    }
+
+    if (!rows || rows.length === 0) {
+      return { success: true, users: [] };
+    }
+
+    const users: User[] = rows.map((r: any) => ({
+      id: r.id,
+      name: r.name || r.full_name || 'Daily Creator',
+      username: (r.username || 'creator').toLowerCase().replace(/^@/, ''),
+      avatar: r.avatar || r.avatar_url || DEFAULT_USER_AVATAR,
+      bio: r.bio || '',
+      interests: Array.isArray(r.interests) ? r.interests : [],
+      habits: Array.isArray(r.habits) ? r.habits : [],
+      currentStreak: Number(r.current_streak) || 1,
+      longestStreak: Number(r.longest_streak || r.highest_streak) || 1,
+      totalPosts: Number(r.total_posts || r.total_proofs) || 0,
+      activityDates: [],
+      followersCount: 0,
+      followingCount: 0,
+      followedUserIds: [],
+      blockedUserIds: [],
+      mutedUserIds: [],
+      lastPostedDate: null,
+      joinedDate: r.created_at ? r.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
+      proofCollections: [],
+      email: r.email || undefined,
+      authProvider: r.auth_provider || 'email',
+    }));
+
+    return { success: true, users };
+  } catch (err: any) {
+    console.warn('fetchUsersFromSupabase exception:', err);
+    return { success: false, users: [], error: err?.message };
+  }
+}
+
+// 15. REAL COMMUNITIES FETCHING FROM SUPABASE
+export async function fetchCommunitiesFromSupabase(): Promise<{ success: boolean; communities: Community[]; error?: string }> {
+  const client = getSupabaseClient();
+  if (!client) {
+    return { success: false, communities: [], error: 'Supabase client not configured' };
+  }
+
+  try {
+    const { data, error } = await client.from('communities').select('*').order('created_at', { ascending: false });
+    if (error) {
+      console.warn('Could not fetch communities from Supabase:', error);
+      return { success: false, communities: [], error: error.message };
+    }
+
+    if (!data || data.length === 0) {
+      return { success: true, communities: [] };
+    }
+
+    // Also fetch members if possible to populate memberIds
+    let membersMap: Record<string, string[]> = {};
+    try {
+      const { data: memberRows } = await client.from('community_members').select('community_id, user_id');
+      if (memberRows) {
+        memberRows.forEach((m: any) => {
+          if (!membersMap[m.community_id]) membersMap[m.community_id] = [];
+          membersMap[m.community_id].push(m.user_id);
+        });
+      }
+    } catch {}
+
+    const communities: Community[] = data.map((r: any) => {
+      const mIds = membersMap[r.id] || (r.creator_id ? [r.creator_id] : []);
+      return {
+        id: r.id,
+        name: r.name,
+        description: r.description || '',
+        category: r.category || 'General',
+        accessType: r.is_private ? 'moderated' : 'public',
+        moderatorId: r.creator_id || 'creator',
+        moderatorName: 'Community Creator',
+        moderatorUsername: 'creator',
+        moderatorAvatar: DEFAULT_USER_AVATAR,
+        avatar: r.image_url || 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=400&auto=format&fit=crop&q=80',
+        coverImage: r.banner_url || undefined,
+        themeColor: '#2F6FED',
+        memberCount: Math.max(r.members_count || 1, mIds.length),
+        memberIds: mIds,
+        pendingRequestUserIds: [],
+        rules: ['Be respectful and post daily progress'],
+        tags: [r.category || 'Community'],
+        createdAt: r.created_at ? r.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
+        lastActivity: 'Active',
+      };
+    });
+
+    return { success: true, communities };
+  } catch (err: any) {
+    console.warn('fetchCommunitiesFromSupabase exception:', err);
+    return { success: false, communities: [], error: err?.message };
+  }
+}
+
+// 16. REAL CHALLENGES FETCHING FROM SUPABASE
+export async function fetchChallengesFromSupabase(): Promise<{ success: boolean; challenges: Challenge[]; error?: string }> {
+  const client = getSupabaseClient();
+  if (!client) {
+    return { success: false, challenges: [], error: 'Supabase client not configured' };
+  }
+
+  try {
+    const { data, error } = await client.from('challenges').select('*').order('created_at', { ascending: false });
+    if (error) {
+      console.warn('Could not fetch challenges from Supabase:', error);
+      return { success: false, challenges: [], error: error.message };
+    }
+
+    if (!data || data.length === 0) {
+      return { success: true, challenges: [] };
+    }
+
+    // Also fetch members if possible
+    let participantsMap: Record<string, string[]> = {};
+    try {
+      const { data: memberRows } = await client.from('challenges_members').select('challenge_id, user_id');
+      if (memberRows) {
+        memberRows.forEach((m: any) => {
+          if (!participantsMap[m.challenge_id]) participantsMap[m.challenge_id] = [];
+          participantsMap[m.challenge_id].push(m.user_id);
+        });
+      }
+    } catch {}
+
+    const challenges: Challenge[] = data.map((r: any) => {
+      const pIds = participantsMap[r.id] || (r.creator_id ? [r.creator_id] : []);
+      return {
+        id: r.id,
+        title: r.title,
+        description: r.description || '',
+        icon: r.image_url || '🎯',
+        category: r.category || 'General',
+        durationDays: r.duration_days || 30,
+        participantsCount: Math.max(r.members_count || 1, pIds.length),
+        participantIds: pIds,
+        completedUserIds: [],
+        createdAt: r.start_date || r.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+        deadlineDate: r.end_date || new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
+        createdBy: r.creator_id,
+        createdByName: 'Creator',
+        tag: r.category || 'Challenge',
+        challengeType: 'individual' as const,
+        teams: [],
+        userPostDates: {},
+      };
+    });
+
+    return { success: true, challenges };
+  } catch (err: any) {
+    console.warn('fetchChallengesFromSupabase exception:', err);
+    return { success: false, challenges: [], error: err?.message };
+  }
+}
+
+// 17. CHALLENGE PROGRESS POSTS FETCH & SYNC
+export async function fetchChallengeProgressPostsFromSupabase(
+  challengeId: string,
+  challengeTitle?: string
+): Promise<{ success: boolean; posts: ChallengeProgressPost[]; error?: string }> {
+  const client = getSupabaseClient();
+  if (!client) {
+    return { success: false, posts: [], error: 'Supabase client not configured' };
+  }
+
+  try {
+    let query = client.from('posts').select('*, profiles(*)').order('created_at', { ascending: false });
+
+    if (challengeTitle) {
+      query = query.or(`challenge_title.eq."${challengeTitle}",category.eq."${challengeTitle}",caption.ilike."%${challengeTitle}%"`);
+    } else {
+      query = query.not('challenge_title', 'is', null);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      console.warn('Could not fetch challenge posts from Supabase:', error);
+      return { success: false, posts: [], error: error.message };
+    }
+
+    if (!data || data.length === 0) {
+      return { success: true, posts: [] };
+    }
+
+    const posts: ChallengeProgressPost[] = data.map((r: any) => {
+      const prof = r.profiles || {};
+      const img = r.image_url || r.image || '';
+      return {
+        id: r.id,
+        challengeId,
+        userId: r.user_id,
+        userName: prof.name || prof.full_name || r.author_name || 'Creator',
+        userUsername: prof.username || r.author_username || 'creator',
+        userAvatar: prof.avatar || prof.avatar_url || r.author_avatar || DEFAULT_USER_AVATAR,
+        userStreak: prof.current_streak || r.streak_day || 1,
+        dayNumber: r.day_number || r.streak_day || 1,
+        imageUrl: img,
+        text: r.caption || r.content || '',
+        createdAt: r.created_at ? new Date(r.created_at).toLocaleDateString() : 'Just now',
+        postDate: r.created_at ? r.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
+        cheersCount: r.likes_count || 0,
+        cheeredByMe: false,
+        challengeType: 'individual' as const,
+      };
+    }).filter((p) => Boolean(p.imageUrl));
+
+    return { success: true, posts };
+  } catch (err: any) {
+    console.warn('fetchChallengeProgressPostsFromSupabase exception:', err);
+    return { success: false, posts: [], error: err?.message };
+  }
+}
+
+export async function syncChallengeProgressPostToSupabase(
+  post: ChallengeProgressPost,
+  challenge: Challenge
+): Promise<void> {
+  const client = getSupabaseClient();
+  if (!client) return;
+
+  try {
+    // 1. Insert into posts table
+    await client.from('posts').upsert(
+      {
+        id: post.id,
+        user_id: post.userId,
+        image_url: post.imageUrl,
+        caption: post.text || `Day ${post.dayNumber} proof for ${challenge.title}`,
+        challenge_title: challenge.title,
+        category: challenge.category || challenge.title,
+        streak_day: post.dayNumber || 1,
+        day_number: post.dayNumber || 1,
+        likes_count: post.cheersCount || 0,
+        comments_count: 0,
+        verified: true,
+        author_name: post.userName,
+        author_username: post.userUsername,
+        author_avatar: post.userAvatar,
+        created_at: new Date().toISOString(),
+      },
+      { onConflict: 'id' }
+    );
+
+    // 2. Upsert challenges_members record
+    await syncChallengeMemberToSupabase(challenge.id, post.userId, post.dayNumber);
+  } catch (err) {
+    console.warn('syncChallengeProgressPostToSupabase error:', err);
+  }
+}
+
+// 18. HASHTAGS & TAGS SYNCING
+export async function syncHashtagToSupabase(tag: string, userId?: string): Promise<void> {
+  const client = getSupabaseClient();
+  if (!client) return;
+
+  const clean = tag.replace(/^#/, '').trim().toLowerCase();
+  if (!clean) return;
+
+  try {
+    await client.from('tags').upsert(
+      {
+        name: clean,
+        created_by: userId || null,
+        created_at: new Date().toISOString(),
+      },
+      { onConflict: 'name' }
+    );
+  } catch (err) {
+    console.warn('Supabase tag sync notice:', err);
+  }
+}
+
+export async function fetchHashtagsFromSupabase(): Promise<string[]> {
+  const client = getSupabaseClient();
+  if (!client) return [];
+
+  const foundTags = new Set<string>();
+
+  try {
+    const { data: tagRows } = await client.from('tags').select('name');
+    if (tagRows) {
+      tagRows.forEach((r: any) => {
+        if (r.name) foundTags.add(r.name.toLowerCase().trim());
+      });
+    }
+  } catch {}
+
+  try {
+    const { data: postRows } = await client.from('posts').select('category, habit_tag, tags, caption');
+    if (postRows) {
+      postRows.forEach((r: any) => {
+        if (r.category && r.category !== 'General') foundTags.add(r.category.toLowerCase().trim());
+        if (r.habit_tag) foundTags.add(r.habit_tag.toLowerCase().trim());
+        if (Array.isArray(r.tags)) {
+          r.tags.forEach((t: string) => foundTags.add(t.replace(/^#/, '').toLowerCase().trim()));
+        }
+        if (typeof r.caption === 'string') {
+          const matches = r.caption.match(/#[a-zA-Z0-9_\u0080-\uFFFF]+/g);
+          if (matches) {
+            matches.forEach((m: string) => foundTags.add(m.replace(/^#/, '').toLowerCase().trim()));
+          }
+        }
+      });
+    }
+  } catch {}
+
+  return Array.from(foundTags).filter(Boolean);
 }

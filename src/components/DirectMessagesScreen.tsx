@@ -47,6 +47,7 @@ import { DailyStorageService } from '../services/storage';
 import { GroupDetailsScreen } from './GroupDetailsScreen';
 import { VoiceMessageWaveformVisualizer } from './VoiceMessageWaveformVisualizer';
 import { createSyntheticAudioDataUrl } from '../utils/audio';
+import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 
 export type MessageSortOption = 'all' | 'groups' | 'direct';
 
@@ -162,6 +163,23 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<any>(null);
+
+  // Real-time Voice Speech Dictation (Speech-to-Text)
+  const {
+    isSupported: isSpeechSupported,
+    isListening: isSpeechListening,
+    toggleListening: toggleSpeechListening,
+    stopListening: stopSpeechListening,
+  } = useSpeechRecognition({
+    continuous: true,
+    interimResults: true,
+    onResult: (chunk) => {
+      setInputText((prev) => {
+        const trimmed = prev.trim();
+        return trimmed ? `${trimmed} ${chunk}` : chunk;
+      });
+    },
+  });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -2197,12 +2215,32 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                   className="hidden"
                 />
 
+                {/* Speech Dictation (Speech-to-Text) Trigger */}
+                {isSpeechSupported && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vibrateLight();
+                      toggleSpeechListening();
+                    }}
+                    className={`p-2.5 rounded-xl border transition-all shrink-0 ${
+                      isSpeechListening
+                        ? 'bg-red-500/20 border-red-500/50 text-red-400 animate-pulse ring-1 ring-red-500/50'
+                        : 'bg-white/5 hover:bg-purple-500/20 border border-white/10 text-white/70 hover:text-purple-400'
+                    }`}
+                    title={isSpeechListening ? 'Stop listening' : 'Dictate message with voice (Speech to Text)'}
+                    aria-label="Speech to text dictation"
+                  >
+                    <Volume2 className={`w-4 h-4 ${isSpeechListening ? 'animate-bounce' : ''}`} />
+                  </button>
+                )}
+
                 {/* Voice Message Trigger */}
                 <button
                   type="button"
                   onClick={startVoiceRecording}
                   className="p-2.5 rounded-xl bg-white/5 hover:bg-blue-500/20 border border-white/10 text-white/70 hover:text-[#2F6FED] transition-colors shrink-0"
-                  title="Record voice message"
+                  title="Record audio voice note"
                   aria-label="Record voice message"
                 >
                   <Mic className="w-4 h-4" />
@@ -2214,16 +2252,25 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                   placeholder={
-                    activeGroup
+                    isSpeechListening
+                      ? 'Listening to your voice...'
+                      : activeGroup
                       ? `Message in ${activeGroup.name}...`
                       : `Message @${activeUser?.username || 'user'}...`
                   }
-                  className="flex-1 min-w-0 px-3.5 py-2.5 bg-white/5 border border-white/10 focus:border-[#2F6FED] rounded-xl text-xs text-white placeholder-white/40 outline-none transition-colors"
+                  className={`flex-1 min-w-0 px-3.5 py-2.5 bg-white/5 border rounded-xl text-xs text-white placeholder-white/40 outline-none transition-colors ${
+                    isSpeechListening
+                      ? 'border-red-500/50 bg-red-500/5 ring-1 ring-red-500/30'
+                      : 'border-white/10 focus:border-[#2F6FED]'
+                  }`}
                 />
 
                 {/* Send Button */}
                 <button
                   type="submit"
+                  onClick={() => {
+                    if (isSpeechListening) stopSpeechListening();
+                  }}
                   disabled={!inputText.trim() && !attachedImage}
                   className="p-2.5 bg-[#2F6FED] hover:bg-[#255bd1] disabled:opacity-30 text-white font-bold rounded-xl transition-all shadow-md shrink-0 active:scale-95"
                   aria-label="Send message"

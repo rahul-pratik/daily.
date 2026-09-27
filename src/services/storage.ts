@@ -383,18 +383,15 @@ export class DailyStorageService {
   static getAllUsers(): User[] {
     const data = localStorage.getItem(STORAGE_KEYS.USERS);
     if (!data) {
-      this.saveAllUsers(SAMPLE_USERS);
-      return SAMPLE_USERS;
+      return [];
     }
     try {
       const parsed = JSON.parse(data);
-      if (!Array.isArray(parsed)) {
-        this.saveAllUsers(SAMPLE_USERS);
-        return SAMPLE_USERS;
-      }
-      return parsed;
+      if (!Array.isArray(parsed)) return [];
+      const mockIds = ['user_rohan', 'user_sarah', 'user_marcus', 'user_elena', 'user_david', 'user_maya', 'user_liam', 'user_abhisek', 'user_soumya', 'user_anisha', 'user_biswajit', 'user_tushar'];
+      return parsed.filter((u: User) => !mockIds.includes(u.id));
     } catch {
-      return SAMPLE_USERS;
+      return [];
     }
   }
 
@@ -520,41 +517,15 @@ export class DailyStorageService {
   static getAllMessages(): Message[] {
     const data = localStorage.getItem(STORAGE_KEYS.MESSAGES);
     if (!data) {
-      this.saveAllMessages(INITIAL_MESSAGES);
-      return INITIAL_MESSAGES;
+      return [];
     }
     try {
       const parsed = JSON.parse(data);
-      if (!Array.isArray(parsed)) {
-        this.saveAllMessages(INITIAL_MESSAGES);
-        return INITIAL_MESSAGES;
-      }
-      // Ensure sample voice note is present so users have immediate audio visualizer feedback
-      if (!parsed.some((m: Message) => m.id === 'm_sarah_voice')) {
-        const sarahVoice = INITIAL_MESSAGES.find((m) => m.id === 'm_sarah_voice');
-        if (sarahVoice) {
-          parsed.push(sarahVoice);
-        }
-      }
-      // Ensure sample reactions exist so users immediately experience the reaction feature
-      const m1 = parsed.find((m: Message) => m.id === 'm1');
-      if (m1 && !m1.reactions) {
-        m1.reactions = [
-          { emoji: '🔥', userIds: ['user_me', 'user_sarah'] },
-          { emoji: '💪', userIds: ['user_me'] },
-        ];
-      }
-      const m2 = parsed.find((m: Message) => m.id === 'm2');
-      if (m2 && !m2.reactions) {
-        m2.reactions = [
-          { emoji: '❤️', userIds: ['user_sarah'] },
-          { emoji: '👏', userIds: ['user_sarah'] },
-        ];
-      }
-      this.saveAllMessages(parsed);
-      return parsed;
+      if (!Array.isArray(parsed)) return [];
+      const mockMsgIds = ['m_biswajit', 'm_tushar', 'm1', 'm2', 'm3', 'm_sarah_voice', 'm4', 'm5', 'm_grp_1', 'm_grp_2'];
+      return parsed.filter((m: Message) => !mockMsgIds.includes(m.id));
     } catch {
-      return INITIAL_MESSAGES;
+      return [];
     }
   }
 
@@ -1367,14 +1338,15 @@ export class DailyStorageService {
   static getAllRawGroups(): Group[] {
     const data = localStorage.getItem(STORAGE_KEYS.GROUPS);
     if (!data) {
-      this.saveAllGroups(SAMPLE_GROUPS);
-      return [...SAMPLE_GROUPS];
+      return [];
     }
     try {
       const parsed = JSON.parse(data);
-      return Array.isArray(parsed) ? parsed : [...SAMPLE_GROUPS];
+      if (!Array.isArray(parsed)) return [];
+      const mockGroupIds = ['group_builders', 'group_fitness', 'group_startups'];
+      return parsed.filter((g: Group) => !mockGroupIds.includes(g.id));
     } catch {
-      return [...SAMPLE_GROUPS];
+      return [];
     }
   }
 
@@ -2119,37 +2091,7 @@ export class DailyStorageService {
 
   static getCommunityDiscussions(communityId: string): CommunityDiscussionThread[] {
     const all = this.getAllCommunityDiscussions();
-    const threads = all[communityId] || [];
-    if (threads.length === 0) {
-      const community = this.getAllCommunities().find((c) => c.id === communityId);
-      const seedThread: CommunityDiscussionThread = {
-        id: `disc_${communityId}_welcome`,
-        communityId,
-        authorId: community?.moderatorId || 'user_david',
-        authorName: community?.moderatorName || 'Community Moderator',
-        authorUsername: community?.moderatorUsername || 'moderator',
-        authorAvatar:
-          community?.moderatorAvatar ||
-          community?.avatar ||
-          'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80',
-        authorFlair: 'MOD',
-        title: `📌 Welcome to ${community?.name || 'our community'}! Discussion & Accountability Hub`,
-        content: `Welcome everyone! This is our dedicated discussion space. Share insights, ask questions, exchange advice, and discuss daily progress. Keep discussions respectful and substantive.`,
-        flair: 'Announcement',
-        isPinned: true,
-        upvotes: 24,
-        userVote: null,
-        createdAt: '1d ago',
-        comments: [],
-      };
-      const initialList = [seedThread];
-      all[communityId] = initialList;
-      try {
-        localStorage.setItem(STORAGE_KEYS.COMMUNITY_DISCUSSIONS, JSON.stringify(all));
-      } catch {}
-      return initialList;
-    }
-    return threads;
+    return all[communityId] || [];
   }
 
   static saveCommunityDiscussions(communityId: string, threads: CommunityDiscussionThread[]): void {
@@ -2616,31 +2558,7 @@ export class DailyStorageService {
   // Challenge live discussion messages (strictly text-only, words only, no photos)
   static getChallengeMessages(challengeId: string): Message[] {
     const messages = this.getAllMessages();
-    const challengeMsgs = messages.filter((m) => m.challengeId === challengeId);
-    if (challengeMsgs.length > 0) return challengeMsgs;
-
-    // Default seeded conversation for challenge discussion if none exist yet
-    const seeded: Message[] = [
-      {
-        id: `cmsg_${challengeId}_1`,
-        conversationId: `conv_challenge_${challengeId}`,
-        senderId: 'user_1',
-        challengeId,
-        text: "Welcome to this challenge cohort everyone! Let's lock in and keep each other accountable every single day.",
-        timestamp: 'Yesterday at 9:15 AM',
-        isRead: true,
-      },
-      {
-        id: `cmsg_${challengeId}_2`,
-        conversationId: `conv_challenge_${challengeId}`,
-        senderId: 'user_2',
-        challengeId,
-        text: "Ready to stay disciplined! Remember to post your daily photo receipt before midnight.",
-        timestamp: 'Today at 8:00 AM',
-        isRead: true,
-      },
-    ];
-    return seeded;
+    return messages.filter((m) => m.challengeId === challengeId);
   }
 
   static sendChallengeTextMessage(challengeId: string, text: string): Message {
@@ -4579,13 +4497,6 @@ export class DailyStorageService {
       ])
     );
 
-    // Ensure we have a competitive cohort preview with active users
-    if (participantIds.length < 5) {
-      allUsers.slice(0, 5).forEach((u) => {
-        if (!participantIds.includes(u.id)) participantIds.push(u.id);
-      });
-    }
-
     const individuals: ChallengeLeaderboardIndividual[] = participantIds.map((userId) => {
       const user =
         allUsers.find((u) => u.id === userId) ||
@@ -4595,44 +4506,36 @@ export class DailyStorageService {
               id: userId,
               name: 'Athlete',
               username: 'athlete',
-              avatar:
-                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
-              currentStreak: 12,
+              avatar: DEFAULT_USER_AVATAR,
+              currentStreak: 1,
             });
 
       const userPosts = allProgressPosts.filter((p) => p.userId === userId);
       const postDates = challenge.userPostDates?.[userId] || userPosts.map((p) => p.postDate);
       const uniqueDays = Array.from(new Set(postDates)).length;
 
-      // Realistic days completed calculation
+      // Realistic days completed calculation based on actual logged progress
       const daysCompleted = Math.max(
         uniqueDays,
         userPosts.length,
-        userId === currentUser.id
-          ? challenge.userPostDates?.[currentUser.id]?.length || 0
-          : Math.min(challenge.durationDays, (user.currentStreak % challenge.durationDays) + 1)
+        userId === currentUser.id ? challenge.userPostDates?.[currentUser.id]?.length || 0 : 0
       );
 
-      const totalCheers =
-        userPosts.reduce((sum, p) => sum + (p.cheersCount || 0), 0) + (daysCompleted * 3);
-      const streakInChallenge = Math.max(1, Math.min(daysCompleted, user.currentStreak || daysCompleted));
+      const totalCheers = userPosts.reduce((sum, p) => sum + (p.cheersCount || 0), 0);
+      const streakInChallenge = Math.max(daysCompleted > 0 ? 1 : 0, Math.min(daysCompleted, user.currentStreak || daysCompleted));
 
-      // Consistency rate calculation (e.g. 75% - 100%)
-      const consistencyRate = Math.min(
-        100,
-        Math.max(
-          65,
-          Math.round(
-            (daysCompleted / Math.max(1, Math.min(daysCompleted + 2, challenge.durationDays))) * 100
-          )
-        )
-      );
+      const consistencyRate = daysCompleted > 0
+        ? Math.min(100, Math.round((daysCompleted / Math.max(1, challenge.durationDays)) * 100))
+        : 0;
 
-      // Composite scoring: posting frequency + consistency + active streak + engagement
       const score =
         daysCompleted * 100 + consistencyRate * 10 + streakInChallenge * 50 + totalCheers * 5;
 
-      let badgeTitle = 'Cohort Pacer';
+      let badgeTitle = 'Challenger';
+      if (consistencyRate >= 95 && daysCompleted >= 15) badgeTitle = '👑 Flawless Streak';
+      else if (streakInChallenge >= 10) badgeTitle = '🔥 Iron Streak';
+      else if (totalCheers >= 50) badgeTitle = '⚡️ Community Titan';
+      else if (daysCompleted >= 7) badgeTitle = '🎖️ Consistent Pioneer';
       if (consistencyRate >= 95 && daysCompleted >= 15) badgeTitle = '👑 Flawless Streak';
       else if (streakInChallenge >= 10) badgeTitle = '🔥 Iron Streak';
       else if (totalCheers >= 50) badgeTitle = '⚡️ Community Titan';
@@ -5338,19 +5241,15 @@ Keep the momentum alive squads! Let's lock in for next week 🔥`;
   // --- USER NOTES (DM SECTION - WORDS ONLY) ---
   static getAllUserNotes(): UserNote[] {
     const data = localStorage.getItem(STORAGE_KEYS.USER_NOTES);
-    if (!data) {
-      this.saveAllUserNotes(INITIAL_USER_NOTES);
-      return INITIAL_USER_NOTES;
-    }
+    if (!data) return [];
     try {
       const parsed: UserNote[] = JSON.parse(data);
-      // Clean expired notes older than 24 hours
+      if (!Array.isArray(parsed)) return [];
+      const mockIds = ['note_abhisek', 'note_soumya', 'note_anisha', 'note_biswajit', 'note_tushar', 'note_sarah', 'note_marcus'];
       const now = Date.now();
-      const valid = parsed.filter((n) => !n.expiresAt || n.expiresAt > now);
-      return valid.length > 0 ? valid : INITIAL_USER_NOTES;
+      return parsed.filter((n) => !mockIds.includes(n.id) && (!n.expiresAt || n.expiresAt > now));
     } catch {
-      this.saveAllUserNotes(INITIAL_USER_NOTES);
-      return INITIAL_USER_NOTES;
+      return [];
     }
   }
 

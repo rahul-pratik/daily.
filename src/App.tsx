@@ -34,6 +34,15 @@ import {
   fetchFeedPostsFromSupabase,
   deleteRealPost,
 } from './services/supabasePosts';
+import {
+  fetchUsersFromSupabase,
+  fetchCommunitiesFromSupabase,
+  fetchChallengesFromSupabase,
+  fetchHashtagsFromSupabase,
+  syncChallengeToSupabase,
+  syncCommunityToSupabase,
+  syncUserAndProfileToSupabase,
+} from './services/supabaseDataSync';
 import { logAuthStateChangeDiagnostic } from './services/authDiagnostic';
 import { DailyStorageService, getTodayDateString, getYesterdayDateString } from './services/storage';
 import { TopHeader, BottomNavigation } from './components/Navigation';
@@ -105,6 +114,33 @@ export default function App() {
     if (tab !== 'messages') {
       setActiveChatUserId(null);
       setActiveGroupId(null);
+    }
+    if (tab === 'discover') {
+      fetchCommunitiesFromSupabase()
+        .then((res) => {
+          if (res.success && res.communities.length > 0) {
+            setCommunities(res.communities);
+            DailyStorageService.saveAllCommunities(res.communities);
+          }
+        })
+        .catch(() => {});
+      fetchUsersFromSupabase()
+        .then((res) => {
+          if (res.success && res.users.length > 0) {
+            setUsers(res.users);
+            DailyStorageService.saveAllUsers(res.users);
+          }
+        })
+        .catch(() => {});
+    }
+    if (tab === 'streak') {
+      fetchChallengesFromSupabase()
+        .then((res) => {
+          if (res.success && res.challenges.length > 0) {
+            DailyStorageService.saveAllChallenges(res.challenges);
+          }
+        })
+        .catch(() => {});
     }
     setPreviousTab(currentTab);
     setCurrentTab(tab);
@@ -561,9 +597,11 @@ export default function App() {
     };
   }, []);
 
-  // Fetch real posts from Supabase database on app startup
+  // Fetch real data from Supabase database on app startup
   useEffect(() => {
     let isMounted = true;
+
+    // 1. Fetch real feed posts
     fetchFeedPostsFromSupabase()
       .then((res) => {
         if (!isMounted) return;
@@ -575,6 +613,55 @@ export default function App() {
       .catch((err) => {
         console.warn('Initial Supabase feed fetch notice:', err);
       });
+
+    // 2. Fetch real users from Supabase so accounts can find and search each other
+    fetchUsersFromSupabase()
+      .then((res) => {
+        if (!isMounted) return;
+        if (res.success && res.users.length > 0) {
+          setUsers(res.users);
+          DailyStorageService.saveAllUsers(res.users);
+        }
+      })
+      .catch((err) => {
+        console.warn('Initial Supabase users fetch notice:', err);
+      });
+
+    // 3. Fetch real communities from Supabase so all accounts see created communities
+    fetchCommunitiesFromSupabase()
+      .then((res) => {
+        if (!isMounted) return;
+        if (res.success && res.communities.length > 0) {
+          setCommunities(res.communities);
+          DailyStorageService.saveAllCommunities(res.communities);
+        }
+      })
+      .catch((err) => {
+        console.warn('Initial Supabase communities fetch notice:', err);
+      });
+
+    // 4. Fetch real challenges from Supabase so all accounts see created challenges
+    fetchChallengesFromSupabase()
+      .then((res) => {
+        if (!isMounted) return;
+        if (res.success && res.challenges.length > 0) {
+          DailyStorageService.saveAllChallenges(res.challenges);
+        }
+      })
+      .catch((err) => {
+        console.warn('Initial Supabase challenges fetch notice:', err);
+      });
+
+    // 5. Fetch real hashtags from Supabase so home tags sync
+    fetchHashtagsFromSupabase()
+      .then((tags) => {
+        if (!isMounted) return;
+        tags.forEach((t) => DailyStorageService.addCustomHashtag(t));
+      })
+      .catch((err) => {
+        console.warn('Initial Supabase hashtags fetch notice:', err);
+      });
+
     return () => {
       isMounted = false;
     };
@@ -634,9 +721,9 @@ export default function App() {
   }): Promise<{ success: boolean; error?: string }> => {
     const safePayload = {
       ...payload,
-      isMainPost: true,
-      communityId: undefined,
-      communityName: undefined,
+      isMainPost: payload.isMainPost ?? true,
+      communityId: payload.communityId,
+      communityName: payload.communityName,
     };
 
     try {

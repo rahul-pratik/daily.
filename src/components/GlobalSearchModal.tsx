@@ -19,9 +19,10 @@ import {
   Plus,
   Trophy,
 } from 'lucide-react';
-import { User, Community, Post, Group, Challenge } from '../types';
+import { User, Community, Post, Group, Challenge, DEFAULT_USER_AVATAR } from '../types';
 import { vibrateLight } from '../services/haptics';
 import { DailyStorageService } from '../services/storage';
+import { getSupabaseClient } from '../services/supabase';
 
 export type SearchWish = 'all' | 'communities' | 'challenges' | 'proofs' | 'tweets' | 'users' | 'tags';
 
@@ -183,8 +184,70 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
     return matchTitle || matchDesc || matchCategory || matchTags;
   });
 
+  const [supabaseUsers, setSupabaseUsers] = useState<User[]>([]);
+
+  useEffect(() => {
+    if (!cleanQuery || cleanQuery.length < 1) {
+      setSupabaseUsers([]);
+      return;
+    }
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    let active = true;
+    client
+      .from('profiles')
+      .select('*')
+      .or(`username.ilike.%${cleanQuery}%,name.ilike.%${cleanQuery}%`)
+      .limit(20)
+      .then(
+        ({ data }: any) => {
+          if (!active || !data) return;
+          const mapped: User[] = data.map((r: any) => ({
+            id: r.id,
+            name: r.name || r.full_name || 'Daily Creator',
+            username: (r.username || 'creator').toLowerCase().replace(/^@/, ''),
+            avatar: r.avatar || r.avatar_url || DEFAULT_USER_AVATAR,
+            bio: r.bio || '',
+            interests: Array.isArray(r.interests) ? r.interests : [],
+            habits: Array.isArray(r.habits) ? r.habits : [],
+            currentStreak: Number(r.current_streak) || 1,
+            longestStreak: Number(r.longest_streak) || 1,
+            totalPosts: Number(r.total_posts) || 0,
+            activityDates: [],
+            followersCount: 0,
+            followingCount: 0,
+            followedUserIds: [],
+            blockedUserIds: [],
+            mutedUserIds: [],
+            lastPostedDate: null,
+            joinedDate: r.created_at ? r.created_at.split('T')[0] : '2026-01-01',
+            proofCollections: [],
+          }));
+          setSupabaseUsers(mapped);
+        },
+        () => {}
+      );
+
+    return () => {
+      active = false;
+    };
+  }, [cleanQuery]);
+
+  // Combined real users list (excluding current user)
+  const combinedUsers = useMemo(() => {
+    const map = new Map<string, User>();
+    users.forEach((u) => {
+      if (u.id !== currentUser?.id) map.set(u.id, u);
+    });
+    supabaseUsers.forEach((u) => {
+      if (u.id !== currentUser?.id) map.set(u.id, u);
+    });
+    return Array.from(map.values());
+  }, [users, supabaseUsers, currentUser?.id]);
+
   // Filter Users (Accounts)
-  const filteredUsers = users.filter(
+  const filteredUsers = combinedUsers.filter(
     (u) =>
       u.name.toLowerCase().includes(cleanQuery) ||
       u.username.toLowerCase().includes(cleanQuery) ||
@@ -459,7 +522,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
           {!cleanQuery && (
             <div className="space-y-6">
               {/* Creator Spotlight (Accounts to Follow) */}
-              {(activeTab === 'all' || activeTab === 'users') && (
+              {(activeTab === 'all' || activeTab === 'users') && featuredAccounts.length > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">

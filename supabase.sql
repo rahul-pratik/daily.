@@ -121,11 +121,8 @@ END $$;
 CREATE TABLE IF NOT EXISTS public.posts (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   user_id TEXT NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  image_url TEXT,
-  image TEXT,
+  image_url TEXT NOT NULL,
   caption TEXT,
-  content TEXT,
-  tags TEXT[] DEFAULT '{}',
   challenge_title TEXT,
   category TEXT DEFAULT 'General',
   habit_tag TEXT,
@@ -137,48 +134,8 @@ CREATE TABLE IF NOT EXISTS public.posts (
   author_name TEXT,
   author_username TEXT,
   author_avatar TEXT,
-  created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
-  updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
-
--- Defensive schema adjustments in case posts table was previously created with strict NOT NULL image_url
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM information_schema.columns 
-    WHERE table_schema = 'public' AND table_name = 'posts' AND column_name = 'image_url' AND is_nullable = 'NO'
-  ) THEN
-    ALTER TABLE public.posts ALTER COLUMN image_url DROP NOT NULL;
-  END IF;
-
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns 
-    WHERE table_schema = 'public' AND table_name = 'posts' AND column_name = 'content'
-  ) THEN
-    ALTER TABLE public.posts ADD COLUMN content TEXT;
-  END IF;
-
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns 
-    WHERE table_schema = 'public' AND table_name = 'posts' AND column_name = 'image'
-  ) THEN
-    ALTER TABLE public.posts ADD COLUMN image TEXT;
-  END IF;
-
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns 
-    WHERE table_schema = 'public' AND table_name = 'posts' AND column_name = 'tags'
-  ) THEN
-    ALTER TABLE public.posts ADD COLUMN tags TEXT[] DEFAULT '{}';
-  END IF;
-
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns 
-    WHERE table_schema = 'public' AND table_name = 'posts' AND column_name = 'updated_at'
-  ) THEN
-    ALTER TABLE public.posts ADD COLUMN updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL;
-  END IF;
-END $$;
 
 -- ==============================================================================
 -- 4. CHALLENGES TABLE
@@ -502,7 +459,7 @@ CREATE POLICY "Users can only edit their own posts"
   ON public.posts FOR UPDATE USING (auth.uid()::text = user_id);
 
 DROP POLICY IF EXISTS "Users can only delete their own posts" ON public.posts;
-CREATE POLICY "Users can only delete their own posts"
+CREATE POLICY "Users can delete their own posts"
   ON public.posts FOR DELETE USING (auth.uid()::text = user_id);
 
 -- 4. CHALLENGES & CHALLENGES_MEMBERS POLICIES
@@ -712,8 +669,7 @@ DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = 'storage') THEN
     INSERT INTO storage.buckets (id, name, public) 
-    VALUES ('posts', 'posts', true),
-           ('media', 'media', true),
+    VALUES ('media', 'media', true),
            ('avatars', 'avatars', true),
            ('proofs', 'proofs', true)
     ON CONFLICT (id) DO UPDATE SET public = true;
@@ -722,25 +678,25 @@ BEGIN
     DROP POLICY IF EXISTS "Public can view media" ON storage.objects;
     CREATE POLICY "Public can view media"
       ON storage.objects FOR SELECT
-      USING (bucket_id IN ('posts', 'media', 'avatars', 'proofs'));
+      USING (bucket_id IN ('media', 'avatars', 'proofs'));
 
     -- Authenticated creators can upload media
     DROP POLICY IF EXISTS "Authenticated users can upload media" ON storage.objects;
     CREATE POLICY "Authenticated users can upload media"
       ON storage.objects FOR INSERT
-      WITH CHECK (bucket_id IN ('posts', 'media', 'avatars', 'proofs'));
+      WITH CHECK (bucket_id IN ('media', 'avatars', 'proofs'));
 
     -- Creators can only update or delete their own media
     DROP POLICY IF EXISTS "Users can update own media" ON storage.objects;
     CREATE POLICY "Users can update own media"
       ON storage.objects FOR UPDATE
-      USING (bucket_id IN ('posts', 'media', 'avatars', 'proofs') AND (auth.uid()::text = owner::text OR auth.role() = 'anon'));
+      USING (bucket_id IN ('media', 'avatars', 'proofs') AND (auth.uid()::text = owner::text OR auth.role() = 'anon'));
 
     -- Creators can delete own media
     DROP POLICY IF EXISTS "Users can delete own media" ON storage.objects;
     CREATE POLICY "Users can delete own media"
       ON storage.objects FOR DELETE
-      USING (bucket_id IN ('posts', 'media', 'avatars', 'proofs') AND (auth.uid()::text = owner::text OR auth.role() = 'anon'));
+      USING (bucket_id IN ('media', 'avatars', 'proofs') AND (auth.uid()::text = owner::text OR auth.role() = 'anon'));
   END IF;
 EXCEPTION
   WHEN OTHERS THEN

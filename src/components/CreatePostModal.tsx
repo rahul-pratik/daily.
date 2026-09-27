@@ -1454,7 +1454,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                     {isSubmitting ? (
                       <>
                         <RefreshCw className="w-4 h-4 animate-spin text-white" />
-                        <span>Publishing to Supabase...</span>
+                        <span>Publishing...</span>
                       </>
                     ) : (
                       <>

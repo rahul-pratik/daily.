@@ -31,6 +31,14 @@ import {
 import { User, Challenge, ChallengeProgressPost, Message, ChallengeTeam } from '../types';
 import { DailyStorageService, getTodayDateString } from '../services/storage';
 import { vibrateLight, vibrateSuccess, vibrateStreakMilestone } from '../services/haptics';
+import {
+  fetchChallengeProgressPostsFromSupabase,
+  syncChallengeProgressPostToSupabase,
+  syncChallengeMemberToSupabase,
+  removeChallengeMemberFromSupabase,
+  syncMessageToSupabase,
+} from '../services/supabaseDataSync';
+import { uploadPostImage } from '../services/supabasePosts';
 import { ChallengeLeaderboardView } from './ChallengeLeaderboardView';
 import { SquadDetailsModal } from './SquadDetailsModal';
 
@@ -43,24 +51,7 @@ interface ChallengeProgressScreenProps {
   onOpenGroupChat?: (groupId: string) => void;
 }
 
-const SAMPLE_ACHIEVEMENTS = [
-  {
-    title: 'Code Ship Receipt',
-    url: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=1000&auto=format&fit=crop&q=80',
-  },
-  {
-    title: 'Workout Log',
-    url: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1000&auto=format&fit=crop&q=80',
-  },
-  {
-    title: 'Morning Sun & Run',
-    url: 'https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=1000&auto=format&fit=crop&q=80',
-  },
-  {
-    title: 'Book Notes & Margins',
-    url: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=1000&auto=format&fit=crop&q=80',
-  },
-];
+const SAMPLE_ACHIEVEMENTS: Array<{ title: string; url: string }> = [];
 
 export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = ({
   challenge: initialChallenge,
@@ -162,8 +153,8 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
 
   // Load progress posts, cohort chat messages, and squad chat messages
   useEffect(() => {
-    const posts = DailyStorageService.getAllChallengeProgressPosts(challenge.id);
-    setProgressPosts(posts);
+    const localPosts = DailyStorageService.getAllChallengeProgressPosts(challenge.id);
+    setProgressPosts(localPosts);
     const msgs = DailyStorageService.getChallengeMessages(challenge.id);
     setChatMessages(msgs);
 
@@ -172,7 +163,31 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
       const sMsgs = DailyStorageService.getChallengeSquadMessages(challenge.id, mySquad.id);
       setSquadMessages(sMsgs);
     }
-  }, [challenge.id, mySquad?.id]);
+
+    // Also fetch challenge posts from Supabase database so all accounts see posts in this challenge
+    let isMounted = true;
+    fetchChallengeProgressPostsFromSupabase(challenge.id, challenge.title)
+      .then((res) => {
+        if (!isMounted) return;
+        if (res.success && res.posts.length > 0) {
+          setProgressPosts((prev) => {
+            const map = new Map<string, ChallengeProgressPost>();
+            // Add local posts first
+            prev.forEach((p) => map.set(p.id, p));
+            // Add supabase posts
+            res.posts.forEach((p) => map.set(p.id, p));
+            const merged = Array.from(map.values()).sort((a, b) => (b.dayNumber || 0) - (a.dayNumber || 0));
+            DailyStorageService.saveAllChallengeProgressPosts(merged);
+            return merged;
+          });
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, [challenge.id, challenge.title, mySquad?.id]);
 
   const today = getTodayDateString();
   const isJoined = (challenge.participantIds || []).includes(currentUser.id);
@@ -205,6 +220,11 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
     setChallenge(result.challenge);
     onChallengeUpdated(result.challenge);
     setShowLeaveConfirm(false);
+    if ((result.challenge.participantIds || []).includes(currentUser.id)) {
+      syncChallengeMemberToSupabase(challenge.id, currentUser.id, 1).catch(() => {});
+    } else {
+      removeChallengeMemberFromSupabase(challenge.id, currentUser.id).catch(() => {});
+    }
   };
 
   // Squad Management actions
@@ -315,7 +335,7 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
     reader.readAsDataURL(file);
   };
 
-  const handleSubmitProgress = (e: React.FormEvent) => {
+  const handleSubmitProgress = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!postPhotoUrl || !postPhotoUrl.trim()) {
@@ -325,16 +345,33 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
     }
 
     setIsSubmitting(true);
+    let finalImageUrl = postPhotoUrl.trim();
+
+    // If photo is a local base64 data URL, upload to Supabase Storage
+    if (finalImageUrl.startsWith('data:')) {
+      try {
+        const uploadRes = await uploadPostImage(finalImageUrl, currentUser.id);
+        if (uploadRes.success && uploadRes.publicUrl) {
+          finalImageUrl = uploadRes.publicUrl;
+        }
+      } catch (upErr) {
+        console.warn('Storage upload fallback notice:', upErr);
+      }
+    }
+
     const result = DailyStorageService.postChallengeProgress(challenge.id, {
-      imageUrl: postPhotoUrl.trim(),
+      imageUrl: finalImageUrl,
       text: postReflection.trim() || undefined,
     });
 
     setIsSubmitting(false);
 
     if (result.success && result.progressPost) {
+      // Sync real progress post to Supabase posts table
+      syncChallengeProgressPostToSupabase(result.progressPost, challenge).catch(() => {});
+
       vibrateStreakMilestone();
-      setProgressPosts((prev) => [result.progressPost!, ...prev]);
+      setProgressPosts((prev) => [result.progressPost!, ...prev.filter((p) => p.id !== result.progressPost!.id)]);
       if (result.challenge) {
         setChallenge(result.challenge);
         onChallengeUpdated(result.challenge);
@@ -360,9 +397,11 @@ export const ChallengeProgressScreen: React.FC<ChallengeProgressScreenProps> = (
         chatInputText.trim()
       );
       setSquadMessages((prev) => [...prev, newMsg]);
+      syncMessageToSupabase(newMsg).catch(() => {});
     } else {
       const newMsg = DailyStorageService.sendChallengeTextMessage(challenge.id, chatInputText.trim());
       setChatMessages((prev) => [...prev, newMsg]);
+      syncMessageToSupabase(newMsg).catch(() => {});
     }
     setChatInputText('');
   };
