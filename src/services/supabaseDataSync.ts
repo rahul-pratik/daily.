@@ -451,6 +451,63 @@ export async function syncMessageToSupabase(message: Message): Promise<void> {
   }
 }
 
+export async function fetchMessagesFromSupabase(
+  userId: string
+): Promise<{ success: boolean; messages: Message[]; error?: string }> {
+  const client = getSupabaseClient();
+  if (!client) {
+    return { success: false, messages: [], error: 'Supabase client not configured' };
+  }
+
+  try {
+    const { data, error } = await client
+      .from('messages')
+      .select('*')
+      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.warn('Could not fetch messages from Supabase:', error);
+      return { success: false, messages: [], error: error.message };
+    }
+
+    if (!data || data.length === 0) {
+      return { success: true, messages: [] };
+    }
+
+    const messages: Message[] = data.map((r: any) => {
+      const isVoice =
+        r.media_url &&
+        (r.media_url.startsWith('data:audio') ||
+          r.media_url.includes('.webm') ||
+          r.media_url.includes('.wav') ||
+          r.media_url.includes('.mp4') ||
+          r.text === '🎤 Voice message');
+      const isImg = r.media_url && !isVoice;
+
+      return {
+        id: r.id,
+        conversationId: `conv_${[r.sender_id, r.receiver_id || r.group_id].sort().join('_')}`,
+        senderId: r.sender_id,
+        receiverId: r.receiver_id || undefined,
+        groupId: r.group_id || undefined,
+        text: r.text || '',
+        imageUrl: isImg ? r.media_url : undefined,
+        audioUrl: isVoice ? r.media_url : undefined,
+        timestamp: r.created_at
+          ? new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          : 'Just now',
+        isRead: r.is_read ?? false,
+      };
+    });
+
+    return { success: true, messages };
+  } catch (err: any) {
+    console.warn('fetchMessagesFromSupabase exception:', err);
+    return { success: false, messages: [], error: err?.message };
+  }
+}
+
 // 11. NOTIFICATIONS
 export async function syncNotificationToSupabase(
   notification: AppNotification,
@@ -738,18 +795,61 @@ export async function fetchChallengeProgressPostsFromSupabase(
   }
 
   try {
-    let query = client.from('posts').select('*, profiles(*)').order('created_at', { ascending: false });
+    let data: any[] | null = null;
+    let queryError: any = null;
 
-    if (challengeTitle) {
-      query = query.or(`challenge_title.eq."${challengeTitle}",category.eq."${challengeTitle}",caption.ilike."%${challengeTitle}%"`);
-    } else {
-      query = query.not('challenge_title', 'is', null);
+    // First attempt: try joined query with profiles
+    try {
+      const orFilters: string[] = [];
+      if (challengeId) orFilters.push(`challenge_id.eq."${challengeId}"`);
+      if (challengeTitle) {
+        orFilters.push(`challenge_title.eq."${challengeTitle}"`);
+        orFilters.push(`category.eq."${challengeTitle}"`);
+        orFilters.push(`caption.ilike."%${challengeTitle}%"`);
+      }
+
+      let res = await client
+        .from('posts')
+        .select('*, profiles(*)')
+        .order('created_at', { ascending: false });
+
+      if (orFilters.length > 0) {
+        res = await client
+          .from('posts')
+          .select('*, profiles(*)')
+          .or(orFilters.join(','))
+          .order('created_at', { ascending: false });
+      }
+
+      if (!res.error && res.data) {
+        data = res.data;
+      } else {
+        queryError = res.error;
+      }
+    } catch (e) {
+      queryError = e;
     }
 
-    const { data, error } = await query;
-    if (error) {
-      console.warn('Could not fetch challenge posts from Supabase:', error);
-      return { success: false, posts: [], error: error.message };
+    // Fallback attempt: simple select without join and filter in memory if needed
+    if (!data) {
+      const fallbackRes = await client
+        .from('posts')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!fallbackRes.error && fallbackRes.data) {
+        const cId = (challengeId || '').toLowerCase();
+        const cTitle = (challengeTitle || '').toLowerCase();
+        data = fallbackRes.data.filter((r: any) => {
+          const matchId = r.challenge_id && r.challenge_id.toLowerCase() === cId;
+          const matchTitle = r.challenge_title && r.challenge_title.toLowerCase() === cTitle;
+          const matchCat = r.category && r.category.toLowerCase() === cTitle;
+          const matchCap = r.caption && cTitle && r.caption.toLowerCase().includes(cTitle);
+          return matchId || matchTitle || matchCat || matchCap;
+        });
+      } else {
+        return { success: false, posts: [], error: fallbackRes.error?.message || queryError?.message };
+      }
     }
 
     if (!data || data.length === 0) {
@@ -792,30 +892,34 @@ export async function syncChallengeProgressPostToSupabase(
   const client = getSupabaseClient();
   if (!client) return;
 
-  try {
-    // 1. Insert into posts table
-    await client.from('posts').upsert(
-      {
-        id: post.id,
-        user_id: post.userId,
-        image_url: post.imageUrl,
-        caption: post.text || `Day ${post.dayNumber} proof for ${challenge.title}`,
-        challenge_title: challenge.title,
-        category: challenge.category || challenge.title,
-        streak_day: post.dayNumber || 1,
-        day_number: post.dayNumber || 1,
-        likes_count: post.cheersCount || 0,
-        comments_count: 0,
-        verified: true,
-        author_name: post.userName,
-        author_username: post.userUsername,
-        author_avatar: post.userAvatar,
-        created_at: new Date().toISOString(),
-      },
-      { onConflict: 'id' }
-    );
+  const payload: any = {
+    id: post.id,
+    user_id: post.userId,
+    image_url: post.imageUrl,
+    caption: post.text || `Day ${post.dayNumber} proof for ${challenge.title}`,
+    challenge_id: challenge.id,
+    challenge_title: challenge.title,
+    category: challenge.category || challenge.title,
+    streak_day: post.dayNumber || 1,
+    day_number: post.dayNumber || 1,
+    likes_count: post.cheersCount || 0,
+    comments_count: 0,
+    verified: true,
+    author_name: post.userName,
+    author_username: post.userUsername,
+    author_avatar: post.userAvatar,
+    created_at: new Date().toISOString(),
+  };
 
-    // 2. Upsert challenges_members record
+  try {
+    const { error } = await client.from('posts').upsert(payload, { onConflict: 'id' });
+    if (error) {
+      // If error might be missing challenge_id column, retry without challenge_id
+      delete payload.challenge_id;
+      await client.from('posts').upsert(payload, { onConflict: 'id' });
+    }
+
+    // Upsert challenges_members record
     await syncChallengeMemberToSupabase(challenge.id, post.userId, post.dayNumber);
   } catch (err) {
     console.warn('syncChallengeProgressPostToSupabase error:', err);

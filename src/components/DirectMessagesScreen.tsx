@@ -489,28 +489,29 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
       }
     });
 
-    // Also include followed users if not yet messaged
-    (currentUser.followedUserIds || []).forEach((followedId) => {
-      if (!directMap.has(followedId)) {
-        const u = allUsers.find((user) => user.id === followedId);
-        if (u) {
-          directMap.set(followedId, {
-            user: u,
-            msgs: [],
-            unread: 0,
-          });
-        }
+    // If an active direct chat was requested, ensure it is in directMap
+    if (activeUserId && !directMap.has(activeUserId)) {
+      const u = allUsers.find((user) => user.id === activeUserId);
+      if (u) {
+        directMap.set(activeUserId, {
+          user: u,
+          msgs: [],
+          unread: 0,
+        });
       }
-    });
+    }
 
     directMap.forEach(({ user, msgs, unread }, userId) => {
+      // Only show conversations that have actual messages or are actively selected
+      if (msgs.length === 0 && userId !== activeUserId) return;
+
       const lastMsg = msgs[msgs.length - 1] || {
         id: `temp_${userId}`,
         conversationId: `conv_${userId}`,
         senderId: userId,
         receiverId: currentUser.id,
-        text: 'Connected • Tap to message',
-        timestamp: 'New',
+        text: 'Started conversation',
+        timestamp: 'Just now',
         isRead: true,
       };
 
@@ -531,35 +532,42 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
       });
     });
 
-    // 2. Group Conversations
-    allGroups.forEach((grp) => {
-      const grpMsgs = messages.filter((m) => m.groupId === grp.id);
-      const lastMsg = grpMsgs[grpMsgs.length - 1] || {
-        id: `init_${grp.id}`,
-        conversationId: `conv_${grp.id}`,
-        senderId: grp.createdBy,
-        groupId: grp.id,
-        text: grp.description || 'Welcome to the group chat!',
-        timestamp: grp.lastActivity || 'Active',
-        isRead: true,
-      };
+    // 2. Group Conversations - only groups currentUser belongs to or created
+    allGroups
+      .filter(
+        (grp) =>
+          (grp.memberIds || []).includes(currentUser.id) ||
+          grp.createdBy === currentUser.id ||
+          grp.id === activeGroupId
+      )
+      .forEach((grp) => {
+        const grpMsgs = messages.filter((m) => m.groupId === grp.id);
+        const lastMsg = grpMsgs[grpMsgs.length - 1] || {
+          id: `init_${grp.id}`,
+          conversationId: `conv_${grp.id}`,
+          senderId: grp.createdBy,
+          groupId: grp.id,
+          text: grp.description || 'Welcome to the group chat!',
+          timestamp: grp.lastActivity || 'Active',
+          isRead: true,
+        };
 
-      const sortTime = grpMsgs.length > 0
-        ? getMessageTimestampScore(grpMsgs[grpMsgs.length - 1], 1000)
-        : 600;
+        const sortTime = grpMsgs.length > 0
+          ? getMessageTimestampScore(grpMsgs[grpMsgs.length - 1], 1000)
+          : 600;
 
-      items.push({
-        id: `group_${grp.id}`,
-        type: 'group',
-        group: grp,
-        title: grp.name,
-        subtitle: `${grp.memberCount || grp.memberIds?.length || 1} members • #${grp.category || 'General'}`,
-        avatar: grp.avatar,
-        lastMessage: lastMsg,
-        sortTimestamp: sortTime,
-        unreadCount: 0,
+        items.push({
+          id: `group_${grp.id}`,
+          type: 'group',
+          group: grp,
+          title: grp.name,
+          subtitle: `${grp.memberCount || grp.memberIds?.length || 1} members • #${grp.category || 'General'}`,
+          avatar: grp.avatar,
+          lastMessage: lastMsg,
+          sortTimestamp: sortTime,
+          unreadCount: 0,
+        });
       });
-    });
 
     // Filter by Sort Option:
     let filtered = items;
@@ -782,8 +790,30 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
 
     try {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const recorder = new MediaRecorder(stream);
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+
+        let mimeType = '';
+        const supportedTypes = [
+          'audio/webm;codecs=opus',
+          'audio/webm',
+          'audio/ogg;codecs=opus',
+          'audio/mp4',
+          'audio/aac',
+        ];
+        for (const type of supportedTypes) {
+          if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(type)) {
+            mimeType = type;
+            break;
+          }
+        }
+
+        const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
         mediaRecorderRef.current = recorder;
 
         recorder.ondataavailable = (event) => {
@@ -794,8 +824,8 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
 
         recorder.start(100);
       }
-    } catch {
-      // Microphone not available / permission blocked: graceful simulated audio recording
+    } catch (err) {
+      console.warn('Microphone access notice:', err);
     }
   };
 
@@ -841,34 +871,44 @@ export const DirectMessagesScreen: React.FC<DirectMessagesScreenProps> = ({
 
     const recorder = mediaRecorderRef.current;
     if (recorder && recorder.state !== 'inactive') {
-      try {
-        recorder.onstop = () => {
+      recorder.onstop = () => {
+        try {
           if (audioChunksRef.current.length > 0) {
+            const recordedType = recorder.mimeType || 'audio/webm';
             const blob = new Blob(audioChunksRef.current, {
-              type: recorder.mimeType || 'audio/webm',
+              type: recordedType,
             });
             const reader = new FileReader();
             reader.onloadend = () => {
-              const dataUrl =
-                typeof reader.result === 'string' && reader.result.startsWith('data:audio')
-                  ? reader.result
-                  : createSyntheticAudioDataUrl(duration);
-              deliverVoiceMessage(dataUrl);
+              const dataUrl = reader.result;
+              if (typeof dataUrl === 'string' && dataUrl.startsWith('data:audio')) {
+                deliverVoiceMessage(dataUrl);
+              } else {
+                deliverVoiceMessage(createSyntheticAudioDataUrl(duration));
+              }
             };
             reader.readAsDataURL(blob);
           } else {
             deliverVoiceMessage(createSyntheticAudioDataUrl(duration));
           }
+        } catch {
+          deliverVoiceMessage(createSyntheticAudioDataUrl(duration));
+        } finally {
           try {
             recorder.stream.getTracks().forEach((t) => t.stop());
           } catch {}
-        };
+        }
+      };
+
+      try {
+        if (typeof recorder.requestData === 'function' && recorder.state === 'recording') {
+          recorder.requestData();
+        }
         recorder.stop();
       } catch {
         deliverVoiceMessage(createSyntheticAudioDataUrl(duration));
       }
     } else {
-      // Fallback synthetic voice recording
       deliverVoiceMessage(createSyntheticAudioDataUrl(duration));
     }
 

@@ -55,11 +55,16 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
 
   if (!isOpen) return null;
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  // Only show notifications about what OTHER users gave this user (follows, likes/cheers, comments, invites)
+  const recipientNotifications = notifications.filter(
+    (n) => n.actorId !== currentUser.id && (n.recipientId === currentUser.id || !n.recipientId)
+  );
 
-  const filteredNotifications = notifications.filter((n) => {
+  const unreadCount = recipientNotifications.filter((n) => !n.isRead).length;
+
+  const filteredNotifications = recipientNotifications.filter((n) => {
     if (activeFilter === 'unread') return !n.isRead;
-    if (activeFilter === 'like') return n.type === 'like';
+    if (activeFilter === 'like') return n.type === 'like' || n.type === 'cheer';
     if (activeFilter === 'comment') return n.type === 'comment';
     if (activeFilter === 'follow') return n.type === 'follow';
     if (activeFilter === 'challenge') return n.type === 'challenge_invite' || n.type === 'squad_invite';

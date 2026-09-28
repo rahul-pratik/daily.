@@ -32,12 +32,12 @@ export const UserConnectionsModal: React.FC<UserConnectionsModalProps> = ({
 
   // Following: users whose ID is in currentUser.followedUserIds
   const followingUsers = allUsers.filter(
-    (u) => u.id !== currentUser.id && currentUser.followedUserIds.includes(u.id)
+    (u) => u.id !== currentUser.id && (currentUser.followedUserIds || []).includes(u.id)
   );
 
-  // Followers: users who follow currentUser (or sample users if array is empty)
-  let followerUsers = allUsers.filter(
-    (u) => u.id !== currentUser.id && (u.followedUserIds?.includes(currentUser.id) || ['user_sarah', 'user_elena', 'user_marcus'].includes(u.id))
+  // Followers: users who follow currentUser in real life
+  const followerUsers = allUsers.filter(
+    (u) => u.id !== currentUser.id && (u.followedUserIds || []).includes(currentUser.id)
   );
 
   // Filter based on active tab
@@ -108,7 +108,7 @@ export const UserConnectionsModal: React.FC<UserConnectionsModalProps> = ({
                   : 'bg-white/10 text-white/70'
               }`}
             >
-              {currentUser.followersCount || followerUsers.length}
+              {followerUsers.length}
             </span>
           </button>
 
@@ -132,7 +132,7 @@ export const UserConnectionsModal: React.FC<UserConnectionsModalProps> = ({
                   : 'bg-white/10 text-white/70'
               }`}
             >
-              {currentUser.followingCount || followingUsers.length}
+              {followingUsers.length}
             </span>
           </button>
         </div>

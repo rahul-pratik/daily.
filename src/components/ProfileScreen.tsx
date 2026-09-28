@@ -34,6 +34,7 @@ import {
   MessageCircle,
   Heart,
   Camera,
+  Trophy,
 } from 'lucide-react';
 import { User, Post, ProofCollection, PostDraft, DEFAULT_USER_AVATAR } from '../types';
 import { PostCard } from './PostCard';
@@ -79,6 +80,7 @@ interface ProfileScreenProps {
   onUserUpdated?: (user: User) => void;
   onOpenNotifications?: () => void;
   onSwitchAccount?: () => void;
+  onOpenChallenge?: (challengeId: string) => void;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
@@ -98,6 +100,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onSharePost,
   onShareProfile,
   onViewUser,
+  onOpenChallenge,
   onOpenInsights,
   onDeletePost,
   onOpenCreateCollection = () => {},
@@ -374,49 +377,19 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     <div className="w-full pb-24 pt-2 px-3 sm:px-4 max-w-lg mx-auto space-y-4">
       {/* Profile Header Card */}
       <div className="bg-white/5 border border-white/10 rounded-[32px] p-5 sm:p-6 shadow-xl relative overflow-hidden">
-        {/* Top bar with username, share ID button, and settings */}
+        {/* Top bar with username and settings */}
         <div className="flex items-center justify-between mb-4">
           <span className="text-xs font-mono font-bold text-white/50">
             @{currentUser.username}
           </span>
           <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Share Profile Link / Rich Share Modal */}
-            <button
-              onClick={() => {
-                vibrateLight();
-                if (onShareProfile) {
-                  onShareProfile(currentUser);
-                } else {
-                  setIsShareIdModalOpen(true);
-                }
-              }}
-              className="p-2 rounded-full bg-white/5 border border-white/10 hover:border-sky-400/40 text-white/70 hover:text-white transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center cursor-pointer"
-              title="Share Profile"
-              aria-label="Share Profile"
-            >
-              <Share2 className="w-3.5 h-3.5 text-sky-400" />
-            </button>
-
-            {/* Share ID to Chats & Groups Button */}
-            <button
-              onClick={() => {
-                vibrateLight();
-                setIsShareIdModalOpen(true);
-              }}
-              className="p-2 rounded-full bg-white/5 border border-white/10 hover:border-white/20 text-white/70 hover:text-white transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center"
-              title="Share ID to Chats & Groups"
-              aria-label="Share ID to Chats & Groups"
-            >
-              <Send className="w-3.5 h-3.5" />
-            </button>
-
             {/* Settings & Tools Button */}
             <button
               onClick={() => {
                 vibrateLight();
                 setIsSettingsModalOpen(true);
               }}
-              className="p-2 rounded-full bg-white/5 border border-white/10 hover:border-white/20 text-white/70 hover:text-white transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center"
+              className="p-2 rounded-full bg-white/5 border border-white/10 hover:border-white/20 text-white/70 hover:text-white transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center cursor-pointer"
               title="Settings & Tools"
               aria-label="Settings & Tools"
             >
@@ -523,7 +496,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             title="View Followers"
           >
             <span className="text-base font-black text-white group-hover:text-[#2F6FED] transition-colors block">
-              {currentUser.followersCount || 489}
+              {(() => {
+                const allUsers = DailyStorageService.getAllUsers();
+                const realFollowersCount = allUsers.filter(
+                  (u) => u.id !== currentUser.id && (u.followedUserIds || []).includes(currentUser.id)
+                ).length;
+                return realFollowersCount;
+              })()}
             </span>
             <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-white/40 group-hover:text-white/70 font-semibold transition-colors">
               Followers
@@ -541,7 +520,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             title="View Following"
           >
             <span className="text-base font-black text-white group-hover:text-[#2F6FED] transition-colors block">
-              {currentUser.followingCount || currentUser.followedUserIds?.length || 92}
+              {currentUser.followedUserIds?.length || 0}
             </span>
             <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-white/40 group-hover:text-white/70 font-semibold transition-colors">
               Following
@@ -555,6 +534,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           <BioRenderer
             bio={currentUser.bio || 'Building daily momentum and verified receipts'}
             onViewUser={onViewUser}
+            onOpenChallenge={onOpenChallenge}
           />
         </div>
 
@@ -574,6 +554,59 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             ))}
           </div>
         )}
+
+        {/* User Enrolled & Completed Challenges */}
+        {(() => {
+          const allChallenges = DailyStorageService.getAllChallenges();
+          const userCh = allChallenges.filter((c) => {
+            const isMember = (c.participantIds || []).includes(currentUser.id);
+            const isCompleted =
+              (c.completedUserIds || []).includes(currentUser.id) ||
+              ((c.userPostDates?.[currentUser.id] || []).length >= c.durationDays);
+            return isMember || isCompleted;
+          });
+
+          if (userCh.length === 0) return null;
+
+          return (
+            <div className="mt-4 pt-3 border-t border-white/5 space-y-2 text-left">
+              <span className="text-[10px] text-white/40 font-bold uppercase tracking-wider block">
+                Completed & Active Challenges (Tap to view)
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {userCh.map((ch) => {
+                  const dates = ch.userPostDates?.[currentUser.id] || [];
+                  const isFinished =
+                    dates.length >= ch.durationDays || (ch.completedUserIds || []).includes(currentUser.id);
+                  return (
+                    <button
+                      key={ch.id}
+                      type="button"
+                      onClick={() => {
+                        vibrateLight();
+                        if (onOpenChallenge) {
+                          onOpenChallenge(ch.id);
+                        }
+                      }}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border text-xs font-bold transition-all cursor-pointer ${
+                        isFinished
+                          ? 'bg-amber-500/15 border-amber-500/35 text-amber-300 hover:bg-amber-500/25'
+                          : 'bg-white/5 border-white/10 text-white/90 hover:bg-white/10 hover:border-[#2F6FED]/50'
+                      }`}
+                      title={`Open ${ch.title}`}
+                    >
+                      <Trophy className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <span>{ch.title}</span>
+                      <span className="text-[10px] opacity-70">
+                        {isFinished ? '✓ Completed' : `${dates.length}/${ch.durationDays}d`}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Activity Heatmap: GitHub-style 30-Day Posting Dot Graph */}
         <div className="mt-4 pt-3.5 border-t border-white/5 space-y-2">

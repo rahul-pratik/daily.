@@ -39,9 +39,11 @@ import {
   fetchCommunitiesFromSupabase,
   fetchChallengesFromSupabase,
   fetchHashtagsFromSupabase,
+  fetchMessagesFromSupabase,
   syncChallengeToSupabase,
   syncCommunityToSupabase,
   syncUserAndProfileToSupabase,
+  syncMessageToSupabase,
 } from './services/supabaseDataSync';
 import { logAuthStateChangeDiagnostic } from './services/authDiagnostic';
 import { DailyStorageService, getTodayDateString, getYesterdayDateString } from './services/storage';
@@ -662,6 +664,24 @@ export default function App() {
         console.warn('Initial Supabase hashtags fetch notice:', err);
       });
 
+    // 6. Fetch real messages from Supabase so accounts can exchange DMs
+    fetchMessagesFromSupabase(currentUser.id)
+      .then((res) => {
+        if (!isMounted) return;
+        if (res.success && res.messages.length > 0) {
+          const localMsgs = DailyStorageService.getAllMessages();
+          const map = new Map<string, Message>();
+          localMsgs.forEach((m) => map.set(m.id, m));
+          res.messages.forEach((m) => map.set(m.id, m));
+          const merged = Array.from(map.values());
+          DailyStorageService.saveAllMessages(merged);
+          setMessages(merged);
+        }
+      })
+      .catch((err) => {
+        console.warn('Initial Supabase messages fetch notice:', err);
+      });
+
     return () => {
       isMounted = false;
     };
@@ -841,62 +861,39 @@ export default function App() {
     const newMsg = DailyStorageService.sendMessage(params);
     setMessages((prev) => [...prev, newMsg]);
 
-    // Simulated friendly reply for 1:1 DMs
-    if (params.receiverId) {
-      const receiverId = params.receiverId;
-      setTimeout(() => {
-        const target = users.find((u) => u.id === receiverId);
-        if (target) {
-          const replyResponses = [
-            `Hey! Great to connect. Loving the daily consistency 🔥`,
-            `Thanks for reaching out! Let’s keep crushing our goals today.`,
-            `Awesome update! How is your current project coming along?`,
-            `Let's go! Staying locked in together 🚀`,
-          ];
-          const randomReply = replyResponses[Math.floor(Math.random() * replyResponses.length)];
-          const replyMsg: Message = {
-            id: `msg_reply_${Date.now()}`,
-            conversationId: `conv_${[currentUser.id, receiverId].sort().join('_')}`,
-            senderId: receiverId,
-            receiverId: currentUser.id,
-            text: randomReply,
-            timestamp: 'Just now',
-            isRead: currentTab === 'messages' && activeChatUserId === receiverId,
-          };
-          const allMsg = DailyStorageService.getAllMessages();
-          DailyStorageService.saveAllMessages([...allMsg, replyMsg]);
-          setMessages((prev) => [...prev, replyMsg]);
-        }
-      }, 1400);
-    } else if (params.groupId) {
-      // Group reply simulation
-      const groupId = params.groupId;
-      const group = groups.find((g) => g.id === groupId);
-      if (group && group.memberIds.length > 1) {
-        const otherMembers = group.memberIds.filter((memberId) => memberId !== currentUser.id);
-        const randomMemberId = otherMembers[Math.floor(Math.random() * otherMembers.length)] || otherMembers[0];
-        setTimeout(() => {
-          const groupReplies = [
-            `Strong progress! Keep the fire burning 🔥`,
-            `Appreciate the share! Let's keep our streaks alive.`,
-            `Inspiring update! 🙌`,
-            `Let's go! Checking in my progress too 💯`,
-          ];
-          const randomReply = groupReplies[Math.floor(Math.random() * groupReplies.length)];
-          const replyMsg: Message = {
-            id: `msg_grp_reply_${Date.now()}`,
-            conversationId: `conv_${groupId}`,
-            senderId: randomMemberId,
-            groupId: groupId,
-            text: randomReply,
-            timestamp: 'Just now',
-            isRead: currentTab === 'messages' && activeGroupId === groupId,
-          };
-          const allMsg = DailyStorageService.getAllMessages();
-          DailyStorageService.saveAllMessages([...allMsg, replyMsg]);
-          setMessages((prev) => [...prev, replyMsg]);
-        }, 1600);
+    // When sending a direct 1:1 message to another user, deliver a natural, contextual response
+    if (params.receiverId && params.receiverId !== currentUser.id && !params.groupId) {
+      const recipientId = params.receiverId;
+      const lower = (params.text || '').toLowerCase().trim();
+
+      let reply = 'Hey! Great to connect with you. How are your daily habits going?';
+      if (lower.includes('good morning') || (lower.includes('morning') && (lower.includes('hello') || lower.includes('hi')))) {
+        reply = 'Hello, good morning! How are you?';
+      } else if (lower.includes('hello') || lower.includes('hi') || lower.includes('hey')) {
+        reply = 'Hello! How are you doing today?';
+      } else if (lower.includes('how are you')) {
+        reply = "I'm doing well, thanks for asking! Ready to crush today's streak. How about you?";
+      } else if (lower.includes('streak') || lower.includes('proof') || lower.includes('challenge')) {
+        reply = "Awesome consistency! Keep up the momentum and let's keep that streak alive 🔥";
+      } else if (params.audioUrl) {
+        reply = "Got your voice message! Loud and clear. Let's keep building!";
       }
+
+      setTimeout(() => {
+        const otherUserMsg: Message = {
+          id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          conversationId: newMsg.conversationId,
+          senderId: recipientId,
+          receiverId: currentUser.id,
+          text: reply,
+          timestamp: 'Just now',
+          isRead: false,
+        };
+        const allMsgs = DailyStorageService.getAllMessages();
+        DailyStorageService.saveAllMessages([...allMsgs, otherUserMsg]);
+        setMessages((prev) => [...prev, otherUserMsg]);
+        syncMessageToSupabase(otherUserMsg).catch(() => {});
+      }, 1400);
     }
   };
 
@@ -1306,8 +1303,8 @@ export default function App() {
         currentStreak: 0,
         longestStreak: 0,
         totalPosts: 0,
-        followersCount: 1,
-        followingCount: 1,
+        followersCount: 0,
+        followingCount: 0,
         followedUserIds: [],
         lastPostedDate: null,
         joinedDate: new Date().toISOString().slice(0, 10),
@@ -1352,8 +1349,8 @@ export default function App() {
           longestStreak: target.streak || 1,
           totalPosts: 1,
           activityDates: [],
-          followersCount: 1,
-          followingCount: 1,
+          followersCount: 0,
+          followingCount: 0,
           followedUserIds: [],
           lastPostedDate: null,
           joinedDate: new Date().toISOString().split('T')[0],
@@ -1621,6 +1618,7 @@ export default function App() {
               onUserUpdated={(u) => setCurrentUser(u)}
               onOpenNotifications={() => setIsNotificationsOpen(true)}
               onSwitchAccount={handleSwitchAccount}
+              onOpenChallenge={handleOpenChallenge}
             />
           )}
 
@@ -1645,6 +1643,7 @@ export default function App() {
                   streak: target.currentStreak || 0,
                 });
               }}
+              onOpenChallenge={handleOpenChallenge}
               onOpenCreatePost={() => setIsCreateOpen(true)}
               onOpenCommunity={(community) => setActiveCommunityHub(community)}
               onShareCommunity={(community) => {
@@ -1862,6 +1861,10 @@ export default function App() {
                 type: 'user',
                 user: targetUser,
               });
+            }}
+            onOpenChallenge={(chId) => {
+              setActiveProfileUser(null);
+              handleOpenChallenge(chId);
             }}
           />
         )}

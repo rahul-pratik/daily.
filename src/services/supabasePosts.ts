@@ -466,6 +466,7 @@ export async function fetchFeedPostsFromSupabase(): Promise<{
         createdAt: formatPostDate(row.created_at),
         isDailyStreakPost: true,
         communityId: row.community_id || undefined,
+        challengeId: row.challenge_id || undefined,
         challengeName: row.challenge_title || undefined,
         verified: row.verified ?? true,
         moderation_status: row.moderation_status || 'published',

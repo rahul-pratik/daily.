@@ -681,7 +681,7 @@ export class DailyStorageService {
     } else {
       syncFollowToSupabase(currentUser.id, targetUserId);
       const targetUser = users.find(u => u.id === targetUserId);
-      if (targetUser) {
+      if (targetUser && targetUserId !== currentUser.id) {
         this.addNotification({
           type: 'follow',
           actorId: currentUser.id,
@@ -691,8 +691,8 @@ export class DailyStorageService {
           actorStreak: currentUser.currentStreak,
           recipientId: targetUserId,
           targetId: targetUserId,
-          targetPreview: 'Started following you',
-          message: `started following @${targetUser.username}`,
+          targetPreview: 'Started following your profile',
+          message: 'started following you',
           isRead: false,
           timestamp: Date.now(),
           createdAt: 'Just now',
@@ -726,18 +726,19 @@ export class DailyStorageService {
     if (isNowLiked) {
       syncLikeToSupabase(currentUser.id, postId);
       const targetPost = posts.find((p) => p.id === postId);
-      if (targetPost) {
+      const postAuthorId = targetPost?.userId || (targetPost as any)?.author?.id;
+      if (targetPost && postAuthorId && postAuthorId !== currentUser.id) {
         this.addNotification({
-          type: 'cheer',
+          type: 'like',
           actorId: currentUser.id,
           actorName: currentUser.name || currentUser.username || 'Someone',
           actorUsername: currentUser.username || 'creator',
           actorAvatar: currentUser.avatar,
           actorStreak: currentUser.currentStreak,
-          recipientId: targetPost.userId,
+          recipientId: postAuthorId,
           targetId: postId,
           targetPreview: targetPost.content?.substring(0, 45) || 'daily proof',
-          message: 'cheered your daily proof',
+          message: 'liked your daily proof',
           isRead: false,
           timestamp: Date.now(),
           createdAt: 'Just now',
@@ -4489,40 +4490,38 @@ export class DailyStorageService {
     const allProgressPosts = this.getAllChallengeProgressPosts().filter((p) => p.challengeId === challengeId);
     const today = getTodayDateString();
 
-    // 1. Individuals Leaderboard Calculation
-    const participantIds = Array.from(
+    // 1. Individuals Leaderboard Calculation - only real users who are members or have posted progress
+    const candidateIds = Array.from(
       new Set([
         ...(challenge.participantIds || []),
         ...allProgressPosts.map((p) => p.userId),
       ])
     );
 
-    const individuals: ChallengeLeaderboardIndividual[] = participantIds.map((userId) => {
-      const user =
-        allUsers.find((u) => u.id === userId) ||
-        (userId === currentUser.id
-          ? currentUser
-          : {
-              id: userId,
-              name: 'Athlete',
-              username: 'athlete',
-              avatar: DEFAULT_USER_AVATAR,
-              currentStreak: 1,
-            });
+    // Filter to only genuine existing users
+    const validUsers: { userId: string; user: User }[] = [];
+    candidateIds.forEach((uId) => {
+      const found = allUsers.find((u) => u.id === uId) || (uId === currentUser.id ? currentUser : null);
+      if (found) {
+        validUsers.push({ userId: uId, user: found });
+      }
+    });
 
+    const individuals: ChallengeLeaderboardIndividual[] = validUsers.map(({ userId, user }) => {
       const userPosts = allProgressPosts.filter((p) => p.userId === userId);
       const postDates = challenge.userPostDates?.[userId] || userPosts.map((p) => p.postDate);
-      const uniqueDays = Array.from(new Set(postDates)).length;
+      const uniqueDays = Array.from(new Set(postDates.filter(Boolean))).length;
 
-      // Realistic days completed calculation based on actual logged progress
+      // Realistic days completed calculation strictly based on actual logged progress
       const daysCompleted = Math.max(
         uniqueDays,
         userPosts.length,
-        userId === currentUser.id ? challenge.userPostDates?.[currentUser.id]?.length || 0 : 0
+        challenge.userPostDates?.[userId]?.length || 0
       );
 
       const totalCheers = userPosts.reduce((sum, p) => sum + (p.cheersCount || 0), 0);
-      const streakInChallenge = Math.max(daysCompleted > 0 ? 1 : 0, Math.min(daysCompleted, user.currentStreak || daysCompleted));
+      // Streak in challenge is strictly the number of days the person has actually posted
+      const streakInChallenge = daysCompleted;
 
       const consistencyRate = daysCompleted > 0
         ? Math.min(100, Math.round((daysCompleted / Math.max(1, challenge.durationDays)) * 100))
@@ -4536,14 +4535,10 @@ export class DailyStorageService {
       else if (streakInChallenge >= 10) badgeTitle = '🔥 Iron Streak';
       else if (totalCheers >= 50) badgeTitle = '⚡️ Community Titan';
       else if (daysCompleted >= 7) badgeTitle = '🎖️ Consistent Pioneer';
-      if (consistencyRate >= 95 && daysCompleted >= 15) badgeTitle = '👑 Flawless Streak';
-      else if (streakInChallenge >= 10) badgeTitle = '🔥 Iron Streak';
-      else if (totalCheers >= 50) badgeTitle = '⚡️ Community Titan';
-      else if (daysCompleted >= 7) badgeTitle = '🎖️ Consistent Pioneer';
 
       const userTeam = this.getUserChallengeTeam(challengeId, userId);
       const latestPost = userPosts[0];
-      const hasPostedToday = postDates.includes(today) || (userId === currentUser.id && challenge.userPostDates?.[currentUser.id]?.includes(today));
+      const hasPostedToday = postDates.includes(today) || (challenge.userPostDates?.[userId]?.includes(today));
 
       return {
         rank: 0,
@@ -4552,13 +4547,13 @@ export class DailyStorageService {
           name: user.name,
           username: user.username,
           avatar: user.avatar,
-          currentStreak: user.currentStreak || streakInChallenge,
+          currentStreak: streakInChallenge,
         },
         daysCompleted,
         totalDays: challenge.durationDays,
         totalCheckins: daysCompleted,
         completionPercentage: Math.round((daysCompleted / challenge.durationDays) * 100),
-        currentStreak: user.currentStreak || streakInChallenge,
+        currentStreak: streakInChallenge,
         consistencyRate,
         consistencyScore: consistencyRate,
         streakInChallenge,

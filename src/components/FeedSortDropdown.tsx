@@ -12,6 +12,7 @@ import {
   CheckSquare,
   Square,
   Check,
+  X,
 } from 'lucide-react';
 import { vibrateLight } from '../services/haptics';
 
@@ -135,38 +136,47 @@ export const FeedSortDropdown: React.FC<FeedSortDropdownProps> = ({
         />
       </button>
 
-      {/* Dropdown Popover / Mobile Card */}
+      {/* Dropdown Popover / Mobile Centered Card */}
       {isOpen && (
-        <>
-          {/* Mobile Backdrop */}
-          <div
-            className="fixed inset-0 z-40 bg-black/70 backdrop-blur-xs sm:hidden"
-            onClick={() => setIsOpen(false)}
-          />
-
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setIsOpen(false)}
+        >
           <div
             id="feed-sort-by-menu"
-            className="fixed inset-x-3 bottom-3 max-h-[82dvh] sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:bottom-auto sm:w-[380px] sm:max-h-[85vh] bg-[#12141c] border border-white/15 rounded-3xl sm:rounded-2xl shadow-2xl shadow-black/90 backdrop-blur-2xl p-4 sm:p-3 z-50 animate-in fade-in slide-in-from-bottom-3 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-150 space-y-3 overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm sm:max-w-md bg-[#12141c] border border-white/15 rounded-3xl shadow-2xl shadow-black/95 p-4 sm:p-5 space-y-3.5 max-h-[85vh] overflow-y-auto animate-in zoom-in-95 duration-150 text-left"
           >
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-white/10 pb-2">
-            <div>
-              <h4 className="text-xs font-black text-white flex items-center gap-1.5">
-                <ArrowUpDown className="w-3.5 h-3.5 text-[#2F6FED]" />
-                <span>Filter & Sort Stream</span>
-              </h4>
-              <p className="text-[10px] text-white/50">
-                Select multiple options for Proofs & Tweets
-              </p>
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
+              <div>
+                <h4 className="text-sm font-black text-white flex items-center gap-1.5">
+                  <ArrowUpDown className="w-4 h-4 text-[#2F6FED]" />
+                  <span>Filter & Sort Stream</span>
+                </h4>
+                <p className="text-[11px] text-white/50">
+                  Select multiple options for Proofs & Tweets
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="text-[11px] font-bold text-white/60 hover:text-white px-2.5 py-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                >
+                  Reset to All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsOpen(false)}
+                  className="p-1 rounded-lg hover:bg-white/10 text-white/60 hover:text-white transition-colors cursor-pointer"
+                  title="Close"
+                  aria-label="Close"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={resetFilters}
-              className="text-[11px] font-bold text-white/60 hover:text-white px-2 py-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-            >
-              Reset to All
-            </button>
-          </div>
 
           {/* Quick Filters */}
           <div className="space-y-1">
@@ -317,7 +327,7 @@ export const FeedSortDropdown: React.FC<FeedSortDropdownProps> = ({
             </button>
           </div>
         </div>
-        </>
+      </div>
       )}
     </div>
   );

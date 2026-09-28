@@ -54,20 +54,20 @@ export const createSyntheticAudioDataUrl = (durationSec: number = 4): string => 
 
     for (let i = 0; i < numSamples; i++) {
       const t = i / sampleRate;
-      // Synthesize vocal formants mimicking speech cadence with intonation
-      const pitch = 220 + Math.sin(t * 3.8) * 35 + Math.sin(t * 8.5) * 15;
-      const formant1 = pitch * 2;
-      const formant2 = pitch * 3;
-      // Speech envelope with pauses mimicking words
-      const cadence = 0.5 + 0.5 * Math.sin(t * 4.2);
-      const attackDecay = Math.min(1, Math.min(t * 8, (safeDuration - t) * 8));
+      // Natural human speech fundamental frequency (~115 Hz) with gentle smooth cadence
+      const baseFreq = 115 + Math.sin(t * 1.2) * 8;
+      const f1 = baseFreq * 2;
+      const f2 = baseFreq * 3;
+      // Smooth human speech envelope without rapid pitch wobble
+      const cadence = 0.5 + 0.35 * Math.sin(t * 2.5);
+      const attackDecay = Math.min(1, Math.min(t * 6, (safeDuration - t) * 6));
       const envelope = cadence * attackDecay;
 
       const sample =
-        (Math.sin(2 * Math.PI * pitch * t) * 0.45 +
-          Math.sin(2 * Math.PI * formant1 * t) * 0.25 +
-          Math.sin(2 * Math.PI * formant2 * t) * 0.15) *
-        envelope;
+        (Math.sin(2 * Math.PI * baseFreq * t) * 0.5 +
+          Math.sin(2 * Math.PI * f1 * t) * 0.2 +
+          Math.sin(2 * Math.PI * f2 * t) * 0.08) *
+        envelope * 0.6;
 
       const clamped = Math.max(-1, Math.min(1, sample));
       view.setInt16(44 + i * 2, clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff, true);

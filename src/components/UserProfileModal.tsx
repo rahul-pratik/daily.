@@ -54,6 +54,7 @@ interface UserProfileModalProps {
   onShareCommunity?: (community: Community) => void;
   onShareUser?: (user: User) => void;
   onReportUser?: (user: User) => void;
+  onOpenChallenge?: (challengeId: string) => void;
 }
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
@@ -76,6 +77,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onShareCommunity,
   onShareUser,
   onReportUser,
+  onOpenChallenge,
 }) => {
   const [activeTab, setActiveTab] = useState<'proofs' | 'tweets' | 'collections' | 'communities'>('proofs');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -228,15 +230,23 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     [user30DaysActivity]
   );
 
-  // Derive followers and following lists
+  // Derive followers and following lists based on actual relationships
   const { followersList, followingList } = useMemo(() => {
     if (!user) return { followersList: [], followingList: [] };
     const allUsers = DailyStorageService.getAllUsers();
+    // Real followers: other users who follow this user
+    const realFollowers = allUsers.filter(
+      (u) => u.id !== user.id && (u.followedUserIds || []).includes(user.id)
+    );
+    // Real following: other users who this user follows
+    const realFollowing = allUsers.filter(
+      (u) => u.id !== user.id && (user.followedUserIds || []).includes(u.id)
+    );
     return {
-      followersList: allUsers.filter((u) => u.id !== user.id).slice(0, 6),
-      followingList: allUsers.filter((u) => u.id !== user.id).slice(2, 7),
+      followersList: realFollowers,
+      followingList: realFollowing,
     };
-  }, [user?.id]);
+  }, [user?.id, user?.followedUserIds]);
 
   // Derive proof collections for the user (fallback if not populated)
   const userCollections: ProofCollection[] = useMemo(() => {
@@ -845,7 +855,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               className="p-1 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
               title="View Followers"
             >
-              <span className="text-sm font-black text-white block">{user.followersCount}</span>
+              <span className="text-sm font-black text-white block">{followersList.length}</span>
               <span className="text-[9px] uppercase tracking-wider text-white/50 hover:text-white font-bold transition-colors">
                 Followers
               </span>
@@ -860,7 +870,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               className="p-1 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
               title="View Following"
             >
-              <span className="text-sm font-black text-white block">{user.followingCount}</span>
+              <span className="text-sm font-black text-white block">{followingList.length}</span>
               <span className="text-[9px] uppercase tracking-wider text-white/50 hover:text-white font-bold transition-colors">
                 Following
               </span>
@@ -873,7 +883,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               <div className="flex items-center justify-between pb-1 border-b border-white/10">
                 <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-white">
                   <Users className="w-3.5 h-3.5 text-[#2F6FED]" />
-                  <span>{showConnections === 'followers' ? 'Followers' : 'Following'}</span>
+                  <span>{showConnections === 'followers' ? `Followers (${followersList.length})` : `Following (${followingList.length})`}</span>
                 </div>
                 <button
                   type="button"
@@ -885,34 +895,42 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               </div>
 
               <div className="space-y-2">
-                {(showConnections === 'followers' ? followersList : followingList).map((u) => (
-                  <div
-                    key={u.id}
-                    className="flex items-center justify-between gap-2 p-2 rounded-xl bg-white/[0.03] border border-white/5"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <img
-                        src={u.avatar}
-                        alt={u.name}
-                        className="w-8 h-8 rounded-full object-cover border border-white/10 shrink-0"
-                      />
-                      <div className="min-w-0">
-                        <span className="text-xs font-bold text-white block truncate">{u.name}</span>
-                        <span className="text-[10px] text-white/40 block truncate font-mono">@{u.username}</span>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        vibrateLight();
-                        onToggleFollow(u.id);
-                      }}
-                      className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-all shrink-0 cursor-pointer"
+                {(showConnections === 'followers' ? followersList : followingList).length === 0 ? (
+                  <p className="text-xs text-white/50 py-3 text-center">
+                    {showConnections === 'followers'
+                      ? 'No followers yet'
+                      : 'Not following anyone yet'}
+                  </p>
+                ) : (
+                  (showConnections === 'followers' ? followersList : followingList).map((u) => (
+                    <div
+                      key={u.id}
+                      className="flex items-center justify-between gap-2 p-2 rounded-xl bg-white/[0.03] border border-white/5"
                     >
-                      {currentUser.followedUserIds?.includes(u.id) ? 'Following' : 'Follow'}
-                    </button>
-                  </div>
-                ))}
+                      <div className="flex items-center gap-2 min-w-0">
+                        <img
+                          src={u.avatar}
+                          alt={u.name}
+                          className="w-8 h-8 rounded-full object-cover border border-white/10 shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <span className="text-xs font-bold text-white block truncate">{u.name}</span>
+                          <span className="text-[10px] text-white/40 block truncate font-mono">@{u.username}</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          vibrateLight();
+                          onToggleFollow(u.id);
+                        }}
+                        className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-all shrink-0 cursor-pointer"
+                      >
+                        {currentUser.followedUserIds?.includes(u.id) ? 'Following' : 'Follow'}
+                      </button>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -931,6 +949,10 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     );
                     if (fullUser) onViewUser(fullUser);
                   }
+                }}
+                onOpenChallenge={(chId) => {
+                  onClose();
+                  if (onOpenChallenge) onOpenChallenge(chId);
                 }}
               />
             </div>
